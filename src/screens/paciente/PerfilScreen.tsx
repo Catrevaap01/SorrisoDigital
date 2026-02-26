@@ -11,14 +11,17 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { PROVINCIAS_ANGOLA } from '../../utils/constants';
 import { getInitials, formatDate } from '../../utils/helpers';
 
 const PerfilScreen: React.FC = () => {
   const { profile, updateProfile, signOut, loading } = useAuth();
+  const { themeMode, setThemeMode } = useTheme();
   const [editando, setEditando] = useState<boolean>(false);
   const [showProvincias, setShowProvincias] = useState<boolean>(false);
+  const [showThemeModal, setShowThemeModal] = useState<boolean>(false);
   
   // Campos editáveis
   const [nome, setNome] = useState<string>(profile?.nome || '');
@@ -197,6 +200,20 @@ const PerfilScreen: React.FC = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Configurações</Text>
 
+        <TouchableOpacity 
+          style={styles.opcaoItem}
+          onPress={() => setShowThemeModal(true)}
+        >
+          <Ionicons name="contrast-outline" size={22} color={COLORS.textSecondary} />
+          <View style={styles.opcaoContent}>
+            <Text style={styles.opcaoText}>Tema</Text>
+            <Text style={styles.opcaoSubtitle}>
+              {themeMode === 'automatic' ? 'Automático' : themeMode === 'dark' ? 'Escuro' : 'Claro'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.opcaoItem}>
           <Ionicons name="notifications-outline" size={22} color={COLORS.textSecondary} />
           <Text style={styles.opcaoText}>Notificações</Text>
@@ -230,6 +247,92 @@ const PerfilScreen: React.FC = () => {
 
       {/* Versão */}
       <Text style={styles.versao}>TeOdonto Angola v1.0.0</Text>
+
+      {/* Modal de Tema */}
+      <Modal
+        visible={showThemeModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowThemeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Escolha o Tema</Text>
+              <TouchableOpacity onPress={() => setShowThemeModal(false)}>
+                <Ionicons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.themeOptionsList}>
+              <TouchableOpacity
+                style={[
+                  styles.themeOption,
+                  themeMode === 'automatic' && styles.themeOptionActive,
+                ]}
+                onPress={() => {
+                  setThemeMode('automatic');
+                  setShowThemeModal(false);
+                }}
+              >
+                <View style={styles.themeIconContainer}>
+                  <Ionicons name="phone-portrait-outline" size={28} color={COLORS.primary} />
+                </View>
+                <View style={styles.themeTextContainer}>
+                  <Text style={styles.themeOptionTitle}>Automático</Text>
+                  <Text style={styles.themeOptionSubtitle}>Segue preferência do sistema</Text>
+                </View>
+                {themeMode === 'automatic' && (
+                  <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.themeOption,
+                  themeMode === 'light' && styles.themeOptionActive,
+                ]}
+                onPress={() => {
+                  setThemeMode('light');
+                  setShowThemeModal(false);
+                }}
+              >
+                <View style={styles.themeIconContainer}>
+                  <Ionicons name="sunny" size={28} color="#FFC107" />
+                </View>
+                <View style={styles.themeTextContainer}>
+                  <Text style={styles.themeOptionTitle}>Claro</Text>
+                  <Text style={styles.themeOptionSubtitle}>Interface clara</Text>
+                </View>
+                {themeMode === 'light' && (
+                  <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.themeOption,
+                  themeMode === 'dark' && styles.themeOptionActive,
+                ]}
+                onPress={() => {
+                  setThemeMode('dark');
+                  setShowThemeModal(false);
+                }}
+              >
+                <View style={styles.themeIconContainer}>
+                  <Ionicons name="moon" size={28} color="#424242" />
+                </View>
+                <View style={styles.themeTextContainer}>
+                  <Text style={styles.themeOptionTitle}>Escuro</Text>
+                  <Text style={styles.themeOptionSubtitle}>Interface escura</Text>
+                </View>
+                {themeMode === 'dark' && (
+                  <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal de Províncias */}
       <Modal
@@ -431,11 +534,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
-  opcaoText: {
+  opcaoContent: {
     flex: 1,
     marginLeft: SIZES.md,
+  },
+  opcaoText: {
     fontSize: SIZES.fontMd,
     color: COLORS.text,
+  },
+  opcaoSubtitle: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   logoutButton: {
     flexDirection: 'row',
@@ -500,6 +610,48 @@ const styles = StyleSheet.create({
   provinciaItemTextActive: {
     color: COLORS.primary,
     fontWeight: '600',
+  },
+  // Tema
+  themeOptionsList: {
+    paddingHorizontal: SIZES.md,
+    paddingVertical: SIZES.lg,
+  },
+  themeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SIZES.md,
+    paddingHorizontal: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    backgroundColor: COLORS.background,
+    marginBottom: SIZES.md,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  themeOptionActive: {
+    backgroundColor: COLORS.primary + '15',
+    borderColor: COLORS.primary,
+  },
+  themeIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: SIZES.radiusMd,
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SIZES.md,
+  },
+  themeTextContainer: {
+    flex: 1,
+  },
+  themeOptionTitle: {
+    fontSize: SIZES.fontMd,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  themeOptionSubtitle: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
 });
 
