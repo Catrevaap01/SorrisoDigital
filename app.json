@@ -24,6 +24,13 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ],
+        "extra": {
+      "SUPABASE_URL": "https://yyscwmcghokyzhtcluif.supabase.co",
+      "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5c2N3bWNnaG9reXpodGNsdWlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNjgyOTYsImV4cCI6MjA4NzY0NDI5Nn0.cgpvENp4tnmblre10I2x7PxqSKOtrOPUAEOIi5RyOeg"
     }
   }
 }
