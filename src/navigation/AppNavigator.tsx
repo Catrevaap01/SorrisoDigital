@@ -214,8 +214,8 @@ const AppNavigator: React.FC = () => {
     );
   }
 
-  // Verificar se precisa alterar senha (primeira login)
-  const precisaMudarSenha = user && profile && !profile.senha_alterada && profile.tipo !== 'paciente';
+  // Verificar se precisa alterar senha (primeira login) - apenas dentistas são forçados
+  const precisaMudarSenha = user && profile && !profile.senha_alterada && profile.tipo === 'dentista';
 
   return (
     <Stack.Navigator id="RootStack" screenOptions={{ headerShown: false }}>
