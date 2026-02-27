@@ -6,6 +6,7 @@ import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
 import { handleError, HandledError } from '../utils/errorHandler';
 import { uploadImage, uploadMultipleImages, deleteImage } from './storageService';
+import { notificarTriagemEnviada, gerarFeedbackAutomatico, enviarFeedbackPaciente } from './notificacoesService';
 
 export interface TriagemData {
   paciente_id?: string;
@@ -48,6 +49,7 @@ export interface ServiceResult<T> {
 /**
  * Cria uma nova triagem (paciente)
  * opcionalmente envia imagens antes de inserir o registro
+ * Notifica dentistas e envia feedback automático para o paciente
  */
 export const criarTriagem = async (
   dados: Partial<TriagemData>,
@@ -69,7 +71,37 @@ export const criarTriagem = async (
 
     if (error) throw error;
 
-    return { success: true, data: data as Triagem };
+    const triagem = data as Triagem;
+
+    // Buscar dados do paciente para notificação
+    if (pacienteId) {
+      const { data: paciente } = await supabase
+        .from('profiles')
+        .select('nome')
+        .eq('id', pacienteId)
+        .single();
+
+      if (paciente) {
+        // 1. Notificar dentistas da nova triagem
+        await notificarTriagemEnviada(
+          pacienteId,
+          paciente.nome || 'Paciente',
+          triagem.id,
+          dados.sintomaPrincipal || 'Sintoma não informado'
+        );
+
+        // 2. Gerar e enviar feedback automático para o paciente
+        const feedback = gerarFeedbackAutomatico(
+          dados.sintomaPrincipal || '',
+          dados.intensidade_dor || 0,
+          dados.duracao || ''
+        );
+
+        await enviarFeedbackPaciente(pacienteId, feedback, triagem.id);
+      }
+    }
+
+    return { success: true, data: triagem };
   } catch (err) {
     const handled = handleError(err, 'triagemService.criarTriagem');
     return { success: false, error: handled };
@@ -165,6 +197,7 @@ export const responderTriagem = async (
   resposta: { orientacao: string; recomendacao: string; observacoes?: string }
 ): Promise<ServiceResult<null>> => {
   try {
+    // 1. Inserir resposta na triagem
     const { data, error } = await supabase
       .from('respostas_triagem')
       .insert([
@@ -176,6 +209,36 @@ export const responderTriagem = async (
       ]);
 
     if (error) throw error;
+
+    // 2. Atualizar status da triagem para respondida
+    await supabase
+      .from('triagens')
+      .update({ status: 'respondido' })
+      .eq('id', triagemId);
+
+    // 3. Buscar dados para notificar o paciente
+    const { data: triagem } = await supabase
+      .from('triagens')
+      .select('paciente_id')
+      .eq('id', triagemId)
+      .single();
+
+    const { data: dentista } = await supabase
+      .from('profiles')
+      .select('nome')
+      .eq('id', dentistaId)
+      .single();
+
+    if (triagem && dentista) {
+      const { notificarTriagemRespondida } = await import('./notificacoesService');
+      await notificarTriagemRespondida(
+        triagem.paciente_id,
+        dentista.nome || 'Dentista',
+        triagemId,
+        resposta.orientacao
+      );
+    }
+
     return { success: true };
   } catch (err) {
     const handled = handleError(err, 'triagemService.responderTriagem');

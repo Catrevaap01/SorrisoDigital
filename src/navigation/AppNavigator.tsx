@@ -42,6 +42,9 @@ import DashboardScreen from '../screens/dentista/DashboardScreen';
 import CasoDetalheScreen from '../screens/dentista/CasoDetalheScreen';
 import DentistaMensagensScreen from '../screens/dentista/DentistaMensagensScreen';
 
+// telas compartilhadas
+import NotificacoesScreen from '../screens/shared/NotificacoesScreen';
+
 // carregamento condicional de AgendaDentistaScreen
 let AgendaDentistaScreen: React.ComponentType<any>;
 try {
@@ -83,6 +86,9 @@ const PacienteTabs: React.FC = () => (
           case 'Mensagens':
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
             break;
+          case 'Notificações':
+            iconName = focused ? 'notifications' : 'notifications-outline';
+            break;
           case 'Educação':
             iconName = focused ? 'book' : 'book-outline';
             break;
@@ -109,6 +115,7 @@ const PacienteTabs: React.FC = () => (
     />
     <PacienteTab.Screen name="Triagem" component={TriagemScreen} />
     <PacienteTab.Screen name="Mensagens" component={MensagensScreen} />
+    <PacienteTab.Screen name="Notificações" component={NotificacoesScreen} />
     <PacienteTab.Screen name="Educação" component={EducacaoScreen} />
     <PacienteTab.Screen name="Histórico" component={HistoricoScreen} />
     <PacienteTab.Screen name="Perfil" component={PerfilScreen} />
@@ -128,6 +135,9 @@ const DentistaTabs: React.FC = () => (
             break;
           case 'Mensagens':
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+            break;
+          case 'Notificações':
+            iconName = focused ? 'notifications' : 'notifications-outline';
             break;
           case 'Agenda':
             iconName = focused ? 'calendar' : 'calendar-outline';
@@ -151,6 +161,7 @@ const DentistaTabs: React.FC = () => (
       options={{ title: 'Painel do Dentista' }}
     />
     <DentistaTab.Screen name="Mensagens" component={DentistaMensagensScreen} />
+    <DentistaTab.Screen name="Notificações" component={NotificacoesScreen} />
     <DentistaTab.Screen name="Agenda" component={AgendaDentistaScreen} />
     <DentistaTab.Screen name="Perfil" component={PerfilScreen} />
   </DentistaTab.Navigator>
