@@ -21,7 +21,7 @@ import {
   AdminStackParamList,
   RootStackParamList,
 } from './types';
-import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
+import AdminNavigator from './AdminNavigator';
 
 // telas de autenticação
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -35,10 +35,12 @@ import HistoricoScreen from '../screens/paciente/HistoricoScreen';
 import EducacaoScreen from '../screens/paciente/EducacaoScreen';
 import AgendamentoScreen from '../screens/paciente/AgendamentoScreen';
 import PerfilScreen from '../screens/paciente/PerfilScreen';
+import MensagensScreen from '../screens/paciente/MensagensScreen';
 
 // telas do dentista
 import DashboardScreen from '../screens/dentista/DashboardScreen';
 import CasoDetalheScreen from '../screens/dentista/CasoDetalheScreen';
+import DentistaMensagensScreen from '../screens/dentista/DentistaMensagensScreen';
 
 // carregamento condicional de AgendaDentistaScreen
 let AgendaDentistaScreen: React.ComponentType<any>;
@@ -78,6 +80,9 @@ const PacienteTabs: React.FC = () => (
           case 'Triagem':
             iconName = focused ? 'medical' : 'medical-outline';
             break;
+          case 'Mensagens':
+            iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+            break;
           case 'Educação':
             iconName = focused ? 'book' : 'book-outline';
             break;
@@ -103,6 +108,7 @@ const PacienteTabs: React.FC = () => (
       options={{ title: 'TeOdonto Angola' }}
     />
     <PacienteTab.Screen name="Triagem" component={TriagemScreen} />
+    <PacienteTab.Screen name="Mensagens" component={MensagensScreen} />
     <PacienteTab.Screen name="Educação" component={EducacaoScreen} />
     <PacienteTab.Screen name="Histórico" component={HistoricoScreen} />
     <PacienteTab.Screen name="Perfil" component={PerfilScreen} />
@@ -119,6 +125,9 @@ const DentistaTabs: React.FC = () => (
         switch (route.name) {
           case 'Dashboard':
             iconName = focused ? 'grid' : 'grid-outline';
+            break;
+          case 'Mensagens':
+            iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
             break;
           case 'Agenda':
             iconName = focused ? 'calendar' : 'calendar-outline';
@@ -141,6 +150,7 @@ const DentistaTabs: React.FC = () => (
       component={DashboardScreen}
       options={{ title: 'Painel do Dentista' }}
     />
+    <DentistaTab.Screen name="Mensagens" component={DentistaMensagensScreen} />
     <DentistaTab.Screen name="Agenda" component={AgendaDentistaScreen} />
     <DentistaTab.Screen name="Perfil" component={PerfilScreen} />
   </DentistaTab.Navigator>
@@ -187,16 +197,13 @@ const DentistaStack: React.FC = () => (
 );
 
 // Navigator para o Admin
-const AdminNavigator: React.FC = () => (
+const AdminStack: React.FC = () => (
   <AdminStackNav.Navigator id="AdminStack">
     <AdminStackNav.Screen
-      name="AdminDashboard"
-      component={AdminDashboardScreen}
+      name="AdminMain"
+      component={AdminNavigator}
       options={{
-        title: 'Painel Administrativo',
-        headerStyle: { backgroundColor: COLORS.danger || '#dc3545' },
-        headerTintColor: COLORS.textInverse,
-        headerTitleStyle: { fontWeight: 'bold' },
+        headerShown: false,
       }}
     />
   </AdminStackNav.Navigator>
@@ -227,7 +234,7 @@ const AppNavigator: React.FC = () => {
       ) : precisaMudarSenha ? (
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       ) : profile?.tipo === 'admin' ? (
-        <Stack.Screen name="AdminMain" component={AdminNavigator} />
+        <Stack.Screen name="AdminMain" component={AdminStack} />
       ) : profile?.tipo === 'dentista' ? (
         <Stack.Screen name="DentistaMain" component={DentistaStack} />
       ) : (

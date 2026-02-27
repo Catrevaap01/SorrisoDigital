@@ -242,3 +242,61 @@ export const procurarDentistas = async (termo: string): Promise<{
     };
   }
 };
+
+/**
+ * Gerar senha aleatória segura
+ */
+export const gerarSenhaAleatoria = (length: number = 12): string => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%';
+  let senha = '';
+  for (let i = 0; i < length; i++) {
+    senha += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return senha;
+};
+
+/**
+ * Resetar senha de dentista (apenas admin)
+ */
+export const resetarSenhaDentista = async (
+  dentistaId: string
+): Promise<{ success: boolean; novaSenha?: string; error?: string }> => {
+  try {
+    const novaSenha = gerarSenhaAleatoria();
+
+    // Atualizar senha no Auth
+    const { error: updateError } = await supabase.auth.admin.updateUserById(
+      dentistaId,
+      {
+        password: novaSenha,
+      }
+    );
+
+    if (updateError) {
+      return { success: false, error: updateError.message };
+    }
+
+    // Marcar que precisa alterar senha
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        senha_alterada: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', dentistaId);
+
+    if (profileError) {
+      return { success: false, error: profileError.message };
+    }
+
+    return {
+      success: true,
+      novaSenha,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || 'Erro ao resetar senha',
+    };
+  }
+};
