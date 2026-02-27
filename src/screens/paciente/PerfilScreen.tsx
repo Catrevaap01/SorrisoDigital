@@ -19,21 +19,56 @@ const PerfilScreen: React.FC = () => {
   const { profile, updateProfile, signOut, loading } = useAuth();
   const [editando, setEditando] = useState<boolean>(false);
   const [showProvincias, setShowProvincias] = useState<boolean>(false);
+  const [erros, setErros] = useState<{ [key: string]: string }>({});
   
   // Campos editáveis
   const [nome, setNome] = useState<string>(profile?.nome || '');
   const [telefone, setTelefone] = useState<string>(profile?.telefone || '');
   const [provincia, setProvincia] = useState<string>(profile?.provincia || '');
+  const [dataNascimento, setDataNascimento] = useState<string>(profile?.data_nascimento || '');
+  const [genero, setGenero] = useState<string>(profile?.genero || '');
+
+  const validarCampos = (): boolean => {
+    const novoErros: { [key: string]: string } = {};
+
+    if (!nome.trim()) {
+      novoErros.nome = 'Nome é obrigatório';
+    }
+
+    if (telefone.trim() && !/^[0-9\s\-\+]+$/.test(telefone)) {
+      novoErros.telefone = 'Telefone inválido';
+    }
+
+    if (dataNascimento && !/^\d{4}-\d{2}-\d{2}$/.test(dataNascimento)) {
+      novoErros.dataNascimento = 'Data inválida (YYYY-MM-DD)';
+    }
+
+    setErros(novoErros);
+    return Object.keys(novoErros).length === 0;
+  };
 
   const handleSalvar = async () => {
-    const result = await updateProfile({
+    if (!validarCampos()) return;
+
+    const atualizacoes: any = {
       nome: nome.trim(),
       telefone: telefone.trim(),
       provincia,
-    });
+    };
+
+    if (dataNascimento) {
+      atualizacoes.data_nascimento = dataNascimento;
+    }
+
+    if (genero) {
+      atualizacoes.genero = genero;
+    }
+
+    const result = await updateProfile(atualizacoes);
 
     if (result.success) {
       setEditando(false);
+      setErros({});
     }
   };
 
@@ -41,6 +76,9 @@ const PerfilScreen: React.FC = () => {
     setNome(profile?.nome || '');
     setTelefone(profile?.telefone || '');
     setProvincia(profile?.provincia || '');
+    setDataNascimento(profile?.data_nascimento || '');
+    setGenero(profile?.genero || '');
+    setErros({});
     setEditando(false);
   };
 
@@ -95,12 +133,15 @@ const PerfilScreen: React.FC = () => {
         <View style={styles.campo}>
           <Text style={styles.campoLabel}>Nome</Text>
           {editando ? (
-            <TextInput
-              style={styles.input}
-              value={nome}
-              onChangeText={setNome}
-              placeholder="Seu nome completo"
-            />
+            <>
+              <TextInput
+                style={[styles.input, erros.nome && styles.inputError]}
+                value={nome}
+                onChangeText={setNome}
+                placeholder="Seu nome completo"
+              />
+              {erros.nome && <Text style={styles.errorText}>{erros.nome}</Text>}
+            </>
           ) : (
             <Text style={styles.campoValor}>{profile?.nome || '-'}</Text>
           )}
@@ -116,13 +157,16 @@ const PerfilScreen: React.FC = () => {
         <View style={styles.campo}>
           <Text style={styles.campoLabel}>Telefone</Text>
           {editando ? (
-            <TextInput
-              style={styles.input}
-              value={telefone}
-              onChangeText={setTelefone}
-              placeholder="923 456 789"
-              keyboardType="phone-pad"
-            />
+            <>
+              <TextInput
+                style={[styles.input, erros.telefone && styles.inputError]}
+                value={telefone}
+                onChangeText={setTelefone}
+                placeholder="923 456 789"
+                keyboardType="phone-pad"
+              />
+              {erros.telefone && <Text style={styles.errorText}>{erros.telefone}</Text>}
+            </>
           ) : (
             <Text style={styles.campoValor}>{profile?.telefone || '-'}</Text>
           )}
@@ -143,6 +187,55 @@ const PerfilScreen: React.FC = () => {
             </TouchableOpacity>
           ) : (
             <Text style={styles.campoValor}>{profile?.provincia || '-'}</Text>
+          )}
+        </View>
+
+        {/* Data de Nascimento */}
+        <View style={styles.campo}>
+          <Text style={styles.campoLabel}>Data de Nascimento</Text>
+          {editando ? (
+            <>
+              <TextInput
+                style={[styles.input, erros.dataNascimento && styles.inputError]}
+                value={dataNascimento}
+                onChangeText={setDataNascimento}
+                placeholder="YYYY-MM-DD"
+                keyboardType="decimal-pad"
+              />
+              {erros.dataNascimento && <Text style={styles.errorText}>{erros.dataNascimento}</Text>}
+            </>
+          ) : (
+            <Text style={styles.campoValor}>{dataNascimento ? formatDate(dataNascimento, 'DD/MM/YYYY') : '-'}</Text>
+          )}
+        </View>
+
+        {/* Gênero */}
+        <View style={styles.campo}>
+          <Text style={styles.campoLabel}>Gênero</Text>
+          {editando ? (
+            <View style={styles.generoContainer}>
+              {['Masculino', 'Feminino', 'Outro'].map((opcao) => (
+                <TouchableOpacity
+                  key={opcao}
+                  style={[
+                    styles.generoButton,
+                    genero === opcao && styles.generoButtonActive,
+                  ]}
+                  onPress={() => setGenero(opcao)}
+                >
+                  <Text
+                    style={[
+                      styles.generoButtonText,
+                      genero === opcao && styles.generoButtonTextActive,
+                    ]}
+                  >
+                    {opcao}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.campoValor}>{genero || '-'}</Text>
           )}
         </View>
 
@@ -374,6 +467,41 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     borderWidth: 1,
     borderColor: COLORS.border,
+  },
+  inputError: {
+    borderColor: COLORS.danger,
+  },
+  errorText: {
+    color: COLORS.danger,
+    fontSize: SIZES.fontSm,
+    marginTop: 4,
+  },
+  generoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: SIZES.sm,
+  },
+  generoButton: {
+    flex: 1,
+    paddingVertical: SIZES.sm,
+    paddingHorizontal: SIZES.sm,
+    borderRadius: SIZES.radiusSm,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+  },
+  generoButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  generoButtonText: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.text,
+  },
+  generoButtonTextActive: {
+    color: COLORS.textInverse,
+    fontWeight: '600',
   },
   selectButton: {
     flexDirection: 'row',
