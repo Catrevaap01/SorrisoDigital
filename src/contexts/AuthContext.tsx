@@ -383,8 +383,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       Toast.show({
         type: 'success',
-        text1: 'AtÃ© logo!',
-        text2: 'VocÃª saiu da sua conta',
+        text1: 'Sessao terminada',
+        text2: 'Terminou sessao com sucesso',
       });
 
       logger.info('Utilizador desconectado com sucesso');
@@ -393,7 +393,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       Toast.show({
         type: 'error',
         text1: 'Erro',
-        text2: 'NÃ£o foi possÃ­vel sair',
+        text2: 'Nao foi possivel terminar sessao',
       });
       logger.error('Erro ao fazer logout:', handledError);
     } finally {

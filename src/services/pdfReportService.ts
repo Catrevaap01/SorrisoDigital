@@ -1,4 +1,5 @@
 import { gerarRelatorioDentista, gerarRelatorioGeral } from './relatorioService';
+import { imprimirRelatorio } from './relatorioService';
 
 type PdfResult = { success: boolean; error?: string };
 
@@ -129,10 +130,11 @@ const buildDentistaHtml = (data: any): string => {
 const exportHtmlAsPdf = async (html: string): Promise<PdfResult> => {
   const modules = getPrintModules();
   if (!modules) {
-    return {
-      success: false,
-      error: 'Instale expo-print e expo-sharing para exportar PDF no app',
-    };
+    const fallback = await imprimirRelatorio(html);
+    if (fallback.success) {
+      return { success: true };
+    }
+    return { success: false, error: fallback.error || 'Falha ao imprimir/compartilhar relatorio' };
   }
 
   try {
@@ -168,4 +170,3 @@ export const exportarRelatorioDentistaPdf = async (
   }
   return exportHtmlAsPdf(buildDentistaHtml(result.data));
 };
-

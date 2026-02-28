@@ -133,7 +133,7 @@ const AdminProfileScreen: React.FC = () => {
   };
 
   const handleLogout = () => {
-    Alert.alert('Terminar sessão', 'Tem certeza que deseja sair da sua conta?', [
+    Alert.alert('Terminar sessao', 'Tem certeza que deseja sair da sua conta?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Sair',
@@ -272,7 +272,7 @@ const AdminProfileScreen: React.FC = () => {
           <View style={styles.actionCardContent}>
             <Ionicons name="log-out" size={24} color={COLORS.danger} />
             <View style={styles.actionCardText}>
-              <Text style={[styles.actionCardTitle, { color: COLORS.danger }]}>Terminar sessão</Text>
+              <Text style={[styles.actionCardTitle, { color: COLORS.danger }]}>Terminar sessao</Text>
               <Text style={styles.actionCardSubtitle}>Sair da sua conta</Text>
             </View>
           </View>

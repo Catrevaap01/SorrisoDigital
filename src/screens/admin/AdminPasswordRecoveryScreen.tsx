@@ -1,6 +1,6 @@
 /**
- * Tela de Recuperação de Senha do Admin
- * Admin pode recuperar senha de dentistas e enviá-la por email
+ * Tela de Recuperacao de Senha do Admin
+ * Admin gera senha temporaria e envia por email ao dentista
  */
 
 import React, { useState, useCallback } from 'react';
@@ -13,7 +13,7 @@ import {
   TextInput,
   Modal,
   ActivityIndicator,
-    RefreshControl,
+  RefreshControl,
   FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,7 +22,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
 import { listarDentistas, DentistaProfile } from '../../services/dentistaService';
 import { recuperarSenhaDentista } from '../../services/passwordRecoveryService';
-import { sendPasswordRecoveryEmail } from '../../services/emailService';
 import { copiarParaAreaDeTransferencia } from '../../utils/senhaUtils';
 
 const AdminPasswordRecoveryScreen: React.FC = () => {
@@ -36,7 +35,6 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
   const [novaSenha, setNovaSenha] = useState('');
   const [processandoRecuperacao, setProcessandoRecuperacao] = useState(false);
 
-  // Carregar dentistas
   const carregarDentistas = async () => {
     setLoading(true);
     try {
@@ -51,7 +49,7 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
           text2: resultado.error || 'Erro ao carregar dentistas',
         });
       }
-    } catch (error) {
+    } catch {
       Toast.show({
         type: 'error',
         text1: 'Erro',
@@ -68,7 +66,6 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
     }, [])
   );
 
-  // Buscar dentista
   const handleBusca = (texto: string) => {
     setBusca(texto);
     if (texto.trim()) {
@@ -78,18 +75,16 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
           d.email?.toLowerCase().includes(texto.toLowerCase())
       );
       setDentistas(filtrados);
-    } else {
-      setDentistas(dentistasOrig);
+      return;
     }
+    setDentistas(dentistasOrig);
   };
 
-  // Recuperar senha
   const handleRecuperarSenha = async () => {
     if (!dentistaSelecionado) return;
 
     setProcessandoRecuperacao(true);
     try {
-      // 1. Resetar senha
       const resetResult = await recuperarSenhaDentista(
         dentistaSelecionado.id,
         dentistaSelecionado.email || '',
@@ -97,29 +92,13 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
       );
 
       if (resetResult.success && resetResult.novaSenha) {
-        // 2. Enviar email com nova senha
-        const emailResult = await sendPasswordRecoveryEmail(
-          dentistaSelecionado.email || '',
-          dentistaSelecionado.nome || '',
-          resetResult.novaSenha
-        );
-
-        if (emailResult.success) {
-          setNovaSenha(resetResult.novaSenha);
-          Toast.show({
-            type: 'success',
-            text1: 'Senha recuperada',
-            text2: 'Nova senha foi enviada por email e está pronta para compartilhar',
-          });
-        } else {
-          // Mostrar a senha mesmo se email falhar
-          setNovaSenha(resetResult.novaSenha);
-          Toast.show({
-            type: 'warning',
-            text1: 'Parcialmente realizado',
-            text2: 'Senha gerada mas email pode não ter sido enviado',
-          });
-        }
+        setNovaSenha(resetResult.novaSenha);
+        await copiarParaAreaDeTransferencia(resetResult.novaSenha);
+        Toast.show({
+          type: 'success',
+          text1: 'Senha enviada',
+          text2: 'Senha temporaria enviada por email e copiada no app',
+        });
       } else {
         Toast.show({
           type: 'error',
@@ -127,7 +106,7 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
           text2: resetResult.error || 'Erro ao recuperar senha',
         });
       }
-    } catch (error) {
+    } catch {
       Toast.show({
         type: 'error',
         text1: 'Erro',
@@ -138,7 +117,6 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
     }
   };
 
-  // Copiar senha
   const handleCopiarSenha = async () => {
     const copiado = await copiarParaAreaDeTransferencia(novaSenha);
     Toast.show({
@@ -170,7 +148,6 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Header com busca */}
       <View style={styles.header}>
         <Text style={styles.title}>Recuperar Senhas</Text>
         <View style={styles.searchContainer}>
@@ -190,7 +167,6 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Lista de dentistas */}
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.danger} />
@@ -219,9 +195,7 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
               </View>
             </TouchableOpacity>
           )}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="person-remove-outline" size={48} color={COLORS.textSecondary} />
@@ -231,7 +205,6 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
         />
       )}
 
-      {/* Modal de recuperação */}
       <Modal visible={recoveryModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -246,7 +219,6 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
             <ScrollView style={styles.modalBody}>
               {dentistaSelecionado && (
                 <>
-                  {/* Info do dentista */}
                   <View style={styles.dentistInfo}>
                     <View style={[styles.avatar, { width: 80, height: 80 }]}>
                       <Text style={[styles.avatarText, { fontSize: 32 }]}>
@@ -257,7 +229,6 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
                     <Text style={styles.dentistEmail}>{dentistaSelecionado.email}</Text>
                   </View>
 
-                  {/* Nova senha */}
                   {novaSenha ? (
                     <View style={styles.senhaContainer}>
                       <Text style={styles.senhaLabel}>Nova Senha Gerada</Text>
@@ -268,14 +239,15 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
                         </TouchableOpacity>
                       </View>
                       <Text style={styles.senhaInfo}>
-                        Esta senha foi enviada por email. O dentista será forçado a alterar a senha no próximo login.
+                        Esta senha foi enviada por email. No proximo login o dentista sera
+                        obrigado a alterar a senha.
                       </Text>
                     </View>
                   ) : (
                     <View style={styles.infoBox}>
                       <Ionicons name="information-circle" size={24} color={COLORS.info} />
                       <Text style={styles.infoText}>
-                        Clique no botão abaixo para gerar uma nova senha e enviá-la por email ao dentista.
+                        Clique no botao abaixo para gerar senha temporaria e enviar por email.
                       </Text>
                     </View>
                   )}
@@ -306,7 +278,7 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
                   ) : (
                     <>
                       <Ionicons name="key" size={20} color={COLORS.textInverse} />
-                      <Text style={styles.buttonText}>Gerar Nova Senha</Text>
+                      <Text style={styles.buttonText}>Enviar Senha Temporaria</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -320,10 +292,7 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
   header: {
     paddingTop: SPACING.md,
     paddingHorizontal: SPACING.md,
@@ -353,11 +322,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.md,
     color: COLORS.text,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   dentistCard: {
     marginHorizontal: SPACING.md,
     marginVertical: SPACING.xs,
@@ -389,34 +354,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textInverse,
   },
-  info: {
-    flex: 1,
-  },
-  name: {
-    fontSize: TYPOGRAPHY.sizes.md,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  email: {
-    fontSize: TYPOGRAPHY.sizes.sm,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  especialidade: {
-    fontSize: TYPOGRAPHY.sizes.xs,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  emptyContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 100,
-  },
-  emptyText: {
-    fontSize: TYPOGRAPHY.sizes.md,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.md,
-  },
+  info: { flex: 1 },
+  name: { fontSize: TYPOGRAPHY.sizes.md, fontWeight: '600', color: COLORS.text },
+  email: { fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.textSecondary, marginTop: 2 },
+  especialidade: { fontSize: TYPOGRAPHY.sizes.xs, color: COLORS.textSecondary, marginTop: 2 },
+  emptyContainer: { justifyContent: 'center', alignItems: 'center', paddingTop: 100 },
+  emptyText: { fontSize: TYPOGRAPHY.sizes.md, color: COLORS.textSecondary, marginTop: SPACING.md },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -436,14 +379,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
-  modalTitle: {
-    fontSize: TYPOGRAPHY.sizes.lg,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  modalBody: {
-    padding: SPACING.md,
-  },
+  modalTitle: { fontSize: TYPOGRAPHY.sizes.lg, fontWeight: '700', color: COLORS.text },
+  modalBody: { padding: SPACING.md },
   dentistInfo: {
     alignItems: 'center',
     marginBottom: SPACING.lg,
@@ -457,14 +394,8 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     marginTop: SPACING.md,
   },
-  dentistEmail: {
-    fontSize: TYPOGRAPHY.sizes.sm,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
-  },
-  senhaContainer: {
-    marginBottom: SPACING.lg,
-  },
+  dentistEmail: { fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.textSecondary, marginTop: SPACING.xs },
+  senhaContainer: { marginBottom: SPACING.lg },
   senhaLabel: {
     fontSize: TYPOGRAPHY.sizes.md,
     fontWeight: '600',
@@ -489,11 +420,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: SPACING.md,
   },
-  senhaInfo: {
-    fontSize: TYPOGRAPHY.sizes.sm,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
-  },
+  senhaInfo: { fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.textSecondary, lineHeight: 20 },
   infoBox: {
     backgroundColor: COLORS.info + '20',
     borderRadius: 12,
@@ -504,12 +431,7 @@ const styles = StyleSheet.create({
     borderLeftColor: COLORS.info,
     marginBottom: SPACING.lg,
   },
-  infoText: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.sizes.sm,
-    color: COLORS.text,
-    lineHeight: 20,
-  },
+  infoText: { flex: 1, fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.text, lineHeight: 20 },
   modalFooter: {
     padding: SPACING.md,
     borderTopWidth: 1,
@@ -524,21 +446,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
   },
-  recoveryButton: {
-    backgroundColor: COLORS.danger || '#dc3545',
-  },
-  closeButton: {
-    backgroundColor: COLORS.primary,
-  },
-  buttonText: {
-    fontSize: TYPOGRAPHY.sizes.md,
-    fontWeight: '600',
-    color: COLORS.textInverse,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
+  recoveryButton: { backgroundColor: COLORS.danger || '#dc3545' },
+  closeButton: { backgroundColor: COLORS.primary },
+  buttonText: { fontSize: TYPOGRAPHY.sizes.md, fontWeight: '600', color: COLORS.textInverse },
+  buttonDisabled: { opacity: 0.6 },
 });
 
 export default AdminPasswordRecoveryScreen;
-

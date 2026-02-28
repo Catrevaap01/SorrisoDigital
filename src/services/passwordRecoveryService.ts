@@ -20,6 +20,7 @@ export const gerarSenhaAleatoria = (length: number = 12): string => {
 
 /**
  * Recuperar senha de um dentista (admin only)
+ * Gera senha temporaria, envia por email e forca troca no proximo login.
  */
 export const recuperarSenhaDentista = async (
   dentistaId: string,
@@ -27,13 +28,11 @@ export const recuperarSenhaDentista = async (
   dentistaNome: string
 ): Promise<{ success: boolean; novaSenha?: string; error?: string }> => {
   try {
-    // Gerar nova senha
     const novaSenha = gerarSenhaAleatoria();
 
     const { data: userData } = await supabase.auth.admin.getUserById(dentistaId);
     const currentMetadata = userData?.user?.user_metadata || {};
 
-    // Atualizar senha no Supabase Auth
     const { error: updateError } = await supabase.auth.admin.updateUserById(
       dentistaId,
       {
@@ -50,7 +49,6 @@ export const recuperarSenhaDentista = async (
     }
 
     if (PROFILE_SCHEMA_FEATURES.hasSenhaAlterada) {
-      // Marcar que precisa alterar senha no proximo login.
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
@@ -64,7 +62,6 @@ export const recuperarSenhaDentista = async (
       }
     }
 
-    // Enviar email com nova senha
     const emailResult = await sendPasswordRecoveryEmail(
       dentistaEmail,
       dentistaNome,
@@ -72,14 +69,10 @@ export const recuperarSenhaDentista = async (
     );
 
     if (!emailResult.success) {
-      // Log do erro mas nÃ£o impede o retorno da senha
-      console.warn('Erro ao enviar email:', emailResult.error);
+      console.warn('Erro ao enviar email de recuperacao:', emailResult.error);
     }
 
-    return {
-      success: true,
-      novaSenha,
-    };
+    return { success: true, novaSenha };
   } catch (error: any) {
     return {
       success: false,

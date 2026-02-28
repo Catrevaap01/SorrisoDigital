@@ -133,6 +133,29 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     );
   };
 
+  const renderTriagemLinha = ({ item }) => {
+    const statusInfo = STATUS_TRIAGEM[item.status] || STATUS_TRIAGEM.pendente;
+
+    return (
+      <TouchableOpacity
+        style={styles.rowItem}
+        onPress={() => abrirDetalhes(item)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.rowStatusDot, { backgroundColor: statusInfo.color }]} />
+        <View style={styles.rowMain}>
+          <Text style={styles.rowTitulo} numberOfLines={1}>
+            {item.sintoma_principal || 'Sem descricao'}
+          </Text>
+          <Text style={styles.rowSubtitulo} numberOfLines={1}>
+            {statusInfo.label} | Dor {item.intensidade_dor}/10 | {formatRelativeTime(item.created_at)}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+      </TouchableOpacity>
+    );
+  };
+
   const renderModalDetalhes = () => {
     if (!triagemSelecionada) return null;
 
@@ -317,21 +340,24 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
       ) : triagensFiltradas.length === 0 ? (
         <View style={styles.centerContainer}>
           <Ionicons name="document-text-outline" size={64} color={COLORS.textLight} />
-          <Text style={styles.emptyTitle}>Nenhuma triagem encontrada</Text>
+          <Text style={styles.emptyTitle}>Nenhuma informacao</Text>
           <Text style={styles.emptySubtitle}>
             {filtroAtivo === 'todos'
-              ? 'Faça sua primeira triagem para começar'
-              : 'Não há triagens com esse status'}
+              ? 'Ainda nao existe informacao no historico'
+              : 'Nao ha informacao para este filtro'}
           </Text>
         </View>
       ) : (
         <FlatList
           data={triagensFiltradas}
           keyExtractor={(item) => item.id}
-          renderItem={renderTriagem}
-          contentContainerStyle={styles.lista}
+          renderItem={filtroAtivo === 'todos' ? renderTriagemLinha : renderTriagem}
+          contentContainerStyle={filtroAtivo === 'todos' ? styles.listaLinhas : styles.lista}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          ItemSeparatorComponent={
+            filtroAtivo === 'todos' ? () => <View style={styles.rowSeparator} /> : undefined
           }
           showsVerticalScrollIndicator={false}
         />
@@ -396,6 +422,40 @@ const styles = StyleSheet.create({
   },
   lista: {
     padding: SIZES.md,
+  },
+  listaLinhas: {
+    paddingHorizontal: SIZES.md,
+    paddingVertical: SIZES.sm,
+  },
+  rowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusMd,
+    paddingHorizontal: SIZES.md,
+    paddingVertical: SIZES.sm,
+  },
+  rowStatusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: SIZES.sm,
+  },
+  rowMain: {
+    flex: 1,
+  },
+  rowTitulo: {
+    fontSize: SIZES.fontMd,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  rowSubtitulo: {
+    marginTop: 2,
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+  },
+  rowSeparator: {
+    height: SIZES.sm,
   },
   card: {
     backgroundColor: COLORS.surface,
@@ -635,3 +695,4 @@ const styles = StyleSheet.create({
 });
 
 export default HistoricoScreen;
+

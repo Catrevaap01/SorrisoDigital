@@ -1,8 +1,10 @@
 /**
- * Serviço de Relatórios
- * Gera relatórios de dentistas e triagens
+ * Servico de Relatorios
+ * Gera relatorios de dentistas e triagens
  */
 
+import { Platform, Share } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../config/supabase';
 import { DentistaProfile } from './dentistaService';
 
@@ -17,6 +19,7 @@ export interface RelatorioDentista {
 
 export interface RelatorioGeral {
   totalDentistas: number;
+  totalPacientes: number;
   dentistasAtivos: number;
   totalTriagens: number;
   triagensRespondidas: number;
@@ -25,8 +28,14 @@ export interface RelatorioGeral {
   dataGeracao: string;
 }
 
+export interface ExportResult {
+  success: boolean;
+  fileUri?: string;
+  error?: string;
+}
+
 /**
- * Gera relatório geral de todos os dentistas
+ * Gera relatorio geral de todos os dentistas
  */
 export const gerarRelatorioGeral = async (): Promise<{
   success: boolean;
@@ -34,7 +43,6 @@ export const gerarRelatorioGeral = async (): Promise<{
   error?: string;
 }> => {
   try {
-    // 1. Buscar todos os dentistas
     const { data: dentistas, error: dentistasError } = await supabase
       .from('profiles')
       .select('*')
@@ -45,7 +53,15 @@ export const gerarRelatorioGeral = async (): Promise<{
       return { success: false, error: dentistasError.message };
     }
 
-    // 2. Buscar todas triagens
+    const { data: pacientes, error: pacientesError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('tipo', 'paciente');
+
+    if (pacientesError) {
+      return { success: false, error: pacientesError.message };
+    }
+
     const { data: triagens, error: triagensError } = await supabase
       .from('triagens')
       .select('*, profile_id');
@@ -54,29 +70,29 @@ export const gerarRelatorioGeral = async (): Promise<{
       return { success: false, error: triagensError.message };
     }
 
-    // 3. Processar dados
     const relatoriosDentistas: RelatorioDentista[] = (dentistas || []).map(
       (dentista: any) => {
         const triagensDentista = (triagens || []).filter(
           (t: any) => t.profile_id === dentista.id
         );
+
         const respondidas = triagensDentista.filter(
           (t: any) => t.status === 'respondido' || t.status === 'completo'
         );
+
         const percentual =
           triagensDentista.length > 0
             ? (respondidas.length / triagensDentista.length) * 100
             : 0;
 
-        const ultimaAtividade = triagensDentista.length > 0
-          ? new Date(
-              Math.max(
-                ...triagensDentista.map((t: any) =>
-                  new Date(t.updated_at).getTime()
+        const ultimaAtividade =
+          triagensDentista.length > 0
+            ? new Date(
+                Math.max(
+                  ...triagensDentista.map((t: any) => new Date(t.updated_at).getTime())
                 )
-              )
-            ).toISOString()
-          : null;
+              ).toISOString()
+            : null;
 
         return {
           dentista: dentista as DentistaProfile,
@@ -93,16 +109,14 @@ export const gerarRelatorioGeral = async (): Promise<{
     const totalRespondidas = (triagens || []).filter(
       (t: any) => t.status === 'respondido' || t.status === 'completo'
     ).length;
+
     const percentualGeral =
-      totalTriagens > 0
-        ? (totalRespondidas / totalTriagens) * 100
-        : 0;
+      totalTriagens > 0 ? (totalRespondidas / totalTriagens) * 100 : 0;
 
     const relatorio: RelatorioGeral = {
       totalDentistas: dentistas?.length || 0,
-      dentistasAtivos: relatoriosDentistas.filter(
-        (r) => r.totalTriagens > 0
-      ).length,
+      totalPacientes: pacientes?.length || 0,
+      dentistasAtivos: relatoriosDentistas.filter((r) => r.totalTriagens > 0).length,
       totalTriagens,
       triagensRespondidas: totalRespondidas,
       percentualResposta: Math.round(percentualGeral),
@@ -110,20 +124,17 @@ export const gerarRelatorioGeral = async (): Promise<{
       dataGeracao: new Date().toISOString(),
     };
 
-    return {
-      success: true,
-      data: relatorio,
-    };
+    return { success: true, data: relatorio };
   } catch (error: any) {
     return {
       success: false,
-      error: error.message || 'Erro ao gerar relatório',
+      error: error.message || 'Erro ao gerar relatorio',
     };
   }
 };
 
 /**
- * Gera relatório detalhado de um dentista específico
+ * Gera relatorio detalhado de um dentista especifico
  */
 export const gerarRelatorioDentista = async (
   dentistaId: string
@@ -137,7 +148,6 @@ export const gerarRelatorioDentista = async (
   error?: string;
 }> => {
   try {
-    // 1. Buscar dentista
     const { data: dentista, error: dentistaError } = await supabase
       .from('profiles')
       .select('*')
@@ -145,10 +155,9 @@ export const gerarRelatorioDentista = async (
       .single();
 
     if (dentistaError) {
-      return { success: false, error: 'Dentista não encontrado' };
+      return { success: false, error: 'Dentista nao encontrado' };
     }
 
-    // 2. Buscar triagens do dentista
     const { data: triagens, error: triagensError } = await supabase
       .from('triagens')
       .select('*')
@@ -159,17 +168,12 @@ export const gerarRelatorioDentista = async (
       return { success: false, error: triagensError.message };
     }
 
-    // 3. Calcular estatísticas
     const respondidas = (triagens || []).filter(
       (t: any) => t.status === 'respondido' || t.status === 'completo'
     );
-    const pendentes = (triagens || []).filter(
-      (t: any) => t.status === 'pendente'
-    );
+    const pendentes = (triagens || []).filter((t: any) => t.status === 'pendente');
     const percentual =
-      triagens && triagens.length > 0
-        ? (respondidas.length / triagens.length) * 100
-        : 0;
+      triagens && triagens.length > 0 ? (respondidas.length / triagens.length) * 100 : 0;
 
     const estatisticas: RelatorioDentista = {
       dentista: dentista as DentistaProfile,
@@ -177,10 +181,7 @@ export const gerarRelatorioDentista = async (
       triagensRespondidas: respondidas.length,
       triagensPendentes: pendentes.length,
       percentualResposta: Math.round(percentual),
-      dataUltimaAtividade:
-        triagens && triagens.length > 0
-          ? triagens[0].updated_at
-          : null,
+      dataUltimaAtividade: triagens && triagens.length > 0 ? triagens[0].updated_at : null,
     };
 
     return {
@@ -194,67 +195,115 @@ export const gerarRelatorioDentista = async (
   } catch (error: any) {
     return {
       success: false,
-      error: error.message || 'Erro ao gerar relatório',
+      error: error.message || 'Erro ao gerar relatorio',
+    };
+  }
+};
+
+const buildCsv = (relatorio: RelatorioGeral): string => {
+  let csv = 'Relatorio Geral de Dentistas\n';
+  csv += `Gerado em: ${new Date(relatorio.dataGeracao).toLocaleDateString('pt-AO')}\n\n`;
+  csv += `Total de Dentistas,${relatorio.totalDentistas}\n`;
+  csv += `Total de Pacientes,${relatorio.totalPacientes}\n`;
+  csv += `Dentistas Ativos,${relatorio.dentistasAtivos}\n`;
+  csv += `Total de Triagens,${relatorio.totalTriagens}\n`;
+  csv += `Triagens Respondidas,${relatorio.triagensRespondidas}\n`;
+  csv += `Percentual de Resposta,${relatorio.percentualResposta}%\n\n`;
+
+  csv += 'Nome,Especialidade,Total Triagens,Respondidas,Pendentes,Taxa Resposta (%)\n';
+  relatorio.dentistas.forEach((r) => {
+    csv += `"${r.dentista.nome || ''}","${r.dentista.especialidade || ''}",${r.totalTriagens},${r.triagensRespondidas},${r.triagensPendentes},${r.percentualResposta}\n`;
+  });
+
+  return csv;
+};
+
+const saveAndShareNative = async (
+  content: string,
+  filename: string,
+  mimeLabel: string
+): Promise<ExportResult> => {
+  try {
+    if (!FileSystem.documentDirectory) {
+      return { success: false, error: 'Diretorio local indisponivel no dispositivo' };
+    }
+
+    const fileUri = `${FileSystem.documentDirectory}${filename}`;
+    await FileSystem.writeAsStringAsync(fileUri, content, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+
+    await Share.share({
+      title: `Exportar ${mimeLabel}`,
+      message: `Arquivo gerado: ${filename}\n${fileUri}`,
+      url: fileUri,
+    });
+
+    return { success: true, fileUri };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error?.message || `Erro ao exportar ${mimeLabel}`,
     };
   }
 };
 
 /**
- * Exporta relatório em formato JSON
+ * Exporta relatorio em formato JSON
  */
-export const exportarRelatorioJSON = (
+export const exportarRelatorioJSON = async (
   relatorio: RelatorioGeral | any,
   filename: string = 'relatorio.json'
-): void => {
+): Promise<ExportResult> => {
   try {
     const dataStr = JSON.stringify(relatorio, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error('Erro ao exportar JSON:', error);
+
+    if (Platform.OS === 'web') {
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+      return { success: true };
+    }
+
+    return await saveAndShareNative(dataStr, filename, 'JSON');
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Erro ao exportar JSON' };
   }
 };
 
 /**
- * Exporta relatório em formato CSV
+ * Exporta relatorio em formato CSV
  */
-export const exportarRelatorioCSV = (
+export const exportarRelatorioCSV = async (
   relatorio: RelatorioGeral,
   filename: string = 'relatorio.csv'
-): void => {
+): Promise<ExportResult> => {
   try {
-    let csv = 'Relatório Geral de Dentistas\n';
-    csv += `Gerado em: ${new Date(relatorio.dataGeracao).toLocaleDateString('pt-AO')}\n\n`;
-    csv += `Total de Dentistas,${relatorio.totalDentistas}\n`;
-    csv += `Dentistas Ativos,${relatorio.dentistasAtivos}\n`;
-    csv += `Total de Triagens,${relatorio.totalTriagens}\n`;
-    csv += `Triagens Respondidas,${relatorio.triagensRespondidas}\n`;
-    csv += `Percentual de Resposta,${relatorio.percentualResposta}%\n\n`;
+    const csv = buildCsv(relatorio);
 
-    csv += 'Nome,Especialidade,Total Triagens,Respondidas,Pendentes,Taxa Resposta (%)\n';
-    relatorio.dentistas.forEach((r) => {
-      csv += `"${r.dentista.nome || ''}","${r.dentista.especialidade || ''}",${r.totalTriagens},${r.triagensRespondidas},${r.triagensPendentes},${r.percentualResposta}\n`;
-    });
+    if (Platform.OS === 'web') {
+      const dataBlob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+      return { success: true };
+    }
 
-    const dataBlob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.click();
-    URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error('Erro ao exportar CSV:', error);
+    return await saveAndShareNative(csv, filename, 'CSV');
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Erro ao exportar CSV' };
   }
 };
 
 /**
- * Prepara HTML para impressão do relatório
+ * Prepara HTML para impressao do relatorio
  */
 export const gerarHTMLRelatorio = (relatorio: RelatorioGeral): string => {
   const dataBR = new Date(relatorio.dataGeracao).toLocaleDateString('pt-AO', {
@@ -264,19 +313,19 @@ export const gerarHTMLRelatorio = (relatorio: RelatorioGeral): string => {
     day: 'numeric',
   });
 
-  let html = `
+  const html = `
     <!DOCTYPE html>
     <html lang="pt-AO">
     <head>
       <meta charset="UTF-8">
-      <title>Relatório Geral - Te Odonto Angola</title>
+      <title>Relatorio Geral - Te Odonto Angola</title>
       <style>
         * { font-family: Arial, sans-serif; margin: 0; padding: 0; }
         body { padding: 40px; background: white; }
         .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #1E88E5; padding-bottom: 20px; }
         h1 { color: #1E88E5; font-size: 28px; }
         .subtitle { color: #666; font-size: 12px; margin-top: 5px; }
-        .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 40px; }
+        .summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 40px; }
         .summary-card { background: #f5f5f5; padding: 20px; border-radius: 8px; text-align: center; }
         .summary-card h3 { color: #1E88E5; font-size: 24px; }
         .summary-card p { color: #666; font-size: 12px; margin-top: 5px; }
@@ -285,17 +334,12 @@ export const gerarHTMLRelatorio = (relatorio: RelatorioGeral): string => {
         table td { padding: 12px; border-bottom: 1px solid #eee; }
         table tr:nth-child(even) { background: #f9f9f9; }
         .footer { text-align: center; margin-top: 40px; color: #999; font-size: 11px; }
-        .page-break { page-break-after: always; }
-        @media print {
-          body { padding: 20px; }
-          .page-break { page-break-after: always; }
-        }
       </style>
     </head>
     <body>
       <div class="header">
         <h1>Te Odonto Angola</h1>
-        <p class="subtitle">Relatório Geral de Dentistas</p>
+        <p class="subtitle">Relatorio Geral de Dentistas</p>
         <p class="subtitle">Gerado em ${dataBR}</p>
       </div>
 
@@ -303,6 +347,10 @@ export const gerarHTMLRelatorio = (relatorio: RelatorioGeral): string => {
         <div class="summary-card">
           <h3>${relatorio.totalDentistas}</h3>
           <p>Total de Dentistas</p>
+        </div>
+        <div class="summary-card">
+          <h3>${relatorio.totalPacientes}</h3>
+          <p>Total de Pacientes</p>
         </div>
         <div class="summary-card">
           <h3>${relatorio.dentistasAtivos}</h3>
@@ -330,7 +378,9 @@ export const gerarHTMLRelatorio = (relatorio: RelatorioGeral): string => {
           </tr>
         </thead>
         <tbody>
-          ${relatorio.dentistas.map((r) => `
+          ${relatorio.dentistas
+            .map(
+              (r) => `
             <tr>
               <td>${r.dentista.nome || '-'}</td>
               <td>${r.dentista.especialidade || '-'}</td>
@@ -339,12 +389,14 @@ export const gerarHTMLRelatorio = (relatorio: RelatorioGeral): string => {
               <td>${r.triagensPendentes}</td>
               <td>${r.percentualResposta}%</td>
             </tr>
-          `).join('')}
+          `
+            )
+            .join('')}
         </tbody>
       </table>
 
       <div class="footer">
-        <p>Este relatório foi gerado automaticamente pelo sistema Te Odonto Angola</p>
+        <p>Este relatorio foi gerado automaticamente pelo sistema Te Odonto Angola</p>
       </div>
     </body>
     </html>
@@ -354,19 +406,26 @@ export const gerarHTMLRelatorio = (relatorio: RelatorioGeral): string => {
 };
 
 /**
- * Imprime o relatório
+ * Imprime o relatorio (web) ou compartilha o HTML (mobile)
  */
-export const imprimirRelatorio = (html: string): void => {
+export const imprimirRelatorio = async (html: string): Promise<ExportResult> => {
   try {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      setTimeout(() => {
-        printWindow.print();
-      }, 250);
+    if (Platform.OS === 'web') {
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(html);
+        printWindow.document.close();
+        setTimeout(() => {
+          printWindow.print();
+        }, 250);
+        return { success: true };
+      }
+      return { success: false, error: 'Janela de impressao bloqueada' };
     }
-  } catch (error) {
-    console.error('Erro ao imprimir:', error);
+
+    const filename = `relatorio-geral-${new Date().toISOString().split('T')[0]}.html`;
+    return await saveAndShareNative(html, filename, 'HTML');
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Erro ao preparar impressao' };
   }
 };

@@ -20,10 +20,12 @@ import {
 } from '../../services/pdfReportService';
 
 interface ReportStats {
+  totalCadastros: number;
   totalDentistas: number;
   totalPacientes: number;
   totalConsultas: number;
   totalMensagens: number;
+  cadastrosMesAtual: number;
   dentistasMesAtual: number;
   pacientesMesAtual: number;
 }
@@ -36,12 +38,32 @@ interface DentistaResumo {
   triagensRespondidas: number;
 }
 
+interface AdminReportStatsRpc {
+  total_cadastros: number;
+  total_dentistas: number;
+  total_pacientes: number;
+  total_consultas: number;
+  total_mensagens: number;
+  cadastros_mes_atual: number;
+  dentistas_mes_atual: number;
+  pacientes_mes_atual: number;
+}
+
+const normalizeTipo = (value?: string | null) =>
+  (value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
 const AdminReportsScreen: React.FC = () => {
   const [stats, setStats] = useState<ReportStats>({
+    totalCadastros: 0,
     totalDentistas: 0,
     totalPacientes: 0,
     totalConsultas: 0,
     totalMensagens: 0,
+    cadastrosMesAtual: 0,
     dentistasMesAtual: 0,
     pacientesMesAtual: 0,
   });
@@ -53,47 +75,75 @@ const AdminReportsScreen: React.FC = () => {
   const carregarEstatisticas = async () => {
     setLoading(true);
     try {
-      const { count: dentistasCount } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact' })
-        .eq('tipo', 'dentista');
+      const { data: rpcData, error: rpcError } = await supabase.rpc('admin_report_stats');
 
-      const { count: pacientesCount } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact' })
-        .eq('tipo', 'paciente');
-
-      const { count: mensagensCount } = await supabase
-        .from('messages')
-        .select('*', { count: 'exact' });
-
-      const { count: consultasCount } = await supabase
-        .from('agendamentos')
-        .select('*', { count: 'exact' });
-
+      if (!rpcError && rpcData) {
+        const row: AdminReportStatsRpc = Array.isArray(rpcData) ? rpcData[0] : rpcData;
+        if (row) {
+          setStats({
+            totalCadastros: Number(row.total_cadastros || 0),
+            totalDentistas: Number(row.total_dentistas || 0),
+            totalPacientes: Number(row.total_pacientes || 0),
+            totalConsultas: Number(row.total_consultas || 0),
+            totalMensagens: Number(row.total_mensagens || 0),
+            cadastrosMesAtual: Number(row.cadastros_mes_atual || 0),
+            dentistasMesAtual: Number(row.dentistas_mes_atual || 0),
+            pacientesMesAtual: Number(row.pacientes_mes_atual || 0),
+          });
+        }
+      } else {
       const dataAgora = new Date();
       const inicioMes = new Date(dataAgora.getFullYear(), dataAgora.getMonth(), 1).toISOString();
 
-      const { count: dentistasMes } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact' })
-        .eq('tipo', 'dentista')
-        .gte('created_at', inicioMes);
+      const [
+        { data: perfis, error: perfisError },
+        { data: mensagens, error: mensagensError },
+        { data: consultas, error: consultasError },
+      ] = await Promise.all([
+        supabase.from('profiles').select('id, tipo, created_at'),
+        supabase.from('messages').select('id'),
+        supabase.from('agendamentos').select('id'),
+      ]);
 
-      const { count: pacientesMes } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact' })
-        .eq('tipo', 'paciente')
-        .gte('created_at', inicioMes);
+      if (perfisError) {
+        throw perfisError;
+      }
+      if (mensagensError) {
+        throw mensagensError;
+      }
+      if (consultasError) {
+        throw consultasError;
+      }
+
+      const perfisList = perfis || [];
+      const totalPacientes = perfisList.filter((p: any) => normalizeTipo(p?.tipo) === 'paciente').length;
+      const totalDentistas = perfisList.filter((p: any) => {
+        const tipo = normalizeTipo(p?.tipo);
+        return tipo === 'dentista' || tipo === 'medico';
+      }).length;
+      const totalCadastros = totalDentistas + totalPacientes;
+      const perfisMes = perfisList.filter((p: any) => {
+        const createdAt = p?.created_at ? new Date(p.created_at) : null;
+        return !!createdAt && !Number.isNaN(createdAt.getTime()) && createdAt >= new Date(inicioMes);
+      });
+      const pacientesMes = perfisMes.filter((p: any) => normalizeTipo(p?.tipo) === 'paciente').length;
+      const dentistasMes = perfisMes.filter((p: any) => {
+        const tipo = normalizeTipo(p?.tipo);
+        return tipo === 'dentista' || tipo === 'medico';
+      }).length;
+      const cadastrosMes = dentistasMes + pacientesMes;
 
       setStats({
-        totalDentistas: dentistasCount || 0,
-        totalPacientes: pacientesCount || 0,
-        totalConsultas: consultasCount || 0,
-        totalMensagens: mensagensCount || 0,
-        dentistasMesAtual: dentistasMes || 0,
-        pacientesMesAtual: pacientesMes || 0,
+        totalCadastros,
+        totalDentistas,
+        totalPacientes,
+        totalConsultas: (consultas || []).length,
+        totalMensagens: (mensagens || []).length,
+        cadastrosMesAtual: cadastrosMes,
+        dentistasMesAtual: dentistasMes,
+        pacientesMesAtual: pacientesMes,
       });
+      }
 
       const relatorio = await gerarRelatorioGeral();
       if (relatorio.success && relatorio.data) {
@@ -108,8 +158,11 @@ const AdminReportsScreen: React.FC = () => {
         );
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Erro ao carregar estatisticas:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Erro ao carregar estatisticas',
+        text2: 'Verifique as politicas RLS para permitir leitura no relatorio',
+      });
     } finally {
       setLoading(false);
     }
@@ -177,10 +230,13 @@ const AdminReportsScreen: React.FC = () => {
       ) : (
         <>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Relatorios do Sistema</Text>
+            <Text style={styles.headerTitle}>Relatórios do Sistema</Text>
+            <Text style={styles.headerSubtitle}>
+            </Text>
           </View>
 
           <View style={styles.statsContainer}>
+            <StatCard icon="people-circle" label="Total Geral" valor={stats.totalCadastros} cor={COLORS.danger} />
             <StatCard icon="person-circle" label="Total de Dentistas" valor={stats.totalDentistas} cor={COLORS.secondary} />
             <StatCard icon="people" label="Total de Pacientes" valor={stats.totalPacientes} cor={COLORS.primary} />
             <StatCard icon="mail" label="Total de Mensagens" valor={stats.totalMensagens} cor={COLORS.info} />
@@ -188,8 +244,13 @@ const AdminReportsScreen: React.FC = () => {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Resumo do Mes Atual</Text>
+            <Text style={styles.sectionTitle}>Resumo do Mês Atual</Text>
             <View style={styles.resumoCard}>
+              <View style={styles.resumoRow}>
+                <Text style={styles.resumoLabel}>Total do mês </Text>
+                <Text style={styles.resumoValue}>{stats.cadastrosMesAtual}</Text>
+              </View>
+              <View style={styles.resumoDivider} />
               <View style={styles.resumoRow}>
                 <Text style={styles.resumoLabel}>Dentistas cadastrados</Text>
                 <Text style={styles.resumoValue}>{stats.dentistasMesAtual}</Text>
@@ -203,7 +264,7 @@ const AdminReportsScreen: React.FC = () => {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Exportacao de Relatorios (PDF)</Text>
+            <Text style={styles.sectionTitle}>Exportação de Relatórios (PDF)</Text>
             <TouchableOpacity
               style={styles.exportButton}
               onPress={handleExportarGeral}
@@ -235,7 +296,10 @@ const AdminReportsScreen: React.FC = () => {
                   {loadingPdf === d.id ? (
                     <ActivityIndicator size="small" color={COLORS.primary} />
                   ) : (
-                    <Ionicons name="document-text-outline" size={18} color={COLORS.primary} />
+                    <>
+                      <Ionicons name="document-text-outline" size={18} color={COLORS.primary} />
+                      <Text style={styles.dentistaPdfButtonText}>Imprimir/Compartilhar</Text>
+                    </>
                   )}
                 </TouchableOpacity>
               </View>
@@ -275,6 +339,7 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 },
   header: { padding: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   headerTitle: { fontSize: TYPOGRAPHY.sizes.xl, fontWeight: '700', color: COLORS.text },
+  headerSubtitle: { marginTop: SPACING.xs, fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.textSecondary },
   statsContainer: { padding: SPACING.md, gap: SPACING.sm },
   statCard: {
     backgroundColor: COLORS.surface,
@@ -342,12 +407,19 @@ const styles = StyleSheet.create({
   dentistaNome: { fontSize: TYPOGRAPHY.sizes.md, color: COLORS.text, fontWeight: '600' },
   dentistaMeta: { marginTop: 2, fontSize: TYPOGRAPHY.sizes.xs, color: COLORS.textSecondary },
   dentistaPdfButton: {
-    width: 36,
-    height: 36,
+    minHeight: 36,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.background,
+    paddingHorizontal: SPACING.sm,
+    flexDirection: 'row',
+    gap: SPACING.xs,
+  },
+  dentistaPdfButtonText: {
+    color: COLORS.primary,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    fontWeight: '700',
   },
 });
 

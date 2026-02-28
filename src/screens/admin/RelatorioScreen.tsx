@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Tela de Relatórios do Administrador
  * Visualiza e exporta relatórios de dentistas
  */
@@ -12,14 +12,12 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import {
   gerarRelatorioGeral,
-  gerarRelatorioDentista,
   exportarRelatorioCSV,
   exportarRelatorioJSON,
   gerarHTMLRelatorio,
@@ -70,7 +68,10 @@ const RelatorioScreen: React.FC = () => {
     setExportando(true);
     try {
       const filename = `relatorio-geral-${new Date().toISOString().split('T')[0]}.json`;
-      exportarRelatorioJSON(dadosRelatorio, filename);
+      const result = await exportarRelatorioJSON(dadosRelatorio, filename);
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao exportar relatorio');
+      }
       Toast.show({
         type: 'success',
         text1: 'Sucesso',
@@ -92,7 +93,10 @@ const RelatorioScreen: React.FC = () => {
     setExportando(true);
     try {
       const filename = `relatorio-geral-${new Date().toISOString().split('T')[0]}.csv`;
-      exportarRelatorioCSV(dadosRelatorio, filename);
+      const result = await exportarRelatorioCSV(dadosRelatorio, filename);
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao exportar relatorio');
+      }
       Toast.show({
         type: 'success',
         text1: 'Sucesso',
@@ -110,10 +114,13 @@ const RelatorioScreen: React.FC = () => {
     }
   };
 
-  const handleImprimir = () => {
+  const handleImprimir = async () => {
     try {
       const html = gerarHTMLRelatorio(dadosRelatorio);
-      imprimirRelatorio(html);
+      const result = await imprimirRelatorio(html);
+      if (!result.success) {
+        throw new Error(result.error || 'Erro ao preparar impressao');
+      }
       Toast.show({
         type: 'success',
         text1: 'Abrindo impressora',
@@ -178,6 +185,16 @@ const RelatorioScreen: React.FC = () => {
             </View>
           </View>
 
+          <View style={[styles.resumoCard, { borderLeftColor: COLORS.info }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="person-outline" size={24} color={COLORS.info} />
+              <View style={{ marginLeft: SPACING.md }}>
+                <Text style={styles.resumoValor}>{dadosRelatorio.totalPacientes || 0}</Text>
+                <Text style={styles.resumoLabel}>Total de Pacientes</Text>
+              </View>
+            </View>
+          </View>
+
           <View style={[styles.resumoCard, { borderLeftColor: COLORS.success }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Ionicons name="checkmark-circle-outline" size={24} color={COLORS.success} />
@@ -212,7 +229,7 @@ const RelatorioScreen: React.FC = () => {
         {/* Botões de Exportação */}
         <View style={styles.botoesContainer}>
           <Button
-            title="📊 Exportar / Imprimir"
+            title="Exportar / Imprimir"
             onPress={() => setModalExportacaoVisivel(true)}
           />
         </View>
@@ -521,3 +538,6 @@ const styles = StyleSheet.create({
 });
 
 export default RelatorioScreen;
+
+
+

@@ -1,14 +1,15 @@
 -- ========================================
--- RESET COMPLETO (ORDEM CORRETA)
+-- RESET
 -- ========================================
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.handle_new_user CASCADE;
+DROP FUNCTION IF EXISTS public.is_admin CASCADE;
 DROP TABLE IF EXISTS public.profiles CASCADE;
 DROP TABLE IF EXISTS public.provincias CASCADE;
 
 -- ========================================
--- TABELA DE PROVINCIAS (NORMALIZACAO)
+-- TABELA DE PROVINCIAS
 -- ========================================
 
 CREATE TABLE public.provincias (
@@ -16,7 +17,6 @@ CREATE TABLE public.provincias (
     nome TEXT UNIQUE NOT NULL
 );
 
--- Inserir provincias de Angola
 INSERT INTO public.provincias (nome) VALUES
 ('Luanda'),
 ('Benguela'),
@@ -60,44 +60,66 @@ CREATE TABLE public.profiles (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Indices uteis
+-- ========================================
+-- INDICES
+-- ========================================
+
 CREATE INDEX idx_profiles_tipo ON public.profiles(tipo);
 CREATE INDEX idx_profiles_provincia ON public.profiles(provincia_id);
 
 -- ========================================
--- ATIVAR RLS
+-- RLS
 -- ========================================
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
 -- ========================================
--- POLICIES (PRODUCAO)
+-- FUNCAO ADMIN
 -- ========================================
 
--- SELECT: usuario ve apenas seu perfil
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.id = auth.uid()
+      AND lower(coalesce(p.tipo, '')) = 'admin'
+  );
+$$;
+
+-- ========================================
+-- POLICIES
+-- ========================================
+
+-- SELECT
 CREATE POLICY "Users can view their own profile"
 ON public.profiles
 FOR SELECT
 TO authenticated
-USING (auth.uid() = id);
+USING (auth.uid() = id OR public.is_admin());
 
--- UPDATE: usuario atualiza apenas seu perfil
+-- UPDATE
 CREATE POLICY "Users can update their own profile"
 ON public.profiles
 FOR UPDATE
 TO authenticated
-USING (auth.uid() = id)
-WITH CHECK (auth.uid() = id);
+USING (auth.uid() = id OR public.is_admin())
+WITH CHECK (auth.uid() = id OR public.is_admin());
 
--- DELETE: opcional
+-- DELETE
 CREATE POLICY "Users can delete their own profile"
 ON public.profiles
 FOR DELETE
 TO authenticated
-USING (auth.uid() = id);
+USING (auth.uid() = id OR public.is_admin());
 
 -- ========================================
--- FUNCAO PARA AUTO-CRIAR PERFIL
+-- FUNCAO AUTO CRIAR PERFIL
 -- ========================================
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -109,7 +131,6 @@ AS $$
 DECLARE
     provincia_padrao INTEGER;
 BEGIN
-    -- Pega ID da provincia Luanda como padrao
     SELECT id INTO provincia_padrao
     FROM public.provincias
     WHERE nome = 'Luanda'
@@ -142,6 +163,68 @@ CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_new_user();
+
+-- ========================================
+-- STORAGE: BUCKET TRIAGENS
+-- ========================================
+-- Se o bucket nao existir, cria.
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('triagens', 'triagens', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- RLS do storage.objects ja e gerenciado pelo Supabase.
+-- Nao usar ALTER TABLE aqui para evitar erro de ownership:
+-- ERROR: must be owner of table objects
+
+DROP POLICY IF EXISTS "Authenticated can read triagens images" ON storage.objects;
+CREATE POLICY "Authenticated can read triagens images"
+ON storage.objects
+FOR SELECT
+TO authenticated
+USING (bucket_id = 'triagens');
+
+DROP POLICY IF EXISTS "Authenticated can upload triagens images" ON storage.objects;
+CREATE POLICY "Authenticated can upload triagens images"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'triagens');
+
+DROP POLICY IF EXISTS "Authenticated can update triagens images" ON storage.objects;
+CREATE POLICY "Authenticated can update triagens images"
+ON storage.objects
+FOR UPDATE
+TO authenticated
+USING (bucket_id = 'triagens')
+WITH CHECK (bucket_id = 'triagens');
+
+DROP POLICY IF EXISTS "Authenticated can delete triagens images" ON storage.objects;
+CREATE POLICY "Authenticated can delete triagens images"
+ON storage.objects
+FOR DELETE
+TO authenticated
+USING (bucket_id = 'triagens');
+
+-- ========================================
+-- COMPATIBILIDADE TRIAGENS
+-- ========================================
+-- Garante colunas em snake_case usadas pelo app.
+
+ALTER TABLE IF EXISTS public.triagens
+  ADD COLUMN IF NOT EXISTS paciente_id UUID,
+  ADD COLUMN IF NOT EXISTS dentista_id UUID,
+  ADD COLUMN IF NOT EXISTS sintoma_principal TEXT,
+  ADD COLUMN IF NOT EXISTS descricao TEXT,
+  ADD COLUMN IF NOT EXISTS duracao TEXT,
+  ADD COLUMN IF NOT EXISTS localizacao TEXT,
+  ADD COLUMN IF NOT EXISTS intensidade_dor INTEGER,
+  ADD COLUMN IF NOT EXISTS imagens TEXT[],
+  ADD COLUMN IF NOT EXISTS prioridade TEXT,
+  ADD COLUMN IF NOT EXISTS status TEXT,
+  ADD COLUMN IF NOT EXISTS data_agendamento TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS observacoes TEXT,
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 -- ========================================
 -- CONFIRMACAO

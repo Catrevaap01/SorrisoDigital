@@ -186,11 +186,12 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
     setLoading(true);
 
     const triagemData = {
-      sintomaPrincipal,
+      paciente_id: profile.id,
+      sintoma_principal: sintomaPrincipal,
       descricao,
       duracao,
       localizacao,
-      intensidadeDor,
+      intensidade_dor: intensidadeDor,
     };
 
     const result = await criarTriagem(triagemData, imagens, profile.id);

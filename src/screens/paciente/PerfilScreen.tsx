@@ -78,7 +78,7 @@ const PerfilScreen: React.FC = () => {
         <View style={styles.avatarContainer}>
           <Text style={styles.avatarText}>{getInitials(profile?.nome)}</Text>
         </View>
-        <Text style={styles.headerNome}>{profile?.nome || 'UsuÃ¡rio'}</Text>
+        <Text style={styles.headerNome}>{profile?.nome || 'Usuario'}</Text>
         <Text style={styles.headerEmail}>{profile?.email}</Text>
         <View style={styles.tipoBadge}>
           <Ionicons 
@@ -95,7 +95,7 @@ const PerfilScreen: React.FC = () => {
       {/* InformaÃ§Ãµes Pessoais */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>InformaÃ§Ãµes Pessoais</Text>
+          <Text style={styles.sectionTitle}>Informacoes Pessoais</Text>
           <TouchableOpacity onPress={() => setEditando(!editando)}>
             <Ionicons
               name={editando ? 'close' : 'create-outline'}
@@ -210,11 +210,11 @@ const PerfilScreen: React.FC = () => {
 
       {/* OpÃ§Ãµes */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>ConfiguraÃ§Ãµes</Text>
+        <Text style={styles.sectionTitle}>Configurações</Text>
 
         <TouchableOpacity style={styles.opcaoItem}>
           <Ionicons name="notifications-outline" size={22} color={COLORS.textSecondary} />
-          <Text style={styles.opcaoText}>NotificaÃ§Ãµes</Text>
+          <Text style={styles.opcaoText}>Notificacoes</Text>
           <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
         </TouchableOpacity>
 
@@ -256,7 +256,7 @@ const PerfilScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Selecione a ProvÃ­ncia</Text>
+              <Text style={styles.modalTitle}>Selecione a Provincia</Text>
               <TouchableOpacity onPress={() => setShowProvincias(false)}>
                 <Ionicons name="close" size={24} color={COLORS.text} />
               </TouchableOpacity>

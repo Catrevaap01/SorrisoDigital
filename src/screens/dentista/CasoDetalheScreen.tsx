@@ -284,6 +284,34 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
         </View>
       )}
 
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>
+          Agendamentos do Paciente ({triagem.agendamentos?.length || 0})
+        </Text>
+        {!triagem.agendamentos || triagem.agendamentos.length === 0 ? (
+          <Text style={styles.infoValor}>Nenhum agendamento encontrado.</Text>
+        ) : (
+          triagem.agendamentos.map((agendamento: any) => (
+            <View key={agendamento.id} style={styles.agendamentoCard}>
+              <View style={styles.agendamentoHeader}>
+                <Text style={styles.agendamentoTipo}>{agendamento.tipo || 'Consulta'}</Text>
+                <Text style={styles.agendamentoStatus}>{agendamento.status || 'agendado'}</Text>
+              </View>
+              <Text style={styles.agendamentoData}>
+                {agendamento.data_agendamento
+                  ? formatDateTime(agendamento.data_agendamento)
+                  : 'Data nao informada'}
+              </Text>
+              {!!agendamento.observacoes && (
+                <Text style={styles.agendamentoObs} numberOfLines={2}>
+                  {agendamento.observacoes}
+                </Text>
+              )}
+            </View>
+          ))
+        )}
+      </View>
       {/* Formulário de Resposta */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>
@@ -556,6 +584,40 @@ const styles = StyleSheet.create({
     color: COLORS.textLight,
     marginTop: SIZES.xs,
   },
+  agendamentoCard: {
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radiusSm,
+    padding: SIZES.sm,
+    marginBottom: SIZES.sm,
+  },
+  agendamentoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  agendamentoTipo: {
+    fontSize: SIZES.fontMd,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  agendamentoStatus: {
+    fontSize: SIZES.fontXs,
+    color: COLORS.primary,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+  },
+  agendamentoData: {
+    marginTop: 4,
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+  },
+  agendamentoObs: {
+    marginTop: 6,
+    fontSize: SIZES.fontSm,
+    color: COLORS.text,
+  },
   campoLabel: {
     fontSize: SIZES.fontMd,
     fontWeight: '600',
@@ -678,3 +740,5 @@ const styles = StyleSheet.create({
 });
 
 export default CasoDetalheScreen;
+
+

@@ -1,6 +1,6 @@
 /**
- * Serviço de gerenciamento de dentistas
- * Funções para criar, listar, atualizar e deletar dentistas
+ * Servico de gerenciamento de dentistas
+ * Funcoes para criar, listar, atualizar e deletar dentistas
  */
 
 import { supabase, PROFILE_SCHEMA_FEATURES } from '../config/supabase';
@@ -9,10 +9,65 @@ import { UserProfile } from '../contexts/AuthContext';
 export interface DentistaProfile extends UserProfile {
   especialidade?: string;
   crm?: string;
+  numero_registro?: string;
   telefone?: string;
   provincia?: string;
   foto_url?: string;
 }
+
+const normalizeDentista = (row: any): DentistaProfile => ({
+  ...(row || {}),
+  crm: row?.crm || row?.numero_registro || row?.registro || undefined,
+});
+
+const stripMissingColumnAndRetryInsert = async (payload: Record<string, any>) => {
+  let currentPayload = { ...payload };
+  let response = await supabase.from('profiles').insert([currentPayload]).select().single();
+
+  while (response.error && (response.error as any).code === 'PGRST204') {
+    const missingColumnMatch = (response.error as any).message?.match(/'([^']+)' column/);
+    const missingColumn = missingColumnMatch?.[1];
+    if (!missingColumn || !(missingColumn in currentPayload)) break;
+
+    const { [missingColumn]: _ignored, ...nextPayload } = currentPayload;
+    currentPayload = nextPayload;
+    response = await supabase.from('profiles').insert([currentPayload]).select().single();
+  }
+
+  return response;
+};
+
+const stripMissingColumnAndRetryUpdate = async (
+  id: string,
+  payload: Record<string, any>
+) => {
+  let currentPayload = { ...payload };
+  let response = await supabase
+    .from('profiles')
+    .update(currentPayload)
+    .eq('id', id)
+    .eq('tipo', 'dentista')
+    .select()
+    .single();
+
+  while (response.error && (response.error as any).code === 'PGRST204') {
+    const missingColumnMatch = (response.error as any).message?.match(/'([^']+)' column/);
+    const missingColumn = missingColumnMatch?.[1];
+    if (!missingColumn || !(missingColumn in currentPayload)) break;
+
+    const { [missingColumn]: _ignored, ...nextPayload } = currentPayload;
+    currentPayload = nextPayload;
+    response = await supabase
+      .from('profiles')
+      .update(currentPayload)
+      .eq('id', id)
+      .eq('tipo', 'dentista')
+      .select()
+      .single();
+  }
+
+  return response;
+};
 
 /**
  * Criar novo dentista (apenas admin)
@@ -27,9 +82,13 @@ export const criarDentista = async (
   provincia?: string
 ): Promise<{ success: boolean; data?: DentistaProfile; error?: string }> => {
   try {
-    // 1. Criar usuário no Auth
+    const normalizedEmail = email.trim().toLowerCase();
+    const { data: previousSessionData } = await supabase.auth.getSession();
+    const previousSession = previousSessionData.session;
+
+    // 1. Criar usuario no Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
+      email: normalizedEmail,
       password: senha,
       options: {
         data: {
@@ -47,18 +106,30 @@ export const criarDentista = async (
     }
 
     if (!authData.user) {
-      return { success: false, error: 'Erro ao criar usuário' };
+      return { success: false, error: 'Erro ao criar usuario' };
+    }
+
+    // Evita troca de sessao do admin quando o signUp autentica o novo dentista.
+    if (previousSession && authData.session) {
+      const currentUserId = authData.session.user?.id;
+      if (currentUserId && currentUserId !== previousSession.user.id) {
+        await supabase.auth.setSession({
+          access_token: previousSession.access_token,
+          refresh_token: previousSession.refresh_token,
+        });
+      }
     }
 
     // 2. Criar perfil do dentista na tabela profiles
     const profilePayload = Object.fromEntries(
       Object.entries({
         id: authData.user.id,
-        email,
+        email: normalizedEmail,
         nome,
         tipo: 'dentista',
         especialidade,
         crm,
+        numero_registro: crm,
         telefone: telefone || null,
         provincia: provincia || null,
         senha_alterada: PROFILE_SCHEMA_FEATURES.hasSenhaAlterada ? false : undefined,
@@ -66,11 +137,8 @@ export const criarDentista = async (
       }).filter(([, value]) => value !== undefined)
     );
 
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .insert([profilePayload])
-      .select()
-      .single();
+    const { data: profileData, error: profileError } =
+      await stripMissingColumnAndRetryInsert(profilePayload);
 
     if (profileError) {
       return { success: false, error: profileError.message };
@@ -78,7 +146,7 @@ export const criarDentista = async (
 
     return {
       success: true,
-      data: profileData as DentistaProfile,
+      data: normalizeDentista(profileData),
     };
   } catch (error: any) {
     return {
@@ -109,7 +177,7 @@ export const listarDentistas = async (): Promise<{
 
     return {
       success: true,
-      data: (data || []) as DentistaProfile[],
+      data: (data || []).map(normalizeDentista),
     };
   } catch (error: any) {
     return {
@@ -141,7 +209,7 @@ export const obterDentista = async (id: string): Promise<{
 
     return {
       success: true,
-      data: data as DentistaProfile,
+      data: normalizeDentista(data),
     };
   } catch (error: any) {
     return {
@@ -159,16 +227,14 @@ export const atualizarDentista = async (
   updates: Partial<DentistaProfile>
 ): Promise<{ success: boolean; data?: DentistaProfile; error?: string }> => {
   try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .eq('tipo', 'dentista')
-      .select()
-      .single();
+    const updatePayload = {
+      ...updates,
+      crm: updates.crm ?? updates.numero_registro,
+      numero_registro: updates.crm ?? updates.numero_registro,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await stripMissingColumnAndRetryUpdate(id, updatePayload);
 
     if (error) {
       return { success: false, error: error.message };
@@ -176,7 +242,7 @@ export const atualizarDentista = async (
 
     return {
       success: true,
-      data: data as DentistaProfile,
+      data: normalizeDentista(data),
     };
   } catch (error: any) {
     return {
@@ -187,7 +253,7 @@ export const atualizarDentista = async (
 };
 
 /**
- * Deletar dentista (remove da tabela profiles e marca para deleção no auth)
+ * Deletar dentista (remove da tabela profiles e marca para delecao no auth)
  */
 export const deletarDentista = async (id: string): Promise<{
   success: boolean;
@@ -203,6 +269,12 @@ export const deletarDentista = async (id: string): Promise<{
 
     if (deleteError) {
       return { success: false, error: deleteError.message };
+    }
+
+    // 2. Tentar remover usuario no Auth (quando permitido pelo projeto).
+    const { error: authDeleteError } = await supabase.auth.admin.deleteUser(id);
+    if (authDeleteError) {
+      console.warn('Perfil removido, mas nao foi possivel remover usuario no Auth:', authDeleteError.message);
     }
 
     return { success: true };
@@ -236,7 +308,7 @@ export const procurarDentistas = async (termo: string): Promise<{
 
     return {
       success: true,
-      data: (data || []) as DentistaProfile[],
+      data: (data || []).map(normalizeDentista),
     };
   } catch (error: any) {
     return {
@@ -245,3 +317,4 @@ export const procurarDentistas = async (termo: string): Promise<{
     };
   }
 };
+

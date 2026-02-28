@@ -30,10 +30,50 @@ import {
   atualizarDentista,
   DentistaProfile,
 } from '../../services/dentistaService';
-import { sendWelcomeEmailToDentista } from '../../services/emailService';
+import {
+  sendWelcomeEmailToDentista,
+  sendPasswordRecoveryEmail,
+} from '../../services/emailService';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
 import { gerarSenhaTemporaria } from '../../utils/senhaUtils';
 import type { AdminTabParamList } from '../../navigation/AdminNavigator';
+
+const ESPECIALIDADES_DENTISTA = [
+  'Ortodontia',
+  'Implantologia',
+  'Endodontia',
+  'Periodontia',
+  'Odontopediatria',
+  'Cirurgia Bucomaxilofacial',
+  'Clinica Geral',
+  'Proteses Dentarias',
+  'Estetica Dental',
+  'Radiologia Odontologica',
+];
+
+const PROVINCIAS_ANGOLA = [
+  'Bengo',
+  'Benguela',
+  'Bie',
+  'Cabinda',
+  'Cuando Cubango',
+  'Cuanza Norte',
+  'Cuanza Sul',
+  'Cunene',
+  'Huambo',
+  'Huila',
+  'Luanda',
+  'Lunda Norte',
+  'Lunda Sul',
+  'Malanje',
+  'Moxico',
+  'Namibe',
+  'Uige',
+  'Zaire',
+];
+
+const getDentistaCRM = (dentista: DentistaProfile): string =>
+  dentista.crm || (dentista as any).numero_registro || 'N/A';
 
 const AdminDashboardScreen: React.FC = () => {
   const navigation = useNavigation<BottomTabNavigationProp<AdminTabParamList>>();
@@ -66,6 +106,10 @@ const AdminDashboardScreen: React.FC = () => {
   const [editTelefone, setEditTelefone] = useState('');
   const [editProvincia, setEditProvincia] = useState('');
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
+  const [modalEspecialidadeVisivel, setModalEspecialidadeVisivel] = useState(false);
+  const [especialidadeModo, setEspecialidadeModo] = useState<'create' | 'edit'>('create');
+  const [modalProvinciaVisivel, setModalProvinciaVisivel] = useState(false);
+  const [provinciaModo, setProvinciaModo] = useState<'create' | 'edit'>('create');
 
   // Gerar nova senha aleatória
   const handleGerarNovaSenha = () => {
@@ -76,6 +120,34 @@ const AdminDashboardScreen: React.FC = () => {
       text1: 'Senha gerada',
       text2: 'Uma nova senha temporária foi gerada',
     });
+  };
+
+  const abrirModalEspecialidade = (modo: 'create' | 'edit') => {
+    setEspecialidadeModo(modo);
+    setModalEspecialidadeVisivel(true);
+  };
+
+  const selecionarEspecialidade = (especialidade: string) => {
+    if (especialidadeModo === 'create') {
+      setNovaEspecialidade(especialidade);
+    } else {
+      setEditEspecialidade(especialidade);
+    }
+    setModalEspecialidadeVisivel(false);
+  };
+
+  const abrirModalProvincia = (modo: 'create' | 'edit') => {
+    setProvinciaModo(modo);
+    setModalProvinciaVisivel(true);
+  };
+
+  const selecionarProvincia = (provincia: string) => {
+    if (provinciaModo === 'create') {
+      setNovaProvincia(provincia);
+    } else {
+      setEditProvincia(provincia);
+    }
+    setModalProvinciaVisivel(false);
   };
 
   // Carregar dentistas
@@ -166,10 +238,13 @@ const AdminDashboardScreen: React.FC = () => {
 
     setEnviandoForm(true);
 
+    const emailDentista = novoEmail.trim().toLowerCase();
+    const nomeDentista = novoNome.trim();
+
     const resultado = await criarDentista(
-      novoEmail,
+      emailDentista,
       senhaParaUsar,
-      novoNome,
+      nomeDentista,
       novaEspecialidade,
       novoCRM,
       novoTelefone || undefined,
@@ -179,11 +254,19 @@ const AdminDashboardScreen: React.FC = () => {
     setEnviandoForm(false);
 
     if (resultado.success) {
-      const emailResult = await sendWelcomeEmailToDentista(
-        novoEmail.trim(),
-        novoNome.trim(),
+      let emailResult = await sendWelcomeEmailToDentista(
+        emailDentista,
+        nomeDentista,
         senhaParaUsar
       );
+
+      if (!emailResult.success) {
+        emailResult = await sendPasswordRecoveryEmail(
+          emailDentista,
+          nomeDentista,
+          senhaParaUsar
+        );
+      }
 
       if (emailResult.success) {
         Toast.show({
@@ -201,8 +284,16 @@ const AdminDashboardScreen: React.FC = () => {
 
       // Mostrar modal com a senha gerada
       setSenhaGerada(senhaParaUsar);
-      setNomeNovoDentistaParaSenha(novoNome);
+      setNomeNovoDentistaParaSenha(nomeDentista);
       setModalSenhaVisivel(true);
+      if (Clipboard && Clipboard.setString) {
+        Clipboard.setString(senhaParaUsar);
+        Toast.show({
+          type: 'success',
+          text1: 'Senha copiada',
+          text2: 'A senha temporaria foi copiada automaticamente',
+        });
+      }
 
       // Limpar form
       setNovoEmail('');
@@ -215,7 +306,7 @@ const AdminDashboardScreen: React.FC = () => {
       setModalVisivel(false);
 
       // Recarregar lista após 1 segundo
-      setTimeout(() => carregarDentistas(), 1000);
+      await carregarDentistas();
     } else {
       Toast.show({
         type: 'error',
@@ -325,7 +416,7 @@ const AdminDashboardScreen: React.FC = () => {
           <Text style={styles.dentistaEspecialidade}>
             {item.especialidade || 'Especialidade não definida'}
           </Text>
-          <Text style={styles.dentistaCRM}>CRM: {item.crm || 'N/A'}</Text>
+          <Text style={styles.dentistaCRM}>CRM: {getDentistaCRM(item)}</Text>
           {item.telefone && (
             <Text style={styles.dentistaTelefone}>📞 {item.telefone}</Text>
           )}
@@ -341,12 +432,21 @@ const AdminDashboardScreen: React.FC = () => {
           onPress={() => setDentistaSelecionado(item)}
         >
           <Ionicons name="eye" size={20} color={COLORS.primary} />
+          <Text style={styles.botaoAcaoTexto}>Ver</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.botaoAcao, styles.botaoEditar]}
+          onPress={() => handleAbrirEdicaoDentista(item)}
+        >
+          <Ionicons name="create-outline" size={20} color={COLORS.textInverse} />
+          <Text style={[styles.botaoAcaoTexto, { color: COLORS.textInverse }]}>Editar</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.botaoAcao, styles.botaoDelete]}
           onPress={() => handleDeletarDentista(item)}
         >
           <Ionicons name="trash" size={20} color={COLORS.error} />
+          <Text style={[styles.botaoAcaoTexto, { color: COLORS.error }]}>Excluir</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -473,13 +573,15 @@ const AdminDashboardScreen: React.FC = () => {
               {/* Especialidade */}
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Especialidade *</Text>
-                <TextInput
+                <TouchableOpacity
                   style={styles.formInput}
-                  placeholder="Ex: Ortodontia, Implantologia..."
-                  value={novaEspecialidade}
-                  onChangeText={setNovaEspecialidade}
-                  editable={!enviandoForm}
-                />
+                  onPress={() => abrirModalEspecialidade('create')}
+                  disabled={enviandoForm}
+                >
+                  <Text style={{ color: novaEspecialidade ? COLORS.text : COLORS.textSecondary }}>
+                    {novaEspecialidade || 'Selecionar especialidade'}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               {/* CRM */}
@@ -510,13 +612,15 @@ const AdminDashboardScreen: React.FC = () => {
               {/* Província */}
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Província</Text>
-                <TextInput
+                <TouchableOpacity
                   style={styles.formInput}
-                  placeholder="Ex: Luanda, Benguela..."
-                  value={novaProvincia}
-                  onChangeText={setNovaProvincia}
-                  editable={!enviandoForm}
-                />
+                  onPress={() => abrirModalProvincia('create')}
+                  disabled={enviandoForm}
+                >
+                  <Text style={{ color: novaProvincia ? COLORS.text : COLORS.textSecondary }}>
+                    {novaProvincia || 'Selecionar provincia'}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               <Text style={styles.formNote}>* Campos obrigatórios</Text>
@@ -586,7 +690,7 @@ const AdminDashboardScreen: React.FC = () => {
 
                 <View style={styles.detalheItem}>
                   <Text style={styles.detalheLabel}>CRM:</Text>
-                  <Text style={styles.detalheValor}>{dentistaSelecionado.crm || 'N/A'}</Text>
+                  <Text style={styles.detalheValor}>{getDentistaCRM(dentistaSelecionado)}</Text>
                 </View>
 
                 <View style={styles.detalheItem}>
@@ -611,6 +715,15 @@ const AdminDashboardScreen: React.FC = () => {
                       : 'N/A'}
                   </Text>
                 </View>
+
+                <View style={styles.detalheItem}>
+                  <Text style={styles.detalheLabel}>Atualizado em:</Text>
+                  <Text style={styles.detalheValor}>
+                    {dentistaSelecionado.updated_at
+                      ? new Date(dentistaSelecionado.updated_at).toLocaleDateString('pt-AO')
+                      : 'N/A'}
+                  </Text>
+                </View>
               </ScrollView>
 
               <View style={styles.modalFooter}>
@@ -619,27 +732,6 @@ const AdminDashboardScreen: React.FC = () => {
                   onPress={() => setDentistaSelecionado(null)}
                 >
                   <Text style={styles.botaoModalTexto}>Fechar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.botaoModal, styles.botaoEditar]}
-                  onPress={() => handleAbrirEdicaoDentista(dentistaSelecionado)}
-                >
-                  <Ionicons name="create-outline" size={20} color={COLORS.textInverse} />
-                  <Text style={[styles.botaoModalTexto, styles.botaoConfirmarTexto]}>
-                    Editar
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.botaoModal, styles.botaoDelete]}
-                  onPress={() => {
-                    handleDeletarDentista(dentistaSelecionado);
-                    setDentistaSelecionado(null);
-                  }}
-                >
-                  <Ionicons name="trash" size={20} color={COLORS.error} />
-                  <Text style={[styles.botaoModalTexto, { color: COLORS.error }]}>
-                    Deletar
-                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -665,6 +757,22 @@ const AdminDashboardScreen: React.FC = () => {
 
             <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false}>
               <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>ID</Text>
+                <View style={styles.formInput}>
+                  <Text style={styles.formReadOnlyValue}>{dentistaEdicaoId || '-'}</Text>
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>E-mail</Text>
+                <View style={styles.formInput}>
+                  <Text style={styles.formReadOnlyValue}>
+                    {dentistaSelecionado?.email || 'Nao informado'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Nome *</Text>
                 <TextInput
                   style={styles.formInput}
@@ -676,12 +784,15 @@ const AdminDashboardScreen: React.FC = () => {
 
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Especialidade *</Text>
-                <TextInput
+                <TouchableOpacity
                   style={styles.formInput}
-                  value={editEspecialidade}
-                  onChangeText={setEditEspecialidade}
-                  editable={!salvandoEdicao}
-                />
+                  onPress={() => abrirModalEspecialidade('edit')}
+                  disabled={salvandoEdicao}
+                >
+                  <Text style={{ color: editEspecialidade ? COLORS.text : COLORS.textSecondary }}>
+                    {editEspecialidade || 'Selecionar especialidade'}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               <View style={styles.formGroup}>
@@ -707,12 +818,26 @@ const AdminDashboardScreen: React.FC = () => {
 
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Provincia</Text>
-                <TextInput
+                <TouchableOpacity
                   style={styles.formInput}
-                  value={editProvincia}
-                  onChangeText={setEditProvincia}
-                  editable={!salvandoEdicao}
-                />
+                  onPress={() => abrirModalProvincia('edit')}
+                  disabled={salvandoEdicao}
+                >
+                  <Text style={{ color: editProvincia ? COLORS.text : COLORS.textSecondary }}>
+                    {editProvincia || 'Selecionar provincia'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Criado em</Text>
+                <View style={styles.formInput}>
+                  <Text style={styles.formReadOnlyValue}>
+                    {dentistaSelecionado?.created_at
+                      ? new Date(dentistaSelecionado.created_at).toLocaleDateString('pt-AO')
+                      : 'N/A'}
+                  </Text>
+                </View>
               </View>
             </ScrollView>
 
@@ -842,6 +967,47 @@ const AdminDashboardScreen: React.FC = () => {
                 </Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={modalEspecialidadeVisivel}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalEspecialidadeVisivel(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Selecionar Especialidade</Text>
+              <TouchableOpacity onPress={() => setModalEspecialidadeVisivel(false)}>
+                <Ionicons name="close" size={28} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false}>
+              {ESPECIALIDADES_DENTISTA.map((especialidade) => {
+                const selecionada =
+                  especialidadeModo === 'create'
+                    ? novaEspecialidade === especialidade
+                    : editEspecialidade === especialidade;
+                return (
+                  <TouchableOpacity
+                    key={especialidade}
+                    style={[
+                      styles.opcaoEspecialidade,
+                      selecionada && {
+                        borderLeftColor: COLORS.success,
+                        backgroundColor: COLORS.primaryLight,
+                      },
+                    ]}
+                    onPress={() => selecionarEspecialidade(especialidade)}
+                  >
+                    <Text style={styles.opcaoEspecialidadeTexto}>{especialidade}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -984,12 +1150,19 @@ const styles = StyleSheet.create({
     gap: SPACING.md,
   },
   botaoAcao: {
-    width: 40,
-    height: 40,
+    minWidth: 56,
+    height: 50,
     borderRadius: 8,
     backgroundColor: COLORS.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  botaoAcaoTexto: {
+    marginTop: 2,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.primary,
+    fontWeight: '600',
   },
   botaoDelete: {
     backgroundColor: COLORS.errorLight,
@@ -1071,6 +1244,10 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     backgroundColor: COLORS.backgroundSecondary,
   },
+  formReadOnlyValue: {
+    fontSize: TYPOGRAPHY.sizes.body,
+    color: COLORS.text,
+  },
   formNote: {
     fontSize: TYPOGRAPHY.sizes.small,
     color: COLORS.textSecondary,
@@ -1130,6 +1307,20 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: '500',
   },
+  opcaoEspecialidade: {
+    backgroundColor: COLORS.card,
+    padding: SPACING.md,
+    borderRadius: 8,
+    marginBottom: SPACING.md,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+  },
+  opcaoEspecialidadeTexto: {
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
 });
 
 export default AdminDashboardScreen;
+

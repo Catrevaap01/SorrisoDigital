@@ -5,7 +5,7 @@
 import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
 import { handleError, HandledError } from '../utils/errorHandler';
-import { uploadImage, uploadMultipleImages, deleteImage } from './storageService';
+import { uploadMultipleImages } from './storageService';
 
 export interface TriagemData {
   paciente_id?: string;
@@ -29,6 +29,7 @@ export interface Triagem extends TriagemData {
   updated_at?: string;
   paciente?: Record<string, any>;
   respostas?: any[];
+  agendamentos?: any[];
 }
 
 export interface Contadores {
@@ -45,6 +46,161 @@ export interface ServiceResult<T> {
   error?: HandledError | string;
 }
 
+const TRIAGEM_CAMEL_TO_SNAKE: Record<string, string> = {
+  pacienteId: 'paciente_id',
+  dentistaId: 'dentista_id',
+  sintomaPrincipal: 'sintoma_principal',
+  intensidadeDor: 'intensidade_dor',
+  dataAgendamento: 'data_agendamento',
+};
+
+const toTriagemDbPayload = (
+  dados: Partial<TriagemData>,
+  pacienteId?: string
+): Record<string, any> => {
+  const payload: Record<string, any> = {};
+
+  Object.entries(dados || {}).forEach(([key, value]) => {
+    const mappedKey = TRIAGEM_CAMEL_TO_SNAKE[key] || key;
+    payload[mappedKey] = value;
+  });
+
+  if (pacienteId && !payload.paciente_id) {
+    payload.paciente_id = pacienteId;
+  }
+
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined)
+  );
+};
+
+const normalizeTriagemRecord = (row: any): Triagem => {
+  if (!row) return row as Triagem;
+  return {
+    ...row,
+    sintoma_principal: row.sintoma_principal ?? row.sintomaPrincipal,
+    intensidade_dor: row.intensidade_dor ?? row.intensidadeDor,
+    data_agendamento: row.data_agendamento ?? row.dataAgendamento,
+  } as Triagem;
+};
+
+const PROVINCIAS_STATIC_ORDER = [
+  'Luanda',
+  'Benguela',
+  'Huambo',
+  'Huila',
+  'Bie',
+  'Malanje',
+  'Uige',
+  'Zaire',
+  'Cabinda',
+  'Cunene',
+  'Cuando Cubango',
+  'Cuanza Norte',
+  'Cuanza Sul',
+  'Lunda Norte',
+  'Lunda Sul',
+  'Moxico',
+  'Namibe',
+  'Bengo',
+];
+
+const provinciaNameFromId = (id?: number): string | undefined => {
+  if (!id || id < 1 || id > PROVINCIAS_STATIC_ORDER.length) return undefined;
+  return PROVINCIAS_STATIC_ORDER[id - 1];
+};
+
+const enrichTriagens = async (triagensBase: Triagem[]): Promise<Triagem[]> => {
+  if (!triagensBase.length) return triagensBase;
+
+  const triagens = triagensBase.map((t) => ({ ...t }));
+  const triagemIds = triagens.map((t) => t.id).filter(Boolean);
+  const pacienteIds = Array.from(
+    new Set(triagens.map((t) => t.paciente_id).filter(Boolean))
+  ) as string[];
+
+  let pacientesById: Record<string, any> = {};
+  if (pacienteIds.length) {
+    const { data: pacientes } = await supabase
+      .from('profiles')
+      .select('id, nome, email, telefone, provincia_id, provincias(nome)')
+      .in('id', pacienteIds);
+
+    pacientesById = Object.fromEntries(
+      (pacientes || []).map((p: any) => [
+        p.id,
+        {
+          ...p,
+          provincia:
+            p.provincia ??
+            p.provincias?.nome ??
+            p.provincias?.[0]?.nome ??
+            provinciaNameFromId(p.provincia_id),
+        },
+      ])
+    );
+  }
+
+  let respostasByTriagemId: Record<string, any[]> = {};
+  if (triagemIds.length) {
+    const { data: respostas } = await supabase
+      .from('respostas_triagem')
+      .select('*')
+      .in('triagem_id', triagemIds)
+      .order('created_at', { ascending: false });
+
+    const dentistaIds = Array.from(
+      new Set((respostas || []).map((r: any) => r.dentista_id).filter(Boolean))
+    ) as string[];
+
+    let dentistasById: Record<string, any> = {};
+    if (dentistaIds.length) {
+      const { data: dentistas } = await supabase
+        .from('profiles')
+        .select('id, nome, email, telefone')
+        .in('id', dentistaIds);
+
+      dentistasById = Object.fromEntries((dentistas || []).map((d: any) => [d.id, d]));
+    }
+
+    respostasByTriagemId = (respostas || []).reduce((acc: Record<string, any[]>, r: any) => {
+      const triagemId = r.triagem_id;
+      if (!acc[triagemId]) acc[triagemId] = [];
+      acc[triagemId].push({
+        ...r,
+        dentista: r.dentista || dentistasById[r.dentista_id] || undefined,
+      });
+      return acc;
+    }, {});
+  }
+
+  let agendamentosByPacienteId: Record<string, any[]> = {};
+  if (pacienteIds.length) {
+    const { data: agendamentos } = await supabase
+      .from('agendamentos')
+      .select('*')
+      .in('paciente_id', pacienteIds)
+      .order('data_agendamento', { ascending: false });
+
+    agendamentosByPacienteId = (agendamentos || []).reduce(
+      (acc: Record<string, any[]>, ag: any) => {
+        const pacienteId = ag.paciente_id;
+        if (!acc[pacienteId]) acc[pacienteId] = [];
+        acc[pacienteId].push(ag);
+        return acc;
+      },
+      {}
+    );
+  }
+
+  return triagens.map((t) => ({
+    ...t,
+    paciente: t.paciente || pacientesById[t.paciente_id || ''] || undefined,
+    respostas: t.respostas || respostasByTriagemId[t.id] || [],
+    agendamentos: agendamentosByPacienteId[t.paciente_id || ''] || [],
+  }));
+};
+
 /**
  * Cria uma nova triagem (paciente)
  * opcionalmente envia imagens antes de inserir o registro
@@ -55,21 +211,52 @@ export const criarTriagem = async (
   pacienteId?: string
 ): Promise<ServiceResult<Triagem>> => {
   try {
+    const payload = toTriagemDbPayload(dados, pacienteId);
+
     // fazer upload das imagens primeiro
     if (imageUris.length && pacienteId) {
       const urls = await uploadMultipleImages(imageUris, pacienteId);
-      dados.imagens = urls;
+      if (urls.length > 0) {
+        payload.imagens = urls;
+      } else {
+        logger.warn(
+          'Upload de imagens indisponivel (bucket/politica). Triagem sera criada sem imagens.'
+        );
+      }
     }
 
-    const { data, error } = await supabase
-      .from('triagens')
-      .insert([dados])
-      .select()
-      .single();
+    const runInsert = async (insertPayload: Record<string, any>) =>
+      await supabase
+        .from('triagens')
+        .insert([insertPayload])
+        .select()
+        .single();
+
+    let currentPayload = { ...payload };
+    let { data, error } = await runInsert(currentPayload);
+
+    while (error && (error as any).code === 'PGRST204') {
+      const missingColumnMatch = (error as any).message?.match(/'([^']+)' column/);
+      const missingColumn = missingColumnMatch?.[1];
+
+      if (!missingColumn || !(missingColumn in currentPayload)) {
+        break;
+      }
+
+      const { [missingColumn]: _, ...fallbackPayload } = currentPayload;
+      currentPayload = fallbackPayload;
+      ({ data, error } = await runInsert(currentPayload));
+
+      if (!error) {
+        logger.warn(
+          `Coluna ausente no schema de triagens ignorada no criarTriagem: ${missingColumn}`
+        );
+      }
+    }
 
     if (error) throw error;
 
-    return { success: true, data: data as Triagem };
+    return { success: true, data: normalizeTriagemRecord(data) };
   } catch (err) {
     const handled = handleError(err, 'triagemService.criarTriagem');
     return { success: false, error: handled };
@@ -87,7 +274,8 @@ export const buscarTriagensPaciente = async (
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return { success: true, data: data as Triagem[] };
+    const normalized = (data || []).map((item) => normalizeTriagemRecord(item));
+    return { success: true, data: await enrichTriagens(normalized) };
   } catch (err) {
     const handled = handleError(err, 'triagemService.buscarTriagensPaciente');
     return { success: false, error: handled };
@@ -107,7 +295,8 @@ export const buscarTodasTriagens = async (
     const { data, error } = await query;
 
     if (error) throw error;
-    return { success: true, data: data as Triagem[] };
+    const normalized = (data || []).map((item) => normalizeTriagemRecord(item));
+    return { success: true, data: await enrichTriagens(normalized) };
   } catch (err) {
     const handled = handleError(err, 'triagemService.buscarTodasTriagens');
     return { success: false, error: handled };
@@ -152,7 +341,9 @@ export const buscarTriagemPorId = async (
       .single();
 
     if (error) throw error;
-    return { success: true, data: data as Triagem };
+    const normalized = normalizeTriagemRecord(data);
+    const enriched = await enrichTriagens([normalized]);
+    return { success: true, data: enriched[0] };
   } catch (err) {
     const handled = handleError(err, 'triagemService.buscarTriagemPorId');
     return { success: false, error: handled };
