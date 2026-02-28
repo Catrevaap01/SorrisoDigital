@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -25,7 +25,7 @@ export default function LoginScreen({ navigation }: any) {
     setLoading(true);
 
     try {
-      await login(email, password);
+      await login(email.trim().toLowerCase(), password);
     } catch (err: any) {
       setError(err.message || 'Erro ao fazer login');
     } finally {

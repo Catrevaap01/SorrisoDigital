@@ -28,7 +28,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
-  const { signUp, loading, user } = useAuth();
+  const { signUp, loading } = useAuth();
 
   const handleRegister = async () => {
     if (!nome.trim() || !email.trim() || !password.trim()) {
@@ -37,10 +37,10 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     }
     const result = await signUp(email.trim(), password, { nome: nome.trim() });
     if (result.success) {
-      Alert.alert('Conta criada com sucesso', 'Faça login para continuar');
-      // caso o signup não inicie sessão automaticamente, voltar para login
-      if (!user) {
-        navigation.navigate('Login');
+      const hasSession = Boolean(result.data?.session);
+      if (!hasSession) {
+        Alert.alert('Conta criada com sucesso', 'Faca login para continuar');
+        navigation.replace('Login');
       }
     }
   };
@@ -251,3 +251,4 @@ const styles = StyleSheet.create({
 });
 
 export default RegisterScreen;
+

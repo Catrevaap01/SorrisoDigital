@@ -44,13 +44,37 @@ export interface HandledError {
   originalError: Error;
 }
 
+const extractErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+
+  if (error && typeof error === 'object') {
+    const maybeError = error as {
+      message?: string;
+      error_description?: string;
+      details?: string;
+      hint?: string;
+      code?: string;
+    };
+
+    if (maybeError.message) return maybeError.message;
+    if (maybeError.error_description) return maybeError.error_description;
+    if (maybeError.details) return maybeError.details;
+    if (maybeError.hint) return maybeError.hint;
+    if (maybeError.code) return `Erro (${maybeError.code})`;
+  }
+
+  return 'Erro desconhecido';
+};
+
 /**
  * Analisa um erro e retorna tipo e mensagem estruturada
  */
 export const handleError = (error: unknown, context: string = ''): HandledError => {
-  const errorObj = error instanceof Error ? error : new Error(String(error));
+  const rawMessage = extractErrorMessage(error);
+  const errorObj = error instanceof Error ? error : new Error(rawMessage);
   
-  logger.error(`Error in ${context}:`, errorObj);
+  logger.error(`Error in ${context}:`, error);
 
   // Se for um objeto com message, usar isso
   if (errorObj?.message) {
@@ -80,7 +104,11 @@ export const handleError = (error: unknown, context: string = ''): HandledError 
       };
     }
 
-    if (message.includes('forbidden')) {
+    if (
+      message.includes('forbidden') ||
+      message.includes('permission denied') ||
+      message.includes('row-level security')
+    ) {
       return {
         type: ErrorType.AUTHORIZATION,
         message: ERROR_MESSAGES[ErrorType.AUTHORIZATION],
@@ -115,7 +143,7 @@ export const handleError = (error: unknown, context: string = ''): HandledError 
 
   return {
     type: ErrorType.UNKNOWN,
-    message: ERROR_MESSAGES[ErrorType.UNKNOWN],
+    message: rawMessage !== 'Erro desconhecido' ? rawMessage : ERROR_MESSAGES[ErrorType.UNKNOWN],
     originalError: errorObj,
   };
 };

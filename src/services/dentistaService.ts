@@ -3,7 +3,7 @@
  * Funções para criar, listar, atualizar e deletar dentistas
  */
 
-import { supabase } from '../config/supabase';
+import { supabase, PROFILE_SCHEMA_FEATURES } from '../config/supabase';
 import { UserProfile } from '../contexts/AuthContext';
 
 export interface DentistaProfile extends UserProfile {
@@ -37,6 +37,7 @@ export const criarDentista = async (
           tipo: 'dentista',
           especialidade,
           crm,
+          force_password_change: true,
         },
       },
     });
@@ -50,22 +51,24 @@ export const criarDentista = async (
     }
 
     // 2. Criar perfil do dentista na tabela profiles
+    const profilePayload = Object.fromEntries(
+      Object.entries({
+        id: authData.user.id,
+        email,
+        nome,
+        tipo: 'dentista',
+        especialidade,
+        crm,
+        telefone: telefone || null,
+        provincia: provincia || null,
+        senha_alterada: PROFILE_SCHEMA_FEATURES.hasSenhaAlterada ? false : undefined,
+        created_at: new Date().toISOString(),
+      }).filter(([, value]) => value !== undefined)
+    );
+
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
-      .insert([
-        {
-          id: authData.user.id,
-          email,
-          nome,
-          tipo: 'dentista',
-          especialidade,
-          crm,
-          telefone: telefone || null,
-          provincia: provincia || null,
-          senha_alterada: false,
-          created_at: new Date().toISOString(),
-        },
-      ])
+      .insert([profilePayload])
       .select()
       .single();
 

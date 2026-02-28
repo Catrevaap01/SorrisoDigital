@@ -66,6 +66,7 @@ export interface ShadowStyle {
 }
 
 export interface ThemeShadows {
+  small: ShadowStyle;
   sm: ShadowStyle;
   md: ShadowStyle;
   lg: ShadowStyle;
@@ -147,6 +148,13 @@ export const SIZES: ThemeSizes = {
 };
 
 export const SHADOWS: ThemeShadows = {
+  small: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
+  },
   sm: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -182,6 +190,11 @@ export const SPACING = {
 // Tipografia - tamanhos e estilos de fontes
 export const TYPOGRAPHY = {
   sizes: {
+    xs: 10,
+    sm: 12,
+    md: 16,
+    lg: 20,
+    xl: 24,
     h1: 32,
     h2: 24,
     h3: 20,

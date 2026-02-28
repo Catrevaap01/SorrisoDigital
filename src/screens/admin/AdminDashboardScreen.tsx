@@ -3,7 +3,7 @@
  * Gerenciar dentistas (criar, listar, atualizar, deletar)
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,19 +20,23 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import {
   listarDentistas,
   criarDentista,
   deletarDentista,
   procurarDentistas,
+  atualizarDentista,
   DentistaProfile,
 } from '../../services/dentistaService';
+import { sendWelcomeEmailToDentista } from '../../services/emailService';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
-import { Button } from '../../components/ui/Button';
 import { gerarSenhaTemporaria } from '../../utils/senhaUtils';
+import type { AdminTabParamList } from '../../navigation/AdminNavigator';
 
 const AdminDashboardScreen: React.FC = () => {
+  const navigation = useNavigation<BottomTabNavigationProp<AdminTabParamList>>();
   const [dentistas, setDentistas] = useState<DentistaProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -54,6 +58,14 @@ const AdminDashboardScreen: React.FC = () => {
   const [modalSenhaVisivel, setModalSenhaVisivel] = useState(false);
   const [senhaGerada, setSenhaGerada] = useState('');
   const [nomeNovoDentistaParaSenha, setNomeNovoDentistaParaSenha] = useState('');
+  const [modalEditarVisivel, setModalEditarVisivel] = useState(false);
+  const [dentistaEdicaoId, setDentistaEdicaoId] = useState('');
+  const [editNome, setEditNome] = useState('');
+  const [editEspecialidade, setEditEspecialidade] = useState('');
+  const [editCRM, setEditCRM] = useState('');
+  const [editTelefone, setEditTelefone] = useState('');
+  const [editProvincia, setEditProvincia] = useState('');
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
 
   // Gerar nova senha aleatória
   const handleGerarNovaSenha = () => {
@@ -167,6 +179,26 @@ const AdminDashboardScreen: React.FC = () => {
     setEnviandoForm(false);
 
     if (resultado.success) {
+      const emailResult = await sendWelcomeEmailToDentista(
+        novoEmail.trim(),
+        novoNome.trim(),
+        senhaParaUsar
+      );
+
+      if (emailResult.success) {
+        Toast.show({
+          type: 'success',
+          text1: 'Email enviado',
+          text2: 'Senha temporaria enviada para o email do dentista',
+        });
+      } else {
+        Toast.show({
+          type: 'info',
+          text1: 'Dentista criado',
+          text2: 'Nao foi possivel enviar email automaticamente',
+        });
+      }
+
       // Mostrar modal com a senha gerada
       setSenhaGerada(senhaParaUsar);
       setNomeNovoDentistaParaSenha(novoNome);
@@ -228,6 +260,59 @@ const AdminDashboardScreen: React.FC = () => {
     );
   };
 
+  const handleAbrirEdicaoDentista = (dentista: DentistaProfile) => {
+    setDentistaEdicaoId(dentista.id);
+    setEditNome(dentista.nome || '');
+    setEditEspecialidade(dentista.especialidade || '');
+    setEditCRM(dentista.crm || '');
+    setEditTelefone(dentista.telefone || '');
+    setEditProvincia(dentista.provincia || '');
+    setModalEditarVisivel(true);
+  };
+
+  const handleSalvarEdicaoDentista = async () => {
+    if (!dentistaEdicaoId) return;
+    if (!editNome.trim()) {
+      Toast.show({ type: 'error', text1: 'Nome obrigatorio' });
+      return;
+    }
+    if (!editEspecialidade.trim()) {
+      Toast.show({ type: 'error', text1: 'Especialidade obrigatoria' });
+      return;
+    }
+    if (!editCRM.trim()) {
+      Toast.show({ type: 'error', text1: 'CRM obrigatorio' });
+      return;
+    }
+
+    setSalvandoEdicao(true);
+    const resultado = await atualizarDentista(dentistaEdicaoId, {
+      nome: editNome.trim(),
+      especialidade: editEspecialidade.trim(),
+      crm: editCRM.trim(),
+      telefone: editTelefone.trim() || undefined,
+      provincia: editProvincia.trim() || undefined,
+    });
+    setSalvandoEdicao(false);
+
+    if (resultado.success) {
+      Toast.show({
+        type: 'success',
+        text1: 'Dentista atualizado',
+        text2: 'Dados salvos com sucesso',
+      });
+      setModalEditarVisivel(false);
+      setDentistaSelecionado(null);
+      await carregarDentistas(busca || undefined);
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: resultado.error || 'Nao foi possivel atualizar dentista',
+      });
+    }
+  };
+
   // Renderizar item dentista
   const renderDentista = ({ item }: { item: DentistaProfile }) => (
     <View style={styles.dentistaCard}>
@@ -280,7 +365,6 @@ const AdminDashboardScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Barra de busca */}
       <View style={styles.buscaContainer}>
         <Ionicons name="search" size={20} color={COLORS.textSecondary} />
         <TextInput
@@ -537,6 +621,15 @@ const AdminDashboardScreen: React.FC = () => {
                   <Text style={styles.botaoModalTexto}>Fechar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
+                  style={[styles.botaoModal, styles.botaoEditar]}
+                  onPress={() => handleAbrirEdicaoDentista(dentistaSelecionado)}
+                >
+                  <Ionicons name="create-outline" size={20} color={COLORS.textInverse} />
+                  <Text style={[styles.botaoModalTexto, styles.botaoConfirmarTexto]}>
+                    Editar
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                   style={[styles.botaoModal, styles.botaoDelete]}
                   onPress={() => {
                     handleDeletarDentista(dentistaSelecionado);
@@ -552,6 +645,101 @@ const AdminDashboardScreen: React.FC = () => {
             </View>
           </View>
         )}
+      </Modal>
+
+      {/* Modal - Editar dentista */}
+      <Modal
+        visible={modalEditarVisivel}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalEditarVisivel(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Editar Dentista</Text>
+              <TouchableOpacity onPress={() => setModalEditarVisivel(false)}>
+                <Ionicons name="close" size={28} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false}>
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Nome *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={editNome}
+                  onChangeText={setEditNome}
+                  editable={!salvandoEdicao}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Especialidade *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={editEspecialidade}
+                  onChangeText={setEditEspecialidade}
+                  editable={!salvandoEdicao}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>CRM *</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={editCRM}
+                  onChangeText={setEditCRM}
+                  editable={!salvandoEdicao}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Telefone</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={editTelefone}
+                  onChangeText={setEditTelefone}
+                  keyboardType="phone-pad"
+                  editable={!salvandoEdicao}
+                />
+              </View>
+
+              <View style={styles.formGroup}>
+                <Text style={styles.formLabel}>Provincia</Text>
+                <TextInput
+                  style={styles.formInput}
+                  value={editProvincia}
+                  onChangeText={setEditProvincia}
+                  editable={!salvandoEdicao}
+                />
+              </View>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.botaoModal, styles.botaoCancelar]}
+                onPress={() => setModalEditarVisivel(false)}
+                disabled={salvandoEdicao}
+              >
+                <Text style={styles.botaoModalTexto}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.botaoModal, styles.botaoConfirmar]}
+                onPress={handleSalvarEdicaoDentista}
+                disabled={salvandoEdicao}
+              >
+                {salvandoEdicao ? (
+                  <ActivityIndicator color={COLORS.textInverse} />
+                ) : (
+                  <Text style={[styles.botaoModalTexto, styles.botaoConfirmarTexto]}>
+                    Salvar
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
       {/* Modal - Senha Gerada */}
@@ -682,6 +870,38 @@ const styles = StyleSheet.create({
   },
   botaoCriar: {
     padding: SPACING.sm,
+  },
+  acoesRapidasContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.xs,
+  },
+  acaoRapida: {
+    width: '48.5%',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    marginBottom: SPACING.sm,
+  },
+  acaoRapidaAtiva: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryLight,
+  },
+  acaoRapidaTexto: {
+    color: COLORS.primary,
+    fontSize: TYPOGRAPHY.sizes.xs,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   buscaContainer: {
     flexDirection: 'row',
@@ -880,6 +1100,9 @@ const styles = StyleSheet.create({
   },
   botaoConfirmar: {
     backgroundColor: COLORS.primary,
+  },
+  botaoEditar: {
+    backgroundColor: COLORS.info,
   },
   botaoModalTexto: {
     fontSize: TYPOGRAPHY.sizes.body,

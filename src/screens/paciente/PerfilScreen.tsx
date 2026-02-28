@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,29 +11,40 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
+import { PROFILE_SCHEMA_FEATURES } from '../../config/supabase';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { PROVINCIAS_ANGOLA } from '../../utils/constants';
 import { getInitials, formatDate } from '../../utils/helpers';
 
 const PerfilScreen: React.FC = () => {
   const { profile, updateProfile, signOut, loading } = useAuth();
-  const { themeMode, setThemeMode } = useTheme();
   const [editando, setEditando] = useState<boolean>(false);
   const [showProvincias, setShowProvincias] = useState<boolean>(false);
-  const [showThemeModal, setShowThemeModal] = useState<boolean>(false);
+  const canEditProvincia =
+    PROFILE_SCHEMA_FEATURES.hasProvincia || PROFILE_SCHEMA_FEATURES.usesProvinciaId;
   
-  // Campos editáveis
+  // Campos editÃ¡veis
   const [nome, setNome] = useState<string>(profile?.nome || '');
   const [telefone, setTelefone] = useState<string>(profile?.telefone || '');
   const [provincia, setProvincia] = useState<string>(profile?.provincia || '');
 
+  useEffect(() => {
+    setNome(profile?.nome || '');
+    setTelefone(profile?.telefone || '');
+    setProvincia(profile?.provincia || '');
+  }, [profile]);
+
   const handleSalvar = async () => {
-    const result = await updateProfile({
+    const updates: Record<string, string> = {
       nome: nome.trim(),
       telefone: telefone.trim(),
-      provincia,
-    });
+    };
+
+    if (canEditProvincia) {
+      updates.provincia = provincia;
+    }
+
+    const result = await updateProfile(updates);
 
     if (result.success) {
       setEditando(false);
@@ -58,7 +69,7 @@ const PerfilScreen: React.FC = () => {
     );
   };
 
-  const isDentista = profile?.tipo === 'dentista';
+  const isDentista = profile?.tipo === 'dentista' || profile?.tipo === 'medico';
 
   return (
     <ScrollView style={styles.container}>
@@ -67,7 +78,7 @@ const PerfilScreen: React.FC = () => {
         <View style={styles.avatarContainer}>
           <Text style={styles.avatarText}>{getInitials(profile?.nome)}</Text>
         </View>
-        <Text style={styles.headerNome}>{profile?.nome || 'Usuário'}</Text>
+        <Text style={styles.headerNome}>{profile?.nome || 'UsuÃ¡rio'}</Text>
         <Text style={styles.headerEmail}>{profile?.email}</Text>
         <View style={styles.tipoBadge}>
           <Ionicons 
@@ -81,10 +92,10 @@ const PerfilScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Informações Pessoais */}
+      {/* InformaÃ§Ãµes Pessoais */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Informações Pessoais</Text>
+          <Text style={styles.sectionTitle}>InformaÃ§Ãµes Pessoais</Text>
           <TouchableOpacity onPress={() => setEditando(!editando)}>
             <Ionicons
               name={editando ? 'close' : 'create-outline'}
@@ -109,7 +120,7 @@ const PerfilScreen: React.FC = () => {
           )}
         </View>
 
-        {/* Email (não editável) */}
+        {/* Email (nÃ£o editÃ¡vel) */}
         <View style={styles.campo}>
           <Text style={styles.campoLabel}>Email</Text>
           <Text style={styles.campoValor}>{profile?.email || '-'}</Text>
@@ -131,23 +142,24 @@ const PerfilScreen: React.FC = () => {
           )}
         </View>
 
-        {/* Província */}
-        <View style={styles.campo}>
-          <Text style={styles.campoLabel}>Província</Text>
-          {editando ? (
-            <TouchableOpacity
-              style={styles.selectButton}
-              onPress={() => setShowProvincias(true)}
-            >
-              <Text style={[styles.selectText, !provincia && styles.selectPlaceholder]}>
-                {provincia || 'Selecione'}
-              </Text>
-              <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-          ) : (
-            <Text style={styles.campoValor}>{profile?.provincia || '-'}</Text>
-          )}
-        </View>
+        {canEditProvincia && (
+          <View style={styles.campo}>
+            <Text style={styles.campoLabel}>Província</Text>
+            {editando ? (
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => setShowProvincias(true)}
+              >
+                <Text style={[styles.selectText, !provincia && styles.selectPlaceholder]}>
+                  {provincia || 'Selecione'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.campoValor}>{profile?.provincia || '-'}</Text>
+            )}
+          </View>
+        )}
 
         {/* Membro desde */}
         <View style={styles.campo}>
@@ -157,7 +169,7 @@ const PerfilScreen: React.FC = () => {
           </Text>
         </View>
 
-        {/* Botões de Edição */}
+        {/* BotÃµes de EdiÃ§Ã£o */}
         {editando && (
           <View style={styles.editButtons}>
             <TouchableOpacity
@@ -179,10 +191,10 @@ const PerfilScreen: React.FC = () => {
         )}
       </View>
 
-      {/* Informações do Dentista */}
+      {/* InformaÃ§Ãµes do Dentista */}
       {isDentista && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Informações Profissionais</Text>
+          <Text style={styles.sectionTitle}>InformaÃ§Ãµes Profissionais</Text>
           
           <View style={styles.campo}>
             <Text style={styles.campoLabel}>CRO</Text>
@@ -196,27 +208,13 @@ const PerfilScreen: React.FC = () => {
         </View>
       )}
 
-      {/* Opções */}
+      {/* OpÃ§Ãµes */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Configurações</Text>
-
-        <TouchableOpacity 
-          style={styles.opcaoItem}
-          onPress={() => setShowThemeModal(true)}
-        >
-          <Ionicons name="contrast-outline" size={22} color={COLORS.textSecondary} />
-          <View style={styles.opcaoContent}>
-            <Text style={styles.opcaoText}>Tema</Text>
-            <Text style={styles.opcaoSubtitle}>
-              {themeMode === 'automatic' ? 'Automático' : themeMode === 'dark' ? 'Escuro' : 'Claro'}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
-        </TouchableOpacity>
+        <Text style={styles.sectionTitle}>ConfiguraÃ§Ãµes</Text>
 
         <TouchableOpacity style={styles.opcaoItem}>
           <Ionicons name="notifications-outline" size={22} color={COLORS.textSecondary} />
-          <Text style={styles.opcaoText}>Notificações</Text>
+          <Text style={styles.opcaoText}>NotificaÃ§Ãµes</Text>
           <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
         </TouchableOpacity>
 
@@ -239,102 +237,16 @@ const PerfilScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Botão Sair */}
+      {/* BotÃ£o Sair */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Ionicons name="log-out-outline" size={22} color={COLORS.danger} />
         <Text style={styles.logoutText}>Sair da Conta</Text>
       </TouchableOpacity>
 
-      {/* Versão */}
+      {/* VersÃ£o */}
       <Text style={styles.versao}>TeOdonto Angola v1.0.0</Text>
 
-      {/* Modal de Tema */}
-      <Modal
-        visible={showThemeModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowThemeModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Escolha o Tema</Text>
-              <TouchableOpacity onPress={() => setShowThemeModal(false)}>
-                <Ionicons name="close" size={24} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.themeOptionsList}>
-              <TouchableOpacity
-                style={[
-                  styles.themeOption,
-                  themeMode === 'automatic' && styles.themeOptionActive,
-                ]}
-                onPress={() => {
-                  setThemeMode('automatic');
-                  setShowThemeModal(false);
-                }}
-              >
-                <View style={styles.themeIconContainer}>
-                  <Ionicons name="phone-portrait-outline" size={28} color={COLORS.primary} />
-                </View>
-                <View style={styles.themeTextContainer}>
-                  <Text style={styles.themeOptionTitle}>Automático</Text>
-                  <Text style={styles.themeOptionSubtitle}>Segue preferência do sistema</Text>
-                </View>
-                {themeMode === 'automatic' && (
-                  <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.themeOption,
-                  themeMode === 'light' && styles.themeOptionActive,
-                ]}
-                onPress={() => {
-                  setThemeMode('light');
-                  setShowThemeModal(false);
-                }}
-              >
-                <View style={styles.themeIconContainer}>
-                  <Ionicons name="sunny" size={28} color="#FFC107" />
-                </View>
-                <View style={styles.themeTextContainer}>
-                  <Text style={styles.themeOptionTitle}>Claro</Text>
-                  <Text style={styles.themeOptionSubtitle}>Interface clara</Text>
-                </View>
-                {themeMode === 'light' && (
-                  <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.themeOption,
-                  themeMode === 'dark' && styles.themeOptionActive,
-                ]}
-                onPress={() => {
-                  setThemeMode('dark');
-                  setShowThemeModal(false);
-                }}
-              >
-                <View style={styles.themeIconContainer}>
-                  <Ionicons name="moon" size={28} color="#424242" />
-                </View>
-                <View style={styles.themeTextContainer}>
-                  <Text style={styles.themeOptionTitle}>Escuro</Text>
-                  <Text style={styles.themeOptionSubtitle}>Interface escura</Text>
-                </View>
-                {themeMode === 'dark' && (
-                  <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} />
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal de Províncias */}
+      {/* Modal de ProvÃ­ncias */}
       <Modal
         visible={showProvincias}
         transparent
@@ -344,7 +256,7 @@ const PerfilScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Selecione a Província</Text>
+              <Text style={styles.modalTitle}>Selecione a ProvÃ­ncia</Text>
               <TouchableOpacity onPress={() => setShowProvincias(false)}>
                 <Ionicons name="close" size={24} color={COLORS.text} />
               </TouchableOpacity>
@@ -534,18 +446,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
-  opcaoContent: {
+  opcaoText: {
     flex: 1,
     marginLeft: SIZES.md,
-  },
-  opcaoText: {
     fontSize: SIZES.fontMd,
     color: COLORS.text,
-  },
-  opcaoSubtitle: {
-    fontSize: SIZES.fontSm,
-    color: COLORS.textSecondary,
-    marginTop: 2,
   },
   logoutButton: {
     flexDirection: 'row',
@@ -611,48 +516,7 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: '600',
   },
-  // Tema
-  themeOptionsList: {
-    paddingHorizontal: SIZES.md,
-    paddingVertical: SIZES.lg,
-  },
-  themeOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SIZES.md,
-    paddingHorizontal: SIZES.md,
-    borderRadius: SIZES.radiusMd,
-    backgroundColor: COLORS.background,
-    marginBottom: SIZES.md,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  themeOptionActive: {
-    backgroundColor: COLORS.primary + '15',
-    borderColor: COLORS.primary,
-  },
-  themeIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: SIZES.radiusMd,
-    backgroundColor: COLORS.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SIZES.md,
-  },
-  themeTextContainer: {
-    flex: 1,
-  },
-  themeOptionTitle: {
-    fontSize: SIZES.fontMd,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  themeOptionSubtitle: {
-    fontSize: SIZES.fontSm,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
 });
 
 export default PerfilScreen;
+

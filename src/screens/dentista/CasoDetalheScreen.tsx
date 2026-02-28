@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
 import { buscarTriagemPorId, responderTriagem, atualizarStatusTriagem } from '../../services/triagemService';
+import { obterOuCriarConversa } from '../../services/messagesService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { STATUS_TRIAGEM, RECOMENDACAO } from '../../utils/constants';
 import { formatDateTime } from '../../utils/helpers';
@@ -125,6 +126,46 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
     );
   };
 
+  const handleAbrirChatPaciente = async () => {
+    if (!profile?.id || !profile?.nome) return;
+    const pacienteId = triagem?.paciente_id;
+    if (!pacienteId) {
+      Toast.show({
+        type: 'error',
+        text1: 'Nao foi possivel abrir chat',
+        text2: 'Paciente nao identificado neste caso',
+      });
+      return;
+    }
+
+    const result = await obterOuCriarConversa(
+      profile.id,
+      pacienteId,
+      profile.nome,
+      triagem.paciente?.nome || 'Paciente',
+      profile.foto_url || null,
+      triagem.paciente?.foto_url || null
+    );
+
+    if (!result.success || !result.data) {
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: result.error || 'Nao foi possivel abrir conversa',
+      });
+      return;
+    }
+
+    navigation.navigate('DentistaTabs' as any, {
+      screen: 'Mensagens',
+      params: {
+        openConversationId: result.data.id,
+        otherUserName: triagem.paciente?.nome || 'Paciente',
+        otherUserAvatar: triagem.paciente?.foto_url || undefined,
+      },
+    });
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -168,6 +209,10 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
             )}
           </View>
         </View>
+        <TouchableOpacity style={styles.chatButton} onPress={handleAbrirChatPaciente}>
+          <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.textInverse} />
+          <Text style={styles.chatButtonText}>Conversar com paciente</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Status e Data */}
@@ -407,6 +452,20 @@ const styles = StyleSheet.create({
   pacienteInfo: {
     flex: 1,
     marginLeft: SIZES.md,
+  },
+  chatButton: {
+    marginTop: SIZES.md,
+    backgroundColor: COLORS.primary,
+    borderRadius: SIZES.radiusMd,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SIZES.sm,
+  },
+  chatButtonText: {
+    color: COLORS.textInverse,
+    marginLeft: SIZES.xs,
+    fontWeight: '700',
   },
   pacienteNome: {
     fontSize: SIZES.fontLg,

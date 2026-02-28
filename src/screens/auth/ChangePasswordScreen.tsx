@@ -1,6 +1,6 @@
-/**
- * Tela de Alteração de Senha Obrigatória
- * Mostrada quando usuário loga pela primeira vez
+﻿/**
+ * Tela de AlteraÃ§Ã£o de Senha ObrigatÃ³ria
+ * Mostrada quando usuÃ¡rio loga pela primeira vez
  */
 
 import React, { useState } from 'react';
@@ -11,15 +11,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
-  ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
 import Toast from 'react-native-toast-message';
-import { supabase } from '../../config/supabase';
+import { supabase, PROFILE_SCHEMA_FEATURES } from '../../config/supabase';
 
 interface ChangePasswordScreenProps {
   onPasswordChanged?: () => void;
@@ -30,25 +28,26 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
   onPasswordChanged,
   returnToHome = false,
 }) => {
-  const { profile, updateProfile } = useAuth();
+  const { user, updateProfile } = useAuth();
   const [senhaAtual, setSenhaAtual] = useState('');
   const [senhaNova, setSenhaNova] = useState('');
   const [senhaConfirmar, setSenhaConfirmar] = useState('');
   const [loading, setLoading] = useState(false);
   const [mostrarSenhas, setMostrarSenhas] = useState(false);
+  const [progressStep, setProgressStep] = useState('');
 
   const validarSenha = (senha: string): { valido: boolean; mensagem: string } => {
     if (!senha) {
-      return { valido: false, mensagem: 'Senha é obrigatória' };
+      return { valido: false, mensagem: 'Senha Ã© obrigatÃ³ria' };
     }
     if (senha.length < 8) {
-      return { valido: false, mensagem: 'Senha deve ter mínimo 8 caracteres' };
+      return { valido: false, mensagem: 'Senha deve ter mÃ­nimo 8 caracteres' };
     }
     if (!/[A-Z]/.test(senha)) {
-      return { valido: false, mensagem: 'Senha deve conter pelo menos uma maiúscula' };
+      return { valido: false, mensagem: 'Senha deve conter pelo menos uma maiÃºscula' };
     }
     if (!/[0-9]/.test(senha)) {
-      return { valido: false, mensagem: 'Senha deve conter apenas números' };
+      return { valido: false, mensagem: 'Senha deve conter apenas nÃºmeros' };
     }
     if (!/[!@#$%^&*]/.test(senha)) {
       return { valido: false, mensagem: 'Senha deve conter um caractere especial (!@#$%^&*)' };
@@ -57,7 +56,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
   };
 
   const handleAlterarSenha = async () => {
-    // Validações
+    // ValidaÃ§Ãµes
     if (!senhaAtual.trim()) {
       Toast.show({
         type: 'error',
@@ -81,7 +80,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
       Toast.show({
         type: 'error',
         text1: 'Erro',
-        text2: 'As senhas não coincidem',
+        text2: 'As senhas nÃ£o coincidem',
       });
       return;
     }
@@ -90,17 +89,23 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
       Toast.show({
         type: 'error',
         text1: 'Erro',
-        text2: 'A nova senha não pode ser igual à anterior',
+        text2: 'A nova senha nÃ£o pode ser igual Ã  anterior',
       });
       return;
     }
 
     setLoading(true);
+    setProgressStep('Validando dados...');
 
     try {
+      setProgressStep('Atualizando senha no sistema...');
       // Alterar senha no Supabase Auth
       const { error: authError } = await supabase.auth.updateUser({
         password: senhaNova,
+        data: {
+          ...(user?.user_metadata || {}),
+          force_password_change: false,
+        },
       });
 
       if (authError) {
@@ -113,25 +118,26 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
         return;
       }
 
-      // Marcar que senha foi alterada
-      const result = await updateProfile({
-        ...profile,
-        senha_alterada: true,
-        updated_at: new Date().toISOString(),
-      });
-
-      if (result.success) {
-        Toast.show({
-          type: 'success',
-          text1: 'Sucesso!',
-          text2: 'Sua senha foi alterada com sucesso',
+      if (PROFILE_SCHEMA_FEATURES.hasSenhaAlterada) {
+        setProgressStep('Atualizando perfil...');
+        const result = await updateProfile({
+          senha_alterada: true,
         });
 
-        if (onPasswordChanged) {
-          onPasswordChanged();
+        if (!result.success) {
+          throw new Error('Erro ao marcar senha como alterada');
         }
-      } else {
-        throw new Error('Erro ao marcar senha como alterada');
+      }
+
+      setProgressStep('Concluindo...');
+      Toast.show({
+        type: 'success',
+        text1: 'Sucesso!',
+        text2: 'Sua senha foi alterada com sucesso',
+      });
+
+      if (onPasswordChanged) {
+        onPasswordChanged();
       }
     } catch (error: any) {
       Toast.show({
@@ -140,6 +146,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
         text2: error.message || 'Erro ao alterar senha',
       });
     } finally {
+      setProgressStep('');
       setLoading(false);
     }
   };
@@ -157,28 +164,28 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.iconContainer}>
-              <Text style={styles.icon}>🔐</Text>
+              <Text style={styles.icon}>ðŸ”</Text>
             </View>
             <Text style={styles.title}>Altere sua Senha</Text>
             <Text style={styles.subtitle}>
-              Esta é sua primeira vez. Por segurança, você deve alterar sua senha temporária.
+              Esta Ã© sua primeira vez. Por seguranÃ§a, vocÃª deve alterar sua senha temporÃ¡ria.
             </Text>
           </View>
 
           {/* Info Box */}
           <View style={styles.infoBox}>
-            <Text style={styles.infoTitle}>🔒 Requisitos de Segurança:</Text>
-            <Text style={styles.infoText}>✓ Mínimo 8 caracteres</Text>
-            <Text style={styles.infoText}>✓ Pelo menos uma letra maiúscula</Text>
-            <Text style={styles.infoText}>✓ Pelo menos um número</Text>
-            <Text style={styles.infoText}>✓ Pelo menos um caractere especial (!@#$%^&*)</Text>
+            <Text style={styles.infoTitle}>ðŸ”’ Requisitos de SeguranÃ§a:</Text>
+            <Text style={styles.infoText}>âœ“ MÃ­nimo 8 caracteres</Text>
+            <Text style={styles.infoText}>âœ“ Pelo menos uma letra maiÃºscula</Text>
+            <Text style={styles.infoText}>âœ“ Pelo menos um nÃºmero</Text>
+            <Text style={styles.infoText}>âœ“ Pelo menos um caractere especial (!@#$%^&*)</Text>
           </View>
 
           {/* Form */}
           <View style={styles.form}>
             {/* Senha Atual */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Senha Temporária Atual</Text>
+              <Text style={styles.label}>Senha TemporÃ¡ria Atual</Text>
               <View style={styles.inputWrapper}>
                 <Input
                   placeholder="Digite sua senha atual"
@@ -224,7 +231,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
             {/* Show Password Toggle */}
             <View style={styles.toggleContainer}>
               <Text style={styles.toggleText}>
-                {mostrarSenhas ? '👁️ Ocultar senhas' : '👁️ Mostrar senhas'}
+                {mostrarSenhas ? 'ðŸ‘ï¸ Ocultar senhas' : 'ðŸ‘ï¸ Mostrar senhas'}
               </Text>
               <Text
                 style={styles.toggleButton}
@@ -248,11 +255,16 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
               }
               loading={loading}
             />
+            {loading && !!progressStep && (
+              <View style={styles.progressBox}>
+                <Text style={styles.progressText}>{progressStep}</Text>
+              </View>
+            )}
           </View>
 
           {/* Footer Text */}
           <Text style={styles.footerText}>
-            Sua senha será alterada imediatamente. Você será desconectado após a alteração.
+            Sua senha serÃ¡ alterada imediatamente. VocÃª serÃ¡ desconectado apÃ³s a alteraÃ§Ã£o.
           </Text>
         </View>
       </ScrollView>
@@ -356,6 +368,20 @@ const styles = StyleSheet.create({
     marginTop: SPACING.lg,
     marginBottom: SPACING.lg,
   },
+  progressBox: {
+    marginTop: SPACING.md,
+    backgroundColor: '#E3F2FD',
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+    borderRadius: 8,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+  },
+  progressText: {
+    color: '#1565C0',
+    fontSize: TYPOGRAPHY.sizes.small,
+    fontWeight: '600',
+  },
   footerText: {
     fontSize: TYPOGRAPHY.sizes.small,
     color: COLORS.textSecondary,
@@ -366,3 +392,4 @@ const styles = StyleSheet.create({
 });
 
 export default ChangePasswordScreen;
+
