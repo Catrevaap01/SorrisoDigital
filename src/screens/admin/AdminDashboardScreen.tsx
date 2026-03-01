@@ -16,8 +16,8 @@ import {
   FlatList,
   Alert,
   RefreshControl,
-  Clipboard,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -124,30 +124,50 @@ const AdminDashboardScreen: React.FC = () => {
 
   const abrirModalEspecialidade = (modo: 'create' | 'edit') => {
     setEspecialidadeModo(modo);
-    setModalEspecialidadeVisivel(true);
+    if (modo === 'create' && modalVisivel) {
+      // Fecha o modal de criacao para evitar conflito de sobreposicao, depois abre o seletor
+      setModalVisivel(false);
+      setTimeout(() => setModalEspecialidadeVisivel(true), 150);
+    } else {
+      setModalEspecialidadeVisivel(true);
+    }
   };
 
   const selecionarEspecialidade = (especialidade: string) => {
-    if (especialidadeModo === 'create') {
+    const isCreate = especialidadeModo === 'create';
+    if (isCreate) {
       setNovaEspecialidade(especialidade);
     } else {
       setEditEspecialidade(especialidade);
     }
     setModalEspecialidadeVisivel(false);
+    // Reabre o modal de criacao se veio desse fluxo
+    if (isCreate) {
+      setTimeout(() => setModalVisivel(true), 150);
+    }
   };
 
   const abrirModalProvincia = (modo: 'create' | 'edit') => {
     setProvinciaModo(modo);
-    setModalProvinciaVisivel(true);
+    if (modo === 'create' && modalVisivel) {
+      setModalVisivel(false);
+      setTimeout(() => setModalProvinciaVisivel(true), 150);
+    } else {
+      setModalProvinciaVisivel(true);
+    }
   };
 
   const selecionarProvincia = (provincia: string) => {
-    if (provinciaModo === 'create') {
+    const isCreate = provinciaModo === 'create';
+    if (isCreate) {
       setNovaProvincia(provincia);
     } else {
       setEditProvincia(provincia);
     }
     setModalProvinciaVisivel(false);
+    if (isCreate) {
+      setTimeout(() => setModalVisivel(true), 150);
+    }
   };
 
   // Carregar dentistas
@@ -286,13 +306,15 @@ const AdminDashboardScreen: React.FC = () => {
       setSenhaGerada(senhaParaUsar);
       setNomeNovoDentistaParaSenha(nomeDentista);
       setModalSenhaVisivel(true);
-      if (Clipboard && Clipboard.setString) {
-        Clipboard.setString(senhaParaUsar);
+      try {
+        await Clipboard.setStringAsync(senhaParaUsar);
         Toast.show({
           type: 'success',
           text1: 'Senha copiada',
           text2: 'A senha temporaria foi copiada automaticamente',
         });
+      } catch (e) {
+        // silenciosamente ignora falha de cópia
       }
 
       // Limpar form
@@ -576,7 +598,7 @@ const AdminDashboardScreen: React.FC = () => {
                 <TouchableOpacity
                   style={styles.formInput}
                   onPress={() => abrirModalEspecialidade('create')}
-                  disabled={enviandoForm}
+                  activeOpacity={0.7}
                 >
                   <Text style={{ color: novaEspecialidade ? COLORS.text : COLORS.textSecondary }}>
                     {novaEspecialidade || 'Selecionar especialidade'}
@@ -615,7 +637,7 @@ const AdminDashboardScreen: React.FC = () => {
                 <TouchableOpacity
                   style={styles.formInput}
                   onPress={() => abrirModalProvincia('create')}
-                  disabled={enviandoForm}
+                  activeOpacity={0.7}
                 >
                   <Text style={{ color: novaProvincia ? COLORS.text : COLORS.textSecondary }}>
                     {novaProvincia || 'Selecionar provincia'}
@@ -923,17 +945,19 @@ const AdminDashboardScreen: React.FC = () => {
                   </Text>
                 </View>
                 <TouchableOpacity
-                  onPress={() => {
-                    if (Clipboard && Clipboard.setString) {
-                      Clipboard.setString(senhaGerada);
-                      Toast.show({
-                        type: 'success',
-                        text1: 'Copiado!',
-                        text2: 'Senha copiada para área de transferência',
-                      });
-                    }
-                  }}
-                  style={{ backgroundColor: COLORS.primary, padding: SPACING.sm, borderRadius: 6 }}
+                onPress={async () => {
+                try {
+                await Clipboard.setStringAsync(senhaGerada);
+                Toast.show({
+                type: 'success',
+                text1: 'Copiado!',
+                text2: 'Senha copiada para área de transferência',
+                });
+                } catch (e) {
+                Toast.show({ type: 'error', text1: 'Falha ao copiar senha' });
+                }
+                }}
+                style={{ backgroundColor: COLORS.primary, padding: SPACING.sm, borderRadius: 6 }}
                 >
                   <Text style={{ color: COLORS.textInverse, textAlign: 'center', fontWeight: '600' }}>
                     📋 Copiar Senha
@@ -975,6 +999,8 @@ const AdminDashboardScreen: React.FC = () => {
         visible={modalEspecialidadeVisivel}
         animationType="slide"
         transparent={true}
+        presentationStyle="overFullScreen"
+        statusBarTranslucent={true}
         onRequestClose={() => setModalEspecialidadeVisivel(false)}
       >
         <View style={styles.modalOverlay}>
@@ -1004,6 +1030,50 @@ const AdminDashboardScreen: React.FC = () => {
                     onPress={() => selecionarEspecialidade(especialidade)}
                   >
                     <Text style={styles.opcaoEspecialidadeTexto}>{especialidade}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal - Provincia */}
+      <Modal
+        visible={modalProvinciaVisivel}
+        animationType="slide"
+        transparent={true}
+        presentationStyle="overFullScreen"
+        statusBarTranslucent={true}
+        onRequestClose={() => setModalProvinciaVisivel(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Selecionar Província</Text>
+              <TouchableOpacity onPress={() => setModalProvinciaVisivel(false)}>
+                <Ionicons name="close" size={28} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false}>
+              {PROVINCIAS_ANGOLA.map((provincia) => {
+                const selecionada =
+                  provinciaModo === 'create'
+                    ? novaProvincia === provincia
+                    : editProvincia === provincia;
+                return (
+                  <TouchableOpacity
+                    key={provincia}
+                    style={[
+                      styles.opcaoEspecialidade,
+                      selecionada && {
+                        borderLeftColor: COLORS.success,
+                        backgroundColor: COLORS.primaryLight,
+                      },
+                    ]}
+                    onPress={() => selecionarProvincia(provincia)}
+                  >
+                    <Text style={styles.opcaoEspecialidadeTexto}>{provincia}</Text>
                   </TouchableOpacity>
                 );
               })}
