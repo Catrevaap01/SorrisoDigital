@@ -110,7 +110,28 @@ async function criarAdmin(email, nome, senha) {
 
     console.log('✅ Perfil admin criado no banco de dados\n');
 
-    // 3. Exibir resumo
+    // 3. Tentar enviar email de boas-vindas via função edge (se disponível)
+    try {
+      const payload = {
+        to: email,
+        subject: 'TeOdonto Angola - Bem-vindo!',
+        type: 'dentist_welcome', // reusa mesmo tipo, não existe tipo específico para admin
+        data: {
+          nome,
+          senhaTemporaria: senha,
+        },
+      };
+      const fnRes = await supabase.functions.invoke('send-email', { body: payload });
+      if (fnRes.error) {
+        console.warn('⚠️ Falha ao enviar email de boas-vindas:', fnRes.error.message);
+      } else {
+        console.log('📧 Email de boas-vindas disparado com sucesso');
+      }
+    } catch (e) {
+      console.warn('⚠️ Exceção ao chamar função de email:', e.message || e);
+    }
+
+    // 4. Exibir resumo
     console.log('=' .repeat(50));
     console.log('🎉 ADMIN CRIADO COM SUCESSO!\n');
     console.log('Detalhes da Conta:');

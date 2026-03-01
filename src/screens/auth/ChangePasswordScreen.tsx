@@ -11,12 +11,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
 import Toast from 'react-native-toast-message';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase, PROFILE_SCHEMA_FEATURES } from '../../config/supabase';
 
 interface ChangePasswordScreenProps {
@@ -230,15 +232,19 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
 
             {/* Show Password Toggle */}
             <View style={styles.toggleContainer}>
-              <Text style={styles.toggleText}>
-                {mostrarSenhas ? 'ðŸ‘ï¸ Ocultar senhas' : 'ðŸ‘ï¸ Mostrar senhas'}
-              </Text>
-              <Text
-                style={styles.toggleButton}
+              <TouchableOpacity
+                style={styles.toggleButtonWrapper}
                 onPress={() => setMostrarSenhas(!mostrarSenhas)}
               >
-                {mostrarSenhas ? 'Ocultar' : 'Mostrar'}
-              </Text>
+                <Ionicons
+                  name={mostrarSenhas ? 'eye-off-outline' : 'eye-outline'}
+                  size={24}
+                  color={COLORS.primary}
+                />
+                <Text style={styles.toggleText}>
+                  {mostrarSenhas ? 'Ocultar senhas' : 'Mostrar senhas'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -351,13 +357,18 @@ const styles = StyleSheet.create({
   },
   toggleContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: SPACING.md,
+  },
+  toggleButtonWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   toggleText: {
     fontSize: TYPOGRAPHY.sizes.body,
     color: COLORS.text,
+    marginLeft: SPACING.xs,
   },
   toggleButton: {
     fontSize: TYPOGRAPHY.sizes.body,

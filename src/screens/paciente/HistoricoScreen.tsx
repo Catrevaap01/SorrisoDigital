@@ -148,7 +148,12 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
             {item.sintoma_principal || 'Sem descricao'}
           </Text>
           <Text style={styles.rowSubtitulo} numberOfLines={1}>
-            {statusInfo.label} | Dor {item.intensidade_dor}/10 | {formatRelativeTime(item.created_at)}
+            {statusInfo.label} | Dor {item.intensidade_dor}/10 | {formatRelativeTime(item.created_at)}{' '}
+            •{' '}
+            {new Date(item.created_at).toLocaleTimeString('pt-BR', {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />

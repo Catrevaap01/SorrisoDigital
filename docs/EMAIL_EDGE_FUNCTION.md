@@ -52,3 +52,28 @@ Se quiser usar endpoint externo em vez da Edge Function, adicione no `app.json`:
   }
 }
 ```
+
+### 5) (Dev) fallback direto para SendGrid
+O app agora também pode enviar emails diretamente usando uma API key
+do SendGrid. Basta colocar `SENDGRID_API_KEY` nas `extra` do `app.json`:
+
+```json
+{
+  "expo": {
+    "extra": {
+      "SENDGRID_API_KEY": "SG.xxxxxx"
+    }
+  }
+}
+```
+
+> ⚠️ Colocar chaves de email em cliente é inseguro – use apenas em
+> desenvolvimento ou substitua por sua própria função/servidor.
+
+Quando configurado, o `emailService` tentará:
+1. chamar a Edge Function `send-email`
+2. usar `EMAIL_API_URL` se configurado
+3. finalmente, fazer uma requisição a `https://api.sendgrid.com/v3/mail/send`
+
+Logs no console mostram o `payload` e qual fallback foi usado, ajudando a
+identificar onde o envio falha.

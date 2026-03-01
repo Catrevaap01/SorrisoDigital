@@ -60,7 +60,13 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
     setLoading(true);
     try {
       const resultado = await listarMensagens(conversationId, 50);
-      if (resultado.success && resultado.data) {
+      if (!resultado.success) {
+        Toast.show({
+          type: 'error',
+          text1: 'Erro',
+          text2: resultado.error || 'Erro ao carregar mensagens',
+        });
+      } else if (resultado.data) {
         setMensagens(resultado.data);
         // Marcar como lidas
         if (user?.id) {
@@ -139,7 +145,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
         Toast.show({
           type: 'error',
           text1: 'Erro',
-          text2: resultado.error || 'Erro ao enviar mensagem',
+          text2: resultado.error || 'Não foi possível enviar a mensagem',
         });
       }
     } catch (error) {

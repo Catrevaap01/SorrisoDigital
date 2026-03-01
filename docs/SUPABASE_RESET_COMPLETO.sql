@@ -7,6 +7,8 @@ DROP FUNCTION IF EXISTS public.handle_new_user CASCADE;
 DROP FUNCTION IF EXISTS public.is_admin CASCADE;
 DROP TABLE IF EXISTS public.profiles CASCADE;
 DROP TABLE IF EXISTS public.provincias CASCADE;
+DROP TABLE IF EXISTS public.messages CASCADE;
+DROP TABLE IF EXISTS public.conversations CASCADE;
 
 -- ========================================
 -- TABELA DE PROVINCIAS
@@ -38,6 +40,36 @@ INSERT INTO public.provincias (nome) VALUES
 ('Bengo');
 
 -- ========================================
+-- TABELA DE CONVERSAS E MENSAGENS
+-- ========================================
+
+CREATE TABLE public.conversations (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    participant_1_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE,
+    participant_1_name text,
+    participant_1_avatar text,
+    participant_2_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE,
+    participant_2_name text,
+    participant_2_avatar text,
+    last_message text,
+    last_message_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT NOW(),
+    updated_at timestamptz NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE public.messages (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id uuid REFERENCES public.conversations(id) ON DELETE CASCADE,
+    sender_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE,
+    sender_name text,
+    sender_avatar text,
+    content text,
+    read boolean NOT NULL DEFAULT FALSE,
+    created_at timestamptz NOT NULL DEFAULT NOW(),
+    updated_at timestamptz
+);
+
+-- ========================================
 -- TABELA PROFILES
 -- ========================================
 
@@ -52,6 +84,13 @@ CREATE TABLE public.profiles (
         CHECK (tipo IN ('paciente', 'admin', 'medico', 'dentista')),
 
     telefone TEXT,
+
+    -- campos extras para dentistas e futuros requisitos
+    crm TEXT,
+    numero_registro TEXT,
+    especialidade TEXT,
+    foto_url TEXT,
+    senha_alterada BOOLEAN DEFAULT FALSE,
 
     provincia_id INTEGER
         REFERENCES public.provincias(id)
@@ -117,6 +156,13 @@ ON public.profiles
 FOR DELETE
 TO authenticated
 USING (auth.uid() = id OR public.is_admin());
+
+-- INSERT: administradores podem criar perfis
+CREATE POLICY "Admins can insert profiles"
+ON public.profiles
+FOR INSERT
+TO authenticated
+WITH CHECK (public.is_admin());
 
 -- ========================================
 -- FUNCAO AUTO CRIAR PERFIL

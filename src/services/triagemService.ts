@@ -6,6 +6,7 @@ import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
 import { handleError, HandledError } from '../utils/errorHandler';
 import { uploadMultipleImages } from './storageService';
+import { obterOuCriarConversa } from './messagesService';
 
 export interface TriagemData {
   paciente_id?: string;
@@ -123,7 +124,7 @@ const enrichTriagens = async (triagensBase: Triagem[]): Promise<Triagem[]> => {
   if (pacienteIds.length) {
     const { data: pacientes } = await supabase
       .from('profiles')
-      .select('id, nome, email, telefone, provincia_id, provincias(nome)')
+      .select('id, nome, email, telefone, provincia_id, data_nascimento, genero, historico_medico, alergias, medicamentos_atuais, provincias(nome)')
       .in('id', pacienteIds);
 
     pacientesById = Object.fromEntries(
@@ -255,6 +256,23 @@ export const criarTriagem = async (
     }
 
     if (error) throw error;
+
+    // trigger chat creation if dentist was specified
+    try {
+      const created: Triagem = normalizeTriagemRecord(data);
+      if (created.dentista_id && pacienteId) {
+        await obterOuCriarConversa(
+          pacienteId,
+          created.dentista_id,
+          undefined,
+          undefined,
+          undefined,
+          undefined
+        );
+      }
+    } catch (chatErr) {
+      logger.warn('Falha ao criar conversa automática para triagem', chatErr);
+    }
 
     return { success: true, data: normalizeTriagemRecord(data) };
   } catch (err) {

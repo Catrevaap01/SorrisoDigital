@@ -24,6 +24,11 @@ export interface RelatorioGeral {
   totalTriagens: number;
   triagensRespondidas: number;
   percentualResposta: number;
+  // novos campos para resumo do mês atual
+  cadastrosMes?: number;
+  dentistasMes?: number;
+  pacientesMes?: number;
+  
   dentistas: RelatorioDentista[];
   dataGeracao: string;
 }
@@ -113,6 +118,22 @@ export const gerarRelatorioGeral = async (): Promise<{
     const percentualGeral =
       totalTriagens > 0 ? (totalRespondidas / totalTriagens) * 100 : 0;
 
+    // calcular metrics do mês atual
+    const dataAgora = new Date();
+    const inicioMes = new Date(dataAgora.getFullYear(), dataAgora.getMonth(), 1);
+    const perfisMes = (dentistas || []).concat(pacientes || []).filter((p: any) => {
+      const created = p?.created_at ? new Date(p.created_at) : null;
+      return created && created >= inicioMes;
+    });
+    const dentistasMes = (dentistas || []).filter((d: any) => {
+      const created = d?.created_at ? new Date(d.created_at) : null;
+      return created && created >= inicioMes;
+    }).length;
+    const pacientesMes = (pacientes || []).filter((p: any) => {
+      const created = p?.created_at ? new Date(p.created_at) : null;
+      return created && created >= inicioMes;
+    }).length;
+
     const relatorio: RelatorioGeral = {
       totalDentistas: dentistas?.length || 0,
       totalPacientes: pacientes?.length || 0,
@@ -120,6 +141,9 @@ export const gerarRelatorioGeral = async (): Promise<{
       totalTriagens,
       triagensRespondidas: totalRespondidas,
       percentualResposta: Math.round(percentualGeral),
+      cadastrosMes: perfisMes.length,
+      dentistasMes,
+      pacientesMes,
       dentistas: relatoriosDentistas,
       dataGeracao: new Date().toISOString(),
     };
@@ -349,8 +373,16 @@ export const gerarHTMLRelatorio = (relatorio: RelatorioGeral): string => {
           <p>Total de Dentistas</p>
         </div>
         <div class="summary-card">
-          <h3>${relatorio.totalPacientes}</h3>
-          <p>Total de Pacientes</p>
+          <h3>${relatorio.cadastrosMes || 0}</h3>
+          <p>Cadastros mês</p>
+        </div>
+        <div class="summary-card">
+          <h3>${relatorio.dentistasMes || 0}</h3>
+          <p>Dentistas mês</p>
+        </div>
+        <div class="summary-card">
+          <h3>${relatorio.pacientesMes || 0}</h3>
+          <p>Pacientes mês</p>
         </div>
         <div class="summary-card">
           <h3>${relatorio.dentistasAtivos}</h3>

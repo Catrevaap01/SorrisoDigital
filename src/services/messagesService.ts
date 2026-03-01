@@ -35,6 +35,18 @@ export interface Conversation {
 /**
  * Criar ou obter conversa entre dois usuários
  */
+// helper to map a missing-table error into a user-friendly message
+function _handleTableMissing(error: any): string | null {
+  const msg: string = error?.message || '';
+  if (msg.toLowerCase().includes('could not find table')) {
+    return 'Tabela de conversas ou mensagens não existe. Rode o script de migração.';
+  }
+  if (msg.toLowerCase().includes('does not exist')) {
+    return 'Banco de dados não tem a tabela esperada. Verifique a migração.';
+  }
+  return null;
+}
+
 export const obterOuCriarConversa = async (
   userId1: string,
   userId2: string,
@@ -84,9 +96,10 @@ export const obterOuCriarConversa = async (
 
     return { success: true, data: criadaConversa as Conversation };
   } catch (error: any) {
+    const msg = _handleTableMissing(error);
     return {
       success: false,
-      error: error.message || 'Erro ao obter ou criar conversa',
+      error: msg || error.message || 'Erro ao obter ou criar conversa',
     };
   }
 };
@@ -134,9 +147,10 @@ export const enviarMensagem = async (
 
     return { success: true, data: data as Message };
   } catch (error: any) {
+    const msg = _handleTableMissing(error);
     return {
       success: false,
-      error: error.message || 'Erro ao enviar mensagem',
+      error: msg || error.message || 'Erro ao enviar mensagem',
     };
   }
 };
@@ -166,9 +180,10 @@ export const listarMensagens = async (
       data: (data || []).reverse() as Message[], // Reverter para ordem cronológica
     };
   } catch (error: any) {
+    const msg = _handleTableMissing(error);
     return {
       success: false,
-      error: error.message || 'Erro ao listar mensagens',
+      error: msg || error.message || 'Erro ao listar mensagens',
     };
   }
 };
@@ -194,9 +209,10 @@ export const marcarMensagensComoLidas = async (
 
     return { success: true };
   } catch (error: any) {
+    const msg = _handleTableMissing(error);
     return {
       success: false,
-      error: error.message || 'Erro ao marcar mensagens como lidas',
+      error: msg || error.message || 'Erro ao marcar mensagens como lidas',
     };
   }
 };
@@ -223,9 +239,10 @@ export const listarConversasDoUsuario = async (
       data: (data || []) as Conversation[],
     };
   } catch (error: any) {
+    const msg = _handleTableMissing(error);
     return {
       success: false,
-      error: error.message || 'Erro ao listar conversas',
+      error: msg || error.message || 'Erro ao listar conversas',
     };
   }
 };
@@ -251,9 +268,10 @@ export const contarMensagensNaoLidas = async (
 
     return { success: true, count: count || 0 };
   } catch (error: any) {
+    const msg = _handleTableMissing(error);
     return {
       success: false,
-      error: error.message || 'Erro ao contar mensagens não lidas',
+      error: msg || error.message || 'Erro ao contar mensagens não lidas',
     };
   }
 };
@@ -291,9 +309,10 @@ export const contarMensagensNaoLidasTotalUsuario = async (
 
     return { success: true, count: count || 0 };
   } catch (error: any) {
+    const msg = _handleTableMissing(error);
     return {
       success: false,
-      error: error.message || 'Erro ao contar mensagens não lidas',
+      error: msg || error.message || 'Erro ao contar mensagens não lidas',
     };
   }
 };

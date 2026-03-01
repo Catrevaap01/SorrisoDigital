@@ -8,7 +8,13 @@ import {
   TextInput,
   Alert,
   Modal,
+  ActivityIndicator as _ActivityIndicator,
 } from 'react-native';
+
+// ActivityIndicator may not exist in some environments (web shims); use
+// a no-op fallback to avoid runtime ReferenceError.
+const ActivityIndicator: React.ComponentType<any> =
+  _ActivityIndicator || (() => null);
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { PROFILE_SCHEMA_FEATURES } from '../../config/supabase';
@@ -27,11 +33,17 @@ const PerfilScreen: React.FC = () => {
   const [nome, setNome] = useState<string>(profile?.nome || '');
   const [telefone, setTelefone] = useState<string>(profile?.telefone || '');
   const [provincia, setProvincia] = useState<string>(profile?.provincia || '');
+  const [crm, setCrm] = useState<string>(profile?.crm || profile?.numero_registro || '');
+  const [especialidade, setEspecialidade] = useState<string>(profile?.especialidade || '');
 
   useEffect(() => {
     setNome(profile?.nome || '');
     setTelefone(profile?.telefone || '');
     setProvincia(profile?.provincia || '');
+    if (isDentista) {
+      setCrm(profile?.crm || profile?.numero_registro || '');
+      setEspecialidade(profile?.especialidade || '');
+    }
   }, [profile]);
 
   const handleSalvar = async () => {
@@ -39,6 +51,10 @@ const PerfilScreen: React.FC = () => {
       nome: nome.trim(),
       telefone: telefone.trim(),
     };
+    if (isDentista) {
+      if (crm.trim()) updates.crm = crm.trim();
+      if (especialidade.trim()) updates.especialidade = especialidade.trim();
+    }
 
     if (canEditProvincia) {
       updates.provincia = provincia;
@@ -58,13 +74,26 @@ const PerfilScreen: React.FC = () => {
     setEditando(false);
   };
 
+  const [processandoLogout, setProcessandoLogout] = useState(false);
+
   const handleLogout = () => {
     Alert.alert(
       'Sair da conta',
       'Tem certeza que deseja sair?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Sair', style: 'destructive', onPress: signOut },
+        {
+          text: 'Sair',
+          style: 'destructive',
+          onPress: async () => {
+            setProcessandoLogout(true);
+            try {
+              await signOut();
+            } finally {
+              setProcessandoLogout(false);
+            }
+          },
+        },
       ]
     );
   };
@@ -92,10 +121,10 @@ const PerfilScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* InformaÃ§Ãµes Pessoais */}
+      {/* Dados Pessoais */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Informacoes Pessoais</Text>
+          <Text style={styles.sectionTitle}>Dados Pessoais</Text>
           <TouchableOpacity onPress={() => setEditando(!editando)}>
             <Ionicons
               name={editando ? 'close' : 'create-outline'}
@@ -120,12 +149,11 @@ const PerfilScreen: React.FC = () => {
           )}
         </View>
 
-        {/* Email (nÃ£o editÃ¡vel) */}
+        {/* Email (não editável) */}
         <View style={styles.campo}>
           <Text style={styles.campoLabel}>Email</Text>
           <Text style={styles.campoValor}>{profile?.email || '-'}</Text>
         </View>
-
         {/* Telefone */}
         <View style={styles.campo}>
           <Text style={styles.campoLabel}>Telefone</Text>
@@ -141,27 +169,69 @@ const PerfilScreen: React.FC = () => {
             <Text style={styles.campoValor}>{profile?.telefone || '-'}</Text>
           )}
         </View>
+      </View>
 
-        {canEditProvincia && (
+      {/* seção profissional separada para dentistas */}
+      {isDentista && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Informações Profissionais</Text>
+          </View>
+
+          {/* CRM */}
           <View style={styles.campo}>
-            <Text style={styles.campoLabel}>Província</Text>
+            <Text style={styles.campoLabel}>CRM / Registro</Text>
             {editando ? (
-              <TouchableOpacity
-                style={styles.selectButton}
-                onPress={() => setShowProvincias(true)}
-              >
-                <Text style={[styles.selectText, !provincia && styles.selectPlaceholder]}>
-                  {provincia || 'Selecione'}
-                </Text>
-                <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
-              </TouchableOpacity>
+              <TextInput
+                style={styles.input}
+                value={crm}
+                onChangeText={setCrm}
+                placeholder="CRM do dentista"
+              />
             ) : (
-              <Text style={styles.campoValor}>{profile?.provincia || '-'}</Text>
+              <Text style={styles.campoValor}>{profile?.crm || profile?.numero_registro || '-'}</Text>
             )}
           </View>
-        )}
 
-        {/* Membro desde */}
+          {/* Especialidade */}
+          <View style={styles.campo}>
+            <Text style={styles.campoLabel}>Especialidade</Text>
+            {editando ? (
+              <TextInput
+                style={styles.input}
+                value={especialidade}
+                onChangeText={setEspecialidade}
+                placeholder="Ex: Ortodontia"
+              />
+            ) : (
+              <Text style={styles.campoValor}>{profile?.especialidade || '-'}</Text>
+            )}
+          </View>
+
+          {/* Província */}
+          {canEditProvincia && (
+            <View style={styles.campo}>
+              <Text style={styles.campoLabel}>Província</Text>
+              {editando ? (
+                <TouchableOpacity
+                  style={styles.selectButton}
+                  onPress={() => setShowProvincias(true)}
+                >
+                  <Text style={[styles.selectText, !provincia && styles.selectPlaceholder]}>
+                    {provincia || 'Selecione'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.campoValor}>{profile?.provincia || '-'}</Text>
+              )}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Membro desde */}
+      <View style={styles.section}>
         <View style={styles.campo}>
           <Text style={styles.campoLabel}>Membro desde</Text>
           <Text style={styles.campoValor}>
@@ -169,7 +239,7 @@ const PerfilScreen: React.FC = () => {
           </Text>
         </View>
 
-        {/* BotÃµes de EdiÃ§Ã£o */}
+        {/* Botões de Edição */}
         {editando && (
           <View style={styles.editButtons}>
             <TouchableOpacity
@@ -191,22 +261,6 @@ const PerfilScreen: React.FC = () => {
         )}
       </View>
 
-      {/* InformaÃ§Ãµes do Dentista */}
-      {isDentista && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>InformaÃ§Ãµes Profissionais</Text>
-          
-          <View style={styles.campo}>
-            <Text style={styles.campoLabel}>CRO</Text>
-            <Text style={styles.campoValor}>{profile?.cro || '-'}</Text>
-          </View>
-
-          <View style={styles.campo}>
-            <Text style={styles.campoLabel}>Especialidade</Text>
-            <Text style={styles.campoValor}>{profile?.especialidade || '-'}</Text>
-          </View>
-        </View>
-      )}
 
       {/* OpÃ§Ãµes */}
       <View style={styles.section}>
@@ -238,9 +292,19 @@ const PerfilScreen: React.FC = () => {
       </View>
 
       {/* BotÃ£o Sair */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={22} color={COLORS.danger} />
-        <Text style={styles.logoutText}>Sair da Conta</Text>
+      <TouchableOpacity
+        style={styles.logoutButton}
+        onPress={handleLogout}
+        disabled={processandoLogout || loading}
+      >
+        {processandoLogout || loading ? (
+          <ActivityIndicator size="small" color={COLORS.danger} />
+        ) : (
+          <>
+            <Ionicons name="log-out-outline" size={22} color={COLORS.danger} />
+            <Text style={styles.logoutText}>Sair da Conta</Text>
+          </>
+        )}
       </TouchableOpacity>
 
       {/* VersÃ£o */}

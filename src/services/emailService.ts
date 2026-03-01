@@ -15,18 +15,22 @@ type EmailPayload = {
 
 const extra = Constants.expoConfig?.extra;
 const EMAIL_API_URL = extra?.EMAIL_API_URL as string | undefined;
+const SENDGRID_API_KEY = extra?.SENDGRID_API_KEY as string | undefined; // opcional
 
 const sendEmail = async (payload: EmailPayload): Promise<{ success: boolean; error?: string }> => {
+  console.log('▶ sendEmail payload', payload);
   try {
     const { error } = await supabase.functions.invoke('send-email', {
       body: payload,
     });
 
     if (!error) {
+      console.log('✔ send-email function invoked successfully');
       return { success: true };
     }
 
     if (EMAIL_API_URL) {
+      console.log('↪ falling back to EMAIL_API_URL', EMAIL_API_URL);
       const response = await fetch(EMAIL_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -41,23 +45,50 @@ const sendEmail = async (payload: EmailPayload): Promise<{ success: boolean; err
         } catch {
           // ignora parse error
         }
-        return { success: false, error: detail };
+        console.warn('fallback EMAIL_API_URL falhou:', detail);
+      } else {
+        return { success: true };
       }
-
-      return { success: true };
     }
 
-    return {
-      success: false,
-      error:
-        error.message ||
-        'Falha ao enviar email. Configure a Edge Function "send-email" ou EMAIL_API_URL no app.json.',
-    };
+    if (SENDGRID_API_KEY) {
+      console.log('↪ trying SendGrid fallback');
+      try {
+        const to = payload.to;
+        const subject = payload.subject;
+        // montar texto simples com dados
+        const text = `Olá ${payload.data.nome || ''},\n\n` +
+          (payload.data.senhaTemporaria
+            ? `Sua senha temporária: ${payload.data.senhaTemporaria}\n\n` : '') +
+          'Por favor, altere sua senha no primeiro login.';
+
+        const sgRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${SENDGRID_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            personalizations: [{ to: [{ email: to }] }],
+            from: { email: 'no-reply@teodontoangola.com', name: 'TeOdonto Angola' },
+            subject,
+            content: [{ type: 'text/plain', value: text }],
+          }),
+        });
+        if (sgRes.ok) {
+          console.log('✔ email enviado via SendGrid');
+          return { success: true };
+        } else {
+          const errText = await sgRes.text();
+          console.warn('SendGrid falhou:', errText);
+        }
+      } catch (sgErr) {
+        console.warn('exceção SendGrid:', sgErr);
+      }
+    }
   } catch (error: any) {
-    return {
-      success: false,
-      error: error?.message || 'Erro inesperado ao enviar email',
-    };
+    console.warn('erro inesperado em sendEmail:', error);
+    return { success: false, error: error?.message || 'Erro inesperado ao enviar email' };
   }
 };
 

@@ -8,6 +8,7 @@ import {
   FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
 import { buscarAgendaDentista } from '../../services/agendamentoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
@@ -96,6 +97,37 @@ const AgendaDentistaScreen: React.FC = () => {
         </View>
 
         <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(item.status) }]} />
+        {/* actions */}
+        {item.status === 'agendado' && (
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: COLORS.secondary }]}
+              onPress={async () => {
+                const { confirmarAgendamento } = await import('../../services/agendamentoService');
+                const res = await confirmarAgendamento(item.id, profile.id);
+                if (res.success) {
+                  Toast.show({ type: 'success', text1: 'Agendamento confirmado' });
+                  carregarAgendamentos();
+                }
+              }}
+            >
+              <Ionicons name="checkmark-circle" size={24} color={COLORS.textInverse} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: COLORS.danger, marginLeft: 8 }]}
+              onPress={async () => {
+                const { cancelarAgendamento } = await import('../../services/agendamentoService');
+                const res = await cancelarAgendamento(item.id);
+                if (res.success) {
+                  Toast.show({ type: 'info', text1: 'Agendamento cancelado' });
+                  carregarAgendamentos();
+                }
+              }}
+            >
+              <Ionicons name="close-circle" size={24} color={COLORS.textInverse} />
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     );
   };
@@ -357,6 +389,17 @@ const styles = StyleSheet.create({
   legendaText: {
     fontSize: SIZES.fontSm,
     color: COLORS.textSecondary,
+  },
+  // ações de confirmar/cancelar
+  actionRow: {
+    flexDirection: 'row',
+    marginTop: SIZES.sm,
+  },
+  actionButton: {
+    padding: SIZES.sm,
+    borderRadius: SIZES.radiusFull,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

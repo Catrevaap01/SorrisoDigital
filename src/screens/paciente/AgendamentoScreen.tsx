@@ -27,6 +27,8 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
   const [dataSelecionada, setDataSelecionada] = useState<Date | null>(null);
   const [horarioSelecionado, setHorarioSelecionado] = useState<string | null>(null);
   const [observacoes, setObservacoes] = useState<string>('');
+  const [dentistas, setDentistas] = useState<any[]>([]);
+  const [dentistaSelecionado, setDentistaSelecionado] = useState<string | null>(null);
 
   const tiposConsulta = [
     { id: 'consulta', label: 'Consulta de Rotina', icon: 'calendar', cor: COLORS.primary },
@@ -71,6 +73,17 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     };
   };
 
+  // load dentists list
+  React.useEffect(() => {
+    (async () => {
+      const { listarDentistas } = await import('../../services/dentistaService');
+      const res = await listarDentistas();
+      if (res.success && res.data) {
+        setDentistas(res.data);
+      }
+    })();
+  }, []);
+
   const handleAgendar = async () => {
     if (!tipoConsulta) {
       Toast.show({ type: 'error', text1: 'Selecione o tipo de consulta' });
@@ -109,6 +122,7 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
       tipo: tipoConsulta,
       observacoes: observacoes.trim(),
       status: 'agendado',
+      dentista_id: dentistaSelecionado || null,
     });
 
     setLoading(false);
@@ -131,6 +145,33 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
 
   return (
     <ScrollView style={styles.container}>
+      {/* Selecionar dentista (opcional) */}
+      {dentistas.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Enviar para</Text>
+          <TouchableOpacity
+            style={styles.selectButton}
+            onPress={() => {
+              const options = dentistas.map((d) => d.nome);
+              Alert.alert('Escolher dentista', '', [
+                ...options.map((name, idx) => ({
+                  text: name,
+                  onPress: () => setDentistaSelecionado(dentistas[idx].id),
+                })),
+                { text: 'Cancelar', style: 'cancel' },
+              ]);
+            }}
+          >
+            <Text style={[styles.selectText, !dentistaSelecionado && styles.selectPlaceholder]}>
+              {dentistaSelecionado
+                ? dentistas.find((d) => d.id === dentistaSelecionado)?.nome
+                : 'Selecione (opcional)'}
+            </Text>
+            <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Tipo de Consulta */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Tipo de Consulta</Text>
@@ -465,6 +506,23 @@ const styles = StyleSheet.create({
     fontSize: SIZES.fontSm,
     color: '#E65100',
     lineHeight: 18,
+  },
+  selectButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  selectText: {
+    fontSize: SIZES.fontMd,
+    color: COLORS.text,
+  },
+  selectPlaceholder: {
+    color: COLORS.textSecondary,
   },
 });
 

@@ -207,12 +207,39 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
                 <Ionicons name="location-outline" size={12} /> {triagem.paciente.provincia}
               </Text>
             )}
+            {triagem.paciente?.data_nascimento && (
+              <Text style={styles.pacienteDetalhe}>
+                <Ionicons name="calendar" size={12} /> {formatDateTime(triagem.paciente.data_nascimento)}
+              </Text>
+            )}
+            {triagem.paciente?.genero && (
+              <Text style={styles.pacienteDetalhe}>
+                <Ionicons name="male-female" size={12} /> {triagem.paciente.genero}
+              </Text>
+            )}
           </View>
         </View>
-        <TouchableOpacity style={styles.chatButton} onPress={handleAbrirChatPaciente}>
-          <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.textInverse} />
-          <Text style={styles.chatButtonText}>Conversar com paciente</Text>
-        </TouchableOpacity>
+        <View style={styles.pacienteButtonsRow}>
+          <TouchableOpacity style={styles.chatButton} onPress={handleAbrirChatPaciente}>
+            <Ionicons name="chatbubble-ellipses" size={18} color={COLORS.textInverse} />
+            <Text style={styles.chatButtonText}>Conversar com paciente</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.chatButton, styles.historyButton]}
+            onPress={() => {
+              if (triagem.paciente_id) {
+                navigation.navigate('PacienteHistorico' as any, {
+                  pacienteId: triagem.paciente_id,
+                  pacienteNome: triagem.paciente?.nome,
+                });
+              }
+            }}
+          >
+            <Ionicons name="document-text" size={18} color={COLORS.textInverse} />
+            <Text style={styles.chatButtonText}>Ver histórico</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Status e Data */}
@@ -489,6 +516,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: SIZES.sm,
+  },
+  pacienteButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: SIZES.md,
+  },
+  historyButton: {
+    backgroundColor: COLORS.secondary,
+    marginLeft: SIZES.sm,
   },
   chatButtonText: {
     color: COLORS.textInverse,

@@ -51,6 +51,9 @@ const buildGeneralHtml = (relatorio: any): string => {
       <div class="meta">Gerado em: ${new Date(relatorio.dataGeracao).toLocaleString('pt-PT')}</div>
       <div class="kpis">
         <div class="kpi">Total dentistas: <b>${relatorio.totalDentistas}</b></div>
+        <div class="kpi">Total cadastros mês: <b>${relatorio.cadastrosMes || 0}</b></div>
+        <div class="kpi">Dentistas mês: <b>${relatorio.dentistasMes || 0}</b></div>
+        <div class="kpi">Pacientes mês: <b>${relatorio.pacientesMes || 0}</b></div>
         <div class="kpi">Dentistas ativos: <b>${relatorio.dentistasAtivos}</b></div>
         <div class="kpi">Total triagens: <b>${relatorio.totalTriagens}</b></div>
         <div class="kpi">Taxa resposta: <b>${relatorio.percentualResposta}%</b></div>

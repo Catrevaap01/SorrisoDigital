@@ -13,6 +13,7 @@ import {
   procurarDentistas,
   DentistaProfile,
 } from '../services/dentistaService';
+import { validators } from '../utils/validators';
 
 export const useDentistas = () => {
   const [dentistas, setDentistas] = useState<DentistaProfile[]>([]);
@@ -76,6 +77,9 @@ export const useDentistas = () => {
       setLoading(true);
       setErro(null);
       try {
+        if (!validators.isValidEmail(email)) {
+          throw new Error('E-mail inválido');
+        }
         const resultado = await criarDentista(
           email,
           senha,
@@ -92,7 +96,7 @@ export const useDentistas = () => {
             text1: 'Sucesso',
             text2: 'Dentista criado com sucesso',
           });
-          return resultado.data;
+          return resultado; // retorna objeto completo (inclui tempPassword)
         } else {
           setErro(resultado.error);
           Toast.show({

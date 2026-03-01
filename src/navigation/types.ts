@@ -46,6 +46,7 @@ export type PacienteStackParamList = {
 export type DentistaStackParamList = {
   DentistaTabs: undefined;
   CasoDetalhe: { triagemId: string };
+  PacienteHistorico: { pacienteId: string; pacienteNome?: string };
 };
 
 export type AdminStackParamList = {

@@ -109,15 +109,30 @@ AdminDashboardScreen aparece com:
 - [x] AdminDashboardScreen implementado
 - [x] Acesso condicionado a `tipo === 'admin'`
 - [x] RLS no Supabase bloqueia acesso de não-admins
+- [x] `fetchProfile` tolera ausência de linha e cria perfil mínimo automaticamente
 - [x] UI com cor de admin (vermelho/danger)
 
+> **Nota importante**: a criação de dentista depende de colunas adicionais na tabela
+> `profiles` (`crm`, `especialidade`, etc.). se o banco ainda não tiver essas
+> colunas você verá um erro semelhante a
+> `"Could not find the 'crm' column"`. execute o script `SUPABASE_SETUP.sql`
+> para adicionar as colunas ou use `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`.
+> A função `criarDentista` agora remove automaticamente campos desconhecidos para
+> manter compatibilidade com esquemas antigos, mas a migração deve ser
+> aplicada o mais rápido possível.>
+> **Outra nota**: o chat entre paciente e dentista requer as tabelas
+> `conversations` e `messages`. se você tentar enviar ou carregar mensagens e
+> obtiver `could not find table "conversations"` ou similar, rode o mesmo script
+> ou execute as instruções de criação presentes em `SUPABASE_SETUP.sql` para
+> criar essas tabelas e políticas de RLS.
 ---
 
 ## 3️⃣ Admin Pode Criar Dentistas
 
 ### Localização do Código
 📍 `src/services/dentistaService.ts` (linhas 20-80)
-
+> Validações de e-mail agora acontecem tanto na UI quanto no serviço. Endereço
+duplicado ou inválido retorna mensagens claras sem quebrar o fluxo.
 ```tsx
 export const criarDentista = async (
   email: string,
@@ -128,10 +143,14 @@ export const criarDentista = async (
   telefone?: string,
   provincia?: string
 ): Promise<{ success: boolean; error?: HandledError }> => {
-  // 1. Cria usuário no Supabase Auth
-  // 2. Cria perfil com tipo = 'dentista'
-  // 3. Define senha_alterada = false (força alterar na 1ª login)
-  // 4. Retorna sucesso/erro
+  // 1. Cria usuário no Supabase Auth com metadata `tipo: 'dentista'` para
+  //    garantir que o novo usuário seja realmente tratado como dentista.
+  // 2. Cria perfil na tabela `profiles` e normaliza campos.
+  // 3. Dispara email de boas‑vindas com a senha temporária em tempo real.
+  //    Essa responsabilidade passa a ser da função de serviço para não
+  //    depender da camada de interface.
+  // 4. Define senha_alterada = false (força alteração no primeiro login).
+  // 5. Retorna sucesso/erro.
 };
 ```
 
@@ -141,7 +160,7 @@ export const criarDentista = async (
 const handleCriarDentista = async () => {
   // Validar campos obrigatórios
   // Gerar senha temporária (se não preenchida)
-  // Chamar criarDentista()
+  // Chamar criarDentista() (já envia email automaticamente)
   // Mostrar modal com senha para copiar
   // Recarregar lista
 };
@@ -158,7 +177,29 @@ const handleCriarDentista = async () => {
 ### Fluxo Completo
 ```
 Admin clica "Novo Dentista"
-       ↓
+```
+
+#### Observações importantes
+- A senha pode ser informada manualmente ou deixada em branco; nesses
+  casos o `criarDentista()` gera uma senha aleatória, retorna `tempPassword`
+  e envia imediatamente por e‑mail.
+- A função usa `upsert` ao criar o perfil para sobrescrever qualquer registro
+  pré-existente (por exemplo gerado pelo trigger `handle_new_user`) e garantir
+  que `tipo = 'dentista'`.
+- O novo usuário é sempre criado com **`tipo = 'dentista'`** (e metadata
+  adicional `role: 'dentista'`) para evitar promoção incorreta.
+- A criação usa o método cliente `signUp` com a opção
+  `shouldCreateSession: false`, de modo que nenhuma sessão é alterada. o
+  admin permanece conectado durante todo o processo (não há necessidade de
+  restaurar sessão manualmente).
+- Tanto a criação quanto a recuperação de senha disparam envio em tempo real.
+- Ao efetuar login com senha gerada ou recuperada o dentista é obrigado a
+  mudar a senha antes de continuar (`force_password_change`/`senha_alterada`).
+- A tela de alteração aparece apenas para perfis não‑pacientes cujo
+  metadata `force_password_change` é verdade ou cujo campo `senha_alterada`
+  estiver falso.
+
+```       ↓
 Abre modal com formulário
        ↓
 Admin preenche dados

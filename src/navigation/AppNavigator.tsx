@@ -1,5 +1,7 @@
 ﻿import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator as _ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+
+const ActivityIndicator: React.ComponentType<any> = _ActivityIndicator || (() => null);
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +34,7 @@ import MensagensScreen from '../screens/paciente/MensagensScreen';
 
 import DashboardScreen from '../screens/dentista/DashboardScreen';
 import CasoDetalheScreen from '../screens/dentista/CasoDetalheScreen';
+import PacienteHistoricoScreen from '../screens/dentista/PacienteHistoricoScreen';
 import DentistaMensagensScreen from '../screens/dentista/DentistaMensagensScreen';
 import AdminNavigator from './AdminNavigator';
 
@@ -182,6 +185,15 @@ const DentistaStack: React.FC<TabsProps> = ({ unreadCount }) => (
       component={CasoDetalheScreen}
       options={{
         title: 'Detalhes do Caso',
+        headerStyle: { backgroundColor: COLORS.secondary },
+        headerTintColor: COLORS.textInverse,
+      }}
+    />
+    <DentistaStackNav.Screen
+      name="PacienteHistorico"
+      component={PacienteHistoricoScreen}
+      options={{
+        title: 'Histórico do Paciente',
         headerStyle: { backgroundColor: COLORS.secondary },
         headerTintColor: COLORS.textInverse,
       }}

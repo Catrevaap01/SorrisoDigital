@@ -18,6 +18,11 @@ export interface UserProfile {
   telefone?: string;
   provincia?: string;
   provincia_id?: number;
+  // Campos adicionais usados para dentistas
+  crm?: string;
+  numero_registro?: string;
+  especialidade?: string;
+  foto_url?: string;
   senha_alterada?: boolean;
   created_at?: string;
   updated_at?: string;
@@ -211,20 +216,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         ? '*, provincias(nome)'
         : '*';
 
+      // use maybeSingle to avoid throwing when não há linhas
       const { data, error } = await supabase
         .from('profiles')
         .select(selectQuery)
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
+      if (!data) {
+        // perfil ausente; pode ocorrer se o usuário foi criado fora do fluxo
+        // normal (e.g. script de admin). tentamos criar uma linha mínima para
+        // evitar erros subsequentes e respeitar o contrato da aplicação.
+        logger.warn(`Perfil não encontrado para ${userId}, criando entrada vazia`);
+        try {
+          const { data: userRes } = await supabase.auth.getUser();
+          const userMeta = userRes?.user?.user_metadata || {};
+          const payload: any = {
+            id: userId,
+            email: userRes?.user?.email || null,
+            nome: userMeta.nome || null,
+            tipo: userMeta.tipo || 'paciente',
+            created_at: new Date().toISOString(),
+          };
+          await supabase.from('profiles').insert([payload]);
+          const normalized = normalizeProfile(payload);
+          setProfile(normalized);
+          return normalized;
+        } catch (createErr) {
+          logger.error('Erro ao criar perfil padrão:', createErr);
+          return null;
+        }
+      }
+
       const normalizedProfile = normalizeProfile(data);
       setProfile(normalizedProfile);
-      logger.info('Perfil do usuÃ¡rio carregado com sucesso');
+      logger.info('Perfil do usuário carregado com sucesso');
       return normalizedProfile;
     } catch (error) {
       const handledError = handleError(error, 'AuthProvider.fetchProfile');
+      // apenas log de aviso se for ausência de linha, já tratado acima
       logger.error('Erro ao buscar perfil:', handledError);
       return null;
     }
@@ -372,6 +404,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * FunÃ§Ã£o de logout
    */
   const signOut = async (): Promise<void> => {
+    console.log('AuthContext.signOut called');
     try {
       setLoading(true);
       const { error } = await supabase.auth.signOut();

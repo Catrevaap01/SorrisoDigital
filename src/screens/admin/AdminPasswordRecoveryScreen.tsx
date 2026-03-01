@@ -94,11 +94,19 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
       if (resetResult.success && resetResult.novaSenha) {
         setNovaSenha(resetResult.novaSenha);
         await copiarParaAreaDeTransferencia(resetResult.novaSenha);
-        Toast.show({
-          type: 'success',
-          text1: 'Senha enviada',
-          text2: 'Senha temporaria enviada por email e copiada no app',
-        });
+        if (resetResult.emailSent) {
+          Toast.show({
+            type: 'success',
+            text1: 'Senha enviada',
+            text2: 'Senha temporaria enviada por email e copiada no app',
+          });
+        } else {
+          Toast.show({
+            type: 'info',
+            text1: 'Senha gerada',
+            text2: 'Não foi possível enviar email; confira configuração',
+          });
+        }
       } else {
         Toast.show({
           type: 'error',

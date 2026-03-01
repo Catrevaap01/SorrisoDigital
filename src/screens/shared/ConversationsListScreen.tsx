@@ -54,7 +54,13 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
     setLoading(true);
     try {
       const resultado = await listarConversasDoUsuario(user.id);
-      if (resultado.success && resultado.data) {
+      if (!resultado.success) {
+        Toast.show({
+          type: 'error',
+          text1: 'Erro',
+          text2: resultado.error || 'Erro ao carregar conversas',
+        });
+      } else if (resultado.data) {
         // Contar mensagens não lidas para cada conversa
         const conversasComNaoLidas = await Promise.all(
           resultado.data.map(async (conversa) => {

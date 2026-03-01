@@ -29,11 +29,9 @@ import {
   procurarDentistas,
   atualizarDentista,
   DentistaProfile,
+  CriarDentistaResult,
 } from '../../services/dentistaService';
-import {
-  sendWelcomeEmailToDentista,
-  sendPasswordRecoveryEmail,
-} from '../../services/emailService';
+import { validators } from '../../utils/validators';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
 import { gerarSenhaTemporaria } from '../../utils/senhaUtils';
 import type { AdminTabParamList } from '../../navigation/AdminNavigator';
@@ -229,6 +227,10 @@ const AdminDashboardScreen: React.FC = () => {
       Toast.show({ type: 'error', text1: 'E-mail obrigatório' });
       return;
     }
+    if (!validators.isValidEmail(novoEmail)) {
+      Toast.show({ type: 'error', text1: 'E-mail inválido' });
+      return;
+    }
 
     if (!novoNome.trim()) {
       Toast.show({ type: 'error', text1: 'Nome obrigatório' });
@@ -261,7 +263,7 @@ const AdminDashboardScreen: React.FC = () => {
     const emailDentista = novoEmail.trim().toLowerCase();
     const nomeDentista = novoNome.trim();
 
-    const resultado = await criarDentista(
+    const resultado: CriarDentistaResult = await criarDentista(
       emailDentista,
       senhaParaUsar,
       nomeDentista,
@@ -274,44 +276,31 @@ const AdminDashboardScreen: React.FC = () => {
     setEnviandoForm(false);
 
     if (resultado.success) {
-      let emailResult = await sendWelcomeEmailToDentista(
-        emailDentista,
-        nomeDentista,
-        senhaParaUsar
-      );
-
-      if (!emailResult.success) {
-        emailResult = await sendPasswordRecoveryEmail(
-          emailDentista,
-          nomeDentista,
-          senhaParaUsar
-        );
-      }
-
-      if (emailResult.success) {
+      const senhaUsada = resultado.tempPassword || senhaParaUsar;
+      if (resultado.emailSent) {
         Toast.show({
           type: 'success',
-          text1: 'Email enviado',
-          text2: 'Senha temporaria enviada para o email do dentista',
+          text1: 'Dentista criado',
+          text2: 'Senha temporária será enviada ao e-mail automaticamente',
         });
       } else {
         Toast.show({
           type: 'info',
           text1: 'Dentista criado',
-          text2: 'Nao foi possivel enviar email automaticamente',
+          text2: 'Não foi possível enviar e-mail; verifique configuração',
         });
       }
 
-      // Mostrar modal com a senha gerada
-      setSenhaGerada(senhaParaUsar);
+      // Mostrar modal com a senha gerada (para caso o admin queira copiar)
+      setSenhaGerada(senhaUsada);
       setNomeNovoDentistaParaSenha(nomeDentista);
       setModalSenhaVisivel(true);
       try {
-        await Clipboard.setStringAsync(senhaParaUsar);
+        await Clipboard.setStringAsync(senhaUsada);
         Toast.show({
           type: 'success',
           text1: 'Senha copiada',
-          text2: 'A senha temporaria foi copiada automaticamente',
+          text2: 'A senha temporária foi copiada automaticamente',
         });
       } catch (e) {
         // silenciosamente ignora falha de cópia

@@ -162,12 +162,17 @@ CREATE TABLE public.profiles (
   nome TEXT,
   tipo TEXT DEFAULT 'paciente', -- 'paciente', 'dentista', 'admin'
   telefone TEXT,
+  -- se você usa IDs de província em vez de string, mantenha
+  -- `provincia_id INTEGER REFERENCES provincias(id)` em vez disso
   provincia TEXT,
+  provincia_id INTEGER,
   
   -- Para Dentistas
   crm TEXT,
   cro TEXT,
   especialidade TEXT,
+  numero_registro TEXT,
+  foto_url TEXT,
   
   -- Controle de Acesso
   senha_alterada BOOLEAN DEFAULT FALSE,

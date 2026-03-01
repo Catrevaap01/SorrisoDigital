@@ -34,8 +34,21 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
   const [localizacao, setLocalizacao] = useState<string>('');
   const [intensidadeDor, setIntensidadeDor] = useState<number>(0);
   const [imagens, setImagens] = useState<string[]>([]);
+  const [dentistas, setDentistas] = useState<any[]>([]);
+  const [dentistaSelecionado, setDentistaSelecionado] = useState<string | null>(null);
 
   // Funções de câmera/galeria - CORRIGIDO
+  // load dentists on first render
+  React.useEffect(() => {
+    (async () => {
+      const { listarDentistas } = await import('../../services/dentistaService');
+      const res = await listarDentistas();
+      if (res.success && res.data) {
+        setDentistas(res.data);
+      }
+    })();
+  }, []);
+
   const tirarFoto = async () => {
     try {
       // Primeiro verifica permissões
@@ -51,7 +64,8 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
 
       // Depois abre a câmera
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images as any,
+        // use string literal per new API: 'images', 'videos' or 'livePhotos'
+        mediaTypes: 'images',
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.7,
@@ -108,7 +122,7 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
 
       // Abre a galeria
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images as any,
+        mediaTypes: 'images',
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.7,
@@ -185,7 +199,7 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
   const processarEnvio = async () => {
     setLoading(true);
 
-    const triagemData = {
+    const triagemData: any = {
       paciente_id: profile.id,
       sintoma_principal: sintomaPrincipal,
       descricao,
@@ -194,6 +208,10 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
       intensidade_dor: intensidadeDor,
     };
 
+    // include dentist if selected
+    if (dentistaSelecionado) {
+      triagemData.dentista_id = dentistaSelecionado;
+    }
     const result = await criarTriagem(triagemData, imagens, profile.id);
 
     setLoading(false);
@@ -329,6 +347,34 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
           ))}
         </View>
       </ScrollView>
+
+      {/* Escolher dentista */}
+      {dentistas.length > 0 && (
+        <View style={styles.campo}>
+          <Text style={styles.campoLabel}>Enviar para</Text>
+          <TouchableOpacity
+            style={styles.selectButton}
+            onPress={() => {
+              // simple picker using Alert for now
+              const options = dentistas.map((d) => d.nome);
+              Alert.alert('Escolher dentista', '', [
+                ...options.map((name, idx) => ({
+                  text: name,
+                  onPress: () => setDentistaSelecionado(dentistas[idx].id),
+                })),
+                { text: 'Cancelar', style: 'cancel' },
+              ]);
+            }}
+          >
+            <Text style={[styles.selectText, !dentistaSelecionado && styles.selectPlaceholder]}>
+              {dentistaSelecionado
+                ? dentistas.find((d) => d.id === dentistaSelecionado)?.nome
+                : 'Selecione'}
+            </Text>
+            <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Intensidade da dor */}
       <Text style={styles.fieldLabel}>
@@ -786,6 +832,33 @@ const styles = StyleSheet.create({
     fontSize: SIZES.fontSm,
     color: '#E65100',
     lineHeight: 18,
+  },
+  // estilos para seleção de dentista
+  campo: {
+    marginTop: SIZES.md,
+  },
+  campoLabel: {
+    fontSize: SIZES.fontMd,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: SIZES.xs,
+  },
+  selectButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  selectText: {
+    fontSize: SIZES.fontMd,
+    color: COLORS.text,
+  },
+  selectPlaceholder: {
+    color: COLORS.textSecondary,
   },
 });
 

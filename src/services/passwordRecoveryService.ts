@@ -26,7 +26,7 @@ export const recuperarSenhaDentista = async (
   dentistaId: string,
   dentistaEmail: string,
   dentistaNome: string
-): Promise<{ success: boolean; novaSenha?: string; error?: string }> => {
+): Promise<{ success: boolean; novaSenha?: string; emailSent?: boolean; error?: string }> => {
   try {
     const novaSenha = gerarSenhaAleatoria();
 
@@ -72,7 +72,7 @@ export const recuperarSenhaDentista = async (
       console.warn('Erro ao enviar email de recuperacao:', emailResult.error);
     }
 
-    return { success: true, novaSenha };
+    return { success: true, novaSenha, emailSent: emailResult.success };
   } catch (error: any) {
     return {
       success: false,

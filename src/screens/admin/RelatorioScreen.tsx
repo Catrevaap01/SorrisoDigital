@@ -23,6 +23,10 @@ import {
   gerarHTMLRelatorio,
   imprimirRelatorio,
 } from '../../services/relatorioService';
+import {
+  exportarRelatorioGeralPdf,
+  exportarRelatorioDentistaPdf,
+} from '../../services/pdfReportService';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
 import { Button } from '../../components/ui/Button';
 
@@ -32,6 +36,7 @@ const RelatorioScreen: React.FC = () => {
   const [dadosRelatorio, setDadosRelatorio] = useState<any>(null);
   const [modalExportacaoVisivel, setModalExportacaoVisivel] = useState(false);
   const [exportando, setExportando] = useState(false);
+  const [loadingPdf, setLoadingPdf] = useState<string | null>(null);
 
   const carregarRelatorio = useCallback(async () => {
     setLoading(true);
@@ -87,6 +92,29 @@ const RelatorioScreen: React.FC = () => {
       setExportando(false);
       setModalExportacaoVisivel(false);
     }
+  };
+
+  const handleExportarGeralPdf = async () => {
+    setLoadingPdf('geral');
+    const result = await exportarRelatorioGeralPdf();
+    setLoadingPdf(null);
+    if (!result.success) {
+      Toast.show({ type: 'error', text1: 'Erro ao gerar PDF', text2: result.error || 'Falha ao gerar relatorio geral' });
+      return;
+    }
+    Toast.show({ type: 'success', text1: 'PDF gerado', text2: 'Relatório geral pronto para compartilhar/imprimir' });
+    setModalExportacaoVisivel(false);
+  };
+
+  const handleExportarDentistaPdf = async (dentistaId: string) => {
+    setLoadingPdf(dentistaId);
+    const result = await exportarRelatorioDentistaPdf(dentistaId);
+    setLoadingPdf(null);
+    if (!result.success) {
+      Toast.show({ type: 'error', text1: 'Erro ao gerar PDF', text2: result.error || 'Falha ao gerar relatorio do dentista' });
+      return;
+    }
+    Toast.show({ type: 'success', text1: 'PDF gerado', text2: 'Relatório do dentista pronto para compartilhar/imprimir' });
   };
 
   const handleExportarCSV = async () => {
@@ -259,8 +287,17 @@ const RelatorioScreen: React.FC = () => {
               </Text>
               <Text style={[styles.tabelaCelula, { flex: 1, color: COLORS.success }]}>
                 {dentista.percentualResposta}%
-              </Text>
-            </View>
+              </Text>              <TouchableOpacity
+                style={styles.pdfIconCell}
+                onPress={() => handleExportarDentistaPdf(dentista.dentista.id)}
+                disabled={loadingPdf === dentista.dentista.id}
+              >
+                {loadingPdf === dentista.dentista.id ? (
+                  <ActivityIndicator size="small" color={COLORS.primary} />
+                ) : (
+                  <Ionicons name="document-text" size={20} color={COLORS.primary} />
+                )}
+              </TouchableOpacity>            </View>
           ))}
         </View>
 
@@ -300,6 +337,20 @@ const RelatorioScreen: React.FC = () => {
                   <Text style={styles.opcaoTitulo}>Imprimir</Text>
                   <Text style={styles.opcaoSubtitulo}>
                     Abrir visualização de impressão
+                  </Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.opcaoExportacao}
+                onPress={handleExportarGeralPdf}
+                disabled={exportando || loadingPdf === 'geral'}
+              >
+                <Ionicons name="document-text" size={28} color={COLORS.primary} />
+                <View style={{ marginLeft: SPACING.md, flex: 1 }}>
+                  <Text style={styles.opcaoTitulo}>Exportar PDF</Text>
+                  <Text style={styles.opcaoSubtitulo}>
+                    Gerar/baixar relatório em PDF
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -419,10 +470,16 @@ const styles = StyleSheet.create({
   },
   tabelaRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
+  },
+  pdfIconCell: {
+    width: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tabelaCelula: {
     fontSize: TYPOGRAPHY.sizes.small,
