@@ -13,25 +13,29 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { PROFILE_SCHEMA_FEATURES } from '../../config/supabase';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
-import { PROVINCIAS_ANGOLA } from '../../utils/constants';
+import { PROVINCIAS_ANGOLA, ESPECIALIDADES_DENTISTA, ESPECIALIDADES_POR_PROVINCIA } from '../../utils/constants';
 import { getInitials, formatDate } from '../../utils/helpers';
 
 const PerfilScreen: React.FC = () => {
   const { profile, updateProfile, signOut, loading } = useAuth();
   const [editando, setEditando] = useState<boolean>(false);
   const [showProvincias, setShowProvincias] = useState<boolean>(false);
+  const [showEspecialidades, setShowEspecialidades] = useState<boolean>(false);
+
   const canEditProvincia =
     PROFILE_SCHEMA_FEATURES.hasProvincia || PROFILE_SCHEMA_FEATURES.usesProvinciaId;
-  
+
   // Campos editÃ¡veis
   const [nome, setNome] = useState<string>(profile?.nome || '');
   const [telefone, setTelefone] = useState<string>(profile?.telefone || '');
   const [provincia, setProvincia] = useState<string>(profile?.provincia || '');
+  const [especialidade, setEspecialidade] = useState<string>(profile?.especialidade || '');
 
   useEffect(() => {
     setNome(profile?.nome || '');
     setTelefone(profile?.telefone || '');
     setProvincia(profile?.provincia || '');
+    setEspecialidade(profile?.especialidade || '');
   }, [profile]);
 
   const handleSalvar = async () => {
@@ -42,6 +46,10 @@ const PerfilScreen: React.FC = () => {
 
     if (canEditProvincia) {
       updates.provincia = provincia;
+    }
+
+    if (isDentista) {
+      updates.especialidade = especialidade;
     }
 
     const result = await updateProfile(updates);
@@ -161,6 +169,27 @@ const PerfilScreen: React.FC = () => {
           </View>
         )}
 
+        {isDentista && (
+          <View style={styles.campo}>
+            <Text style={styles.campoLabel}>Especialidade</Text>
+            {editando ? (
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => setShowEspecialidades(true)}
+              >
+                <Text
+                  style={[styles.selectText, !especialidade && styles.selectPlaceholder]}
+                >
+                  {especialidade || 'Selecione'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.campoValor}>{profile?.especialidade || '-'}</Text>
+            )}
+          </View>
+        )}
+
         {/* Membro desde */}
         <View style={styles.campo}>
           <Text style={styles.campoLabel}>Membro desde</Text>
@@ -194,7 +223,7 @@ const PerfilScreen: React.FC = () => {
       {/* InformaÃ§Ãµes do Dentista */}
       {isDentista && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>InformaÃ§Ãµes Profissionais</Text>
+          <Text style={styles.sectionTitle}>Informações Profissionais</Text>
           
           <View style={styles.campo}>
             <Text style={styles.campoLabel}>CRO</Text>
@@ -246,7 +275,7 @@ const PerfilScreen: React.FC = () => {
       {/* VersÃ£o */}
       <Text style={styles.versao}>TeOdonto Angola v1.0.0</Text>
 
-      {/* Modal de ProvÃ­ncias */}
+      {/* Modal de Províncias */}
       <Modal
         visible={showProvincias}
         transparent
@@ -271,6 +300,11 @@ const PerfilScreen: React.FC = () => {
                   ]}
                   onPress={() => {
                     setProvincia(prov);
+                    // se especialidade atual não for válida para a nova província, limpar
+                    const lista = ESPECIALIDADES_POR_PROVINCIA[prov] || ESPECIALIDADES_DENTISTA;
+                    if (!lista.includes(especialidade)) {
+                      setEspecialidade('');
+                    }
                     setShowProvincias(false);
                   }}
                 >
@@ -283,6 +317,52 @@ const PerfilScreen: React.FC = () => {
                     {prov}
                   </Text>
                   {provincia === prov && (
+                    <Ionicons name="checkmark" size={20} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Especialidades */}
+      <Modal
+        visible={showEspecialidades}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEspecialidades(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Selecione a Especialidade</Text>
+              <TouchableOpacity onPress={() => setShowEspecialidades(false)}>
+                <Ionicons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              {(ESPECIALIDADES_POR_PROVINCIA[provincia] || ESPECIALIDADES_DENTISTA).map((esp) => (
+                <TouchableOpacity
+                  key={esp}
+                  style={[
+                    styles.provinciaItem,
+                    especialidade === esp && styles.provinciaItemActive,
+                  ]}
+                  onPress={() => {
+                    setEspecialidade(esp);
+                    setShowEspecialidades(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.provinciaItemText,
+                      especialidade === esp && styles.provinciaItemTextActive,
+                    ]}
+                  >
+                    {esp}
+                  </Text>
+                  {especialidade === esp && (
                     <Ionicons name="checkmark" size={20} color={COLORS.primary} />
                   )}
                 </TouchableOpacity>

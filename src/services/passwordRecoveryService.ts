@@ -19,6 +19,30 @@ export const gerarSenhaAleatoria = (length: number = 12): string => {
 };
 
 /**
+ * Consulta tipo de usuário pelo email (paciente, dentista, admin)
+ */
+export const getUserTipoByEmail = async (
+  email: string
+): Promise<string | null> => {
+  try {
+    const { data, error, count } = await supabase
+      .from('profiles')
+      .select('tipo', { count: 'exact' })
+      .eq('email', email)
+      .maybeSingle();
+    // maybeSingle returns null if zero rows or object if one; avoids coercion errors
+    if (error) {
+      console.warn('Erro consultando profiles:', error.message);
+      return null;
+    }
+    return data?.tipo || null;
+  } catch (err: any) {
+    console.warn('Erro ao buscar tipo de usuário:', err.message);
+    return null;
+  }
+};
+
+/**
  * Recuperar senha de um dentista (admin only)
  * Gera senha temporaria, envia por email e forca troca no proximo login.
  */
@@ -71,6 +95,68 @@ export const recuperarSenhaDentista = async (
     if (!emailResult.success) {
       console.warn('Erro ao enviar email de recuperacao:', emailResult.error);
     }
+
+    return { success: true, novaSenha };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || 'Erro ao recuperar senha',
+    };
+  }
+};
+
+/**
+ * Recuperar senha de um paciente (autoatendimento)
+ * Gera senha temporaria, envia por email e forca troca no proximo login.
+ */
+export const recuperarSenhaPaciente = async (
+  email: string
+): Promise<{ success: boolean; novaSenha?: string; error?: string }> => {
+  try {
+    // Encontrar perfil pelo e-mail em vez de listar usuários admin
+    const { data: perfil, error: perfilError } = await supabase
+      .from('profiles')
+      .select('id, tipo, nome')
+      .eq('email', email)
+      .maybeSingle();
+    if (perfilError) {
+      return { success: false, error: perfilError.message };
+    }
+    if (!perfil) {
+      return { success: false, error: 'Email não encontrado' };
+    }
+    if (perfil.tipo !== 'paciente') {
+      return { success: false, error: 'Recuperação apenas disponível para pacientes' };
+    }
+
+    const novaSenha = gerarSenhaAleatoria();
+    const userId = perfil.id;
+    // metadata não está disponível aqui, mas não precisamos dela para atualizar senha
+    const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+      password: novaSenha,
+      user_metadata: {
+        force_password_change: true,
+      },
+    });
+    if (updateError) {
+      return { success: false, error: updateError.message };
+    }
+
+    if (PROFILE_SCHEMA_FEATURES.hasSenhaAlterada) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          senha_alterada: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+      if (profileError) {
+        return { success: false, error: profileError.message };
+      }
+    }
+
+    const nome = user.user_metadata?.nome || '';
+    await sendPasswordRecoveryEmail(email, nome, novaSenha);
 
     return { success: true, novaSenha };
   } catch (error: any) {

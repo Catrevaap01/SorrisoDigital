@@ -200,3 +200,26 @@ export const PROVINCIAS_ANGOLA = [
   'Uíge',
   'Zaire',
 ];
+
+// Lista de especialidades que podem ser associadas a um dentista
+export const ESPECIALIDADES_DENTISTA = [
+  'Ortodontia',
+  'Implantologia',
+  'Endodontia',
+  'Periodontia',
+  'Odontopediatria',
+  'Cirurgia Bucomaxilofacial',
+  'Clínica Geral',
+  'Próteses Dentárias',
+  'Estética Dental',
+  'Radiologia Odontológica',
+];
+
+// Caso queira filtrar especialidades por província, um mapeamento pode ser usado.
+// Por enquanto todas as províncias compartilham a mesma lista, mas o mapa está
+// preparado para futuras customizações.
+export const ESPECIALIDADES_POR_PROVINCIA: Record<string, string[]> =
+  PROVINCIAS_ANGOLA.reduce((acc, prov) => {
+    acc[prov] = ESPECIALIDADES_DENTISTA;
+    return acc;
+  }, {} as Record<string, string[]>);

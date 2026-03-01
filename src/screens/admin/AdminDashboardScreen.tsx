@@ -19,9 +19,10 @@ import {
   Clipboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRoute } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import {
   listarDentistas,
   criarDentista,
@@ -29,6 +30,8 @@ import {
   procurarDentistas,
   atualizarDentista,
   DentistaProfile,
+  listarEspecialidadesDentistas,
+  listarProvinciasDentistas,
 } from '../../services/dentistaService';
 import {
   sendWelcomeEmailToDentista,
@@ -36,53 +39,27 @@ import {
 } from '../../services/emailService';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
 import { gerarSenhaTemporaria } from '../../utils/senhaUtils';
-import type { AdminTabParamList } from '../../navigation/AdminNavigator';
+import type { AdminStackParamList } from '../../navigation/types';
 
-const ESPECIALIDADES_DENTISTA = [
-  'Ortodontia',
-  'Implantologia',
-  'Endodontia',
-  'Periodontia',
-  'Odontopediatria',
-  'Cirurgia Bucomaxilofacial',
-  'Clinica Geral',
-  'Proteses Dentarias',
-  'Estetica Dental',
-  'Radiologia Odontologica',
-];
+import { ESPECIALIDADES_DENTISTA, PROVINCIAS_ANGOLA, ESPECIALIDADES_POR_PROVINCIA } from '../../utils/constants';
 
-const PROVINCIAS_ANGOLA = [
-  'Bengo',
-  'Benguela',
-  'Bie',
-  'Cabinda',
-  'Cuando Cubango',
-  'Cuanza Norte',
-  'Cuanza Sul',
-  'Cunene',
-  'Huambo',
-  'Huila',
-  'Luanda',
-  'Lunda Norte',
-  'Lunda Sul',
-  'Malanje',
-  'Moxico',
-  'Namibe',
-  'Uige',
-  'Zaire',
-];
 
 const getDentistaCRM = (dentista: DentistaProfile): string =>
   dentista.crm || (dentista as any).numero_registro || 'N/A';
 
 const AdminDashboardScreen: React.FC = () => {
-  const navigation = useNavigation<BottomTabNavigationProp<AdminTabParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<AdminStackParamList, 'AdminDashboard'>>();
+  const route = useRoute<RouteProp<AdminStackParamList, 'AdminDashboard'>>();
   const [dentistas, setDentistas] = useState<DentistaProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisivel, setModalVisivel] = useState(false);
   const [busca, setBusca] = useState('');
   const [dentistaSelecionado, setDentistaSelecionado] = useState<DentistaProfile | null>(null);
+
+  // opções carregadas dinamicamente
+  const [especialidadesOptions, setEspecialidadesOptions] = useState<string[]>(ESPECIALIDADES_DENTISTA);
+  const [provinciasOptions, setProvinciasOptions] = useState<string[]>(PROVINCIAS_ANGOLA);
 
   // Form de novo dentista
   const [novoEmail, setNovoEmail] = useState('');
@@ -93,6 +70,34 @@ const AdminDashboardScreen: React.FC = () => {
   const [novoTelefone, setNovoTelefone] = useState('');
   const [novaProvincia, setNovaProvincia] = useState('');
   const [enviandoForm, setEnviandoForm] = useState(false);
+
+  // handle values returned by picker screens via route params
+  useEffect(() => {
+    const params = route.params;
+    if (!params) return;
+
+    if (params.pickedEspecialidade) {
+      if (params.modo === 'edit') {
+        setEditEspecialidade(params.pickedEspecialidade);
+      } else {
+        setNovaEspecialidade(params.pickedEspecialidade);
+      }
+      navigation.setParams({ pickedEspecialidade: undefined });
+    }
+    if (params.pickedProvincia) {
+      if (params.modo === 'edit') {
+        setEditProvincia(params.pickedProvincia);
+      } else {
+        setNovaProvincia(params.pickedProvincia);
+        // when province picked during creation, also clear specialty if incompatible
+        const listaEsp = ESPECIALIDADES_POR_PROVINCIA[params.pickedProvincia] || ESPECIALIDADES_DENTISTA;
+        if (!listaEsp.includes(novaEspecialidade)) {
+          setNovaEspecialidade('');
+        }
+      }
+      navigation.setParams({ pickedProvincia: undefined });
+    }
+  }, [route.params]);
 
   // Modal de senha temporária gerada
   const [modalSenhaVisivel, setModalSenhaVisivel] = useState(false);
@@ -106,10 +111,7 @@ const AdminDashboardScreen: React.FC = () => {
   const [editTelefone, setEditTelefone] = useState('');
   const [editProvincia, setEditProvincia] = useState('');
   const [salvandoEdicao, setSalvandoEdicao] = useState(false);
-  const [modalEspecialidadeVisivel, setModalEspecialidadeVisivel] = useState(false);
-  const [especialidadeModo, setEspecialidadeModo] = useState<'create' | 'edit'>('create');
-  const [modalProvinciaVisivel, setModalProvinciaVisivel] = useState(false);
-  const [provinciaModo, setProvinciaModo] = useState<'create' | 'edit'>('create');
+  // pickers are handled via navigation screens instead of internal modals
 
   // Gerar nova senha aleatória
   const handleGerarNovaSenha = () => {
@@ -122,32 +124,40 @@ const AdminDashboardScreen: React.FC = () => {
     });
   };
 
-  const abrirModalEspecialidade = (modo: 'create' | 'edit') => {
-    setEspecialidadeModo(modo);
-    setModalEspecialidadeVisivel(true);
+  // navigation-based pickers
+  const handlePickEspecialidade = async (modo: 'create' | 'edit') => {
+    await carregarOpcoes();
+    const lista = especialidadesDisponiveis(modo);
+    // include onSelect: undefined to overwrite any accidental callback
+    navigation.navigate('EspecialidadePicker', {
+      options: lista,
+      selected: modo === 'create' ? novaEspecialidade : editEspecialidade,
+      modo,
+      onSelect: undefined as unknown as undefined,
+    });
   };
 
-  const selecionarEspecialidade = (especialidade: string) => {
-    if (especialidadeModo === 'create') {
-      setNovaEspecialidade(especialidade);
-    } else {
-      setEditEspecialidade(especialidade);
+  // helper to compute current list of especialidades based on province and server options
+  // `modo` determina se usamos o valor do formulário de criação ou edição
+  const especialidadesDisponiveis = (modo: 'create' | 'edit' = 'create') => {
+    let lista = [...especialidadesOptions];
+    const provin = modo === 'create' ? novaProvincia : editProvincia;
+    if (provin) {
+      const porProv = ESPECIALIDADES_POR_PROVINCIA[provin] || ESPECIALIDADES_DENTISTA;
+      lista = lista.filter((e) => porProv.includes(e));
     }
-    setModalEspecialidadeVisivel(false);
+    return lista;
   };
 
-  const abrirModalProvincia = (modo: 'create' | 'edit') => {
-    setProvinciaModo(modo);
-    setModalProvinciaVisivel(true);
-  };
-
-  const selecionarProvincia = (provincia: string) => {
-    if (provinciaModo === 'create') {
-      setNovaProvincia(provincia);
-    } else {
-      setEditProvincia(provincia);
-    }
-    setModalProvinciaVisivel(false);
+  const handlePickProvincia = async (modo: 'create' | 'edit') => {
+    await carregarOpcoes();
+    const lista = provinciasOptions.length === 0 ? PROVINCIAS_ANGOLA : provinciasOptions;
+    navigation.navigate('ProvinciaPicker', {
+      options: lista,
+      selected: modo === 'create' ? novaProvincia : editProvincia,
+      modo,
+      onSelect: undefined as unknown as undefined,
+    });
   };
 
   // Carregar dentistas
@@ -157,6 +167,9 @@ const AdminDashboardScreen: React.FC = () => {
       const resultado = termo
         ? await procurarDentistas(termo)
         : await listarDentistas();
+
+      // também atualizar opções sempre que atualizamos lista
+      carregarOpcoes();
 
       if (resultado.success && resultado.data) {
         setDentistas(resultado.data);
@@ -184,6 +197,32 @@ const AdminDashboardScreen: React.FC = () => {
       carregarDentistas();
     }, [])
   );
+
+  // buscar especialidades / provincias no servidor
+  const carregarOpcoes = async () => {
+    try {
+      const esp = await listarEspecialidadesDentistas();
+      if (esp.success && esp.data && esp.data.length > 0) {
+        setEspecialidadesOptions(esp.data);
+      } else {
+        // mantém a lista estática se o servidor não retornar nada
+        setEspecialidadesOptions(ESPECIALIDADES_DENTISTA);
+      }
+    } catch {
+      setEspecialidadesOptions(ESPECIALIDADES_DENTISTA);
+    }
+
+    try {
+      const prov = await listarProvinciasDentistas();
+      if (prov.success && prov.data && prov.data.length > 0) {
+        setProvinciasOptions(prov.data);
+      } else {
+        setProvinciasOptions(PROVINCIAS_ANGOLA);
+      }
+    } catch {
+      setProvinciasOptions(PROVINCIAS_ANGOLA);
+    }
+  };
 
   // Busca
   const handleBusca = (texto: string) => {
@@ -351,7 +390,8 @@ const AdminDashboardScreen: React.FC = () => {
     );
   };
 
-  const handleAbrirEdicaoDentista = (dentista: DentistaProfile) => {
+  const handleAbrirEdicaoDentista = async (dentista: DentistaProfile) => {
+    await carregarOpcoes();
     setDentistaEdicaoId(dentista.id);
     setEditNome(dentista.nome || '');
     setEditEspecialidade(dentista.especialidade || '');
@@ -459,7 +499,11 @@ const AdminDashboardScreen: React.FC = () => {
         <Text style={styles.headerTitle}>Gerenciar Dentistas</Text>
         <TouchableOpacity
           style={styles.botaoCriar}
-          onPress={() => setModalVisivel(true)}
+          onPress={async () => {
+            await carregarOpcoes();
+            setModalVisivel(true);
+          }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <Ionicons name="add-circle" size={28} color={COLORS.primary} />
         </TouchableOpacity>
@@ -575,8 +619,9 @@ const AdminDashboardScreen: React.FC = () => {
                 <Text style={styles.formLabel}>Especialidade *</Text>
                 <TouchableOpacity
                   style={styles.formInput}
-                  onPress={() => abrirModalEspecialidade('create')}
+                  onPress={() => handlePickEspecialidade('create')}
                   disabled={enviandoForm}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text style={{ color: novaEspecialidade ? COLORS.text : COLORS.textSecondary }}>
                     {novaEspecialidade || 'Selecionar especialidade'}
@@ -614,8 +659,9 @@ const AdminDashboardScreen: React.FC = () => {
                 <Text style={styles.formLabel}>Província</Text>
                 <TouchableOpacity
                   style={styles.formInput}
-                  onPress={() => abrirModalProvincia('create')}
+                  onPress={() => handlePickProvincia('create')}
                   disabled={enviandoForm}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text style={{ color: novaProvincia ? COLORS.text : COLORS.textSecondary }}>
                     {novaProvincia || 'Selecionar provincia'}
@@ -756,12 +802,6 @@ const AdminDashboardScreen: React.FC = () => {
             </View>
 
             <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false}>
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>ID</Text>
-                <View style={styles.formInput}>
-                  <Text style={styles.formReadOnlyValue}>{dentistaEdicaoId || '-'}</Text>
-                </View>
-              </View>
 
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>E-mail</Text>
@@ -786,8 +826,9 @@ const AdminDashboardScreen: React.FC = () => {
                 <Text style={styles.formLabel}>Especialidade *</Text>
                 <TouchableOpacity
                   style={styles.formInput}
-                  onPress={() => abrirModalEspecialidade('edit')}
+                  onPress={() => handlePickEspecialidade('edit')}
                   disabled={salvandoEdicao}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text style={{ color: editEspecialidade ? COLORS.text : COLORS.textSecondary }}>
                     {editEspecialidade || 'Selecionar especialidade'}
@@ -820,8 +861,9 @@ const AdminDashboardScreen: React.FC = () => {
                 <Text style={styles.formLabel}>Provincia</Text>
                 <TouchableOpacity
                   style={styles.formInput}
-                  onPress={() => abrirModalProvincia('edit')}
+                  onPress={() => handlePickProvincia('edit')}
                   disabled={salvandoEdicao}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text style={{ color: editProvincia ? COLORS.text : COLORS.textSecondary }}>
                     {editProvincia || 'Selecionar provincia'}
@@ -971,46 +1013,9 @@ const AdminDashboardScreen: React.FC = () => {
         </View>
       </Modal>
 
-      <Modal
-        visible={modalEspecialidadeVisivel}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setModalEspecialidadeVisivel(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Selecionar Especialidade</Text>
-              <TouchableOpacity onPress={() => setModalEspecialidadeVisivel(false)}>
-                <Ionicons name="close" size={28} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false}>
-              {ESPECIALIDADES_DENTISTA.map((especialidade) => {
-                const selecionada =
-                  especialidadeModo === 'create'
-                    ? novaEspecialidade === especialidade
-                    : editEspecialidade === especialidade;
-                return (
-                  <TouchableOpacity
-                    key={especialidade}
-                    style={[
-                      styles.opcaoEspecialidade,
-                      selecionada && {
-                        borderLeftColor: COLORS.success,
-                        backgroundColor: COLORS.primaryLight,
-                      },
-                    ]}
-                    onPress={() => selecionarEspecialidade(especialidade)}
-                  >
-                    <Text style={styles.opcaoEspecialidadeTexto}>{especialidade}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+
+
+
     </View>
   );
 };
@@ -1307,18 +1312,25 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontWeight: '500',
   },
-  opcaoEspecialidade: {
-    backgroundColor: COLORS.card,
+  // shared picker item – mirrors ProfileEditModal styling
+  pickerItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: SPACING.md,
-    borderRadius: 8,
-    marginBottom: SPACING.md,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.primary,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
-  opcaoEspecialidadeTexto: {
+  pickerItemActive: {
+    backgroundColor: '#E3F2FD',
+  },
+  pickerText: {
     fontSize: TYPOGRAPHY.sizes.body,
-    fontWeight: '600',
     color: COLORS.text,
+  },
+  pickerTextActive: {
+    color: COLORS.primary,
+    fontWeight: '600',
   },
 });
 

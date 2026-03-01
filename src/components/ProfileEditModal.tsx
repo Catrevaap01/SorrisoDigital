@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES } from '../styles/theme';
-import { PROVINCIAS_ANGOLA } from '../utils/constants';
+import { PROVINCIAS_ANGOLA, ESPECIALIDADES_DENTISTA, ESPECIALIDADES_POR_PROVINCIA } from '../utils/constants';
 import { UserProfile } from '../contexts/AuthContext';
 
 interface ProfileEditModalProps {
@@ -24,7 +24,7 @@ interface ProfileEditModalProps {
   onClose: () => void;
   onSave: (updates: Partial<UserProfile>) => Promise<void>;
   loading?: boolean;
-  campos?: Array<'nome' | 'telefone' | 'provincia' | 'data_nascimento' | 'genero'>;
+  campos?: Array<'nome' | 'telefone' | 'provincia' | 'data_nascimento' | 'genero' | 'especialidade'>;
 }
 
 const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
@@ -38,15 +38,18 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   const [nome, setNome] = useState('');
   const [telefone, setTelefone] = useState('');
   const [provincia, setProvincia] = useState('');
+  const [especialidade, setEspecialidade] = useState('');
   const [dataNascimento, setDataNascimento] = useState('');
   const [genero, setGenero] = useState('');
   const [showProvincias, setShowProvincias] = useState(false);
+  const [showEspecialidades, setShowEspecialidades] = useState(false);
 
   useEffect(() => {
     if (profile) {
       setNome(profile.nome || '');
       setTelefone(profile.telefone || '');
       setProvincia(profile.provincia || '');
+      setEspecialidade(profile.especialidade || '');
       setDataNascimento(profile.data_nascimento || '');
       setGenero(profile.genero || '');
     }
@@ -58,6 +61,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
     if (campos.includes('nome')) updates.nome = nome;
     if (campos.includes('telefone')) updates.telefone = telefone;
     if (campos.includes('provincia')) updates.provincia = provincia;
+    if (campos.includes('especialidade')) updates.especialidade = especialidade;
     if (campos.includes('data_nascimento')) updates.data_nascimento = dataNascimento;
     if (campos.includes('genero')) updates.genero = genero;
 
@@ -142,6 +146,11 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
                             ]}
                             onPress={() => {
                               setProvincia(prov);
+                              // limpa especialidade caso não esteja disponível na província selecionada
+                              const lista = ESPECIALIDADES_POR_PROVINCIA[prov] || ESPECIALIDADES_DENTISTA;
+                              if (!lista.includes(especialidade)) {
+                                setEspecialidade('');
+                              }
                               setShowProvincias(false);
                             }}
                           >
@@ -154,6 +163,52 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
                               {prov}
                             </Text>
                             {provincia === prov && (
+                              <Ionicons name="checkmark" size={20} color={COLORS.primary} />
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  </View>
+                </Modal>
+
+                {/* Modal de Especialidades */}
+                <Modal
+                  visible={showEspecialidades}
+                  transparent
+                  animationType="slide"
+                  onRequestClose={() => setShowEspecialidades(false)}
+                >
+                  <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                      <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Selecione a Especialidade</Text>
+                        <TouchableOpacity onPress={() => setShowEspecialidades(false)}>
+                          <Ionicons name="close" size={24} color={COLORS.text} />
+                        </TouchableOpacity>
+                      </View>
+                      <ScrollView>
+                        {(ESPECIALIDADES_POR_PROVINCIA[provincia] || ESPECIALIDADES_DENTISTA).map((esp) => (
+                          <TouchableOpacity
+                            key={esp}
+                            style={[
+                              styles.provinciaItem,
+                              especialidade === esp && styles.provinciaItemActive,
+                            ]}
+                            onPress={() => {
+                              setEspecialidade(esp);
+                              setShowEspecialidades(false);
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.provinciaText,
+                                especialidade === esp && styles.provinciaTextActive,
+                              ]}
+                            >
+                              {esp}
+                            </Text>
+                            {especialidade === esp && (
                               <Ionicons name="checkmark" size={20} color={COLORS.primary} />
                             )}
                           </TouchableOpacity>

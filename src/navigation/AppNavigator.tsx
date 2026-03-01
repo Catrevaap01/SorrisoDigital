@@ -20,6 +20,7 @@ import {
 
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 import ChangePasswordScreen from '../screens/auth/ChangePasswordScreen';
 
 import HomeScreen from '../screens/paciente/HomeScreen';
@@ -29,10 +30,12 @@ import EducacaoScreen from '../screens/paciente/EducacaoScreen';
 import AgendamentoScreen from '../screens/paciente/AgendamentoScreen';
 import PerfilScreen from '../screens/paciente/PerfilScreen';
 import MensagensScreen from '../screens/paciente/MensagensScreen';
+import DentistasScreen from '../screens/paciente/DentistasScreen';
 
 import DashboardScreen from '../screens/dentista/DashboardScreen';
 import CasoDetalheScreen from '../screens/dentista/CasoDetalheScreen';
 import DentistaMensagensScreen from '../screens/dentista/DentistaMensagensScreen';
+import PacientesScreen from '../screens/dentista/PacientesScreen';
 import AdminNavigator from './AdminNavigator';
 
 let AgendaDentistaScreen: React.ComponentType<any>;
@@ -49,6 +52,9 @@ try {
 }
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+
+// helper component to render auth screens
+
 const PacienteTab = createBottomTabNavigator<PacienteTabParamList>();
 const DentistaTab = createBottomTabNavigator<DentistaTabParamList>();
 const PacienteStackNav = createNativeStackNavigator<PacienteStackParamList>();
@@ -81,6 +87,9 @@ const PacienteTabs: React.FC<TabsProps> = ({ unreadCount }) => (
           case 'Mensagens':
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
             break;
+          case 'Dentistas':
+            iconName = focused ? 'people' : 'people-outline';
+            break;
           case 'Perfil':
             iconName = focused ? 'person' : 'person-outline';
             break;
@@ -105,6 +114,7 @@ const PacienteTabs: React.FC<TabsProps> = ({ unreadCount }) => (
     <PacienteTab.Screen name="Educação" component={EducacaoScreen} options={{ title: 'Educação' }} />
     <PacienteTab.Screen name="Histórico" component={HistoricoScreen} options={{ title: 'Histórico' }} />
     <PacienteTab.Screen name="Mensagens" component={MensagensScreen} />
+    <PacienteTab.Screen name="Dentistas" component={DentistasScreen} />
     <PacienteTab.Screen name="Perfil" component={PerfilScreen} />
   </PacienteTab.Navigator>
 );
@@ -124,6 +134,9 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
             break;
           case 'Mensagens':
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+            break;
+          case 'Pacientes':
+            iconName = focused ? 'people' : 'people-outline';
             break;
           case 'Perfil':
             iconName = focused ? 'person' : 'person-outline';
@@ -151,6 +164,7 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
     />
     <DentistaTab.Screen name="Agenda" component={AgendaDentistaScreen} />
     <DentistaTab.Screen name="Mensagens" component={DentistaMensagensScreen} />
+    <DentistaTab.Screen name="Pacientes" component={PacientesScreen} />
     <DentistaTab.Screen name="Perfil" component={PerfilScreen} />
   </DentistaTab.Navigator>
 );
@@ -282,7 +296,6 @@ const AppNavigator: React.FC = () => {
   const precisaMudarSenha =
     !!user &&
     !!profile &&
-    profile.tipo !== 'paciente' &&
     (
       PROFILE_SCHEMA_FEATURES.hasSenhaAlterada
         ? !profile.senha_alterada
@@ -295,6 +308,7 @@ const AppNavigator: React.FC = () => {
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
         </>
       ) : precisaMudarSenha ? (
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />

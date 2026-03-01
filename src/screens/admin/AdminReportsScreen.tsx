@@ -80,15 +80,21 @@ const AdminReportsScreen: React.FC = () => {
       if (!rpcError && rpcData) {
         const row: AdminReportStatsRpc = Array.isArray(rpcData) ? rpcData[0] : rpcData;
         if (row) {
+          const dentistasMes = Number(row.dentistas_mes_atual || 0);
+          const pacientesMes = Number(row.pacientes_mes_atual || 0);
+          const totalDentistas = Number(row.total_dentistas || 0);
+          const totalPacientes = Number(row.total_pacientes || 0);
+          // guarantee totals add up rather than trusting RPC value
+          const totalCadastros = totalDentistas + totalPacientes;
           setStats({
-            totalCadastros: Number(row.total_cadastros || 0),
-            totalDentistas: Number(row.total_dentistas || 0),
-            totalPacientes: Number(row.total_pacientes || 0),
+            totalCadastros,
+            totalDentistas,
+            totalPacientes,
             totalConsultas: Number(row.total_consultas || 0),
             totalMensagens: Number(row.total_mensagens || 0),
-            cadastrosMesAtual: Number(row.cadastros_mes_atual || 0),
-            dentistasMesAtual: Number(row.dentistas_mes_atual || 0),
-            pacientesMesAtual: Number(row.pacientes_mes_atual || 0),
+            cadastrosMesAtual: dentistasMes + pacientesMes,
+            dentistasMesAtual: dentistasMes,
+            pacientesMesAtual: pacientesMes,
           });
         }
       } else {
@@ -139,7 +145,7 @@ const AdminReportsScreen: React.FC = () => {
         totalPacientes,
         totalConsultas: (consultas || []).length,
         totalMensagens: (mensagens || []).length,
-        cadastrosMesAtual: cadastrosMes,
+        cadastrosMesAtual: dentistasMes + pacientesMes,
         dentistasMesAtual: dentistasMes,
         pacientesMesAtual: pacientesMes,
       });

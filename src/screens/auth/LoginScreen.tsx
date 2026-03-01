@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { getUserTipoByEmail } from '../../services/passwordRecoveryService';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
@@ -17,6 +19,7 @@ export default function LoginScreen({ navigation }: any) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showForgot, setShowForgot] = useState(false);
 
   const { login } = useAuth();
 
@@ -32,6 +35,21 @@ export default function LoginScreen({ navigation }: any) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout>;
+    if (email.trim()) {
+      timeout = setTimeout(async () => {
+        const tipo = await getUserTipoByEmail(email.trim().toLowerCase());
+        setShowForgot(tipo === 'paciente');
+      }, 500);
+    } else {
+      setShowForgot(false);
+    }
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
+  }, [email]);
 
   return (
     <KeyboardAvoidingView
@@ -76,6 +94,15 @@ export default function LoginScreen({ navigation }: any) {
               disabled={loading || !email || !password}
               loading={loading}
             />
+
+            {showForgot && (
+              <TouchableOpacity
+                onPress={() => navigation.navigate('ForgotPassword')}
+                disabled={loading}
+              >
+                <Text style={[styles.footerText, { textDecorationLine: 'underline' }]}>Esqueci minha senha</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.footer}>

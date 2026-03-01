@@ -318,3 +318,71 @@ export const procurarDentistas = async (termo: string): Promise<{
   }
 };
 
+/**
+ * Carrega lista de especialidades já utilizadas por dentistas cadastrados.
+ * Retorna array de strings ordenado alfabeticamente.
+ */
+export const listarEspecialidadesDentistas = async (): Promise<{
+  success: boolean;
+  data?: string[];
+  error?: string;
+}> => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('especialidade')
+      .eq('tipo', 'dentista')
+      .is('especialidade', null, { foreignTable: 'profiles' }) // workaround to include null; not necessary
+      .neq('especialidade', '')
+      .order('especialidade', { ascending: true });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    // supabase returns array of objects { especialidade: '...' }
+    const list = (data as any[])
+      .map((r) => r.especialidade)
+      .filter((v): v is string => !!v);
+    // remove duplicates just in case
+    const unique = Array.from(new Set(list));
+    unique.sort();
+
+    return { success: true, data: unique };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Erro ao listar especialidades' };
+  }
+};
+
+/**
+ * Carrega lista de províncias já utilizadas por dentistas.
+ */
+export const listarProvinciasDentistas = async (): Promise<{
+  success: boolean;
+  data?: string[];
+  error?: string;
+}> => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('provincia')
+      .eq('tipo', 'dentista')
+      .neq('provincia', '')
+      .order('provincia', { ascending: true });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    const list = (data as any[])
+      .map((r) => r.provincia)
+      .filter((v): v is string => !!v);
+    const unique = Array.from(new Set(list));
+    unique.sort();
+
+    return { success: true, data: unique };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Erro ao listar provincias' };
+  }
+};
+
