@@ -7,7 +7,9 @@ import {
   Platform,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -44,7 +46,19 @@ export default function LoginScreen({ navigation }: any) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-          <View style={styles.header}>
+          {loading && (
+            <View style={styles.loadingOverlay}>
+              <View style={styles.logoCircle}>
+                <Ionicons name="medical" size={50} color={COLORS.primary} />
+              </View>
+              <ActivityIndicator size="large" color={COLORS.primary} style={{marginTop:SPACING.lg}} />
+            </View>
+          )}
+          {/* logo same as cadastro */}
+          <View style={styles.logoContainer}>
+            <View style={styles.logoCircle}>
+              <Ionicons name="medical" size={50} color={COLORS.primary} />
+            </View>
             <Text style={styles.title}>Te Odonto Angola</Text>
             <Text style={styles.subtitle}>Bem-vindo de volta</Text>
           </View>
@@ -125,6 +139,26 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: TYPOGRAPHY.sizes.body,
     color: COLORS.text,
+  },
+  logoContainer: {
+    marginBottom: SPACING.xl,
+    alignItems: 'center',
+  },
+  logoCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
   form: {
     marginBottom: SPACING.lg,
