@@ -187,6 +187,15 @@ const PacienteStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
           headerTintColor: COLORS.textInverse,
         }}
       />
+      <PacienteStackNav.Screen
+        name="Settings"
+        component={require('../screens/paciente/SettingsScreen').default}
+        options={{
+          title: 'Configurações',
+          headerStyle: { backgroundColor: COLORS.primary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
     </PacienteStackNav.Navigator>
   );
 };
@@ -212,6 +221,16 @@ const DentistaStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
         component={PacienteHistoricoScreen}
         options={{
           title: 'Histórico do Paciente',
+          headerStyle: { backgroundColor: COLORS.secondary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+
+      <DentistaStackNav.Screen
+        name="Settings"
+        component={require('../screens/paciente/SettingsScreen').default}
+        options={{
+          title: 'Configurações',
           headerStyle: { backgroundColor: COLORS.secondary },
           headerTintColor: COLORS.textInverse,
         }}

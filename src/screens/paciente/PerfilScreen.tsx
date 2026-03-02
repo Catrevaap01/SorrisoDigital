@@ -402,25 +402,37 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Configurações</Text>
 
-          <TouchableOpacity style={styles.opcaoItem}>
+          <TouchableOpacity
+            style={styles.opcaoItem}
+            onPress={() => navigation.getParent()?.navigate('Settings' as any)}
+          >
             <Ionicons name="notifications-outline" size={22} color={COLORS.textSecondary} />
-            <Text style={styles.opcaoText}>Notificacoes</Text>
+            <Text style={styles.opcaoText}>Notificações</Text>
             <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.opcaoItem}>
+          <TouchableOpacity
+            style={styles.opcaoItem}
+            onPress={() => navigation.getParent()?.navigate('Settings' as any)}
+          >
             <Ionicons name="shield-checkmark-outline" size={22} color={COLORS.textSecondary} />
             <Text style={styles.opcaoText}>Privacidade</Text>
             <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.opcaoItem}>
+          <TouchableOpacity
+            style={styles.opcaoItem}
+            onPress={() => navigation.getParent()?.navigate('Settings' as any)}
+          >
             <Ionicons name="help-circle-outline" size={22} color={COLORS.textSecondary} />
             <Text style={styles.opcaoText}>Ajuda</Text>
             <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.opcaoItem}>
+          <TouchableOpacity
+            style={styles.opcaoItem}
+            onPress={() => navigation.getParent()?.navigate('Settings' as any)}
+          >
             <Ionicons name="document-text-outline" size={22} color={COLORS.textSecondary} />
             <Text style={styles.opcaoText}>Termos de Uso</Text>
             <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />

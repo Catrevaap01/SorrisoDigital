@@ -43,12 +43,14 @@ export type PacienteStackParamList = {
   PacienteTabs: undefined;
   Agendamento: undefined;
   ChooseDentista: undefined; // força paciente escolher dentista antes de triagem/consulta
+  Settings: undefined; // tela de configurações do aplicativo
 };
 
 export type DentistaStackParamList = {
   DentistaTabs: undefined;
   CasoDetalhe: { triagemId: string };
   PacienteHistorico: { pacienteId: string; pacienteNome?: string };
+  Settings: undefined; // mesma tela de configurações usada pelo paciente
 };
 
 export type AdminStackParamList = {
