@@ -28,6 +28,20 @@ const MensagensScreen: React.FC = () => {
   const [dentistas, setDentistas] = useState<DentistaProfile[]>([]);
   const [criandoConversaId, setCriandoConversaId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (profile?.tipo && profile.tipo !== 'paciente') {
+      Toast.show({
+        type: 'info',
+        text1: 'Acesso restrito',
+        text2: 'Esta tela e exclusiva para pacientes',
+      });
+    }
+  }, [profile?.tipo]);
+
+  if (profile?.tipo && profile.tipo !== 'paciente') {
+    return <View style={styles.container} />;
+  }
+
   const handleSelectConversa = (
     conversationId: string,
     otherUserName: string,
@@ -45,7 +59,11 @@ const MensagensScreen: React.FC = () => {
   const carregarDentistas = async () => {
     setLoadingDentistas(true);
     try {
-      const result = await listarDentistas();
+      let result = await listarDentistas({ forceRefresh: true });
+      if ((result.data?.length || 0) === 0) {
+        // Segunda tentativa para evitar abrir modal vazio por atraso momentaneo.
+        result = await listarDentistas({ forceRefresh: true });
+      }
       if (result.success && result.data) {
         setDentistas(result.data);
       } else {

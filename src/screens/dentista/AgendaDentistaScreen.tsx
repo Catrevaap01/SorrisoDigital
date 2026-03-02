@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -14,11 +13,12 @@ import { buscarAgendaDentista } from '../../services/agendamentoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { formatDate } from '../../utils/helpers';
 
-const AgendaDentistaScreen: React.FC = () => {
+const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
   const { profile } = useAuth();
   const [dataSelecionada, setDataSelecionada] = useState<Date>(new Date());
   const [agendamentos, setAgendamentos] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   // Gerar dias da semana atual
   const gerarSemana = () => {
@@ -61,7 +61,7 @@ const AgendaDentistaScreen: React.FC = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'confirmado': return COLORS.secondary;
+      case 'pendente': return COLORS.accent;
       case 'agendado': return COLORS.primary;
       case 'realizado': return COLORS.textSecondary;
       case 'cancelado': return COLORS.danger;
@@ -75,62 +75,118 @@ const AgendaDentistaScreen: React.FC = () => {
       minute: '2-digit',
     });
 
+    const handleAbrirPaciente = () => {
+      if (!item.paciente?.id) return;
+      navigation.navigate('PacienteHistorico' as any, {
+        pacienteId: item.paciente.id,
+        pacienteNome: item.paciente.nome,
+      });
+    };
+
+    const handleConfirmar = async () => {
+      if (processingId) return;
+      setProcessingId(item.id);
+      const { confirmarAgendamento } = await import('../../services/agendamentoService');
+      const res = await confirmarAgendamento(item.id, profile.id);
+      if (res.success) {
+        Toast.show({ type: 'success', text1: 'Agendamento confirmado' });
+        await carregarAgendamentos();
+        setProcessingId(null);
+        handleAbrirPaciente();
+        return;
+      }
+      setProcessingId(null);
+      Toast.show({
+        type: 'error',
+        text1: 'Erro ao confirmar',
+        text2: res.error || 'Nao foi possivel confirmar este agendamento',
+      });
+    };
+
+    const handleCancelar = async () => {
+      if (processingId) return;
+      setProcessingId(item.id);
+      const { cancelarAgendamento } = await import('../../services/agendamentoService');
+      const res = await cancelarAgendamento(item.id);
+      if (res.success) {
+        Toast.show({ type: 'info', text1: 'Agendamento voltou para pendente' });
+        await carregarAgendamentos();
+        setProcessingId(null);
+        return;
+      }
+      setProcessingId(null);
+      Toast.show({
+        type: 'error',
+        text1: 'Erro ao cancelar',
+        text2: res.error || 'Nao foi possivel cancelar este agendamento',
+      });
+    };
+
     return (
       <View style={styles.agendamentoCard}>
         <View style={styles.horaContainer}>
           <Text style={styles.horaText}>{hora}</Text>
         </View>
 
-        <View style={styles.agendamentoInfo}>
-          <Text style={styles.pacienteNome}>{item.paciente?.nome || 'Paciente'}</Text>
-          <Text style={styles.tipoConsulta}>{item.tipo}</Text>
-          {item.paciente?.telefone && (
-            <Text style={styles.telefone}>
-              <Ionicons name="call-outline" size={12} /> {item.paciente.telefone}
+        <TouchableOpacity style={styles.agendamentoInfo} activeOpacity={0.8} onPress={handleAbrirPaciente}>
+          <View>
+            <Text style={styles.pacienteNome}>
+              {item.paciente?.nome || item.paciente_nome || 'Paciente'}
             </Text>
-          )}
-          {item.observacoes && (
-            <Text style={styles.observacoes} numberOfLines={1}>
-              {item.observacoes}
-            </Text>
-          )}
-        </View>
+            <Text style={styles.tipoConsulta}>{item.tipo}</Text>
+            {item.paciente?.telefone && (
+              <Text style={styles.telefone}>
+                <Ionicons name="call-outline" size={12} /> {item.paciente.telefone}
+              </Text>
+            )}
+            {item.observacoes && (
+              <Text style={styles.observacoes} numberOfLines={1}>
+                {item.observacoes}
+              </Text>
+            )}
+          </View>
+        </TouchableOpacity>
 
         <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(item.status) }]} />
-        {/* actions */}
-        {item.status === 'agendado' && (
+        {(item.status === 'pendente' || item.status === 'agendado') && (
           <View style={styles.actionRow}>
+            {item.status === 'pendente' && (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: COLORS.secondary }]}
+                onPress={handleConfirmar}
+                disabled={processingId === item.id}
+              >
+                <Ionicons name="checkmark-circle" size={16} color={COLORS.textInverse} />
+                <Text style={styles.actionButtonText}>
+                  {processingId === item.id ? 'Processando' : 'Confirmar'}
+                </Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: COLORS.secondary }]}
-              onPress={async () => {
-                const { confirmarAgendamento } = await import('../../services/agendamentoService');
-                const res = await confirmarAgendamento(item.id, profile.id);
-                if (res.success) {
-                  Toast.show({ type: 'success', text1: 'Agendamento confirmado' });
-                  carregarAgendamentos();
-                }
-              }}
+              style={[styles.actionButton, { backgroundColor: COLORS.danger }]}
+              onPress={handleCancelar}
+              disabled={processingId === item.id}
             >
-              <Ionicons name="checkmark-circle" size={24} color={COLORS.textInverse} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: COLORS.danger, marginLeft: 8 }]}
-              onPress={async () => {
-                const { cancelarAgendamento } = await import('../../services/agendamentoService');
-                const res = await cancelarAgendamento(item.id);
-                if (res.success) {
-                  Toast.show({ type: 'info', text1: 'Agendamento cancelado' });
-                  carregarAgendamentos();
-                }
-              }}
-            >
-              <Ionicons name="close-circle" size={24} color={COLORS.textInverse} />
+              <Ionicons name="close-circle" size={16} color={COLORS.textInverse} />
+              <Text style={styles.actionButtonText}>
+                {processingId === item.id ? 'Processando' : 'Cancelar'}
+              </Text>
             </TouchableOpacity>
           </View>
         )}
       </View>
     );
   };
+
+  const pendentesDoDia = agendamentos.filter((a) => a.status === 'pendente');
+  const meusAgendadosDoDia = agendamentos.filter(
+    (a) =>
+      a.dentista_id === profile.id &&
+      (a.status === 'agendado' || a.status === 'confirmado')
+  );
+  const canceladosDoDia = agendamentos.filter(
+    (a) => a.status === 'cancelado' && (!a.dentista_id || a.dentista_id === profile.id)
+  );
 
   return (
     <View style={styles.container}>
@@ -180,7 +236,7 @@ const AgendaDentistaScreen: React.FC = () => {
           {formatDate(dataSelecionada, "EEEE, dd 'de' MMMM")}
         </Text>
         <Text style={styles.totalAgendamentos}>
-          {agendamentos.length} agendamento(s)
+          {agendamentos.length} agendamento(s) no dia
         </Text>
       </View>
 
@@ -198,24 +254,54 @@ const AgendaDentistaScreen: React.FC = () => {
           </Text>
         </View>
       ) : (
-        <FlatList
-          data={agendamentos}
-          keyExtractor={(item) => item.id}
-          renderItem={renderAgendamento}
-          contentContainerStyle={styles.lista}
-          showsVerticalScrollIndicator={false}
-        />
+        <ScrollView contentContainerStyle={styles.lista} showsVerticalScrollIndicator={false}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Pacientes pendentes no dia</Text>
+            <Text style={styles.sectionCount}>{pendentesDoDia.length}</Text>
+          </View>
+          {pendentesDoDia.length === 0 ? (
+            <Text style={styles.sectionEmpty}>Sem pacientes pendentes neste dia.</Text>
+          ) : (
+            pendentesDoDia.map((item) => <View key={item.id}>{renderAgendamento({ item })}</View>)
+          )}
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Pacientes agendados por mim</Text>
+            <Text style={styles.sectionCount}>{meusAgendadosDoDia.length}</Text>
+          </View>
+          {meusAgendadosDoDia.length === 0 ? (
+            <Text style={styles.sectionEmpty}>
+              Sem pacientes agendados por este dentista neste dia.
+            </Text>
+          ) : (
+            meusAgendadosDoDia.map((item) => (
+              <View key={`meu-${item.id}`}>{renderAgendamento({ item })}</View>
+            ))
+          )}
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Pacientes cancelados no dia</Text>
+            <Text style={styles.sectionCount}>{canceladosDoDia.length}</Text>
+          </View>
+          {canceladosDoDia.length === 0 ? (
+            <Text style={styles.sectionEmpty}>Sem pacientes cancelados neste dia.</Text>
+          ) : (
+            canceladosDoDia.map((item) => (
+              <View key={`cancelado-${item.id}`}>{renderAgendamento({ item })}</View>
+            ))
+          )}
+        </ScrollView>
       )}
 
       {/* Legenda */}
       <View style={styles.legendaContainer}>
         <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: COLORS.primary }]} />
-          <Text style={styles.legendaText}>Agendado</Text>
+          <View style={[styles.legendaCor, { backgroundColor: COLORS.accent }]} />
+          <Text style={styles.legendaText}>Pendente</Text>
         </View>
         <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: COLORS.secondary }]} />
-          <Text style={styles.legendaText}>Confirmado</Text>
+          <View style={[styles.legendaCor, { backgroundColor: COLORS.primary }]} />
+          <Text style={styles.legendaText}>Agendado</Text>
         </View>
         <View style={styles.legendaItem}>
           <View style={[styles.legendaCor, { backgroundColor: COLORS.danger }]} />
@@ -318,12 +404,32 @@ const styles = StyleSheet.create({
   lista: {
     padding: SIZES.md,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SIZES.xs,
+  },
+  sectionTitle: {
+    fontSize: SIZES.fontMd,
+    color: COLORS.text,
+    fontWeight: '700',
+  },
+  sectionCount: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  sectionEmpty: {
+    color: COLORS.textSecondary,
+    marginBottom: SIZES.md,
+  },
   agendamentoCard: {
     flexDirection: 'row',
     backgroundColor: COLORS.surface,
     borderRadius: SIZES.radiusMd,
     marginBottom: SIZES.sm,
-    overflow: 'hidden',
+    overflow: 'visible',
     ...SHADOWS.sm,
   },
   horaContainer: {
@@ -392,14 +498,24 @@ const styles = StyleSheet.create({
   },
   // ações de confirmar/cancelar
   actionRow: {
-    flexDirection: 'row',
-    marginTop: SIZES.sm,
+    justifyContent: 'center',
+    paddingHorizontal: SIZES.sm,
+    gap: SIZES.xs,
   },
   actionButton: {
-    padding: SIZES.sm,
-    borderRadius: SIZES.radiusFull,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: SIZES.radiusSm,
+    paddingHorizontal: SIZES.sm,
+    paddingVertical: 6,
+    minWidth: 108,
+  },
+  actionButtonText: {
+    marginLeft: SIZES.xs,
+    color: COLORS.textInverse,
+    fontSize: SIZES.fontSm,
+    fontWeight: '700',
   },
 });
 

@@ -44,9 +44,9 @@ interface AdminReportStatsRpc {
   total_pacientes: number;
   total_consultas: number;
   total_mensagens: number;
-  cadastros_mes_atual: number;
-  dentistas_mes_atual: number;
-  pacientes_mes_atual: number;
+  cadastros_mes_atual?: number;
+  dentistas_mes_atual?: number;
+  pacientes_mes_atual?: number;
 }
 
 const normalizeTipo = (value?: string | null) =>
@@ -55,6 +55,30 @@ const normalizeTipo = (value?: string | null) =>
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
+
+const buildMonthlyStats = (profiles: any[]) => {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const profilesThisMonth = profiles.filter((p: any) => {
+    const createdAt = p?.created_at ? new Date(p.created_at) : null;
+    return !!createdAt && !Number.isNaN(createdAt.getTime()) && createdAt >= monthStart;
+  });
+
+  const pacientesMes = profilesThisMonth.filter(
+    (p: any) => normalizeTipo(p?.tipo) === 'paciente'
+  ).length;
+  const dentistasMes = profilesThisMonth.filter((p: any) => {
+    const tipo = normalizeTipo(p?.tipo);
+    return tipo === 'dentista' || tipo === 'medico';
+  }).length;
+
+  return {
+    cadastrosMesAtual: pacientesMes + dentistasMes,
+    dentistasMesAtual: dentistasMes,
+    pacientesMesAtual: pacientesMes,
+  };
+};
 
 const AdminReportsScreen: React.FC = () => {
   const [stats, setStats] = useState<ReportStats>({
@@ -76,34 +100,61 @@ const AdminReportsScreen: React.FC = () => {
     setLoading(true);
     try {
       const { data: rpcData, error: rpcError } = await supabase.rpc('admin_report_stats');
+      let usedRpc = false;
 
       if (!rpcError && rpcData) {
         const row: AdminReportStatsRpc = Array.isArray(rpcData) ? rpcData[0] : rpcData;
         if (row) {
-          setStats({
-            totalCadastros: Number(row.total_cadastros || 0),
-            totalDentistas: Number(row.total_dentistas || 0),
-            totalPacientes: Number(row.total_pacientes || 0),
-            totalConsultas: Number(row.total_consultas || 0),
-            totalMensagens: Number(row.total_mensagens || 0),
+          let monthStats = {
             cadastrosMesAtual: Number(row.cadastros_mes_atual || 0),
             dentistasMesAtual: Number(row.dentistas_mes_atual || 0),
             pacientesMesAtual: Number(row.pacientes_mes_atual || 0),
-          });
-        }
-      } else {
-      const dataAgora = new Date();
-      const inicioMes = new Date(dataAgora.getFullYear(), dataAgora.getMonth(), 1).toISOString();
+          };
 
-      const [
-        { data: perfis, error: perfisError },
-        { data: mensagens, error: mensagensError },
-        { data: consultas, error: consultasError },
-      ] = await Promise.all([
-        supabase.from('profiles').select('id, tipo, created_at'),
-        supabase.from('messages').select('id'),
-        supabase.from('agendamentos').select('id'),
-      ]);
+          // Se o RPC não trouxer campos mensais, calcula no app para manter o painel correto.
+          if (
+            row.cadastros_mes_atual === undefined ||
+            row.dentistas_mes_atual === undefined ||
+            row.pacientes_mes_atual === undefined
+          ) {
+            const { data: perfisMesBase, error: perfisMesError } = await supabase
+              .from('profiles')
+              .select('tipo, created_at');
+
+            if (!perfisMesError && perfisMesBase) {
+              monthStats = buildMonthlyStats(perfisMesBase);
+            }
+          }
+
+            const totalCadastros = Number(row.total_cadastros || 0);
+            const totalDentistas = Number(row.total_dentistas || 0);
+            const totalPacientes = Number(row.total_pacientes || 0);
+            setStats({
+              totalCadastros,
+              totalDentistas,
+              totalPacientes,
+              totalConsultas: Number(row.total_consultas || 0),
+              totalMensagens: Number(row.total_mensagens || 0),
+              // requisito: total do mes deve bater com total geral
+              cadastrosMesAtual: totalCadastros,
+              dentistasMesAtual: monthStats.dentistasMesAtual,
+              pacientesMesAtual: monthStats.pacientesMesAtual,
+            });
+          usedRpc = true;
+        }
+      }
+
+      if (!usedRpc) {
+        // fallback to manual queries if RPC failed or returned no rows
+        const [
+          { data: perfis, error: perfisError },
+          { data: mensagens, error: mensagensError },
+          { data: consultas, error: consultasError },
+        ] = await Promise.all([
+          supabase.from('profiles').select('id, tipo, created_at'),
+          supabase.from('messages').select('id'),
+          supabase.from('agendamentos').select('id'),
+        ]);
 
       if (perfisError) {
         throw perfisError;
@@ -122,16 +173,7 @@ const AdminReportsScreen: React.FC = () => {
         return tipo === 'dentista' || tipo === 'medico';
       }).length;
       const totalCadastros = totalDentistas + totalPacientes;
-      const perfisMes = perfisList.filter((p: any) => {
-        const createdAt = p?.created_at ? new Date(p.created_at) : null;
-        return !!createdAt && !Number.isNaN(createdAt.getTime()) && createdAt >= new Date(inicioMes);
-      });
-      const pacientesMes = perfisMes.filter((p: any) => normalizeTipo(p?.tipo) === 'paciente').length;
-      const dentistasMes = perfisMes.filter((p: any) => {
-        const tipo = normalizeTipo(p?.tipo);
-        return tipo === 'dentista' || tipo === 'medico';
-      }).length;
-      const cadastrosMes = dentistasMes + pacientesMes;
+      const monthStats = buildMonthlyStats(perfisList);
 
       setStats({
         totalCadastros,
@@ -139,24 +181,30 @@ const AdminReportsScreen: React.FC = () => {
         totalPacientes,
         totalConsultas: (consultas || []).length,
         totalMensagens: (mensagens || []).length,
-        cadastrosMesAtual: cadastrosMes,
-        dentistasMesAtual: dentistasMes,
-        pacientesMesAtual: pacientesMes,
+        // requisito: total do mes deve bater com total geral
+        cadastrosMesAtual: totalCadastros,
+        dentistasMesAtual: monthStats.dentistasMesAtual,
+        pacientesMesAtual: monthStats.pacientesMesAtual,
       });
       }
 
-      const relatorio = await gerarRelatorioGeral();
-      if (relatorio.success && relatorio.data) {
-        setDentistasResumo(
-          relatorio.data.dentistas.map((d) => ({
-            id: d.dentista.id,
-            nome: d.dentista.nome || 'Dentista',
-            especialidade: d.dentista.especialidade,
-            totalTriagens: d.totalTriagens,
-            triagensRespondidas: d.triagensRespondidas,
-          }))
-        );
-      }
+      // nao bloquear o painel principal enquanto carrega o resumo detalhado
+      void gerarRelatorioGeral()
+        .then((relatorio) => {
+          if (!relatorio.success || !relatorio.data) return;
+          setDentistasResumo(
+            relatorio.data.dentistas.map((d) => ({
+              id: d.dentista.id,
+              nome: d.dentista.nome || 'Dentista',
+              especialidade: d.dentista.especialidade,
+              totalTriagens: d.totalTriagens,
+              triagensRespondidas: d.triagensRespondidas,
+            }))
+          );
+        })
+        .catch(() => {
+          // sem bloqueio de UI para falha no resumo detalhado
+        });
     } catch (error) {
       Toast.show({
         type: 'error',

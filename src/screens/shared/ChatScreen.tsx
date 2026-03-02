@@ -71,6 +71,10 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
         // Marcar como lidas
         if (user?.id) {
           await marcarMensagensComoLidas(conversationId, user.id);
+          // atualizar badge imediatamente (supabase realtime não ecoa a própria alteração)
+          await import('../../navigation/AppNavigator').then((mod) => {
+            mod.triggerUnreadRefresh();
+          });
         }
       }
     } catch (error) {
@@ -102,7 +106,10 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
     const subscription = subscribeAMensagensEmTempoReal(
       conversationId,
       (novaMsg) => {
-        setMensagens((prev) => [...prev, novaMsg]);
+        setMensagens((prev) => {
+          if (prev.some((m) => m.id === novaMsg.id)) return prev;
+          return [...prev, novaMsg];
+        });
         scrollParaFinal();
         // Marcar como lida imediatamente
         if (user.id !== novaMsg.sender_id) {
@@ -139,6 +146,18 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
       );
 
       if (resultado.success) {
+        if (resultado.data) {
+          // Atualiza UI localmente mesmo se o realtime atrasar/falhar.
+          setMensagens((prev) => {
+            if (prev.some((m) => m.id === resultado.data?.id)) return prev;
+            return [...prev, resultado.data as Message];
+          });
+        }
+        // Ao responder, limpa pendencias nao lidas da conversa para este usuario.
+        await marcarMensagensComoLidas(conversationId, user.id);
+        await import('../../navigation/AppNavigator').then((mod) => {
+          mod.triggerUnreadRefresh();
+        });
         setNovaMensagem('');
         scrollParaFinal();
       } else {

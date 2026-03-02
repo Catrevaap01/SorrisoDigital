@@ -404,13 +404,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * FunÃ§Ã£o de logout
    */
   const signOut = async (): Promise<void> => {
-    console.log('AuthContext.signOut called');
+    // Logout deve ser instantaneo na UI: encerra sessao local primeiro
+    // e tenta finalizar sessao remota em background.
+    let remoteSignOutError: unknown = null;
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signOut();
 
-      if (error) throw error;
-
+      // 1) encerra sessao local imediatamente
       setUser(null);
       setProfile(null);
 
@@ -420,15 +420,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         text2: 'Terminou sessao com sucesso',
       });
 
-      logger.info('Utilizador desconectado com sucesso');
-    } catch (error) {
+      // 2) tenta logout remoto sem bloquear a navegacao
+      void supabase.auth
+        .signOut()
+        .then(({ error }) => {
+          if (error) {
+            remoteSignOutError = error;
+            logger.warn('Logout remoto falhou, mantendo logout local:', remoteSignOutError);
+          } else {
+            logger.info('Utilizador desconectado com sucesso');
+          }
+        })
+        .catch((error: unknown) => {
+          remoteSignOutError = error;
+          logger.warn('Falha inesperada no logout remoto, mantendo logout local:', remoteSignOutError);
+        });
+    } catch (error: unknown) {
       const handledError = handleError(error, 'AuthProvider.signOut');
-      Toast.show({
-        type: 'error',
-        text1: 'Erro',
-        text2: 'Nao foi possivel terminar sessao',
-      });
       logger.error('Erro ao fazer logout:', handledError);
+      // fallback final para não prender o usuário logado na UI
+      setUser(null);
+      setProfile(null);
+      Toast.show({
+        type: 'info',
+        text1: 'Sessao local terminada',
+        text2: 'Falha no logout remoto, mas voce saiu deste dispositivo',
+      });
     } finally {
       setLoading(false);
     }
@@ -585,6 +602,4 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 };
 
 export default AuthContext;
-
-
 

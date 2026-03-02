@@ -1,6 +1,6 @@
 ﻿/**
- * Tela de AlteraÃ§Ã£o de Senha ObrigatÃ³ria
- * Mostrada quando usuÃ¡rio loga pela primeira vez
+ * Tela de Alteracao de Senha Obrigatoria
+ * Mostrada quando usuario loga pela primeira vez
  */
 
 import React, { useState } from 'react';
@@ -40,16 +40,16 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
 
   const validarSenha = (senha: string): { valido: boolean; mensagem: string } => {
     if (!senha) {
-      return { valido: false, mensagem: 'Senha Ã© obrigatÃ³ria' };
+      return { valido: false, mensagem: 'Senha e obrigatoria' };
     }
     if (senha.length < 8) {
-      return { valido: false, mensagem: 'Senha deve ter mÃ­nimo 8 caracteres' };
+      return { valido: false, mensagem: 'Senha deve ter minimo 8 caracteres' };
     }
     if (!/[A-Z]/.test(senha)) {
-      return { valido: false, mensagem: 'Senha deve conter pelo menos uma maiÃºscula' };
+      return { valido: false, mensagem: 'Senha deve conter pelo menos uma letra maiuscula' };
     }
     if (!/[0-9]/.test(senha)) {
-      return { valido: false, mensagem: 'Senha deve conter apenas nÃºmeros' };
+      return { valido: false, mensagem: 'Senha deve conter pelo menos um numero' };
     }
     if (!/[!@#$%^&*]/.test(senha)) {
       return { valido: false, mensagem: 'Senha deve conter um caractere especial (!@#$%^&*)' };
@@ -58,7 +58,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
   };
 
   const handleAlterarSenha = async () => {
-    // ValidaÃ§Ãµes
+    // Validacoes
     if (!senhaAtual.trim()) {
       Toast.show({
         type: 'error',
@@ -82,7 +82,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
       Toast.show({
         type: 'error',
         text1: 'Erro',
-        text2: 'As senhas nÃ£o coincidem',
+        text2: 'As senhas nao coincidem',
       });
       return;
     }
@@ -91,7 +91,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
       Toast.show({
         type: 'error',
         text1: 'Erro',
-        text2: 'A nova senha nÃ£o pode ser igual Ã  anterior',
+        text2: 'A nova senha nao pode ser igual a anterior',
       });
       return;
     }
@@ -165,29 +165,36 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
         <View style={styles.content}>
           {/* Header */}
           <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <Text style={styles.icon}>ðŸ”</Text>
+            <View style={styles.logoContainer}>
+              <View style={styles.logoCircle}>
+                <Ionicons name="medical" size={44} color={COLORS.primary} />
+              </View>
+              <Text style={styles.logoTitle}>TeOdonto</Text>
+              <Text style={styles.logoSubtitle}>Angola</Text>
             </View>
-            <Text style={styles.title}>Altere sua Senha</Text>
+            <View style={styles.iconContainer}>
+              <Ionicons name="lock-closed-outline" size={34} color={COLORS.primary} />
+            </View>
+            <Text style={styles.title}>Altere sua senha</Text>
             <Text style={styles.subtitle}>
-              Esta Ã© sua primeira vez. Por seguranÃ§a, vocÃª deve alterar sua senha temporÃ¡ria.
+              Este e seu primeiro acesso. Por seguranca, altere a senha temporaria.
             </Text>
           </View>
 
           {/* Info Box */}
           <View style={styles.infoBox}>
-            <Text style={styles.infoTitle}>ðŸ”’ Requisitos de SeguranÃ§a:</Text>
-            <Text style={styles.infoText}>âœ“ MÃ­nimo 8 caracteres</Text>
-            <Text style={styles.infoText}>âœ“ Pelo menos uma letra maiÃºscula</Text>
-            <Text style={styles.infoText}>âœ“ Pelo menos um nÃºmero</Text>
-            <Text style={styles.infoText}>âœ“ Pelo menos um caractere especial (!@#$%^&*)</Text>
+            <Text style={styles.infoTitle}>Requisitos de seguranca:</Text>
+            <Text style={styles.infoText}>- Minimo de 8 caracteres</Text>
+            <Text style={styles.infoText}>- Pelo menos uma letra maiuscula</Text>
+            <Text style={styles.infoText}>- Pelo menos um numero</Text>
+            <Text style={styles.infoText}>- Pelo menos um caractere especial (!@#$%^&*)</Text>
           </View>
 
           {/* Form */}
           <View style={styles.form}>
             {/* Senha Atual */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Senha TemporÃ¡ria Atual</Text>
+              <Text style={styles.label}>Senha temporaria atual</Text>
               <View style={styles.inputWrapper}>
                 <Input
                   placeholder="Digite sua senha atual"
@@ -204,7 +211,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
 
             {/* Nova Senha */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Nova Senha</Text>
+              <Text style={styles.label}>Nova senha</Text>
               <View style={styles.inputWrapper}>
                 <Input
                   placeholder="Digite sua nova senha"
@@ -218,7 +225,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
 
             {/* Confirmar Senha */}
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Confirmar Nova Senha</Text>
+              <Text style={styles.label}>Confirmar nova senha</Text>
               <View style={styles.inputWrapper}>
                 <Input
                   placeholder="Confirme sua nova senha"
@@ -251,7 +258,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
           {/* Buttons */}
           <View style={styles.buttonsContainer}>
             <Button
-              title={loading ? 'Alterando...' : 'Alterar Senha'}
+              title={loading ? 'Alterando...' : 'Alterar senha'}
               onPress={handleAlterarSenha}
               disabled={
                 loading ||
@@ -270,7 +277,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
 
           {/* Footer Text */}
           <Text style={styles.footerText}>
-            Sua senha serÃ¡ alterada imediatamente. VocÃª serÃ¡ desconectado apÃ³s a alteraÃ§Ã£o.
+            Sua senha sera alterada imediatamente apos a confirmacao.
           </Text>
         </View>
       </ScrollView>
@@ -295,11 +302,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.xxl,
   },
-  iconContainer: {
+  logoContainer: {
+    alignItems: 'center',
     marginBottom: SPACING.lg,
   },
-  icon: {
-    fontSize: 56,
+  logoCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  logoTitle: {
+    fontSize: TYPOGRAPHY.sizes.h2,
+    fontWeight: 'bold',
+    color: COLORS.primary,
+  },
+  logoSubtitle: {
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: '600',
+    color: COLORS.secondary,
+    marginTop: -4,
+  },
+  iconContainer: {
+    marginBottom: SPACING.md,
   },
   title: {
     fontSize: TYPOGRAPHY.sizes.h2,
@@ -403,4 +431,3 @@ const styles = StyleSheet.create({
 });
 
 export default ChangePasswordScreen;
-

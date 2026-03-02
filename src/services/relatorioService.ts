@@ -22,6 +22,8 @@ export interface RelatorioGeral {
   totalPacientes: number;
   dentistasAtivos: number;
   totalTriagens: number;
+  totalConsultas?: number;
+  totalMensagens?: number;
   triagensRespondidas: number;
   percentualResposta: number;
   // novos campos para resumo do mês atual
@@ -48,37 +50,34 @@ export const gerarRelatorioGeral = async (): Promise<{
   error?: string;
 }> => {
   try {
-    const { data: dentistas, error: dentistasError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('tipo', 'dentista')
-      .order('nome', { ascending: true });
+    const [
+      { data: dentistas, error: dentistasError },
+      { data: pacientes, error: pacientesError },
+      { data: triagens, error: triagensError },
+      { count: consultasCount, error: consultasError },
+      { count: mensagensCount, error: mensagensError },
+    ] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id, nome, email, especialidade, crm, telefone, provincia, created_at')
+        .eq('tipo', 'dentista')
+        .order('nome', { ascending: true }),
+      supabase.from('profiles').select('id, created_at').eq('tipo', 'paciente'),
+      supabase.from('triagens').select('dentista_id, status, updated_at'),
+      supabase.from('agendamentos').select('*', { count: 'exact', head: true }),
+      supabase.from('messages').select('*', { count: 'exact', head: true }),
+    ]);
 
-    if (dentistasError) {
-      return { success: false, error: dentistasError.message };
-    }
-
-    const { data: pacientes, error: pacientesError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('tipo', 'paciente');
-
-    if (pacientesError) {
-      return { success: false, error: pacientesError.message };
-    }
-
-    const { data: triagens, error: triagensError } = await supabase
-      .from('triagens')
-      .select('*, profile_id');
-
-    if (triagensError) {
-      return { success: false, error: triagensError.message };
-    }
+    if (dentistasError) return { success: false, error: dentistasError.message };
+    if (pacientesError) return { success: false, error: pacientesError.message };
+    if (triagensError) return { success: false, error: triagensError.message };
+    if (consultasError) return { success: false, error: consultasError.message };
+    if (mensagensError) return { success: false, error: mensagensError.message };
 
     const relatoriosDentistas: RelatorioDentista[] = (dentistas || []).map(
       (dentista: any) => {
         const triagensDentista = (triagens || []).filter(
-          (t: any) => t.profile_id === dentista.id
+          (t: any) => t.dentista_id === dentista.id
         );
 
         const respondidas = triagensDentista.filter(
@@ -121,7 +120,7 @@ export const gerarRelatorioGeral = async (): Promise<{
     // calcular metrics do mês atual
     const dataAgora = new Date();
     const inicioMes = new Date(dataAgora.getFullYear(), dataAgora.getMonth(), 1);
-    const perfisMes = (dentistas || []).concat(pacientes || []).filter((p: any) => {
+    const perfisMes = [...(dentistas || []), ...(pacientes || [])].filter((p: any) => {
       const created = p?.created_at ? new Date(p.created_at) : null;
       return created && created >= inicioMes;
     });
@@ -139,6 +138,8 @@ export const gerarRelatorioGeral = async (): Promise<{
       totalPacientes: pacientes?.length || 0,
       dentistasAtivos: relatoriosDentistas.filter((r) => r.totalTriagens > 0).length,
       totalTriagens,
+      totalConsultas: Number(consultasCount || 0),
+      totalMensagens: Number(mensagensCount || 0),
       triagensRespondidas: totalRespondidas,
       percentualResposta: Math.round(percentualGeral),
       cadastrosMes: perfisMes.length,
@@ -182,30 +183,44 @@ export const gerarRelatorioDentista = async (
       return { success: false, error: 'Dentista nao encontrado' };
     }
 
-    const { data: triagens, error: triagensError } = await supabase
+    let triagens: any[] = [];
+    const tryByDentistaId = await supabase
       .from('triagens')
       .select('*')
-      .eq('profile_id', dentistaId)
+      .eq('dentista_id', dentistaId)
       .order('created_at', { ascending: false });
 
-    if (triagensError) {
-      return { success: false, error: triagensError.message };
+    if (!tryByDentistaId.error) {
+      triagens = (tryByDentistaId.data || []) as any[];
+    } else {
+      // fallback para bancos legados que usam profile_id
+      const tryByProfileId = await supabase
+        .from('triagens')
+        .select('*')
+        .eq('profile_id', dentistaId)
+        .order('created_at', { ascending: false });
+
+      if (tryByProfileId.error) {
+        return { success: false, error: tryByProfileId.error.message };
+      }
+
+      triagens = (tryByProfileId.data || []) as any[];
     }
 
-    const respondidas = (triagens || []).filter(
+    const respondidas = triagens.filter(
       (t: any) => t.status === 'respondido' || t.status === 'completo'
     );
-    const pendentes = (triagens || []).filter((t: any) => t.status === 'pendente');
+    const pendentes = triagens.filter((t: any) => t.status === 'pendente');
     const percentual =
-      triagens && triagens.length > 0 ? (respondidas.length / triagens.length) * 100 : 0;
+      triagens.length > 0 ? (respondidas.length / triagens.length) * 100 : 0;
 
     const estatisticas: RelatorioDentista = {
       dentista: dentista as DentistaProfile,
-      totalTriagens: triagens?.length || 0,
+      totalTriagens: triagens.length,
       triagensRespondidas: respondidas.length,
       triagensPendentes: pendentes.length,
       percentualResposta: Math.round(percentual),
-      dataUltimaAtividade: triagens && triagens.length > 0 ? triagens[0].updated_at : null,
+      dataUltimaAtividade: triagens.length > 0 ? triagens[0].updated_at : null,
     };
 
     return {
@@ -213,7 +228,7 @@ export const gerarRelatorioDentista = async (
       data: {
         dentista: dentista as DentistaProfile,
         estatisticas,
-        triagens: triagens || [],
+        triagens,
       },
     };
   } catch (error: any) {

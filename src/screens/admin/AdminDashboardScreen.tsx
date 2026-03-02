@@ -3,25 +3,27 @@
  * Gerenciar dentistas (criar, listar, atualizar, deletar)
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   TextInput,
   Modal,
   ActivityIndicator,
   FlatList,
   Alert,
   RefreshControl,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   listarDentistas,
   criarDentista,
@@ -33,8 +35,6 @@ import {
 } from '../../services/dentistaService';
 import { validators } from '../../utils/validators';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
-import { gerarSenhaTemporaria } from '../../utils/senhaUtils';
-import type { AdminTabParamList } from '../../navigation/AdminNavigator';
 
 const ESPECIALIDADES_DENTISTA = [
   'Ortodontia',
@@ -74,18 +74,27 @@ const getDentistaCRM = (dentista: DentistaProfile): string =>
   dentista.crm || (dentista as any).numero_registro || 'N/A';
 
 const AdminDashboardScreen: React.FC = () => {
-  const navigation = useNavigation<BottomTabNavigationProp<AdminTabParamList>>();
   const [dentistas, setDentistas] = useState<DentistaProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisivel, setModalVisivel] = useState(false);
   const [busca, setBusca] = useState('');
   const [dentistaSelecionado, setDentistaSelecionado] = useState<DentistaProfile | null>(null);
+  // expand card to show actions when user taps the "more" icon
+  const [expandedDentistaId, setExpandedDentistaId] = useState<string | null>(null);
+
+  // when the menu opens, automatically collapse after a few seconds of inactivity
+  useEffect(() => {
+    if (!expandedDentistaId) return;
+    const timeout = setTimeout(() => setExpandedDentistaId(null), 5000);
+    return () => clearTimeout(timeout);
+  }, [expandedDentistaId]);
 
   // Form de novo dentista
   const [novoEmail, setNovoEmail] = useState('');
   const [novoNome, setNovoNome] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
+  const [mostrarNovaSenha, setMostrarNovaSenha] = useState(false);
   const [novaEspecialidade, setNovaEspecialidade] = useState('');
   const [novoCRM, setNovoCRM] = useState('');
   const [novoTelefone, setNovoTelefone] = useState('');
@@ -108,73 +117,80 @@ const AdminDashboardScreen: React.FC = () => {
   const [especialidadeModo, setEspecialidadeModo] = useState<'create' | 'edit'>('create');
   const [modalProvinciaVisivel, setModalProvinciaVisivel] = useState(false);
   const [provinciaModo, setProvinciaModo] = useState<'create' | 'edit'>('create');
+  const [formModalToReopen, setFormModalToReopen] = useState<'create' | 'edit' | null>(null);
 
-  // Gerar nova senha aleatória
-  const handleGerarNovaSenha = () => {
-    const novaSenhaGerada = gerarSenhaTemporaria();
-    setNovaSenha(novaSenhaGerada);
-    Toast.show({
-      type: 'success',
-      text1: 'Senha gerada',
-      text2: 'Uma nova senha temporária foi gerada',
-    });
+  const openPickerSafely = (picker: 'especialidade' | 'provincia') => {
+    if (modalVisivel) {
+      setFormModalToReopen('create');
+      setModalVisivel(false);
+      setTimeout(() => {
+        if (picker === 'especialidade') setModalEspecialidadeVisivel(true);
+        else setModalProvinciaVisivel(true);
+      }, 120);
+      return;
+    }
+
+    if (modalEditarVisivel) {
+      setFormModalToReopen('edit');
+      setModalEditarVisivel(false);
+      setTimeout(() => {
+        if (picker === 'especialidade') setModalEspecialidadeVisivel(true);
+        else setModalProvinciaVisivel(true);
+      }, 120);
+      return;
+    }
+
+    setFormModalToReopen(null);
+    if (picker === 'especialidade') setModalEspecialidadeVisivel(true);
+    else setModalProvinciaVisivel(true);
+  };
+
+  const reopenFormModal = () => {
+    if (formModalToReopen === 'create') {
+      setTimeout(() => setModalVisivel(true), 120);
+    } else if (formModalToReopen === 'edit') {
+      setTimeout(() => setModalEditarVisivel(true), 120);
+    }
+    setFormModalToReopen(null);
   };
 
   const abrirModalEspecialidade = (modo: 'create' | 'edit') => {
     setEspecialidadeModo(modo);
-    if (modo === 'create' && modalVisivel) {
-      // Fecha o modal de criacao para evitar conflito de sobreposicao, depois abre o seletor
-      setModalVisivel(false);
-      setTimeout(() => setModalEspecialidadeVisivel(true), 150);
-    } else {
-      setModalEspecialidadeVisivel(true);
-    }
+    openPickerSafely('especialidade');
   };
 
   const selecionarEspecialidade = (especialidade: string) => {
-    const isCreate = especialidadeModo === 'create';
-    if (isCreate) {
+    if (especialidadeModo === 'create') {
       setNovaEspecialidade(especialidade);
     } else {
       setEditEspecialidade(especialidade);
     }
     setModalEspecialidadeVisivel(false);
-    // Reabre o modal de criacao se veio desse fluxo
-    if (isCreate) {
-      setTimeout(() => setModalVisivel(true), 150);
-    }
+    reopenFormModal();
   };
 
   const abrirModalProvincia = (modo: 'create' | 'edit') => {
     setProvinciaModo(modo);
-    if (modo === 'create' && modalVisivel) {
-      setModalVisivel(false);
-      setTimeout(() => setModalProvinciaVisivel(true), 150);
-    } else {
-      setModalProvinciaVisivel(true);
-    }
+    openPickerSafely('provincia');
   };
 
   const selecionarProvincia = (provincia: string) => {
-    const isCreate = provinciaModo === 'create';
-    if (isCreate) {
+    if (provinciaModo === 'create') {
       setNovaProvincia(provincia);
     } else {
       setEditProvincia(provincia);
     }
     setModalProvinciaVisivel(false);
-    if (isCreate) {
-      setTimeout(() => setModalVisivel(true), 150);
-    }
+    reopenFormModal();
   };
 
   // Carregar dentistas
-  const carregarDentistas = async (termo?: string) => {
+  const carregarDentistas = async (termo?: string, forceRefresh = false) => {
     setLoading(true);
     try {
       const resultado = termo
         ? await procurarDentistas(termo)
-        : await listarDentistas();
+        : await listarDentistas({ forceRefresh });
 
       if (resultado.success && resultado.data) {
         setDentistas(resultado.data);
@@ -199,9 +215,22 @@ const AdminDashboardScreen: React.FC = () => {
   // Recarregar na entrada da tela
   useFocusEffect(
     useCallback(() => {
-      carregarDentistas();
+      setExpandedDentistaId(null);
+      setModalEspecialidadeVisivel(false);
+      setModalProvinciaVisivel(false);
+      setFormModalToReopen(null);
+      carregarDentistas(undefined, true);
     }, [])
   );
+
+  const handleOpenCreateModal = () => {
+    if (enviandoForm || salvandoEdicao) return;
+    setExpandedDentistaId(null);
+    setModalEspecialidadeVisivel(false);
+    setModalProvinciaVisivel(false);
+    setFormModalToReopen(null);
+    setModalVisivel(true);
+  };
 
   // Busca
   const handleBusca = (texto: string) => {
@@ -216,7 +245,7 @@ const AdminDashboardScreen: React.FC = () => {
   // Refresh
   const handleRefresh = async () => {
     setRefreshing(true);
-    await carregarDentistas(busca || undefined);
+    await carregarDentistas(busca || undefined, true);
     setRefreshing(false);
   };
 
@@ -237,13 +266,12 @@ const AdminDashboardScreen: React.FC = () => {
       return;
     }
 
-    // Gerar senha automática se não preenchida
-    let senhaParaUsar = novaSenha;
-    if (!senhaParaUsar.trim()) {
-      senhaParaUsar = gerarSenhaTemporaria();
+    if (!novaSenha.trim()) {
+      Toast.show({ type: 'error', text1: 'Senha obrigatória' });
+      return;
     }
 
-    if (senhaParaUsar.length < 6) {
+    if (novaSenha.length < 6) {
       Toast.show({ type: 'error', text1: 'Senha deve ter no mínimo 6 caracteres' });
       return;
     }
@@ -265,7 +293,7 @@ const AdminDashboardScreen: React.FC = () => {
 
     const resultado: CriarDentistaResult = await criarDentista(
       emailDentista,
-      senhaParaUsar,
+      novaSenha,
       nomeDentista,
       novaEspecialidade,
       novoCRM,
@@ -276,7 +304,7 @@ const AdminDashboardScreen: React.FC = () => {
     setEnviandoForm(false);
 
     if (resultado.success) {
-      const senhaUsada = resultado.tempPassword || senhaParaUsar;
+      const senhaUsada = resultado.tempPassword || novaSenha;
       if (resultado.emailSent) {
         Toast.show({
           type: 'success',
@@ -288,6 +316,14 @@ const AdminDashboardScreen: React.FC = () => {
           type: 'info',
           text1: 'Dentista criado',
           text2: 'Não foi possível enviar e-mail; verifique configuração',
+        });
+      }
+
+      if (resultado.warning) {
+        Toast.show({
+          type: 'info',
+          text1: 'Atencao',
+          text2: resultado.warning,
         });
       }
 
@@ -310,6 +346,7 @@ const AdminDashboardScreen: React.FC = () => {
       setNovoEmail('');
       setNovoNome('');
       setNovaSenha('');
+      setMostrarNovaSenha(false);
       setNovaEspecialidade('');
       setNovoCRM('');
       setNovoTelefone('');
@@ -317,7 +354,13 @@ const AdminDashboardScreen: React.FC = () => {
       setModalVisivel(false);
 
       // Recarregar lista após 1 segundo
-      await carregarDentistas();
+      await carregarDentistas(undefined, true);
+      if (resultado.data) {
+        setDentistas((prev) => {
+          if (prev.some((d) => d.id === resultado.data?.id)) return prev;
+          return [resultado.data as DentistaProfile, ...prev];
+        });
+      }
     } else {
       Toast.show({
         type: 'error',
@@ -348,7 +391,7 @@ const AdminDashboardScreen: React.FC = () => {
                 text1: 'Deletado',
                 text2: 'Dentista removido com sucesso',
               });
-              await carregarDentistas();
+              await carregarDentistas(undefined, true);
             } else {
               Toast.show({
                 type: 'error',
@@ -366,7 +409,7 @@ const AdminDashboardScreen: React.FC = () => {
     setDentistaEdicaoId(dentista.id);
     setEditNome(dentista.nome || '');
     setEditEspecialidade(dentista.especialidade || '');
-    setEditCRM(dentista.crm || '');
+    setEditCRM(dentista.crm || (dentista as any).numero_registro || '');
     setEditTelefone(dentista.telefone || '');
     setEditProvincia(dentista.provincia || '');
     setModalEditarVisivel(true);
@@ -403,9 +446,10 @@ const AdminDashboardScreen: React.FC = () => {
         text1: 'Dentista atualizado',
         text2: 'Dados salvos com sucesso',
       });
+      setExpandedDentistaId(null);
       setModalEditarVisivel(false);
       setDentistaSelecionado(null);
-      await carregarDentistas(busca || undefined);
+      await carregarDentistas(busca || undefined, true);
     } else {
       Toast.show({
         type: 'error',
@@ -416,64 +460,104 @@ const AdminDashboardScreen: React.FC = () => {
   };
 
   // Renderizar item dentista
-  const renderDentista = ({ item }: { item: DentistaProfile }) => (
-    <View style={styles.dentistaCard}>
-      <View style={styles.dentistaInfo}>
-        <View style={styles.dentistaBadge}>
-          <Ionicons name="person" size={24} color={COLORS.primary} />
-        </View>
-        <View style={styles.dentistaTexto}>
-          <Text style={styles.dentistaNome}>{item.nome || 'Sem nome'}</Text>
-          <Text style={styles.dentistaEspecialidade}>
-            {item.especialidade || 'Especialidade não definida'}
-          </Text>
-          <Text style={styles.dentistaCRM}>CRM: {getDentistaCRM(item)}</Text>
-          {item.telefone && (
-            <Text style={styles.dentistaTelefone}>📞 {item.telefone}</Text>
-          )}
-          {item.provincia && (
-            <Text style={styles.dentistaProvincia}>📍 {item.provincia}</Text>
-          )}
-        </View>
-      </View>
+  const renderDentista = ({ item }: { item: DentistaProfile }) => {
+    const isExpanded = expandedDentistaId === item.id;
 
-      <View style={styles.dentistaAcoes}>
-        <TouchableOpacity
-          style={styles.botaoAcao}
-          onPress={() => setDentistaSelecionado(item)}
-        >
-          <Ionicons name="eye" size={20} color={COLORS.primary} />
-          <Text style={styles.botaoAcaoTexto}>Ver</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.botaoAcao, styles.botaoEditar]}
-          onPress={() => handleAbrirEdicaoDentista(item)}
-        >
-          <Ionicons name="create-outline" size={20} color={COLORS.textInverse} />
-          <Text style={[styles.botaoAcaoTexto, { color: COLORS.textInverse }]}>Editar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.botaoAcao, styles.botaoDelete]}
-          onPress={() => handleDeletarDentista(item)}
-        >
-          <Ionicons name="trash" size={20} color={COLORS.error} />
-          <Text style={[styles.botaoAcaoTexto, { color: COLORS.error }]}>Excluir</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    return (
+      <View style={styles.dentistaCard}>
+        <View style={styles.dentistaInfo}>
+          <View style={styles.dentistaBadge}>
+            <Ionicons name="person" size={24} color={COLORS.primary} />
+          </View>
+          <TouchableOpacity
+            style={styles.dentistaTexto}
+            activeOpacity={0.7}
+            onPress={() => {
+              Toast.show({ type: 'info', text1: 'Abrindo detalhes', text2: item.nome || '' });
+              setDentistaSelecionado(item);
+            }}
+          >
+            <Text style={styles.dentistaNome}>{item.nome || 'Sem nome'}</Text>
+            <Text style={styles.dentistaEspecialidade}>
+              {item.especialidade || 'Especialidade não definida'}
+            </Text>
+            <Text style={styles.dentistaCRM}>CRM: {getDentistaCRM(item)}</Text>
+            {item.telefone && (
+              <Text style={styles.dentistaTelefone}>📞 {item.telefone}</Text>
+            )}
+            {item.provincia && (
+              <Text style={styles.dentistaProvincia}>📍 {item.provincia}</Text>
+            )}
+          </TouchableOpacity>
+          {/* toggle button for actions */}
+          <Pressable
+            style={styles.menuToggle}
+            onPress={() => {
+              if (modalEditarVisivel || salvandoEdicao) return;
+              setExpandedDentistaId(isExpanded ? null : item.id);
+            }}
+            hitSlop={12}
+            disabled={modalEditarVisivel || salvandoEdicao}
+            android_ripple={{ color: 'rgba(0,0,0,0.08)', borderless: true }}
+          >
+            <Ionicons
+              name="ellipsis-vertical"
+              size={24}
+              color={COLORS.textSecondary}
+            />
+          </Pressable>
+        </View>
 
+        {isExpanded && (
+          <View style={styles.dentistaAcoes}>
+            <TouchableOpacity
+              style={styles.botaoAcao}
+              onPress={() => {
+                Toast.show({ type: 'info', text1: 'Visualizar', text2: item.nome || '' });
+                setDentistaSelecionado(item);
+              }}
+            >
+              <Ionicons name="eye" size={20} color={COLORS.primary} />
+              <Text style={styles.botaoAcaoTexto}>Ver</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.botaoAcao, styles.botaoEditar]}
+              onPress={() => {
+                Toast.show({ type: 'info', text1: 'Editar', text2: item.nome || '' });
+                handleAbrirEdicaoDentista(item);
+              }}
+            >
+              <Ionicons name="create-outline" size={20} color={COLORS.textInverse} />
+              <Text style={[styles.botaoAcaoTexto, { color: COLORS.textInverse }]}>Editar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.botaoAcao, styles.botaoDelete]}
+              onPress={() => {
+                Toast.show({ type: 'info', text1: 'Apagar', text2: item.nome || '' });
+                handleDeletarDentista(item);
+              }}
+            >
+              <Ionicons name="trash" size={20} color={COLORS.error} />
+              <Text style={[styles.botaoAcaoTexto, { color: COLORS.error }]}>Excluir</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    );
+  };
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Gerenciar Dentistas</Text>
-        <TouchableOpacity
+        <Pressable
           style={styles.botaoCriar}
-          onPress={() => setModalVisivel(true)}
+          onPress={handleOpenCreateModal}
+          hitSlop={12}
+          android_ripple={{ color: 'rgba(0,0,0,0.08)', borderless: true }}
         >
           <Ionicons name="add-circle" size={28} color={COLORS.primary} />
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <View style={styles.buscaContainer}>
@@ -515,6 +599,7 @@ const AdminDashboardScreen: React.FC = () => {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }
+          onScrollBeginDrag={() => setExpandedDentistaId(null)}
         />
       )}
 
@@ -526,6 +611,11 @@ const AdminDashboardScreen: React.FC = () => {
         onRequestClose={() => setModalVisivel(false)}
       >
         <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            style={styles.keyboardAvoidingModal}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+          >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Criar Novo Dentista</Text>
@@ -534,7 +624,7 @@ const AdminDashboardScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {/* Email */}
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>E-mail *</Text>
@@ -563,22 +653,27 @@ const AdminDashboardScreen: React.FC = () => {
 
               {/* Senha */}
               <View style={styles.formGroup}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={styles.formLabel}>Senha *</Text>
-                  <TouchableOpacity onPress={handleGerarNovaSenha} disabled={enviandoForm}>
-                    <Text style={{ color: COLORS.primary, fontWeight: '600' }}>
-                      🔀 Gerar Aleatória
-                    </Text>
+                <Text style={styles.formLabel}>Senha *</Text>
+                <View style={styles.passwordInput}>
+                  <TextInput
+                    style={styles.passwordInputField}
+                    placeholder="Digite a senha temporaria"
+                    value={novaSenha}
+                    onChangeText={setNovaSenha}
+                    secureTextEntry={!mostrarNovaSenha}
+                    editable={!enviandoForm}
+                  />
+                  <TouchableOpacity
+                    onPress={() => setMostrarNovaSenha(!mostrarNovaSenha)}
+                    disabled={enviandoForm}
+                  >
+                    <Ionicons
+                      name={mostrarNovaSenha ? 'eye' : 'eye-off'}
+                      size={20}
+                      color={COLORS.textSecondary}
+                    />
                   </TouchableOpacity>
                 </View>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder="Deixe vazio para gerar automaticamente"
-                  value={novaSenha}
-                  onChangeText={setNovaSenha}
-                  secureTextEntry
-                  editable={!enviandoForm}
-                />
               </View>
 
               {/* Especialidade */}
@@ -661,6 +756,7 @@ const AdminDashboardScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
           </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -681,7 +777,7 @@ const AdminDashboardScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.detalhesContainer}>
+              <ScrollView style={styles.detalhesContainer} keyboardShouldPersistTaps="handled">
                 <View style={styles.detalheItem}>
                   <Text style={styles.detalheLabel}>Nome:</Text>
                   <Text style={styles.detalheValor}>{dentistaSelecionado.nome || 'N/A'}</Text>
@@ -732,6 +828,8 @@ const AdminDashboardScreen: React.FC = () => {
                   <Text style={styles.detalheValor}>
                     {dentistaSelecionado.updated_at
                       ? new Date(dentistaSelecionado.updated_at).toLocaleDateString('pt-AO')
+                      : dentistaSelecionado.created_at
+                      ? new Date(dentistaSelecionado.created_at).toLocaleDateString('pt-AO')
                       : 'N/A'}
                   </Text>
                 </View>
@@ -766,22 +864,7 @@ const AdminDashboardScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false}>
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>ID</Text>
-                <View style={styles.formInput}>
-                  <Text style={styles.formReadOnlyValue}>{dentistaEdicaoId || '-'}</Text>
-                </View>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>E-mail</Text>
-                <View style={styles.formInput}>
-                  <Text style={styles.formReadOnlyValue}>
-                    {dentistaSelecionado?.email || 'Nao informado'}
-                  </Text>
-                </View>
-              </View>
+            <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
               <View style={styles.formGroup}>
                 <Text style={styles.formLabel}>Nome *</Text>
@@ -840,16 +923,6 @@ const AdminDashboardScreen: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Criado em</Text>
-                <View style={styles.formInput}>
-                  <Text style={styles.formReadOnlyValue}>
-                    {dentistaSelecionado?.created_at
-                      ? new Date(dentistaSelecionado.created_at).toLocaleDateString('pt-AO')
-                      : 'N/A'}
-                  </Text>
-                </View>
-              </View>
             </ScrollView>
 
             <View style={styles.modalFooter}>
@@ -990,17 +1063,25 @@ const AdminDashboardScreen: React.FC = () => {
         transparent={true}
         presentationStyle="overFullScreen"
         statusBarTranslucent={true}
-        onRequestClose={() => setModalEspecialidadeVisivel(false)}
+        onRequestClose={() => {
+          setModalEspecialidadeVisivel(false);
+          reopenFormModal();
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Selecionar Especialidade</Text>
-              <TouchableOpacity onPress={() => setModalEspecialidadeVisivel(false)}>
+              <TouchableOpacity
+                onPress={() => {
+                  setModalEspecialidadeVisivel(false);
+                  reopenFormModal();
+                }}
+              >
                 <Ionicons name="close" size={28} color={COLORS.text} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {ESPECIALIDADES_DENTISTA.map((especialidade) => {
                 const selecionada =
                   especialidadeModo === 'create'
@@ -1034,17 +1115,25 @@ const AdminDashboardScreen: React.FC = () => {
         transparent={true}
         presentationStyle="overFullScreen"
         statusBarTranslucent={true}
-        onRequestClose={() => setModalProvinciaVisivel(false)}
+        onRequestClose={() => {
+          setModalProvinciaVisivel(false);
+          reopenFormModal();
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Selecionar Província</Text>
-              <TouchableOpacity onPress={() => setModalProvinciaVisivel(false)}>
+              <TouchableOpacity
+                onPress={() => {
+                  setModalProvinciaVisivel(false);
+                  reopenFormModal();
+                }}
+              >
                 <Ionicons name="close" size={28} color={COLORS.text} />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false}>
+            <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               {PROVINCIAS_ANGOLA.map((provincia) => {
                 const selecionada =
                   provinciaModo === 'create'
@@ -1151,9 +1240,9 @@ const styles = StyleSheet.create({
     paddingBottom: SPACING.lg,
   },
   dentistaCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'stretch',
     backgroundColor: COLORS.card,
     borderRadius: 12,
     padding: SPACING.md,
@@ -1165,6 +1254,7 @@ const styles = StyleSheet.create({
   dentistaInfo: {
     flexDirection: 'row',
     flex: 1,
+    alignItems: 'center',
   },
   dentistaBadge: {
     width: 50,
@@ -1177,6 +1267,13 @@ const styles = StyleSheet.create({
   },
   dentistaTexto: {
     flex: 1,
+  },
+  menuToggle: {
+    minWidth: 44,
+    minHeight: 44,
+    padding: SPACING.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   dentistaNome: {
     fontSize: TYPOGRAPHY.sizes.body,
@@ -1206,7 +1303,9 @@ const styles = StyleSheet.create({
   },
   dentistaAcoes: {
     flexDirection: 'row',
-    gap: SPACING.md,
+    justifyContent: 'flex-end',
+    marginTop: SPACING.md,
+    // use margins on individual buttons since gap is not universally supported
   },
   botaoAcao: {
     minWidth: 56,
@@ -1216,6 +1315,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 8,
+    marginLeft: SPACING.md, // spacing between action buttons
   },
   botaoAcaoTexto: {
     marginTop: 2,
@@ -1256,6 +1356,10 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  keyboardAvoidingModal: {
+    width: '100%',
     justifyContent: 'flex-end',
   },
   modalContent: {
@@ -1302,6 +1406,23 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.body,
     color: COLORS.text,
     backgroundColor: COLORS.backgroundSecondary,
+  },
+  passwordInput: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.backgroundSecondary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  passwordInputField: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.sizes.body,
+    color: COLORS.text,
+    marginRight: SPACING.sm,
   },
   formReadOnlyValue: {
     fontSize: TYPOGRAPHY.sizes.body,

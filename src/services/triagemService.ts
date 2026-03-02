@@ -300,6 +300,48 @@ export const buscarTriagensPaciente = async (
   }
 };
 
+export const buscarTriagensDentista = async (
+  dentistaId: string
+): Promise<ServiceResult<Triagem[]>> => {
+  try {
+    const { data, error } = await supabase
+      .from('triagens')
+      .select('*')
+      .eq('dentista_id', dentistaId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    const normalized = (data || []).map((item) => normalizeTriagemRecord(item));
+    return { success: true, data: await enrichTriagens(normalized) };
+  } catch (err) {
+    const handled = handleError(err, 'triagemService.buscarTriagensDentista');
+    return { success: false, error: handled };
+  }
+};
+
+// returns only status counts for a specific dentist (no enrichment)
+export const buscarContadoresDentista = async (
+  dentistaId: string
+): Promise<ServiceResult<Contadores>> => {
+  try {
+    const { data, error } = await supabase
+      .from('triagens')
+      .select('status')
+      .eq('dentista_id', dentistaId);
+
+    if (error) throw error;
+    const cont: Contadores = { pendente: 0, urgente: 0, respondido: 0, total: 0 };
+    (data || []).forEach((t: any) => {
+      cont.total += 1;
+      if (t.status in cont) cont[t.status] += 1;
+    });
+    return { success: true, data: cont };
+  } catch (err) {
+    const handled = handleError(err, 'triagemService.buscarContadoresDentista');
+    return { success: false, error: handled };
+  }
+};
+
 export const buscarTodasTriagens = async (
   filtros: { status?: string | null } = {}
 ): Promise<ServiceResult<Triagem[]>> => {

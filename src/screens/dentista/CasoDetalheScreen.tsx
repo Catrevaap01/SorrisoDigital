@@ -10,6 +10,8 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -187,7 +189,16 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
   const jaRespondido = triagem.respostas && triagem.respostas.length > 0;
 
   return (
-    <ScrollView style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+      <ScrollView
+        style={styles.container}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
       {/* Header do Paciente */}
       <View style={styles.pacienteCard}>
         <View style={styles.pacienteHeader}>
@@ -468,8 +479,9 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
         </TouchableOpacity>
       </Modal>
 
-      <View style={{ height: 30 }} />
-    </ScrollView>
+        <View style={{ height: 30 }} />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -776,5 +788,4 @@ const styles = StyleSheet.create({
 });
 
 export default CasoDetalheScreen;
-
 

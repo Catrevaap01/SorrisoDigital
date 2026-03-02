@@ -10,9 +10,11 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { useDentist } from '../../contexts/DentistContext';
 import { buscarTriagensPaciente } from '../../services/triagemService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { STATUS_TRIAGEM } from '../../utils/constants';
@@ -28,6 +30,8 @@ const HomeScreen: React.FC<HomeProps> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
+  const { selectedDentist, consumeAutoOpenChooseDentist } = useDentist();
+
   const carregarDados = async () => {
     if (!profile?.id) return;
 
@@ -41,6 +45,21 @@ const HomeScreen: React.FC<HomeProps> = ({ navigation }) => {
   useEffect(() => {
     carregarDados();
   }, [profile]);
+
+  // apos completar perfil forcado, abrir escolha de dentista automaticamente
+  useEffect(() => {
+    if (!selectedDentist && consumeAutoOpenChooseDentist()) {
+      navigation.getParent()?.navigate('ChooseDentista' as any);
+      return;
+    }
+
+    // if no dentist has been chosen yet, prompt right away
+    if (!selectedDentist) {
+      Alert.alert('Selecione um dentista', 'Antes de continuar, por favor escolha um dentista.', [
+        { text: 'OK', onPress: () => navigation.getParent()?.navigate('ChooseDentista' as any) },
+      ], { cancelable: false });
+    }
+  }, [selectedDentist, consumeAutoOpenChooseDentist, navigation]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

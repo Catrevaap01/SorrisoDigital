@@ -28,6 +28,9 @@ const sendEmail = async (payload: EmailPayload): Promise<{ success: boolean; err
       console.log('✔ send-email function invoked successfully');
       return { success: true };
     }
+    const invokeErrorMessage =
+      (error as any)?.message || 'Falha na Edge Function send-email';
+    console.warn('send-email function error:', invokeErrorMessage, error);
 
     if (EMAIL_API_URL) {
       console.log('↪ falling back to EMAIL_API_URL', EMAIL_API_URL);
@@ -47,6 +50,7 @@ const sendEmail = async (payload: EmailPayload): Promise<{ success: boolean; err
         }
         console.warn('fallback EMAIL_API_URL falhou:', detail);
       } else {
+        console.log('✔ email enviado via EMAIL_API_URL fallback');
         return { success: true };
       }
     }
@@ -86,6 +90,7 @@ const sendEmail = async (payload: EmailPayload): Promise<{ success: boolean; err
         console.warn('exceção SendGrid:', sgErr);
       }
     }
+    return { success: false, error: invokeErrorMessage };
   } catch (error: any) {
     console.warn('erro inesperado em sendEmail:', error);
     return { success: false, error: error?.message || 'Erro inesperado ao enviar email' };

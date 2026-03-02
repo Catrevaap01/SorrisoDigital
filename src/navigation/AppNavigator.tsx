@@ -29,6 +29,7 @@ import TriagemScreen from '../screens/paciente/TriagemScreen';
 import HistoricoScreen from '../screens/paciente/HistoricoScreen';
 import EducacaoScreen from '../screens/paciente/EducacaoScreen';
 import AgendamentoScreen from '../screens/paciente/AgendamentoScreen';
+import ChooseDentistaScreen from '../screens/paciente/ChooseDentistaScreen';
 import PerfilScreen from '../screens/paciente/PerfilScreen';
 import MensagensScreen from '../screens/paciente/MensagensScreen';
 
@@ -60,6 +61,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 interface TabsProps {
   unreadCount: number;
+  role?: string;
 }
 
 const PacienteTabs: React.FC<TabsProps> = ({ unreadCount }) => (
@@ -92,6 +94,7 @@ const PacienteTabs: React.FC<TabsProps> = ({ unreadCount }) => (
       },
       tabBarActiveTintColor: COLORS.primary,
       tabBarInactiveTintColor: COLORS.textSecondary,
+      tabBarHideOnKeyboard: true,
       headerStyle: { backgroundColor: COLORS.primary },
       headerTintColor: COLORS.textInverse,
       headerTitleStyle: { fontWeight: 'bold' },
@@ -136,6 +139,7 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
       },
       tabBarActiveTintColor: COLORS.secondary,
       tabBarInactiveTintColor: COLORS.textSecondary,
+      tabBarHideOnKeyboard: true,
       headerStyle: { backgroundColor: COLORS.secondary },
       headerTintColor: COLORS.textInverse,
       headerTitleStyle: { fontWeight: 'bold' },
@@ -158,51 +162,75 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
   </DentistaTab.Navigator>
 );
 
-const PacienteStack: React.FC<TabsProps> = ({ unreadCount }) => (
-  <PacienteStackNav.Navigator id="PacienteStack">
-    <PacienteStackNav.Screen name="PacienteTabs" options={{ headerShown: false }}>
-      {() => <PacienteTabs unreadCount={unreadCount} />}
-    </PacienteStackNav.Screen>
-    <PacienteStackNav.Screen
-      name="Agendamento"
-      component={AgendamentoScreen}
-      options={{
-        title: 'Agendar Consulta',
-        headerStyle: { backgroundColor: COLORS.primary },
-        headerTintColor: COLORS.textInverse,
-      }}
-    />
-  </PacienteStackNav.Navigator>
-);
+const PacienteStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
+  if (role !== 'paciente') return null;
+  return (
+    <PacienteStackNav.Navigator id="PacienteStack">
+      <PacienteStackNav.Screen name="PacienteTabs" options={{ headerShown: false }}>
+        {() => <PacienteTabs unreadCount={unreadCount} />}
+      </PacienteStackNav.Screen>
+      <PacienteStackNav.Screen
+        name="Agendamento"
+        component={AgendamentoScreen}
+        options={{
+          title: 'Agendar Consulta',
+          headerStyle: { backgroundColor: COLORS.primary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+      <PacienteStackNav.Screen
+        name="ChooseDentista"
+        component={ChooseDentistaScreen}
+        options={{
+          title: 'Escolher Dentista',
+          headerStyle: { backgroundColor: COLORS.primary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+    </PacienteStackNav.Navigator>
+  );
+};
 
-const DentistaStack: React.FC<TabsProps> = ({ unreadCount }) => (
-  <DentistaStackNav.Navigator id="DentistaStack">
-    <DentistaStackNav.Screen name="DentistaTabs" options={{ headerShown: false }}>
-      {() => <DentistaTabs unreadCount={unreadCount} />}
-    </DentistaStackNav.Screen>
-    <DentistaStackNav.Screen
-      name="CasoDetalhe"
-      component={CasoDetalheScreen}
-      options={{
-        title: 'Detalhes do Caso',
-        headerStyle: { backgroundColor: COLORS.secondary },
-        headerTintColor: COLORS.textInverse,
-      }}
-    />
-    <DentistaStackNav.Screen
-      name="PacienteHistorico"
-      component={PacienteHistoricoScreen}
-      options={{
-        title: 'Histórico do Paciente',
-        headerStyle: { backgroundColor: COLORS.secondary },
-        headerTintColor: COLORS.textInverse,
-      }}
-    />
-  </DentistaStackNav.Navigator>
-);
+const DentistaStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
+  if (role !== 'dentista') return null;
+  return (
+    <DentistaStackNav.Navigator id="DentistaStack">
+      <DentistaStackNav.Screen name="DentistaTabs" options={{ headerShown: false }}>
+        {() => <DentistaTabs unreadCount={unreadCount} />}
+      </DentistaStackNav.Screen>
+      <DentistaStackNav.Screen
+        name="CasoDetalhe"
+        component={CasoDetalheScreen}
+        options={{
+          title: 'Detalhes do Caso',
+          headerStyle: { backgroundColor: COLORS.secondary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+      <DentistaStackNav.Screen
+        name="PacienteHistorico"
+        component={PacienteHistoricoScreen}
+        options={{
+          title: 'Histórico do Paciente',
+          headerStyle: { backgroundColor: COLORS.secondary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+    </DentistaStackNav.Navigator>
+  );
+};
+
+// helper registration for components that need to force-refresh badge
+let refreshUnreadCallback: (() => void) | null = null;
+export const registerUnreadRefresh = (cb: () => void) => {
+  refreshUnreadCallback = cb;
+};
+export const triggerUnreadRefresh = () => {
+  if (refreshUnreadCallback) refreshUnreadCallback();
+};
 
 const AppNavigator: React.FC = () => {
-  const { user, profile, initializing } = useAuth();
+  const { user, profile, initializing, loading } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
 
   const userId = user?.id;
@@ -225,6 +253,9 @@ const AppNavigator: React.FC = () => {
       return;
     }
 
+    // allow other components to manually trigger this same logic
+    registerUnreadRefresh(refreshUnreadCount);
+
     refreshUnreadCount();
 
     const channel = supabase
@@ -245,24 +276,8 @@ const AppNavigator: React.FC = () => {
             return;
           }
 
-          const { data: conversa } = await supabase
-            .from('conversations')
-            .select('participant_1_id, participant_2_id, participant_1_name, participant_2_name')
-            .eq('id', msg.conversation_id)
-            .single();
-
-          const isForUser =
-            conversa &&
-            (conversa.participant_1_id === userId || conversa.participant_2_id === userId);
-
-          if (isForUser && msg.sender_id !== userId) {
-            const senderName =
-              msg.sender_name ||
-              (conversa.participant_1_id === msg.sender_id
-                ? conversa.participant_1_name
-                : conversa.participant_2_name) ||
-              'Nova mensagem';
-
+          if (msg.sender_id && msg.sender_id !== userId) {
+            const senderName = msg.sender_name || 'Nova mensagem';
             await notifyNewMessage('Nova mensagem', `${senderName}: ${msg.content || ''}`);
           }
 
@@ -291,15 +306,37 @@ const AppNavigator: React.FC = () => {
     );
   }
 
+  // Aguarda carregamento do perfil apenas enquanto AuthContext ainda processa.
+  // Se profile falhar (RLS/schema), seguimos com fallback por metadata para
+  // evitar spinner infinito.
+  if (user && !profile && loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  const currentRole =
+    (profile?.tipo ||
+      (user?.user_metadata?.tipo as string | undefined) ||
+      'paciente') as 'admin' | 'dentista' | 'paciente';
+
   const precisaMudarSenha =
     !!user &&
-    !!profile &&
-    profile.tipo !== 'paciente' &&
+    currentRole !== 'paciente' &&
     (
       PROFILE_SCHEMA_FEATURES.hasSenhaAlterada
-        ? !profile.senha_alterada
+        ? !!profile && !profile.senha_alterada
         : !!user.user_metadata?.force_password_change
     );
+
+  // pacientes que ainda não preencheram dados básicos (telefone/provincia)
+  const needsProfileCompletion = (prof: any | null): boolean => {
+    if (!prof || prof.tipo !== 'paciente') return false;
+    // we treat nome as already provided at signup, so only check telefone/provincia
+    return !prof.telefone || !prof.provincia;
+  };
 
   return (
     <Stack.Navigator id="RootStack" screenOptions={{ headerShown: false }}>
@@ -310,15 +347,22 @@ const AppNavigator: React.FC = () => {
         </>
       ) : precisaMudarSenha ? (
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-      ) : profile?.tipo === 'admin' ? (
+      ) : currentRole === 'admin' ? (
         <Stack.Screen name="AdminMain" component={AdminNavigator} />
-      ) : profile?.tipo === 'dentista' ? (
+      ) : currentRole === 'dentista' ? (
         <Stack.Screen name="DentistaMain">
-          {() => <DentistaStack unreadCount={unreadCount} />}
+          {() => <DentistaStack unreadCount={unreadCount} role={currentRole} />}
         </Stack.Screen>
+      ) : currentRole === 'paciente' && needsProfileCompletion(profile) ? (
+        <Stack.Screen
+          name="CompleteProfile"
+          component={PerfilScreen}
+          options={{ headerShown: false }}
+          initialParams={{ forceEdit: true }}
+        />
       ) : (
         <Stack.Screen name="PacienteMain">
-          {() => <PacienteStack unreadCount={unreadCount} />}
+          {() => <PacienteStack unreadCount={unreadCount} role={currentRole} />}
         </Stack.Screen>
       )}
     </Stack.Navigator>

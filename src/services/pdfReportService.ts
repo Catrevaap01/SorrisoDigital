@@ -137,7 +137,12 @@ const exportHtmlAsPdf = async (html: string): Promise<PdfResult> => {
     if (fallback.success) {
       return { success: true };
     }
-    return { success: false, error: fallback.error || 'Falha ao imprimir/compartilhar relatorio' };
+    return {
+      success: false,
+      error:
+        fallback.error ||
+        'PDF indisponivel neste ambiente. Instale expo-print/expo-sharing para exportar PDF.',
+    };
   }
 
   try {
@@ -150,8 +155,20 @@ const exportHtmlAsPdf = async (html: string): Promise<PdfResult> => {
       });
       return { success: true };
     }
-    return { success: false, error: 'Compartilhamento de arquivo indisponivel no dispositivo' };
+    const fallback = await imprimirRelatorio(html);
+    if (fallback.success) {
+      return { success: true };
+    }
+    return {
+      success: false,
+      error:
+        'Compartilhamento de PDF indisponivel no dispositivo. Use exportacao HTML/CSV.',
+    };
   } catch (error: any) {
+    const fallback = await imprimirRelatorio(html);
+    if (fallback.success) {
+      return { success: true };
+    }
     return { success: false, error: error.message || 'Erro ao gerar PDF' };
   }
 };

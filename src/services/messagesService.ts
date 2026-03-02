@@ -47,6 +47,15 @@ function _handleTableMissing(error: any): string | null {
   return null;
 }
 
+function _isMissingRelation(error: any): boolean {
+  const msg: string = (error?.message || '').toLowerCase();
+  return (
+    error?.code === '42P01' ||
+    msg.includes('does not exist') ||
+    msg.includes('could not find table')
+  );
+}
+
 export const obterOuCriarConversa = async (
   userId1: string,
   userId2: string,
@@ -57,18 +66,23 @@ export const obterOuCriarConversa = async (
 ): Promise<{ success: boolean; data?: Conversation; error?: string }> => {
   try {
     // Verificar se conversa já existe
+    // try to fetch any existing conversation between the two users
+    // limit(1) avoids errors if multiple rows exist due to bug/duplicates and
+    // maybeSingle returns null instead of throwing when there are no rows.
     const { data: existente, error: selectError } = await supabase
       .from('conversations')
       .select('*')
       .or(`and(participant_1_id.eq.${userId1},participant_2_id.eq.${userId2}),and(participant_1_id.eq.${userId2},participant_2_id.eq.${userId1})`)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
     if (existente) {
       return { success: true, data: existente as Conversation };
     }
 
-    if (selectError && selectError.code !== 'PGRST116') {
-      // PGRST116 significa "no rows found", que é esperado
+    if (selectError && selectError.code !== 'PGRST116' && selectError.code !== 'PGRST102') {
+      // PGRST116 means no rows found, PGRST102 means more than one row
+      // both are fine for our purposes – we'll just insert a new entry.
       return { success: false, error: selectError.message };
     }
 
@@ -172,6 +186,9 @@ export const listarMensagens = async (
       .range(offset, offset + limit - 1);
 
     if (error) {
+      if (_isMissingRelation(error)) {
+        return { success: true, data: [] };
+      }
       return { success: false, error: error.message };
     }
 
@@ -239,6 +256,9 @@ export const listarConversasDoUsuario = async (
       data: (data || []) as Conversation[],
     };
   } catch (error: any) {
+    if (_isMissingRelation(error)) {
+      return { success: true, data: [] };
+    }
     const msg = _handleTableMissing(error);
     return {
       success: false,
@@ -285,6 +305,9 @@ export const contarMensagensNaoLidasTotalUsuario = async (
   try {
     const conversasResult = await listarConversasDoUsuario(userId);
     if (!conversasResult.success || !conversasResult.data) {
+      if (_isMissingRelation({ message: conversasResult.error })) {
+        return { success: true, count: 0 };
+      }
       return {
         success: false,
         error: conversasResult.error || 'Erro ao buscar conversas',

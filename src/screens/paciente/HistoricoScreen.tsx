@@ -12,7 +12,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { buscarTriagensPaciente } from '../../services/triagemService';
+import {
+  buscarTriagensPaciente,
+  buscarTriagensDentista,
+  buscarTodasTriagens,
+} from '../../services/triagemService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { STATUS_TRIAGEM, RECOMENDACAO } from '../../utils/constants';
 import { formatDateTime, formatRelativeTime } from '../../utils/helpers';
@@ -32,10 +36,17 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
 
   const carregarTriagens = async () => {
     if (!profile?.id) return;
-    
-    const result = await buscarTriagensPaciente(profile.id);
+
+    const tipo = profile?.tipo;
+    const result =
+      tipo === 'dentista' || tipo === 'medico'
+        ? await buscarTriagensDentista(profile.id)
+        : tipo === 'admin'
+          ? await buscarTodasTriagens({ status: null })
+          : await buscarTriagensPaciente(profile.id);
+
     if (result.success) {
-      setTriagens(result.data);
+      setTriagens(result.data || []);
     }
     setLoading(false);
   };
@@ -57,9 +68,24 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     { id: 'urgente', label: 'Urgentes' },
   ];
 
-  const triagensFiltradas = filtroAtivo === 'todos'
-    ? triagens
-    : triagens.filter(t => t.status === filtroAtivo);
+  const triagensFiltradas =
+    filtroAtivo === 'todos'
+      ? triagens
+      : triagens.filter((t) => {
+          if (filtroAtivo === 'respondido') {
+            return t.status === 'respondido' || (t.respostas && t.respostas.length > 0);
+          }
+
+          if (filtroAtivo === 'urgente') {
+            return (
+              t.status === 'urgente' ||
+              t.prioridade === 'urgente' ||
+              Number(t.intensidade_dor || 0) >= 8
+            );
+          }
+
+          return t.status === filtroAtivo;
+        });
 
   const abrirDetalhes = (triagem) => {
     setTriagemSelecionada(triagem);
@@ -356,13 +382,10 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
         <FlatList
           data={triagensFiltradas}
           keyExtractor={(item) => item.id}
-          renderItem={filtroAtivo === 'todos' ? renderTriagemLinha : renderTriagem}
-          contentContainerStyle={filtroAtivo === 'todos' ? styles.listaLinhas : styles.lista}
+          renderItem={renderTriagem}
+          contentContainerStyle={styles.lista}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          ItemSeparatorComponent={
-            filtroAtivo === 'todos' ? () => <View style={styles.rowSeparator} /> : undefined
           }
           showsVerticalScrollIndicator={false}
         />

@@ -15,6 +15,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -35,10 +37,10 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
   const [novaSenha, setNovaSenha] = useState('');
   const [processandoRecuperacao, setProcessandoRecuperacao] = useState(false);
 
-  const carregarDentistas = async () => {
+  const carregarDentistas = async (forceRefresh = false) => {
     setLoading(true);
     try {
-      const resultado = await listarDentistas();
+      const resultado = await listarDentistas({ forceRefresh });
       if (resultado.success && resultado.data) {
         setDentistas(resultado.data);
         setDentistasOrig(resultado.data);
@@ -62,7 +64,7 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      carregarDentistas();
+      carregarDentistas(true);
     }, [])
   );
 
@@ -104,7 +106,7 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
           Toast.show({
             type: 'info',
             text1: 'Senha gerada',
-            text2: 'Não foi possível enviar email; confira configuração',
+            text2: resetResult.error || 'Nao foi possivel enviar email; confira configuracao',
           });
         }
       } else {
@@ -138,7 +140,7 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await carregarDentistas();
+    await carregarDentistas(true);
     setRefreshing(false);
   };
 
@@ -155,6 +157,11 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
   };
 
   return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 24}
+    >
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Recuperar Senhas</Text>
@@ -224,7 +231,7 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
               <View style={{ width: 24 }} />
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
               {dentistaSelecionado && (
                 <>
                   <View style={styles.dentistInfo}>
@@ -296,6 +303,7 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
         </View>
       </Modal>
     </View>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -461,3 +469,5 @@ const styles = StyleSheet.create({
 });
 
 export default AdminPasswordRecoveryScreen;
+
+

@@ -6,6 +6,7 @@ import Toast from 'react-native-toast-message';
 
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ThemeProvider } from './src/contexts/ThemeContext';
+import { DentistProvider } from './src/contexts/DentistContext';
 import AppNavigator from './src/navigation/AppNavigator';
 
 export default function App(): React.JSX.Element {
@@ -13,11 +14,13 @@ export default function App(): React.JSX.Element {
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <NavigationContainer>
-            <StatusBar style="light" />
-            <AppNavigator />
-            <Toast />
-          </NavigationContainer>
+          <DentistProvider>
+            <NavigationContainer>
+              <StatusBar style="light" />
+              <AppNavigator />
+              <Toast />
+            </NavigationContainer>
+          </DentistProvider>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>

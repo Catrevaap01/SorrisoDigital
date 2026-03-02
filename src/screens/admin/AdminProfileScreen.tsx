@@ -2,7 +2,9 @@ import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -140,15 +142,23 @@ const AdminProfileScreen: React.FC = () => {
         style: 'destructive',
         onPress: async () => {
           setProcessando(true);
-          await signOut();
-          setProcessando(false);
+          try {
+            await signOut();
+          } finally {
+            setProcessando(false);
+          }
         },
       },
     ]);
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 24}
+    >
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="always" keyboardDismissMode="on-drag">
       <View style={styles.header}>
         <View style={styles.avatarContainer}>
           <View style={styles.avatar}>
@@ -296,7 +306,7 @@ const AdminProfileScreen: React.FC = () => {
               <View style={{ width: 24 }} />
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
               <View style={styles.form}>
                 <View style={styles.formGroup}>
                   <Text style={styles.label}>Senha atual</Text>
@@ -397,7 +407,7 @@ const AdminProfileScreen: React.FC = () => {
               <View style={{ width: 24 }} />
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
               {PROVINCIAS_ADMIN.map((prov) => (
                 <TouchableOpacity
                   key={prov}
@@ -425,6 +435,7 @@ const AdminProfileScreen: React.FC = () => {
         </View>
       </Modal>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -708,3 +719,4 @@ const styles = StyleSheet.create({
 });
 
 export default AdminProfileScreen;
+

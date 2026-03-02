@@ -243,6 +243,26 @@ const RelatorioScreen: React.FC = () => {
             </View>
           </View>
 
+          <View style={[styles.resumoCard, { borderLeftColor: COLORS.warning }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="calendar-outline" size={24} color={COLORS.warning} />
+              <View style={{ marginLeft: SPACING.md }}>
+                <Text style={styles.resumoValor}>{dadosRelatorio.totalConsultas || 0}</Text>
+                <Text style={styles.resumoLabel}>Total de Consultas</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.resumoCard, { borderLeftColor: COLORS.accent }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="chatbubbles-outline" size={24} color={COLORS.accent} />
+              <View style={{ marginLeft: SPACING.md }}>
+                <Text style={styles.resumoValor}>{dadosRelatorio.totalMensagens || 0}</Text>
+                <Text style={styles.resumoLabel}>Total de Mensagens</Text>
+              </View>
+            </View>
+          </View>
+
           <View style={[styles.resumoCard, { borderLeftColor: COLORS.success }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Ionicons name="trending-up-outline" size={24} color={COLORS.success} />
@@ -595,6 +615,5 @@ const styles = StyleSheet.create({
 });
 
 export default RelatorioScreen;
-
 
 

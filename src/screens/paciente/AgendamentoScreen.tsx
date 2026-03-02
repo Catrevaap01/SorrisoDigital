@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,13 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
+import { useDentist } from '../../contexts/DentistContext';
 import { criarAgendamento } from '../../services/agendamentoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -20,6 +23,7 @@ type AgendamentoProps = NativeStackScreenProps<PacienteStackParamList, 'Agendame
 
 const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
   const { profile } = useAuth();
+  const { selectedDentist, selectDentist } = useDentist();
   const [loading, setLoading] = useState<boolean>(false);
   
   // Dados do agendamento
@@ -84,6 +88,29 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     })();
   }, []);
 
+  // preselect from context
+  useEffect(() => {
+    if (selectedDentist) {
+      setDentistaSelecionado(selectedDentist.id);
+    }
+  }, [selectedDentist]);
+
+  useEffect(() => {
+    if (!selectedDentist) {
+      Alert.alert(
+        'Dentista obrigatório',
+        'Você deve selecionar um dentista antes de agendar.',
+        [
+          {
+            text: 'Escolher agora',
+            onPress: () => navigation.getParent()?.navigate('ChooseDentista' as any),
+          },
+        ],
+        { cancelable: false }
+      );
+    }
+  }, [selectedDentist]);
+
   const handleAgendar = async () => {
     if (!tipoConsulta) {
       Toast.show({ type: 'error', text1: 'Selecione o tipo de consulta' });
@@ -95,6 +122,11 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     }
     if (!horarioSelecionado) {
       Toast.show({ type: 'error', text1: 'Selecione um horário' });
+      return;
+    }
+    if (!dentistaSelecionado) {
+      Toast.show({ type: 'error', text1: 'Selecione um dentista' });
+      navigation.getParent()?.navigate('ChooseDentista' as any);
       return;
     }
 
@@ -121,7 +153,7 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
       data_agendamento: dataAgendamento.toISOString(),
       tipo: tipoConsulta,
       observacoes: observacoes.trim(),
-      status: 'agendado',
+      status: 'pendente',
       dentista_id: dentistaSelecionado || null,
     });
 
@@ -144,7 +176,17 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 24}
+    >
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="on-drag"
+      >
       {/* Selecionar dentista (opcional) */}
       {dentistas.length > 0 && (
         <View style={styles.section}>
@@ -152,12 +194,16 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
           <TouchableOpacity
             style={styles.selectButton}
             onPress={() => {
-              const options = dentistas.map((d) => d.nome);
+              const alertOptions = dentistas.map((d) => ({
+                text: d.nome,
+                onPress: () => {
+                  setDentistaSelecionado(d.id);
+                  selectDentist({ id: d.id, nome: d.nome, foto_url: d.foto_url });
+                },
+              }));
+
               Alert.alert('Escolher dentista', '', [
-                ...options.map((name, idx) => ({
-                  text: name,
-                  onPress: () => setDentistaSelecionado(dentistas[idx].id),
-                })),
+                ...alertOptions,
                 { text: 'Cancelar', style: 'cancel' },
               ]);
             }}
@@ -327,8 +373,9 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
         </Text>
       </View>
 
-      <View style={{ height: 30 }} />
-    </ScrollView>
+        <View style={{ height: 30 }} />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -336,6 +383,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  scrollContent: {
+    paddingBottom: SIZES.xl + 24,
   },
   section: {
     backgroundColor: COLORS.surface,

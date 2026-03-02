@@ -8,8 +8,12 @@ import {
   TextInput,
   Alert,
   Modal,
+  Platform,
   ActivityIndicator as _ActivityIndicator,
+  KeyboardAvoidingView,
 } from 'react-native';
+import { useRoute } from '@react-navigation/native';
+import Toast from 'react-native-toast-message';
 
 // ActivityIndicator may not exist in some environments (web shims); use
 // a no-op fallback to avoid runtime ReferenceError.
@@ -17,19 +21,46 @@ const ActivityIndicator: React.ComponentType<any> =
   _ActivityIndicator || (() => null);
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
+import { useDentist } from '../../contexts/DentistContext';
 import { PROFILE_SCHEMA_FEATURES } from '../../config/supabase';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { PROVINCIAS_ANGOLA } from '../../utils/constants';
 import { getInitials, formatDate } from '../../utils/helpers';
 
-const PerfilScreen: React.FC = () => {
-  const { profile, updateProfile, signOut, loading } = useAuth();
-  const [editando, setEditando] = useState<boolean>(false);
+const ESPECIALIDADES_DENTISTA = [
+  'Ortodontia',
+  'Implantologia',
+  'Endodontia',
+  'Periodontia',
+  'Odontopediatria',
+  'Cirurgia Bucomaxilofacial',
+  'Clinica Geral',
+  'Proteses Dentarias',
+  'Estetica Dental',
+  'Radiologia Odontologica',
+];
+
+const PerfilScreen: React.FC<any> = ({ navigation }) => {
+  const route: any = useRoute();
+  const forceEdit: boolean = !!route.params?.forceEdit;
+
+  const { profile, updateProfile, signOut, refreshProfile } = useAuth();
+  const { requestAutoOpenChooseDentist } = useDentist();
+  const [editando, setEditando] = useState<boolean>(forceEdit);
+  const [salvandoPerfil, setSalvandoPerfil] = useState(false);
+
+  useEffect(() => {
+    if (forceEdit && (!profile?.telefone || !profile?.provincia)) {
+      setEditando(true);
+    }
+  }, [forceEdit, profile]);
+
   const [showProvincias, setShowProvincias] = useState<boolean>(false);
+  const [showEspecialidades, setShowEspecialidades] = useState<boolean>(false);
   const canEditProvincia =
     PROFILE_SCHEMA_FEATURES.hasProvincia || PROFILE_SCHEMA_FEATURES.usesProvinciaId;
   
-  // Campos editÃ¡veis
+  // Campos editáveis
   const [nome, setNome] = useState<string>(profile?.nome || '');
   const [telefone, setTelefone] = useState<string>(profile?.telefone || '');
   const [provincia, setProvincia] = useState<string>(profile?.provincia || '');
@@ -47,23 +78,61 @@ const PerfilScreen: React.FC = () => {
   }, [profile]);
 
   const handleSalvar = async () => {
+    // if we are forcing profile completion, ensure telefone/provincia not empty
+    if (forceEdit) {
+      if (!telefone.trim() || !provincia.trim()) {
+        Toast.show({ type: 'error', text1: 'Telefone e província são obrigatórios' });
+        return;
+      }
+    }
     const updates: Record<string, string> = {
       nome: nome.trim(),
       telefone: telefone.trim(),
     };
+    if (!nome.trim()) {
+      Toast.show({ type: 'error', text1: 'Nome obrigatorio' });
+      return;
+    }
     if (isDentista) {
-      if (crm.trim()) updates.crm = crm.trim();
-      if (especialidade.trim()) updates.especialidade = especialidade.trim();
+      if (!especialidade.trim()) {
+        Toast.show({ type: 'error', text1: 'Especialidade obrigatoria' });
+        return;
+      }
+      if (!crm.trim()) {
+        Toast.show({ type: 'error', text1: 'CRM obrigatorio' });
+        return;
+      }
+      updates.crm = crm.trim();
+      updates.numero_registro = crm.trim();
+      updates.especialidade = especialidade.trim();
     }
 
     if (canEditProvincia) {
       updates.provincia = provincia;
     }
 
-    const result = await updateProfile(updates);
+    setSalvandoPerfil(true);
+    try {
+      const result = await updateProfile(updates);
 
-    if (result.success) {
-      setEditando(false);
+      if (result.success) {
+        await refreshProfile();
+        setEditando(false);
+        Toast.show({ type: 'success', text1: 'Dados atualizados com sucesso' });
+        if (forceEdit) {
+          // profile completed: abre fluxo do paciente e direciona para escolher dentista
+          requestAutoOpenChooseDentist();
+          navigation.replace('PacienteMain');
+        }
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Erro ao salvar',
+          text2: (result as any)?.error?.message || 'Nao foi possivel salvar os dados',
+        });
+      }
+    } finally {
+      setSalvandoPerfil(false);
     }
   };
 
@@ -71,12 +140,41 @@ const PerfilScreen: React.FC = () => {
     setNome(profile?.nome || '');
     setTelefone(profile?.telefone || '');
     setProvincia(profile?.provincia || '');
+    if (isDentista) {
+      setCrm(profile?.crm || profile?.numero_registro || '');
+      setEspecialidade(profile?.especialidade || '');
+    }
     setEditando(false);
   };
 
   const [processandoLogout, setProcessandoLogout] = useState(false);
 
+  const executarLogout = async () => {
+    setProcessandoLogout(true);
+    try {
+      await signOut();
+    } finally {
+      setProcessandoLogout(false);
+    }
+  };
+
   const handleLogout = () => {
+    if (forceEdit) {
+      // during forced profile completion user must not logout
+      Toast.show({ type: 'info', text1: 'Complete seu perfil antes de sair' });
+      return;
+    }
+
+    if (Platform.OS === 'web') {
+      const confirmed =
+        typeof globalThis !== 'undefined' && typeof (globalThis as any).confirm === 'function'
+          ? (globalThis as any).confirm('Tem certeza que deseja sair?')
+          : true;
+      if (!confirmed) return;
+      executarLogout();
+      return;
+    }
+
     Alert.alert(
       'Sair da conta',
       'Tem certeza que deseja sair?',
@@ -85,14 +183,7 @@ const PerfilScreen: React.FC = () => {
         {
           text: 'Sair',
           style: 'destructive',
-          onPress: async () => {
-            setProcessandoLogout(true);
-            try {
-              await signOut();
-            } finally {
-              setProcessandoLogout(false);
-            }
-          },
+          onPress: executarLogout,
         },
       ]
     );
@@ -101,7 +192,16 @@ const PerfilScreen: React.FC = () => {
   const isDentista = profile?.tipo === 'dentista' || profile?.tipo === 'medico';
 
   return (
-    <ScrollView style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 24}
+    >
+    <ScrollView
+      style={styles.container}
+      keyboardShouldPersistTaps="always"
+      keyboardDismissMode="on-drag"
+    >
       {/* Header do Perfil */}
       <View style={[styles.header, isDentista && styles.headerDentista]}>
         <View style={styles.avatarContainer}>
@@ -120,18 +220,26 @@ const PerfilScreen: React.FC = () => {
           </Text>
         </View>
       </View>
+      {salvandoPerfil && (
+        <View style={styles.savingBanner}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
+          <Text style={styles.savingBannerText}>Salvando alteracoes...</Text>
+        </View>
+      )}
 
       {/* Dados Pessoais */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Dados Pessoais</Text>
-          <TouchableOpacity onPress={() => setEditando(!editando)}>
-            <Ionicons
-              name={editando ? 'close' : 'create-outline'}
-              size={24}
-              color={COLORS.primary}
-            />
-          </TouchableOpacity>
+          {!forceEdit && (
+            <TouchableOpacity onPress={() => setEditando(!editando)}>
+              <Ionicons
+                name={editando ? 'close' : 'create-outline'}
+                size={24}
+                color={COLORS.primary}
+              />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Nome */}
@@ -169,6 +277,26 @@ const PerfilScreen: React.FC = () => {
             <Text style={styles.campoValor}>{profile?.telefone || '-'}</Text>
           )}
         </View>
+
+        {/* Província (paciente) */}
+        {!isDentista && canEditProvincia && (
+          <View style={styles.campo}>
+            <Text style={styles.campoLabel}>Província</Text>
+            {editando ? (
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => setShowProvincias(true)}
+              >
+                <Text style={[styles.selectText, !provincia && styles.selectPlaceholder]}>
+                  {provincia || 'Selecione'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.campoValor}>{profile?.provincia || '-'}</Text>
+            )}
+          </View>
+        )}
       </View>
 
       {/* seção profissional separada para dentistas */}
@@ -197,12 +325,15 @@ const PerfilScreen: React.FC = () => {
           <View style={styles.campo}>
             <Text style={styles.campoLabel}>Especialidade</Text>
             {editando ? (
-              <TextInput
-                style={styles.input}
-                value={especialidade}
-                onChangeText={setEspecialidade}
-                placeholder="Ex: Ortodontia"
-              />
+              <TouchableOpacity
+                style={styles.selectButton}
+                onPress={() => setShowEspecialidades(true)}
+              >
+                <Text style={[styles.selectText, !especialidade && styles.selectPlaceholder]}>
+                  {especialidade || 'Selecione'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
             ) : (
               <Text style={styles.campoValor}>{profile?.especialidade || '-'}</Text>
             )}
@@ -249,12 +380,16 @@ const PerfilScreen: React.FC = () => {
               <Text style={styles.cancelButtonText}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.editButton, styles.saveButton, loading && styles.buttonDisabled]}
+              style={[
+                styles.editButton,
+                styles.saveButton,
+                salvandoPerfil && styles.buttonDisabled,
+              ]}
               onPress={handleSalvar}
-              disabled={loading}
+              disabled={salvandoPerfil}
             >
               <Text style={styles.saveButtonText}>
-                {loading ? 'Salvando...' : 'Salvar'}
+                {salvandoPerfil ? 'Salvando...' : 'Salvar'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -263,49 +398,53 @@ const PerfilScreen: React.FC = () => {
 
 
       {/* OpÃ§Ãµes */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Configurações</Text>
+      {!forceEdit && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Configurações</Text>
 
-        <TouchableOpacity style={styles.opcaoItem}>
-          <Ionicons name="notifications-outline" size={22} color={COLORS.textSecondary} />
-          <Text style={styles.opcaoText}>Notificacoes</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.opcaoItem}>
+            <Ionicons name="notifications-outline" size={22} color={COLORS.textSecondary} />
+            <Text style={styles.opcaoText}>Notificacoes</Text>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.opcaoItem}>
-          <Ionicons name="shield-checkmark-outline" size={22} color={COLORS.textSecondary} />
-          <Text style={styles.opcaoText}>Privacidade</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.opcaoItem}>
+            <Ionicons name="shield-checkmark-outline" size={22} color={COLORS.textSecondary} />
+            <Text style={styles.opcaoText}>Privacidade</Text>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.opcaoItem}>
-          <Ionicons name="help-circle-outline" size={22} color={COLORS.textSecondary} />
-          <Text style={styles.opcaoText}>Ajuda</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.opcaoItem}>
+            <Ionicons name="help-circle-outline" size={22} color={COLORS.textSecondary} />
+            <Text style={styles.opcaoText}>Ajuda</Text>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.opcaoItem}>
-          <Ionicons name="document-text-outline" size={22} color={COLORS.textSecondary} />
-          <Text style={styles.opcaoText}>Termos de Uso</Text>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity style={styles.opcaoItem}>
+            <Ionicons name="document-text-outline" size={22} color={COLORS.textSecondary} />
+            <Text style={styles.opcaoText}>Termos de Uso</Text>
+            <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* BotÃ£o Sair */}
-      <TouchableOpacity
-        style={styles.logoutButton}
-        onPress={handleLogout}
-        disabled={processandoLogout || loading}
-      >
-        {processandoLogout || loading ? (
-          <ActivityIndicator size="small" color={COLORS.danger} />
-        ) : (
-          <>
-            <Ionicons name="log-out-outline" size={22} color={COLORS.danger} />
-            <Text style={styles.logoutText}>Sair da Conta</Text>
-          </>
-        )}
-      </TouchableOpacity>
+      {!forceEdit && (
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          disabled={processandoLogout}
+        >
+          {processandoLogout ? (
+            <ActivityIndicator size="small" color={COLORS.danger} />
+          ) : (
+            <>
+              <Ionicons name="log-out-outline" size={22} color={COLORS.danger} />
+              <Text style={styles.logoutText}>Sair da Conta</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
 
       {/* VersÃ£o */}
       <Text style={styles.versao}>TeOdonto Angola v1.0.0</Text>
@@ -325,7 +464,7 @@ const PerfilScreen: React.FC = () => {
                 <Ionicons name="close" size={24} color={COLORS.text} />
               </TouchableOpacity>
             </View>
-            <ScrollView>
+            <ScrollView keyboardShouldPersistTaps="handled">
               {PROVINCIAS_ANGOLA.map((prov) => (
                 <TouchableOpacity
                   key={prov}
@@ -356,8 +495,54 @@ const PerfilScreen: React.FC = () => {
         </View>
       </Modal>
 
+      <Modal
+        visible={showEspecialidades}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEspecialidades(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Selecione a Especialidade</Text>
+              <TouchableOpacity onPress={() => setShowEspecialidades(false)}>
+                <Ionicons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {ESPECIALIDADES_DENTISTA.map((esp) => (
+                <TouchableOpacity
+                  key={esp}
+                  style={[
+                    styles.provinciaItem,
+                    especialidade === esp && styles.provinciaItemActive,
+                  ]}
+                  onPress={() => {
+                    setEspecialidade(esp);
+                    setShowEspecialidades(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.provinciaItemText,
+                      especialidade === esp && styles.provinciaItemTextActive,
+                    ]}
+                  >
+                    {esp}
+                  </Text>
+                  {especialidade === esp && (
+                    <Ionicons name="checkmark" size={20} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       <View style={{ height: 30 }} />
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -421,6 +606,25 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     marginTop: SIZES.md,
     padding: SIZES.md,
+  },
+  savingBanner: {
+    marginHorizontal: SIZES.md,
+    marginTop: SIZES.md,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: SIZES.radiusMd,
+    paddingVertical: SIZES.sm,
+    paddingHorizontal: SIZES.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  savingBannerText: {
+    marginLeft: SIZES.sm,
+    color: COLORS.text,
+    fontSize: SIZES.fontSm,
+    fontWeight: '600',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -583,4 +787,8 @@ const styles = StyleSheet.create({
 });
 
 export default PerfilScreen;
+
+
+
+
 

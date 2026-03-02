@@ -34,13 +34,15 @@ export type DentistaTabParamList = {
 
 export type AdminTabParamList = {
   AdminDashboard: undefined;
-  Relatorio: undefined;
-  Perfil: undefined;
+  AdminReports: undefined;
+  AdminPasswordRecovery: undefined;
+  AdminProfile: undefined;
 };
 
 export type PacienteStackParamList = {
   PacienteTabs: undefined;
   Agendamento: undefined;
+  ChooseDentista: undefined; // força paciente escolher dentista antes de triagem/consulta
 };
 
 export type DentistaStackParamList = {
@@ -51,7 +53,7 @@ export type DentistaStackParamList = {
 
 export type AdminStackParamList = {
   AdminDashboard: undefined;
-  Relatorio: undefined;
+  AdminReports: undefined;
 };
 
 export type RootStackParamList = {
@@ -61,4 +63,5 @@ export type RootStackParamList = {
   DentistaMain: undefined;
   PacienteMain: undefined;
   AdminMain: undefined;
+  CompleteProfile: { forceEdit?: boolean } | undefined;
 };

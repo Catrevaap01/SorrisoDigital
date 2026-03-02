@@ -13,6 +13,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -175,53 +177,60 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
   };
 
   return (
-    <View style={styles.container}>
-      {/* Search bar */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={COLORS.textSecondary} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar conversa..."
-          placeholderTextColor={COLORS.textSecondary}
-          value={busca}
-          onChangeText={handleBusca}
-        />
-        {busca ? (
-          <TouchableOpacity onPress={() => handleBusca('')}>
-            <Ionicons name="close-circle" size={20} color={COLORS.textSecondary} />
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      {/* Lista de conversas */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 24}
+    >
+      <View style={styles.container}>
+        {/* Search bar */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color={COLORS.textSecondary} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Buscar conversa..."
+            placeholderTextColor={COLORS.textSecondary}
+            value={busca}
+            onChangeText={handleBusca}
+          />
+          {busca ? (
+            <TouchableOpacity onPress={() => handleBusca('')}>
+              <Ionicons name="close-circle" size={20} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          ) : null}
         </View>
-      ) : (
-        <FlatList
-          data={conversas}
-          renderItem={renderConversa}
-          keyExtractor={(item) => item.id}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons
-                name="chatbubbles-outline"
-                size={48}
-                color={COLORS.textSecondary}
-              />
-              <Text style={styles.emptyText}>Nenhuma conversa</Text>
-              <Text style={styles.emptySubtext}>
-                {busca ? 'Nenhuma conversa encontrada' : 'Comece uma nova conversa'}
-              </Text>
-            </View>
-          }
-        />
-      )}
-    </View>
+
+        {/* Lista de conversas */}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={conversas}
+            renderItem={renderConversa}
+            keyExtractor={(item) => item.id}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            }
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons
+                  name="chatbubbles-outline"
+                  size={48}
+                  color={COLORS.textSecondary}
+                />
+                <Text style={styles.emptyText}>Nenhuma conversa</Text>
+                <Text style={styles.emptySubtext}>
+                  {busca ? 'Nenhuma conversa encontrada' : 'Comece uma nova conversa'}
+                </Text>
+              </View>
+            }
+          />
+        )}
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 

@@ -5,6 +5,23 @@
 
 import { supabase, PROFILE_SCHEMA_FEATURES } from '../config/supabase';
 import { sendPasswordRecoveryEmail } from './emailService';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
+
+const extra = Constants.expoConfig?.extra;
+const SUPABASE_URL = extra?.SUPABASE_URL as string | undefined;
+const SUPABASE_SERVICE_ROLE_KEY = extra?.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
+
+const getAdminClient = (): SupabaseClient | null => {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+};
 
 /**
  * Gerar senha aleatÃ³ria segura
@@ -26,14 +43,21 @@ export const recuperarSenhaDentista = async (
   dentistaId: string,
   dentistaEmail: string,
   dentistaNome: string
-): Promise<{ success: boolean; novaSenha?: string; emailSent?: boolean; error?: string }> => {
+): Promise<{
+  success: boolean;
+  novaSenha?: string;
+  emailSent?: boolean;
+  error?: string;
+}> => {
   try {
     const novaSenha = gerarSenhaAleatoria();
+    const adminClient = getAdminClient();
 
-    const { data: userData } = await supabase.auth.admin.getUserById(dentistaId);
+    const authApi = adminClient?.auth.admin || supabase.auth.admin;
+    const { data: userData } = await authApi.getUserById(dentistaId);
     const currentMetadata = userData?.user?.user_metadata || {};
 
-    const { error: updateError } = await supabase.auth.admin.updateUserById(
+    const { error: updateError } = await authApi.updateUserById(
       dentistaId,
       {
         password: novaSenha,
@@ -45,6 +69,17 @@ export const recuperarSenhaDentista = async (
     );
 
     if (updateError) {
+      const rawMessage = (updateError.message || '').toLowerCase();
+      if (
+        rawMessage.includes('user not allowed') ||
+        rawMessage.includes('not allowed')
+      ) {
+        return {
+          success: false,
+          error:
+            'User not allowed: configure SUPABASE_SERVICE_ROLE_KEY no app.json (extra) para permitir reset de senha por admin.',
+        };
+      }
       return { success: false, error: updateError.message };
     }
 
@@ -69,10 +104,19 @@ export const recuperarSenhaDentista = async (
     );
 
     if (!emailResult.success) {
-      console.warn('Erro ao enviar email de recuperacao:', emailResult.error);
+      return {
+        success: true,
+        novaSenha,
+        emailSent: false,
+        error: emailResult.error || 'Senha alterada, mas falha ao enviar email',
+      };
     }
 
-    return { success: true, novaSenha, emailSent: emailResult.success };
+    return {
+      success: true,
+      novaSenha,
+      emailSent: true,
+    };
   } catch (error: any) {
     return {
       success: false,

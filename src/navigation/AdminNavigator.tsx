@@ -4,9 +4,11 @@
  */
 
 import React from 'react';
+import { Text, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../styles/theme';
+import { useAuth } from '../contexts/AuthContext';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import AdminReportsScreen from '../screens/admin/AdminReportsScreen';
 import AdminPasswordRecoveryScreen from '../screens/admin/AdminPasswordRecoveryScreen';
@@ -22,6 +24,20 @@ export type AdminTabParamList = {
 const Tab = createBottomTabNavigator<AdminTabParamList>();
 
 const AdminNavigator: React.FC = () => {
+  const { profile, user } = useAuth();
+  const roleFromProfile = profile?.tipo;
+  const roleFromMetadata = user?.user_metadata?.tipo as string | undefined;
+  const isAdmin = roleFromProfile === 'admin' || roleFromMetadata === 'admin';
+
+  // Só bloqueia quando temos role definida e ela não é admin.
+  if ((roleFromProfile || roleFromMetadata) && !isAdmin) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background }}>
+        <Text style={{ color: COLORS.textSecondary }}>Area exclusiva de administrador</Text>
+      </View>
+    );
+  }
+
   return (
     <Tab.Navigator
       id="AdminTab"
@@ -65,6 +81,7 @@ const AdminNavigator: React.FC = () => {
           fontSize: 11,
           fontWeight: '700',
         },
+        tabBarHideOnKeyboard: true,
         tabBarActiveBackgroundColor: (COLORS.danger || '#dc3545') + '18',
         tabBarActiveTintColor: COLORS.danger || '#dc3545',
         tabBarInactiveTintColor: COLORS.textSecondary,

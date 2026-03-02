@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { buscarTodasTriagens, buscarContadores } from '../../services/triagemService';
+import { buscarTriagensDentista, buscarContadoresDentista } from '../../services/triagemService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { STATUS_TRIAGEM, PRIORIDADE } from '../../utils/constants';
 import { formatRelativeTime } from '../../utils/helpers';
@@ -22,29 +22,47 @@ type DashboardProps = BottomTabScreenProps<DentistaTabParamList, 'Dashboard'>;
 const DashboardScreen: React.FC<DashboardProps> = ({ navigation }) => {
   const { profile } = useAuth();
   const [triagens, setTriagens] = useState<any[]>([]);
+  const [triagensRecentes, setTriagensRecentes] = useState<any[]>([]);
   const [contadores, setContadores] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [filtroAtivo, setFiltroAtivo] = useState<string>('pendente');
+  const [filtroAtivo, setFiltroAtivo] = useState<string>('todos');
 
   const carregarDados = async () => {
-    const [triagensResult, contadoresResult] = await Promise.all([
-      buscarTodasTriagens({ status: filtroAtivo === 'todos' ? null : filtroAtivo }),
-      buscarContadores(),
-    ]);
+    if (!profile?.id) {
+      return;
+    }
 
+    setLoading(true);
+
+    // get counts first (lighter payload)
+    const contResult = await buscarContadoresDentista(profile.id);
+    if (contResult.success && contResult.data) {
+      setContadores(contResult.data);
+    } else if (!contResult.success) {
+      // keep previous or zero
+      setContadores({ pendente: 0, urgente: 0, respondido: 0, total: 0 });
+    }
+
+    // fetch full triagens (may take longer)
+    const triagensResult = await buscarTriagensDentista(profile.id);
     if (triagensResult.success) {
-      setTriagens(triagensResult.data);
+      const all = triagensResult.data || [];
+      setTriagensRecentes(all.slice(0, 5));
+      const filtradas =
+        filtroAtivo === 'todos' ? all : all.filter((t: any) => t.status === filtroAtivo);
+      setTriagens(filtradas);
+    } else {
+      setTriagens([]);
+      setTriagensRecentes([]);
     }
-    if (contadoresResult.success) {
-      setContadores(contadoresResult.data);
-    }
+
     setLoading(false);
   };
 
   useEffect(() => {
     carregarDados();
-  }, [filtroAtivo]);
+  }, [filtroAtivo, profile?.id]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -53,10 +71,10 @@ const DashboardScreen: React.FC<DashboardProps> = ({ navigation }) => {
   }, [filtroAtivo]);
 
   const filtros = [
-    { id: 'pendente', label: 'Pendentes', count: contadores.pendente || 0 },
-    { id: 'urgente', label: 'Urgentes', count: contadores.urgente || 0 },
-    { id: 'respondido', label: 'Respondidos', count: contadores.respondido || 0 },
-    { id: 'todos', label: 'Todos', count: contadores.total || 0 },
+    { id: 'pendente', label: 'Pendentes', count: contadores.pendente ?? 0 },
+    { id: 'urgente', label: 'Urgentes', count: contadores.urgente ?? 0 },
+    { id: 'respondido', label: 'Respondidos', count: contadores.respondido ?? 0 },
+    { id: 'todos', label: 'Todos', count: contadores.total ?? 0 },
   ];
 
   const abrirCaso = (triagem) => {
@@ -94,6 +112,33 @@ const DashboardScreen: React.FC<DashboardProps> = ({ navigation }) => {
       </View>
     </View>
   );
+
+  const renderTriagensRecentes = () => {
+    if (triagensRecentes.length === 0) return null;
+    return (
+      <View style={styles.recentesContainer}>
+        <Text style={styles.recentesTitle}>Triagens recentes</Text>
+        {triagensRecentes.slice(0, 3).map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={styles.recenteItem}
+            onPress={() => abrirCaso(item)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.recenteMain}>
+              <Text style={styles.recenteSintoma} numberOfLines={1}>
+                {item.sintoma_principal || 'Sem descricao'}
+              </Text>
+              <Text style={styles.recenteMeta} numberOfLines={1}>
+                {formatRelativeTime(item.created_at)} | Dor {item.intensidade_dor || 0}/10
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
 
   const renderTriagem = ({ item }) => {
     const statusInfo = STATUS_TRIAGEM[item.status] || STATUS_TRIAGEM.pendente;
@@ -182,6 +227,7 @@ const DashboardScreen: React.FC<DashboardProps> = ({ navigation }) => {
     <View style={styles.container}>
       {/* Contadores */}
       {renderContadores()}
+      {renderTriagensRecentes()}
 
       {/* Filtros */}
       <View style={styles.filtrosContainer}>
@@ -279,6 +325,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: SIZES.sm,
     borderTopWidth: 1,
     borderTopColor: COLORS.divider,
+  },
+  recentesContainer: {
+    backgroundColor: COLORS.surface,
+    marginTop: SIZES.sm,
+    marginHorizontal: SIZES.sm,
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.sm,
+    ...SHADOWS.sm,
+  },
+  recentesTitle: {
+    color: COLORS.text,
+    fontSize: SIZES.fontMd,
+    fontWeight: '700',
+    marginBottom: SIZES.xs,
+  },
+  recenteItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: SIZES.xs,
+  },
+  recenteMain: {
+    flex: 1,
+    marginRight: SIZES.sm,
+  },
+  recenteSintoma: {
+    color: COLORS.text,
+    fontSize: SIZES.fontSm,
+    fontWeight: '600',
+  },
+  recenteMeta: {
+    color: COLORS.textSecondary,
+    fontSize: SIZES.fontXs,
+    marginTop: 2,
   },
   filtroButton: {
     flex: 1,

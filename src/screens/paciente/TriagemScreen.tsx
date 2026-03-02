@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,15 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
+import { useDentist } from '../../contexts/DentistContext';
 import { criarTriagem } from '../../services/triagemService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { SINTOMAS, DURACAO_OPTIONS, LOCALIZACAO_DENTE } from '../../utils/constants';
@@ -24,6 +28,7 @@ type TriagemScreenProps = BottomTabScreenProps<PacienteTabParamList, 'Triagem'>;
 
 const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
   const { profile } = useAuth();
+  const { selectedDentist, selectDentist } = useDentist();
   const [etapa, setEtapa] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
   
@@ -36,6 +41,8 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
   const [imagens, setImagens] = useState<string[]>([]);
   const [dentistas, setDentistas] = useState<any[]>([]);
   const [dentistaSelecionado, setDentistaSelecionado] = useState<string | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
+  const scrollRef = useRef<ScrollView>(null);
 
   // Funções de câmera/galeria - CORRIGIDO
   // load dentists on first render
@@ -48,6 +55,49 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
       }
     })();
   }, []);
+
+  // prefill selectedDentist from context
+  useEffect(() => {
+    if (selectedDentist) {
+      setDentistaSelecionado(selectedDentist.id);
+    }
+  }, [selectedDentist]);
+
+  // if there's no dentist chosen at all, force the user to pick one
+  useEffect(() => {
+    if (!selectedDentist) {
+      Alert.alert(
+        'Dentista obrigatório',
+        'Você deve selecionar um dentista antes de enviar triagem.',
+        [
+          {
+            text: 'Escolher agora',
+            onPress: () => navigation.getParent()?.navigate('ChooseDentista' as any),
+          },
+        ],
+        { cancelable: false }
+      );
+    }
+  }, [selectedDentist]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardHeight(event.endCoordinates?.height || 0);
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
 
   const tirarFoto = async () => {
     try {
@@ -178,6 +228,13 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
   const enviarTriagem = async () => {
     if (!sintomaPrincipal) {
       Toast.show({ type: 'error', text1: 'Selecione o sintoma principal' });
+      return;
+    }
+
+    // ensure a dentist is chosen (from step or context)
+    if (!dentistaSelecionado) {
+      Toast.show({ type: 'error', text1: 'Selecione um dentista' });
+      navigation.getParent()?.navigate('ChooseDentista' as any);
       return;
     }
 
@@ -356,12 +413,17 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
             style={styles.selectButton}
             onPress={() => {
               // simple picker using Alert for now
-              const options = dentistas.map((d) => d.nome);
+              const alertOptions = dentistas.map((d) => ({
+                text: d.nome,
+                onPress: () => {
+                  setDentistaSelecionado(d.id);
+                  // persist choice globally (fire and forget)
+                  selectDentist({ id: d.id, nome: d.nome, foto_url: d.foto_url });
+                },
+              }));
+
               Alert.alert('Escolher dentista', '', [
-                ...options.map((name, idx) => ({
-                  text: name,
-                  onPress: () => setDentistaSelecionado(dentistas[idx].id),
-                })),
+                ...alertOptions,
                 { text: 'Cancelar', style: 'cancel' },
               ]);
             }}
@@ -408,17 +470,28 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
       </View>
 
       {/* Descrição */}
-      <Text style={styles.fieldLabel}>Descreva melhor (opcional)</Text>
-      <TextInput
-        style={styles.textArea}
-        placeholder="Ex: A dor piora quando como doce, sangra ao escovar..."
-        placeholderTextColor={COLORS.textLight}
-        value={descricao}
-        onChangeText={setDescricao}
-        multiline
-        numberOfLines={4}
-        textAlignVertical="top"
-      />
+      <Text style={styles.fieldLabel}>Descreva melhor o que está sentindo (opcional)</Text>
+      <Text style={styles.fieldHelperText}>
+        Informe quando começa, o que piora/melhora, se sangra e se já tomou algum medicamento.
+      </Text>
+      <View style={styles.textAreaWrapper}>
+        <TextInput
+          style={styles.textArea}
+          placeholder="Ex: Dor latejante há 2 dias, piora ao mastigar, sangra ao escovar."
+          placeholderTextColor={COLORS.textLight}
+          value={descricao}
+          onChangeText={setDescricao}
+          multiline
+          numberOfLines={4}
+          scrollEnabled={true}
+          textAlignVertical="top"
+          returnKeyType="done"
+          disableFullscreenUI={true}
+          onContentSizeChange={(e) => {
+            // keep fixed height, ignore content size
+          }}
+        />
+      </View>
 
       <TouchableOpacity style={styles.nextButton} onPress={() => setEtapa(3)}>
         <Text style={styles.nextButtonText}>Próximo</Text>
@@ -510,44 +583,60 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
   );
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Indicador de Progresso */}
-      <View style={styles.progressContainer}>
-        {[1, 2, 3].map((step) => (
-          <React.Fragment key={step}>
-            <View
-              style={[
-                styles.progressStep,
-                etapa >= step && styles.progressStepActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.progressStepText,
-                  etapa >= step && styles.progressStepTextActive,
-                ]}
-              >
-                {step}
-              </Text>
-            </View>
-            {step < 3 && (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 50}
+    >
+      <ScrollView
+        ref={scrollRef}
+        style={styles.container}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 16 : 16 },
+        ]}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+      >
+        {/* Indicador de Progresso */}
+        <View style={styles.progressContainer}>
+          {[1, 2, 3].map((step) => (
+            <React.Fragment key={step}>
               <View
                 style={[
-                  styles.progressLine,
-                  etapa > step && styles.progressLineActive,
+                  styles.progressStep,
+                  etapa >= step && styles.progressStepActive,
                 ]}
-              />
-            )}
-          </React.Fragment>
-        ))}
-      </View>
+              >
+                <Text
+                  style={[
+                    styles.progressStepText,
+                    etapa >= step && styles.progressStepTextActive,
+                  ]}
+                >
+                  {step}
+                </Text>
+              </View>
+              {step < 3 && (
+                <View
+                  style={[
+                    styles.progressLine,
+                    etapa > step && styles.progressLineActive,
+                  ]}
+                />
+              )}
+            </React.Fragment>
+          ))}
+        </View>
 
-      <View style={styles.content}>
-        {etapa === 1 && renderEtapa1()}
-        {etapa === 2 && renderEtapa2()}
-        {etapa === 3 && renderEtapa3()}
-      </View>
-    </ScrollView>
+        <View style={styles.content}>
+          {etapa === 1 && renderEtapa1()}
+          {etapa === 2 && renderEtapa2()}
+          {etapa === 3 && renderEtapa3()}
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
@@ -592,6 +681,9 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: SIZES.md,
+  },
+  scrollContent: {
+    paddingBottom: 0,
   },
   backLink: {
     flexDirection: 'row',
@@ -669,6 +761,13 @@ const styles = StyleSheet.create({
     marginTop: SIZES.md,
     marginBottom: SIZES.sm,
   },
+  fieldHelperText: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    marginTop: -2,
+    marginBottom: SIZES.sm,
+    lineHeight: 18,
+  },
   optionsRow: {
     flexDirection: 'row',
     paddingBottom: SIZES.sm,
@@ -737,13 +836,17 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: 'bold',
   },
+  textAreaWrapper: {
+    height: 120,
+    maxHeight: 120,
+  },
   textArea: {
+    flex: 1,
     backgroundColor: COLORS.surface,
     borderRadius: SIZES.radiusMd,
     padding: SIZES.md,
     fontSize: SIZES.fontMd,
     color: COLORS.text,
-    minHeight: 100,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
