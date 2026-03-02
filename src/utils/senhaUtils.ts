@@ -72,14 +72,22 @@ export const validarSenha = (senha: string): {
 /**
  * Copia texto para área de transferência
  */
+import { Platform } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+
 export const copiarParaAreaDeTransferencia = async (texto: string): Promise<boolean> => {
   try {
-    // Para web
-    if (typeof window !== 'undefined' && navigator.clipboard) {
-      await navigator.clipboard.writeText(texto);
+    if (Platform.OS === 'web') {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(texto);
+        return true;
+      }
+      return false;
+    } else {
+      // React Native / Expo
+      await Clipboard.setStringAsync(texto);
       return true;
     }
-    return false;
   } catch (error) {
     console.error('Erro ao copiar para área de transferência:', error);
     return false;

@@ -347,7 +347,6 @@ const AppNavigator: React.FC = () => {
 
   const precisaMudarSenha =
     !!user &&
-    currentRole !== 'paciente' &&
     (
       PROFILE_SCHEMA_FEATURES.hasSenhaAlterada
         ? !!profile && !profile.senha_alterada
