@@ -1,6 +1,7 @@
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined; // somente pacientes podem usar
   ChangePassword: undefined;
 };
 
@@ -61,6 +62,7 @@ export type AdminStackParamList = {
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
+  ForgotPassword: undefined;
   ChangePassword: undefined;
   DentistaMain: undefined;
   PacienteMain: undefined;

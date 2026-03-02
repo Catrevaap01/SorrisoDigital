@@ -187,9 +187,21 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
   // Renderizar item de mensagem
   const renderMensagem = ({ item }: { item: Message }) => {
     const isOwn = user?.id === item.sender_id;
+    const displayName = isOwn
+      ? 'Você'
+      : item.sender_name || otherUserName || 'Sem nome';
 
     return (
       <View style={[styles.mensagemContainer, isOwn && styles.mensagemOwn]}>
+        {/* show sender name above bubble */}
+        <Text
+          style={[
+            styles.mensagemRemetente,
+            isOwn && styles.mensagemRemetenteOwn,
+          ]}
+        >
+          {displayName}
+        </Text>
         <View style={[styles.mensagemBubble, isOwn && styles.mensagemBubbleOwn]}>
           <Text style={[styles.mensagemTexto, isOwn && styles.mensagemTextoOwn]}>
             {item.content}
@@ -393,6 +405,15 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xs,
   },
   mensagemHoraOwn: {
+    color: COLORS.textInverse,
+    opacity: 0.7,
+  },
+  mensagemRemetente: {
+    fontSize: TYPOGRAPHY.sizes.xs,
+    color: COLORS.textSecondary,
+    marginBottom: 2,
+  },
+  mensagemRemetenteOwn: {
     color: COLORS.textInverse,
     opacity: 0.7,
   },

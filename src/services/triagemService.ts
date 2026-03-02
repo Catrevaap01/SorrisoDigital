@@ -261,13 +261,27 @@ export const criarTriagem = async (
     try {
       const created: Triagem = normalizeTriagemRecord(data);
       if (created.dentista_id && pacienteId) {
+        // procura nomes e avatares para evitar conversas sem identificação
+        const [{ data: paciente }, { data: dentista }] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('nome, foto_url')
+            .eq('id', pacienteId)
+            .maybeSingle(),
+          supabase
+            .from('profiles')
+            .select('nome, foto_url')
+            .eq('id', created.dentista_id)
+            .maybeSingle(),
+        ]);
+
         await obterOuCriarConversa(
           pacienteId,
           created.dentista_id,
-          undefined,
-          undefined,
-          undefined,
-          undefined
+          paciente?.nome || undefined,
+          dentista?.nome || undefined,
+          paciente?.foto_url || null,
+          dentista?.foto_url || null
         );
       }
     } catch (chatErr) {
@@ -326,15 +340,56 @@ export const buscarContadoresDentista = async (
   try {
     const { data, error } = await supabase
       .from('triagens')
-      .select('status')
+      .select('id, status, prioridade')
       .eq('dentista_id', dentistaId);
 
     if (error) throw error;
     const cont: Contadores = { pendente: 0, urgente: 0, respondido: 0, total: 0 };
+    const statusById: Record<string, string> = {};
+    const priorityById: Record<string, string> = {};
+
     (data || []).forEach((t: any) => {
       cont.total += 1;
-      if (t.status in cont) cont[t.status] += 1;
+      statusById[t.id] = t.status;
+      priorityById[t.id] = t.prioridade;
+      // urgent may come from status or priority
+      if (t.status === 'pendente') cont.pendente += 1;
+      if (
+        t.status === 'urgente' ||
+        t.prioridade === 'urgente' ||
+        t.prioridade === 'alta'
+      )
+        cont.urgente += 1;
+      if (t.status === 'respondido' || t.status === 'completo') cont.respondido += 1;
+      // note: one triagem may increment multiple counters if both urgent and responded, but
+      // UI filters will handle priorities separately.
     });
+
+    // additionally, if there are replies recorded but status wasn't updated, count them as responded
+    const { data: replies, error: replyErr } = await supabase
+      .from('respostas_triagem')
+      .select('triagem_id')
+      .eq('dentista_id', dentistaId);
+    if (!replyErr && replies) {
+      const respondedIds = new Set<string>((replies || []).map((r: any) => r.triagem_id));
+      respondedIds.forEach((id) => {
+        const status = statusById[id];
+        const prio = priorityById[id];
+        if (status && status !== 'respondido' && status !== 'completo') {
+          // adjust counters: remove from pendente and urgent if necessary
+          if (status === 'pendente') cont.pendente = Math.max(0, cont.pendente - 1);
+          if (
+            status === 'urgente' ||
+            prio === 'urgente' ||
+            prio === 'alta'
+          ) {
+            cont.urgente = Math.max(0, cont.urgente - 1);
+          }
+          cont.respondido += 1;
+        }
+      });
+    }
+
     return { success: true, data: cont };
   } catch (err) {
     const handled = handleError(err, 'triagemService.buscarContadoresDentista');
@@ -427,6 +482,13 @@ export const responderTriagem = async (
       ]);
 
     if (error) throw error;
+
+    // após responder, atualiza o status da triagem para responded
+    await supabase
+      .from('triagens')
+      .update({ status: 'respondido', updated_at: new Date().toISOString() })
+      .eq('id', triagemId);
+
     return { success: true };
   } catch (err) {
     const handled = handleError(err, 'triagemService.responderTriagem');

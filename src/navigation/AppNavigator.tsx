@@ -23,6 +23,7 @@ import {
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ChangePasswordScreen from '../screens/auth/ChangePasswordScreen';
+import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
 
 import HomeScreen from '../screens/paciente/HomeScreen';
 import TriagemScreen from '../screens/paciente/TriagemScreen';
@@ -53,6 +54,9 @@ try {
 }
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
+
+// navigation for authentication (login/signup/forgot etc)
+
 const PacienteTab = createBottomTabNavigator<PacienteTabParamList>();
 const DentistaTab = createBottomTabNavigator<DentistaTabParamList>();
 const PacienteStackNav = createNativeStackNavigator<PacienteStackParamList>();
@@ -363,6 +367,11 @@ const AppNavigator: React.FC = () => {
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen
+            name="ForgotPassword"
+            component={ForgotPasswordScreen}
+            options={{ title: 'Recuperar senha' }}
+          />
         </>
       ) : precisaMudarSenha ? (
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />

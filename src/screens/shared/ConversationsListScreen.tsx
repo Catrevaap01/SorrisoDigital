@@ -21,6 +21,7 @@ import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
+import { supabase } from '../../config/supabase';
 import {
   Conversation,
   listarConversasDoUsuario,
@@ -55,7 +56,7 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
 
     setLoading(true);
     try {
-      const resultado = await listarConversasDoUsuario(user.id);
+      let resultado = await listarConversasDoUsuario(user.id);
       if (!resultado.success) {
         Toast.show({
           type: 'error',
@@ -63,9 +64,60 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
           text2: resultado.error || 'Erro ao carregar conversas',
         });
       } else if (resultado.data) {
+        let conversasData = resultado.data as Conversation[];
+
+        // se houver conversas com nomes faltando, busca perfis para preencher
+        const missingIds = new Set<string>();
+        conversasData.forEach((c) => {
+          if (!c.participant_1_name && c.participant_1_id) {
+            missingIds.add(c.participant_1_id);
+          }
+          if (!c.participant_2_name && c.participant_2_id) {
+            missingIds.add(c.participant_2_id);
+          }
+        });
+        if (missingIds.size) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, nome, foto_url')
+            .in('id', Array.from(missingIds));
+          const profMap = Object.fromEntries(
+            (profiles || []).map((p: any) => [p.id, p])
+          );
+
+          const updates: Array<any> = [];
+          conversasData = conversasData.map((c) => {
+            const updated = { ...c } as any;
+            if (!c.participant_1_name && profMap[c.participant_1_id]) {
+              updated.participant_1_name = profMap[c.participant_1_id].nome;
+              updated.participant_1_avatar = profMap[c.participant_1_id].foto_url;
+              updates.push({
+                id: c.id,
+                participant_1_name: updated.participant_1_name,
+                participant_1_avatar: updated.participant_1_avatar,
+              });
+            }
+            if (!c.participant_2_name && profMap[c.participant_2_id]) {
+              updated.participant_2_name = profMap[c.participant_2_id].nome;
+              updated.participant_2_avatar = profMap[c.participant_2_id].foto_url;
+              updates.push({
+                id: c.id,
+                participant_2_name: updated.participant_2_name,
+                participant_2_avatar: updated.participant_2_avatar,
+              });
+            }
+            return updated;
+          });
+
+          // sincroniza no banco de dados em background
+          updates.forEach((u) => {
+            supabase.from('conversations').update(u).eq('id', u.id);
+          });
+        }
+
         // Contar mensagens não lidas para cada conversa
         const conversasComNaoLidas = await Promise.all(
-          resultado.data.map(async (conversa) => {
+          conversasData.map(async (conversa) => {
             const naoLidasResult = await contarMensagensNaoLidas(
               conversa.id,
               user.id

@@ -18,6 +18,7 @@ import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
 import { buscarTriagemPorId, responderTriagem, atualizarStatusTriagem } from '../../services/triagemService';
 import { obterOuCriarConversa } from '../../services/messagesService';
+import { supabase } from '../../config/supabase';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { STATUS_TRIAGEM, RECOMENDACAO } from '../../utils/constants';
 import { formatDateTime } from '../../utils/helpers';
@@ -43,11 +44,25 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
   const carregarTriagem = async () => {
     const result = await buscarTriagemPorId(triagemId);
     if (result.success) {
-      setTriagem(result.data);
+      let tri = result.data;
+
+      // if patient name missing, try loading it explicitly
+      if ((!tri.paciente || !tri.paciente.nome) && tri.paciente_id) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('nome')
+          .eq('id', tri.paciente_id)
+          .maybeSingle();
+        if (prof && prof.nome) {
+          tri = { ...tri, paciente: { ...(tri.paciente || {}), nome: prof.nome } };
+        }
+      }
+
+      setTriagem(tri);
       
       // Se já tem resposta, preencher campos
-      if (result.data.respostas && result.data.respostas.length > 0) {
-        const resposta = result.data.respostas[0];
+      if (tri.respostas && tri.respostas.length > 0) {
+        const resposta = tri.respostas[0];
         setOrientacao(resposta.orientacao || '');
         setRecomendacao(resposta.recomendacao || '');
         setObservacoes(resposta.observacoes || '');

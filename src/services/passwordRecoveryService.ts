@@ -128,6 +128,92 @@ export const recuperarSenhaDentista = async (
 /**
  * Atualizar senha do usuÃ¡rio apÃ³s primeira login (mudanÃ§a obrigatÃ³ria)
  */
+export const recuperarSenhaPaciente = async (
+  pacienteEmail: string
+): Promise<{
+  success: boolean;
+  novaSenha?: string;
+  emailSent?: boolean;
+  error?: string;
+}> => {
+  try {
+    const adminClient = getAdminClient();
+    const authApi = adminClient?.auth.admin || supabase.auth.admin;
+
+    // fetch user by email
+    // listUsers supports filtering by email
+    const { data: listData, error: listError } = await authApi.listUsers({
+      email: pacienteEmail,
+    });
+    if (listError) {
+      return { success: false, error: listError.message };
+    }
+    const users = listData?.users || [];
+    if (users.length === 0) {
+      return { success: false, error: 'Usuário não encontrado' };
+    }
+    const user = users[0];
+    const tipo = (user.user_metadata?.tipo || '').toString();
+    if (tipo !== 'paciente') {
+      return {
+        success: false,
+        error: 'Recuperação apenas disponível para pacientes',
+      };
+    }
+
+    const novaSenha = gerarSenhaAleatoria();
+    const currentMetadata = user.user_metadata || {};
+
+    const { error: updateError } = await authApi.updateUserById(user.id, {
+      password: novaSenha,
+      user_metadata: {
+        ...currentMetadata,
+        force_password_change: true,
+      },
+    });
+
+    if (updateError) {
+      return { success: false, error: updateError.message };
+    }
+
+    if (PROFILE_SCHEMA_FEATURES.hasSenhaAlterada) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          senha_alterada: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+      if (profileError) {
+        return { success: false, error: profileError.message };
+      }
+    }
+
+    const emailResult = await sendPasswordRecoveryEmail(
+      pacienteEmail,
+      // nome de metadata ou vazio
+      (user.user_metadata?.nome as string) || '',
+      novaSenha
+    );
+
+    if (!emailResult.success) {
+      return {
+        success: true,
+        novaSenha,
+        emailSent: false,
+        error: emailResult.error || 'Senha alterada, mas falha ao enviar email',
+      };
+    }
+
+    return { success: true, novaSenha, emailSent: true };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || 'Erro ao recuperar senha',
+    };
+  }
+};
+
 export const atualizarSenhaAposLogin = async (
   userId: string,
   novaSenha: string

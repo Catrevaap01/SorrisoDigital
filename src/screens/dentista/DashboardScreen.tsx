@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -47,10 +48,55 @@ const DashboardScreen: React.FC<DashboardProps> = ({ navigation }) => {
     // fetch full triagens (may take longer)
     const triagensResult = await buscarTriagensDentista(profile.id);
     if (triagensResult.success) {
-      const all = triagensResult.data || [];
+      let all = triagensResult.data || [];
+
+      // fill names for any triagem missing patient name
+      const missingIds = new Set<string>();
+      all.forEach((t: any) => {
+        if ((!t.paciente || !t.paciente.nome) && t.paciente_id) {
+          missingIds.add(t.paciente_id);
+        }
+      });
+      if (missingIds.size) {
+        const { data: patients } = await import('../../config/supabase').then((m) =>
+          m.supabase
+            .from('profiles')
+            .select('id, nome, provincia')
+            .in('id', Array.from(missingIds))
+        );
+        const map = Object.fromEntries((patients || []).map((p: any) => [p.id, p]));
+        all = all.map((t: any) => {
+          if ((!t.paciente || !t.paciente.nome) && t.paciente_id && map[t.paciente_id]) {
+            return { ...t, paciente: { ...(t.paciente || {}), ...map[t.paciente_id] } };
+          }
+          return t;
+        });
+      }
+
       setTriagensRecentes(all.slice(0, 5));
-      const filtradas =
-        filtroAtivo === 'todos' ? all : all.filter((t: any) => t.status === filtroAtivo);
+      let filtradas;
+      if (filtroAtivo === 'todos') {
+        filtradas = all;
+      } else if (filtroAtivo === 'respondido') {
+        filtradas = all.filter(
+          (t: any) =>
+            t.status === 'respondido' ||
+            t.status === 'completo' ||
+            (t.respostas && t.respostas.length > 0)
+        );
+      } else if (filtroAtivo === 'urgente') {
+        filtradas = all.filter(
+          (t: any) =>
+            t.status === 'urgente' ||
+            t.prioridade === 'urgente' ||
+            t.prioridade === 'alta'
+        );
+      } else if (filtroAtivo === 'pendente') {
+        // show all pendentes, but we'll mark those with replies
+        filtradas = all.filter((t: any) => t.status === 'pendente');
+      } else {
+        filtradas = all.filter((t: any) => t.status === filtroAtivo);
+      }
       setTriagens(filtradas);
     } else {
       setTriagens([]);
@@ -60,9 +106,11 @@ const DashboardScreen: React.FC<DashboardProps> = ({ navigation }) => {
     setLoading(false);
   };
 
-  useEffect(() => {
-    carregarDados();
-  }, [filtroAtivo, profile?.id]);
+  useFocusEffect(
+    useCallback(() => {
+      carregarDados();
+    }, [filtroAtivo, profile?.id])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -144,6 +192,7 @@ const DashboardScreen: React.FC<DashboardProps> = ({ navigation }) => {
     const statusInfo = STATUS_TRIAGEM[item.status] || STATUS_TRIAGEM.pendente;
     const prioridadeInfo = PRIORIDADE[item.prioridade] || PRIORIDADE.normal;
     const temResposta = item.respostas && item.respostas.length > 0;
+    const isPendente = item.status === 'pendente';
     const dorAlta = item.intensidade_dor >= 7;
 
     return (
@@ -214,9 +263,18 @@ const DashboardScreen: React.FC<DashboardProps> = ({ navigation }) => {
 
         {/* Footer */}
         <View style={styles.cardFooter}>
-          <Text style={styles.footerText}>
-            {temResposta ? '✓ Respondido' : 'Aguardando análise'}
-          </Text>
+          {temResposta ? (
+            <View style={styles.footerColumn}>
+              <Text style={styles.footerText}>✓ Respondido</Text>
+              {item.respostas && item.respostas.length > 0 && (
+                <Text style={styles.footerPreview} numberOfLines={1} ellipsizeMode="tail">
+                  {item.respostas[0].orientacao || item.respostas[0].recomendacao || ''}
+                </Text>
+              )}
+            </View>
+          ) : (
+            <Text style={styles.footerText}>Aguardando análise</Text>
+          )}
           <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
         </View>
       </TouchableOpacity>
@@ -524,6 +582,15 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: SIZES.fontSm,
     color: COLORS.textSecondary,
+  },
+  footerColumn: {
+    flex: 1,
+  },
+  footerPreview: {
+    fontSize: SIZES.fontXs,
+    color: COLORS.textSecondary,
+    opacity: 0.75,
+    marginTop: 2,
   },
 });
 

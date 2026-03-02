@@ -6,6 +6,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
@@ -68,7 +69,7 @@ export default function LoginScreen({ navigation }: any) {
               editable={!loading}
             />
 
-            {error && <Text style={styles.error}>{error}</Text>}
+            {error ? <Text style={styles.error}>{error}</Text> : null}
 
             <Button
               title={loading ? 'Entrando...' : 'Entrar'}
@@ -77,7 +78,13 @@ export default function LoginScreen({ navigation }: any) {
               loading={loading}
             />
           </View>
-
+            <TouchableOpacity
+              style={styles.forgotLink}
+              onPress={() => navigation.navigate('ForgotPassword')}
+              disabled={loading}
+            >
+              <Text style={styles.forgotText}>Esqueceu sua senha?</Text>
+            </TouchableOpacity>
           <View style={styles.footer}>
             <Text style={styles.footerText}>Não tem uma conta? </Text>
             <Button
@@ -126,13 +133,24 @@ const styles = StyleSheet.create({
   error: {
     color: COLORS.error,
     fontSize: TYPOGRAPHY.sizes.small,
+    textAlign: 'center',
   },
   footer: {
     alignItems: 'center',
     gap: SPACING.sm,
+    marginTop: SPACING.lg,
   },
   footerText: {
     color: COLORS.text,
     fontSize: TYPOGRAPHY.sizes.body,
+  },
+  forgotLink: {
+    alignSelf: 'flex-end',
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.md,
+  },
+  forgotText: {
+    color: COLORS.primary,
+    fontSize: TYPOGRAPHY.sizes.small,
   },
 });
