@@ -35,6 +35,7 @@ import PerfilScreen from '../screens/paciente/PerfilScreen';
 import MensagensScreen from '../screens/paciente/MensagensScreen';
 
 import DashboardScreen from '../screens/dentista/DashboardScreen';
+import DentistaRelatorioScreen from '../screens/dentista/DentistaRelatorioScreen';
 import CasoDetalheScreen from '../screens/dentista/CasoDetalheScreen';
 import PacienteHistoricoScreen from '../screens/dentista/PacienteHistoricoScreen';
 import DentistaMensagensScreen from '../screens/dentista/DentistaMensagensScreen';
@@ -132,6 +133,9 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
           case 'Agenda':
             iconName = focused ? 'calendar' : 'calendar-outline';
             break;
+          case 'Relatorio':
+            iconName = focused ? 'document-text' : 'document-text-outline';
+            break;
           case 'Mensagens':
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
             break;
@@ -161,6 +165,7 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
       options={{ title: 'Painel do Dentista' }}
     />
     <DentistaTab.Screen name="Agenda" component={AgendaDentistaScreen} />
+    <DentistaTab.Screen name="Relatorio" component={DentistaRelatorioScreen} options={{ title: 'Relatórios' }} />
     <DentistaTab.Screen name="Mensagens" component={DentistaMensagensScreen} />
     <DentistaTab.Screen name="Perfil" component={PerfilScreen} />
   </DentistaTab.Navigator>

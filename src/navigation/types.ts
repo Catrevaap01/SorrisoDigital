@@ -23,6 +23,7 @@ export type PacienteTabParamList = {
 export type DentistaTabParamList = {
   Dashboard: undefined;
   Agenda: undefined;
+  Relatorio: undefined;
   Mensagens:
     | {
         openConversationId?: string;

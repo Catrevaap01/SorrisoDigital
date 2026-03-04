@@ -130,6 +130,72 @@ export const buscarAgendaDentista = async (
 };
 
 /**
+ * Busca todos os agendamentos de um dentista (sem filtro de data).
+ * Usado para relatórios.
+ */
+export const buscarTodosAgendamentosDentista = async (
+  dentistaId: string
+): Promise<ServiceResult<Agendamento[]>> => {
+  try {
+    // traz todos os agendamentos atribuídos a este dentista OU pendentes de confirmação
+    const { data, error } = await supabase
+      .from('agendamentos')
+      .select('*')
+      .or(`dentista_id.eq.${dentistaId},status.eq.pendente`)
+      .order('data_agendamento', { ascending: false });
+
+    if (error) throw error;
+
+    let agendaBase = (data || []) as Agendamento[];
+
+    // Busca pacientes bloqueados (com agendamento confirmado/outro dentista)
+    const { data: bloqueados } = await supabase
+      .from('agendamentos')
+      .select('paciente_id')
+      .in('status', ['agendado', 'confirmado'])
+      .neq('dentista_id', dentistaId);
+
+    const pacientesBloqueados = new Set(
+      (bloqueados || []).map((b: any) => b.paciente_id).filter(Boolean)
+    );
+
+    // Filtra pacientes bloqueados
+    agendaBase = agendaBase.filter((ag) => {
+      if (ag.dentista_id === dentistaId) return true;
+      if (!ag.paciente_id) return true;
+      return !pacientesBloqueados.has(ag.paciente_id);
+    });
+
+    const pacienteIds = Array.from(
+      new Set(agendaBase.map((a) => a.paciente_id).filter(Boolean))
+    ) as string[];
+
+    let pacientesById: Record<string, any> = {};
+    if (pacienteIds.length > 0) {
+      const { data: pacientes, error: pacientesError } = await supabase
+        .from('profiles')
+        .select('id, nome, telefone, email')
+        .in('id', pacienteIds);
+
+      if (!pacientesError && pacientes) {
+        pacientesById = Object.fromEntries(pacientes.map((p: any) => [p.id, p]));
+      }
+    }
+
+    const agendaEnriquecida = agendaBase.map((ag) => ({
+      ...ag,
+      paciente: ag.paciente || pacientesById[ag.paciente_id || ''] || undefined,
+    }));
+
+    return { success: true, data: agendaEnriquecida };
+  } catch (err: any) {
+    const mapped = _handleTableMissing(err);
+    const message = mapped || err.message || 'Erro desconhecido';
+    return { success: false, error: message };
+  }
+};
+
+/**
  * Marca um agendamento como confirmado pelo dentista.
  * Atualiza o status para 'agendado' e garante que o dentista_id esteja definido.
  */
