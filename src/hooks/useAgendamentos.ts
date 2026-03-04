@@ -14,7 +14,7 @@ export interface Agendamento {
   dentista_id: string;
   data_agendamento: string;
   hora_agendamento: string;
-  status?: 'agendado' | 'concluido' | 'cancelado';
+  status?: 'pendente' | 'agendado' | 'confirmado' | 'cancelado' | 'realizado';
   motivo?: string;
   created_at?: string;
   updated_at?: string;

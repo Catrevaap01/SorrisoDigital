@@ -84,10 +84,10 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
 
   const filtros = [
     { id: 'todos', label: 'Todos' },
-    { id: 'pendente', label: 'Pendentes' },
-    { id: 'agendado', label: 'Agendados' },
-    { id: 'respondido', label: 'Respondidos' },
-    { id: 'urgente', label: 'Urgentes' },
+    { id: 'pendente', label: 'Pend.' },
+    { id: 'urgente', label: 'Urg.' },
+    { id: 'respondido', label: 'Resp.' },
+    { id: 'realizado', label: 'Realiz.' },
   ];
 
   const triagensFiltradas =
@@ -109,10 +109,19 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
           return t.status === filtroAtivo;
         });
 
+  // Filtra agendamentos por status
+  const agendamentosFiltrados =
+    filtroAtivo === 'todos'
+      ? agendamentos
+      : agendamentos.filter((a) => {
+          // Para agendamentos, filtra por status
+          return a.status === filtroAtivo;
+        });
+
   // Combina triagens e agendamentos para exibir na lista
   const dadosCombinados = [
     ...triagensFiltradas.map((t) => ({ ...t, tipo: 'triagem' })),
-    ...agendamentos.map((a) => ({ ...a, tipo: 'agendamento' })),
+    ...agendamentosFiltrados.map((a) => ({ ...a, tipo: 'agendamento' })),
   ].sort((a, b) => {
     const dataA = a.tipo === 'triagem' ? a.created_at : a.data_agendamento;
     const dataB = b.tipo === 'triagem' ? b.created_at : b.data_agendamento;

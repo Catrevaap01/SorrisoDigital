@@ -64,7 +64,8 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     switch (status) {
       case 'pendente': return COLORS.accent;
       case 'agendado': return COLORS.primary;
-      case 'realizado': return COLORS.textSecondary;
+      case 'confirmado': return '#4CAF50';
+      case 'realizado': return '#9C27B0';
       case 'cancelado': return COLORS.danger;
       default: return COLORS.textLight;
     }
@@ -126,6 +127,25 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       });
     };
 
+    const handleRealizar = async () => {
+      if (processingId) return;
+      setProcessingId(item.id);
+      const { realizarAgendamento } = await import('../../services/agendamentoService');
+      const res = await realizarAgendamento(item.id);
+      if (res.success) {
+        Toast.show({ type: 'success', text1: 'Consulta realizada com sucesso!' });
+        await carregarAgendamentos();
+        setProcessingId(null);
+        return;
+      }
+      setProcessingId(null);
+      Toast.show({
+        type: 'error',
+        text1: 'Erro ao marcar',
+        text2: res.error || 'Nao foi possivel marcar como realizado',
+      });
+    };
+
     return (
       <View style={styles.agendamentoCard}>
         <View style={styles.horaContainer}>
@@ -152,7 +172,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         </TouchableOpacity>
 
         <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(item.status) }]} />
-        {(item.status === 'pendente' || item.status === 'agendado') && (
+        {(item.status === 'pendente' || item.status === 'agendado' || item.status === 'confirmado') && (
           <View style={styles.actionRow}>
             {item.status === 'pendente' && (
               <TouchableOpacity
@@ -163,6 +183,18 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
                 <Ionicons name="checkmark-circle" size={16} color={COLORS.textInverse} />
                 <Text style={styles.actionButtonText}>
                   {processingId === item.id ? 'Processando' : 'Confirmar'}
+                </Text>
+              </TouchableOpacity>
+            )}
+            {(item.status === 'agendado' || item.status === 'confirmado') && (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: '#9C27B0' }]}
+                onPress={handleRealizar}
+                disabled={processingId === item.id}
+              >
+                <Ionicons name="checkmark-done" size={16} color={COLORS.textInverse} />
+                <Text style={styles.actionButtonText}>
+                  {processingId === item.id ? 'Processando' : 'Realizar'}
                 </Text>
               </TouchableOpacity>
             )}
@@ -187,6 +219,11 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     (a) =>
       a.dentista_id === profile.id &&
       (a.status === 'agendado' || a.status === 'confirmado')
+  );
+  const realizadosDoDia = agendamentos.filter(
+    (a) =>
+      a.dentista_id === profile.id &&
+      a.status === 'realizado'
   );
   const canceladosDoDia = agendamentos.filter(
     (a) => a.status === 'cancelado' && (!a.dentista_id || a.dentista_id === profile.id)
@@ -284,6 +321,18 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
           )}
 
           <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Consultas realizadas</Text>
+            <Text style={styles.sectionCount}>{realizadosDoDia.length}</Text>
+          </View>
+          {realizadosDoDia.length === 0 ? (
+            <Text style={styles.sectionEmpty}>Sem consultas realizadas neste dia.</Text>
+          ) : (
+            realizadosDoDia.map((item) => (
+              <View key={`realizado-${item.id}`}>{renderAgendamento({ item })}</View>
+            ))
+          )}
+
+          <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Pacientes cancelados no dia</Text>
             <Text style={styles.sectionCount}>{canceladosDoDia.length}</Text>
           </View>
@@ -306,6 +355,10 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         <View style={styles.legendaItem}>
           <View style={[styles.legendaCor, { backgroundColor: COLORS.primary }]} />
           <Text style={styles.legendaText}>Agendado</Text>
+        </View>
+        <View style={styles.legendaItem}>
+          <View style={[styles.legendaCor, { backgroundColor: '#9C27B0' }]} />
+          <Text style={styles.legendaText}>Realizado</Text>
         </View>
         <View style={styles.legendaItem}>
           <View style={[styles.legendaCor, { backgroundColor: COLORS.danger }]} />

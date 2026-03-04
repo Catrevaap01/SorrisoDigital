@@ -137,11 +137,11 @@ export const buscarTodosAgendamentosDentista = async (
   dentistaId: string
 ): Promise<ServiceResult<Agendamento[]>> => {
   try {
-    // traz todos os agendamentos atribuídos a este dentista OU pendentes de confirmação
+    // Busca TODOS os agendamentos do dentista (qualquer status)
     const { data, error } = await supabase
       .from('agendamentos')
       .select('*')
-      .or(`dentista_id.eq.${dentistaId},status.eq.pendente`)
+      .eq('dentista_id', dentistaId)
       .order('data_agendamento', { ascending: false });
 
     if (error) throw error;
@@ -213,6 +213,32 @@ export const confirmarAgendamento = async (
 
     if (error) throw error;
 
+    return { success: true, data: data as Agendamento };
+  } catch (err: any) {
+    const mapped = _handleTableMissing(err);
+    const message = mapped || err.message || 'Erro desconhecido';
+    return { success: false, error: message };
+  }
+};
+
+/**
+ * Marca um agendamento como realizado (concluído).
+ * Atualiza o status para 'realizado'.
+ */
+export const realizarAgendamento = async (
+  agendamentoId: string
+): Promise<ServiceResult<Agendamento>> => {
+  try {
+    const { data, error } = await supabase
+      .from('agendamentos')
+      .update({ status: 'realizado', updated_at: new Date().toISOString() })
+      .eq('id', agendamentoId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    logger.info('Agendamento marcado como realizado', data);
     return { success: true, data: data as Agendamento };
   } catch (err: any) {
     const mapped = _handleTableMissing(err);

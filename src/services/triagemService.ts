@@ -38,6 +38,7 @@ export interface Contadores {
   urgente: number;
   respondido: number;
   total: number;
+  realizados: number;
   [key: string]: number;
 }
 
@@ -344,7 +345,7 @@ export const buscarContadoresDentista = async (
       .eq('dentista_id', dentistaId);
 
     if (error) throw error;
-    const cont: Contadores = { pendente: 0, urgente: 0, respondido: 0, total: 0 };
+    const cont: Contadores = { pendente: 0, urgente: 0, respondido: 0, total: 0, realizados: 0 };
     const statusById: Record<string, string> = {};
     const priorityById: Record<string, string> = {};
 
@@ -352,17 +353,15 @@ export const buscarContadoresDentista = async (
       cont.total += 1;
       statusById[t.id] = t.status;
       priorityById[t.id] = t.prioridade;
-      // urgent may come from status or priority
-      if (t.status === 'pendente') cont.pendente += 1;
-      if (
-        t.status === 'urgente' ||
-        t.prioridade === 'urgente' ||
-        t.prioridade === 'alta'
-      )
+      
+      // urgent - only count if NOT responded yet
+      const isRespondido = t.status === 'respondido' || t.status === 'completo';
+      if (!isRespondido && (t.status === 'urgente' || t.prioridade === 'urgente' || t.prioridade === 'alta')) {
         cont.urgente += 1;
+      }
+      
+      if (t.status === 'pendente') cont.pendente += 1;
       if (t.status === 'respondido' || t.status === 'completo') cont.respondido += 1;
-      // note: one triagem may increment multiple counters if both urgent and responded, but
-      // UI filters will handle priorities separately.
     });
 
     // additionally, if there are replies recorded but status wasn't updated, count them as responded
@@ -378,16 +377,24 @@ export const buscarContadoresDentista = async (
         if (status && status !== 'respondido' && status !== 'completo') {
           // adjust counters: remove from pendente and urgent if necessary
           if (status === 'pendente') cont.pendente = Math.max(0, cont.pendente - 1);
-          if (
-            status === 'urgente' ||
-            prio === 'urgente' ||
-            prio === 'alta'
-          ) {
+          const isUrgente = status === 'urgente' || prio === 'urgente' || prio === 'alta';
+          if (isUrgente) {
             cont.urgente = Math.max(0, cont.urgente - 1);
           }
           cont.respondido += 1;
         }
       });
+    }
+
+    // Count realizados from agendamentos
+    const { data: agendamentos, error: agError } = await supabase
+      .from('agendamentos')
+      .select('id, status')
+      .eq('dentista_id', dentistaId)
+      .eq('status', 'realizado');
+    
+    if (!agError && agendamentos) {
+      cont.realizados = agendamentos.length;
     }
 
     return { success: true, data: cont };
@@ -432,7 +439,7 @@ export const buscarContadores = async (): Promise<ServiceResult<Contadores>> => 
         .from('triagens')
         .select('status');
       if (e1) throw e1;
-      const cont: Contadores = { pendente: 0, urgente: 0, respondido: 0, total: 0 };
+      const cont: Contadores = { pendente: 0, urgente: 0, respondido: 0, total: 0, realizados: 0 };
       (all as Array<any>).forEach((t) => {
         cont.total += 1;
         if (t.status in cont) cont[t.status] += 1;

@@ -75,21 +75,31 @@ const DentistaRelatorioScreen: React.FC = () => {
     });
 
     const total = agendamentosFiltrados.length;
+    const agendados = agendamentosFiltrados.filter(a => a.status === 'agendado').length;
     const confirmados = agendamentosFiltrados.filter(a => a.status === 'confirmado').length;
     const pendentes = agendamentosFiltrados.filter(a => a.status === 'pendente').length;
-    const agendados = agendamentosFiltrados.filter(a => a.status === 'agendado').length;
+    const cancelados = agendamentosFiltrados.filter(a => a.status === 'cancelado').length;
+    const realizados = agendamentosFiltrados.filter(a => a.status === 'realizado').length;
 
     const rows = agendamentosFiltrados
-      .map(ag => `
-      <tr>
-        <td>${ag.id ? ag.id.substring(0, 4) : '-'}</td>
-        <td>${new Date(ag.data_agendamento).toLocaleDateString('pt-BR')}</td>
-        <td>${new Date(ag.data_agendamento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
-        <td>${ag.paciente?.nome || '-'}</td>
-        <td>${ag.tipo || 'Consulta'}</td>
-        <td>${ag.prioridade || '-'}</td>
-        <td><span class="status ${ag.status}">${ag.status === 'confirmado' ? 'Confirmado' : ag.status === 'pendente' ? 'Pendente' : ag.status === 'agendado' ? 'Agendado' : ag.status}</span></td>
-      </tr>`)
+      .map(ag => {
+        let statusLabel = ag.status || '-';
+        if (statusLabel === 'confirmado') statusLabel = 'Confirmado';
+        else if (statusLabel === 'pendente') statusLabel = 'Pendente';
+        else if (statusLabel === 'agendado') statusLabel = 'Agendado';
+        else if (statusLabel === 'cancelado') statusLabel = 'Cancelado';
+        else if (statusLabel === 'realizado') statusLabel = 'Realizado';
+        
+        return `
+        <tr>
+          <td>${ag.id ? ag.id.substring(0, 4) : '-'}</td>
+          <td>${new Date(ag.data_agendamento).toLocaleDateString('pt-BR')}</td>
+          <td>${new Date(ag.data_agendamento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
+          <td>${ag.paciente?.nome || '-'}</td>
+          <td>${ag.tipo || 'Consulta'}</td>
+          <td><span class="status ${ag.status}">${statusLabel}</span></td>
+        </tr>`;
+      })
       .join('');
 
     return `
@@ -115,6 +125,8 @@ const DentistaRelatorioScreen: React.FC = () => {
         .status.confirmado { background: #4CAF50; color: white; }
         .status.pendente { background: #FF9800; color: white; }
         .status.agendado { background: #2196F3; color: white; }
+        .status.cancelado { background: #F44336; color: white; }
+        .status.realizado { background: #9C27B0; color: white; }
         .footer { margin-top: 30px; text-align: center; color: #999; font-size: 10px; }
       </style>
     </head>
@@ -135,16 +147,16 @@ const DentistaRelatorioScreen: React.FC = () => {
           <div class="kpi-label">Total de Consultas</div>
         </div>
         <div class="kpi">
+          <div class="kpi-value">${agendados}</div>
+          <div class="kpi-label">Agendados</div>
+        </div>
+        <div class="kpi">
           <div class="kpi-value">${confirmados}</div>
           <div class="kpi-label">Confirmados</div>
         </div>
         <div class="kpi">
           <div class="kpi-value">${pendentes}</div>
           <div class="kpi-label">Pendentes</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-value">${agendados}</div>
-          <div class="kpi-label">Agendados</div>
         </div>
       </div>
 
@@ -156,12 +168,11 @@ const DentistaRelatorioScreen: React.FC = () => {
             <th>Hora</th>
             <th>Paciente</th>
             <th>Tipo</th>
-            <th>Prioridade</th>
             <th>Status</th>
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="7" style="text-align:center;">Nenhum agendamento encontrado</td></tr>'}
+          ${rows || '<tr><td colspan="6" style="text-align:center;">Nenhum agendamento encontrado</td></tr>'}
         </tbody>
       </table>
 
@@ -324,9 +335,15 @@ const DentistaRelatorioScreen: React.FC = () => {
           <Text style={styles.resumoValue}>{agendamentos.length}</Text>
         </View>
         <View style={styles.resumoRow}>
+          <Text style={styles.resumoLabel}>Agendados:</Text>
+          <Text style={styles.resumoValueAgendado}>
+            {agendamentos.filter(a => a.status === 'agendado').length}
+          </Text>
+        </View>
+        <View style={styles.resumoRow}>
           <Text style={styles.resumoLabel}>Confirmados:</Text>
           <Text style={styles.resumoValueConfirmado}>
-            {agendamentos.filter(a => a.status === 'agendado').length}
+            {agendamentos.filter(a => a.status === 'confirmado').length}
           </Text>
         </View>
         <View style={styles.resumoRow}>
@@ -336,9 +353,15 @@ const DentistaRelatorioScreen: React.FC = () => {
           </Text>
         </View>
         <View style={styles.resumoRow}>
-          <Text style={styles.resumoLabel}>Agendados:</Text>
-          <Text style={styles.resumoValueAgendado}>
-            {agendamentos.filter(a => a.status === 'agendado').length}
+          <Text style={styles.resumoLabel}>Realizados:</Text>
+          <Text style={styles.resumoValue}>
+            {agendamentos.filter(a => a.status === 'realizado').length}
+          </Text>
+        </View>
+        <View style={styles.resumoRow}>
+          <Text style={styles.resumoLabel}>Cancelados:</Text>
+          <Text style={[styles.resumoValue, { color: '#F44336' }]}>
+            {agendamentos.filter(a => a.status === 'cancelado').length}
           </Text>
         </View>
       </View>

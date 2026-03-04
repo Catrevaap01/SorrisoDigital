@@ -1,12 +1,14 @@
-# TODO List - Fix Both Issues
+# TODO - Task Implementation
 
-## Issue 1: Fix buscarAgendaDentista call in DentistaRelatorioScreen
-- [x] Create new function buscarTodosAgendamentosDentista in agendamentoService.ts (without date filter)
-- [x] Update DentistaRelatorioScreen to use the new function
+## Task 1: Update HistoricoScreen filter order (patient side) ✅ COMPLETED
+- File: src/screens/paciente/HistoricoScreen.tsx
+- Changed filters from: ['todos', 'pendente', 'agendado', 'confirmado', 'realizado', 'respondido']
+- To: ['todos', 'pendente', 'urgente', 'respondido', 'realizado']
 
-## Issue 2: Change navigation type from "Relatório" to "Relatorio"
-- [x] Update src/navigation/types.ts: change "Relatório" to "Relatorio"
-- [x] Update src/navigation/AppNavigator.tsx: change "Relatório" to "Relatorio"
+## Task 2: Fix DashboardScreen syntax errors (dentist side) ✅ COMPLETED
+- File: src/screens/dentista/DashboardScreen.tsx
+- Added "todos" filter option to filtros array
+- Fixed missing closing `</View>` for cardHeader and contadoresContainer
 
-## ✅ All Tasks Completed
+## Status: COMPLETED
 
