@@ -187,3 +187,54 @@ export const cancelarAgendamento = async (
     return { success: false, error: message };
   }
 };
+
+/**
+ * Busca agendamentos de um paciente específico.
+ * Traz todos os agendamentos do paciente ordenados por data.
+ */
+export const buscarAgendamentosPaciente = async (
+  pacienteId: string
+): Promise<ServiceResult<Agendamento[]>> => {
+  try {
+    // Busca agendamentos do paciente
+    const { data, error } = await supabase
+      .from('agendamentos')
+      .select('*')
+      .eq('paciente_id', pacienteId)
+      .order('data_agendamento', { ascending: false });
+
+    if (error) throw error;
+
+    // Se não há dados, retorna array vazio
+    if (!data || data.length === 0) {
+      return { success: true, data: [] };
+    }
+
+    // Busca informações do dentista se existir
+    const dentistIds = [...new Set(data.map((a) => a.dentista_id).filter(Boolean))];
+    
+    let dentistasById: Record<string, any> = {};
+    if (dentistIds.length > 0) {
+      const { data: dentistas, error: dentistasError } = await supabase
+        .from('profiles')
+        .select('id, nome, especialidade')
+        .in('id', dentistIds);
+
+      if (!dentistasError && dentistas) {
+        dentistasById = Object.fromEntries(dentistas.map((d: any) => [d.id, d]));
+      }
+    }
+
+    // Enriquecer dados com informações do dentista
+    const agendamentosEnriquecidos = data.map((ag) => ({
+      ...ag,
+      dentista: ag.dentista_id ? dentistasById[ag.dentista_id] : null,
+    }));
+
+    return { success: true, data: agendamentosEnriquecidos as Agendamento[] };
+  } catch (err: any) {
+    const mapped = _handleTableMissing(err);
+    const message = mapped || err.message || 'Erro desconhecido';
+    return { success: false, error: message };
+  }
+};

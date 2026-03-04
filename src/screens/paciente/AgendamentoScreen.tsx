@@ -39,6 +39,13 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     { id: 'avaliacao', label: 'Avaliação Inicial', icon: 'search', cor: COLORS.secondary },
     { id: 'retorno', label: 'Retorno', icon: 'refresh', cor: COLORS.accent },
     { id: 'urgencia', label: 'Urgência', icon: 'alert-circle', cor: COLORS.danger },
+    { id: 'raio_x', label: 'Exame de Raio X', icon: 'camera', cor: '#7B1FA2' },
+    { id: 'panoramico', label: 'Panorâmico Periapical', icon: 'scan', cor: '#388E3C' },
+    { id: 'profilaxia', label: 'Profilaxia', icon: 'water', cor: '#00BCD4' },
+    { id: 'branqueamento', label: 'Branqueamento', icon: 'sparkles', cor: '#FF9800' },
+    { id: 'canal', label: 'Tratamento de Canal', icon: 'git-commit', cor: '#E91E63' },
+    { id: 'ortodontia', label: 'Aparelho Dentário', icon: 'construct', cor: '#3F51B5' },
+    { id: 'restauracao', label: 'Restauração', icon: 'brush', cor: '#795548' },
   ];
 
   // Gerar próximos 14 dias

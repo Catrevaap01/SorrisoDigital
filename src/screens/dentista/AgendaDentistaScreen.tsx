@@ -12,6 +12,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { buscarAgendaDentista } from '../../services/agendamentoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { formatDate } from '../../utils/helpers';
+import { TIPOS_CONSULTA } from '../../utils/constants';
 
 const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
   const { profile } = useAuth();
@@ -75,6 +76,9 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       minute: '2-digit',
     });
 
+    // Obter label do tipo de consulta
+    const tipoLabel = TIPOS_CONSULTA[item.tipo]?.label || item.tipo;
+
     const handleAbrirPaciente = () => {
       if (!item.paciente?.id) return;
       navigation.navigate('PacienteHistorico' as any, {
@@ -133,7 +137,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
             <Text style={styles.pacienteNome}>
               {item.paciente?.nome || item.paciente_nome || 'Paciente'}
             </Text>
-            <Text style={styles.tipoConsulta}>{item.tipo}</Text>
+            <Text style={styles.tipoConsulta}>{tipoLabel}</Text>
             {item.paciente?.telefone && (
               <Text style={styles.telefone}>
                 <Ionicons name="call-outline" size={12} /> {item.paciente.telefone}

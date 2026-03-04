@@ -20,7 +20,7 @@ import { buscarTriagemPorId, responderTriagem, atualizarStatusTriagem } from '..
 import { obterOuCriarConversa } from '../../services/messagesService';
 import { supabase } from '../../config/supabase';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
-import { STATUS_TRIAGEM, RECOMENDACAO } from '../../utils/constants';
+import { STATUS_TRIAGEM, RECOMENDACAO, TIPOS_CONSULTA } from '../../utils/constants';
 import { formatDateTime } from '../../utils/helpers';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { DentistaStackParamList } from '../../navigation/types';
@@ -348,7 +348,9 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
           triagem.agendamentos.map((agendamento: any) => (
             <View key={agendamento.id} style={styles.agendamentoCard}>
               <View style={styles.agendamentoHeader}>
-                <Text style={styles.agendamentoTipo}>{agendamento.tipo || 'Consulta'}</Text>
+                <Text style={styles.agendamentoTipo}>
+                  {TIPOS_CONSULTA[agendamento.tipo]?.label || agendamento.tipo || 'Consulta'}
+                </Text>
                 <Text style={styles.agendamentoStatus}>{agendamento.status || 'agendado'}</Text>
               </View>
               <Text style={styles.agendamentoData}>

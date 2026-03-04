@@ -27,6 +27,35 @@ export const STATUS_TRIAGEM: Record<string, { label: string; color: string; icon
   },
 };
 
+// Status de Agendamento
+export const STATUS_AGENDAMENTO: Record<string, { label: string; color: string; icon: string }> = {
+  pendente: {
+    label: 'Pendente',
+    color: '#FFA726',
+    icon: 'time-outline',
+  },
+  agendado: {
+    label: 'Agendado',
+    color: '#42A5F5',
+    icon: 'calendar-outline',
+  },
+  confirmado: {
+    label: 'Confirmado',
+    color: '#66BB6A',
+    icon: 'checkmark-circle-outline',
+  },
+  cancelado: {
+    label: 'Cancelado',
+    color: '#EF5350',
+    icon: 'close-circle-outline',
+  },
+  realizado: {
+    label: 'Realizado',
+    color: '#9C27B0',
+    icon: 'checkmark-done-outline',
+  },
+};
+
 // Prioridades
 export const PRIORIDADE: Record<string, { label: string; color: string }> = {
   baixa: {
@@ -200,3 +229,62 @@ export const PROVINCIAS_ANGOLA = [
   'Uíge',
   'Zaire',
 ];
+
+// Tipos de Consulta/Agendamento
+export const TIPOS_CONSULTA: Record<string, { label: string; icon: string; color: string }> = {
+  consulta: {
+    label: 'Consulta de Rotina',
+    icon: 'calendar',
+    color: '#1976D2',
+  },
+  avaliacao: {
+    label: 'Avaliação Inicial',
+    icon: 'search',
+    color: '#388E3C',
+  },
+  retorno: {
+    label: 'Retorno',
+    icon: 'refresh',
+    color: '#FFA000',
+  },
+  urgencia: {
+    label: 'Urgência',
+    icon: 'alert-circle',
+    color: '#D32F2F',
+  },
+  raio_x: {
+    label: 'Exame de Raio X',
+    icon: 'camera',
+    color: '#7B1FA2',
+  },
+  panoramico: {
+    label: 'Panorâmico Periapical',
+    icon: 'scan',
+    color: '#388E3C',
+  },
+  profilaxia: {
+    label: 'Profilaxia',
+    icon: 'water',
+    color: '#00BCD4',
+  },
+  branqueamento: {
+    label: 'Branqueamento',
+    icon: 'sparkles',
+    color: '#FF9800',
+  },
+  canal: {
+    label: 'Tratamento de Canal',
+    icon: 'git-commit',
+    color: '#E91E63',
+  },
+  ortodontia: {
+    label: 'Aparelho Dentário',
+    icon: 'construct',
+    color: '#3F51B5',
+  },
+  restauracao: {
+    label: 'Restauração',
+    icon: 'brush',
+    color: '#795548',
+  },
+};

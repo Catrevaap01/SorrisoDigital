@@ -9,7 +9,7 @@ const SUPABASE_ANON_KEY = extra?.SUPABASE_ANON_KEY
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   throw new Error(
-    'Supabase nÃ£o configurado. Verifique SUPABASE_URL e SUPABASE_ANON_KEY no app.json.'
+    'Supabase não configurado. Verifique SUPABASE_URL e SUPABASE_ANON_KEY no app.json.'
   )
 }
 
