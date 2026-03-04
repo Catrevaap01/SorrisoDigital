@@ -297,7 +297,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       ) : (
         <ScrollView contentContainerStyle={styles.lista} showsVerticalScrollIndicator={false}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Pacientes pendentes no dia</Text>
+            <Text style={styles.sectionTitle}>Pendente</Text>
             <Text style={styles.sectionCount}>{pendentesDoDia.length}</Text>
           </View>
           {pendentesDoDia.length === 0 ? (
@@ -307,7 +307,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
           )}
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Pacientes agendados por mim</Text>
+            <Text style={styles.sectionTitle}>Agendado</Text>
             <Text style={styles.sectionCount}>{meusAgendadosDoDia.length}</Text>
           </View>
           {meusAgendadosDoDia.length === 0 ? (
@@ -321,7 +321,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
           )}
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Consultas realizadas</Text>
+            <Text style={styles.sectionTitle}>Realizado</Text>
             <Text style={styles.sectionCount}>{realizadosDoDia.length}</Text>
           </View>
           {realizadosDoDia.length === 0 ? (
@@ -333,7 +333,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
           )}
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Pacientes cancelados no dia</Text>
+            <Text style={styles.sectionTitle}>Cancelado</Text>
             <Text style={styles.sectionCount}>{canceladosDoDia.length}</Text>
           </View>
           {canceladosDoDia.length === 0 ? (
@@ -345,26 +345,6 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
           )}
         </ScrollView>
       )}
-
-      {/* Legenda */}
-      <View style={styles.legendaContainer}>
-        <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: COLORS.accent }]} />
-          <Text style={styles.legendaText}>Pendente</Text>
-        </View>
-        <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: COLORS.primary }]} />
-          <Text style={styles.legendaText}>Agendado</Text>
-        </View>
-        <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: '#9C27B0' }]} />
-          <Text style={styles.legendaText}>Realizado</Text>
-        </View>
-        <View style={styles.legendaItem}>
-          <View style={[styles.legendaCor, { backgroundColor: COLORS.danger }]} />
-          <Text style={styles.legendaText}>Cancelado</Text>
-        </View>
-      </View>
     </View>
   );
 };
