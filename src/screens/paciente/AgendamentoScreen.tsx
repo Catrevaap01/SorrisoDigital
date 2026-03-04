@@ -160,7 +160,7 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
       data_agendamento: dataAgendamento.toISOString(),
       tipo: tipoConsulta,
       observacoes: observacoes.trim(),
-      status: 'pendente',
+      status: 'agendado',
       dentista_id: dentistaSelecionado || null,
     });
 

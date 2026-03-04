@@ -206,7 +206,7 @@ export const confirmarAgendamento = async (
   try {
     const { data, error } = await supabase
       .from('agendamentos')
-      .update({ status: 'agendado', dentista_id: dentistaId })
+      .update({ status: 'confirmado', dentista_id: dentistaId })
       .eq('id', agendamentoId)
       .select()
       .single();

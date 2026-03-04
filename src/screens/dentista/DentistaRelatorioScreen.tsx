@@ -331,8 +331,14 @@ const DentistaRelatorioScreen: React.FC = () => {
       <View style={styles.resumoContainer}>
         <Text style={styles.resumoTitle}>Resumo Total</Text>
         <View style={styles.resumoRow}>
-          <Text style={styles.resumoLabel}>Total de Agendamentos:</Text>
-          <Text style={styles.resumoValue}>{agendamentos.length}</Text>
+          <Text style={styles.resumoLabel}>Total :</Text>
+          <Text style={styles.resumoValue}>
+            {agendamentos.filter(a => a.status === 'agendado').length + 
+             agendamentos.filter(a => a.status === 'confirmado').length + 
+             agendamentos.filter(a => a.status === 'pendente').length + 
+             agendamentos.filter(a => a.status === 'realizado').length + 
+             agendamentos.filter(a => a.status === 'cancelado').length}
+          </Text>
         </View>
         <View style={styles.resumoRow}>
           <Text style={styles.resumoLabel}>Agendados:</Text>
@@ -347,15 +353,15 @@ const DentistaRelatorioScreen: React.FC = () => {
           </Text>
         </View>
         <View style={styles.resumoRow}>
-          <Text style={styles.resumoLabel}>Pendentes:</Text>
-          <Text style={styles.resumoValuePendente}>
-            {agendamentos.filter(a => a.status === 'pendente').length}
-          </Text>
-        </View>
-        <View style={styles.resumoRow}>
           <Text style={styles.resumoLabel}>Realizados:</Text>
           <Text style={styles.resumoValue}>
             {agendamentos.filter(a => a.status === 'realizado').length}
+          </Text>
+        </View>
+        <View style={styles.resumoRow}>
+          <Text style={styles.resumoLabel}>Pendentes:</Text>
+          <Text style={styles.resumoValuePendente}>
+            {agendamentos.filter(a => a.status === 'pendente').length}
           </Text>
         </View>
         <View style={styles.resumoRow}>
