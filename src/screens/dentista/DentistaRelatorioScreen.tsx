@@ -82,12 +82,13 @@ const DentistaRelatorioScreen: React.FC = () => {
     const rows = agendamentosFiltrados
       .map(ag => `
       <tr>
+        <td>${ag.id ? ag.id.substring(0, 4) : '-'}</td>
         <td>${new Date(ag.data_agendamento).toLocaleDateString('pt-BR')}</td>
         <td>${new Date(ag.data_agendamento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</td>
         <td>${ag.paciente?.nome || '-'}</td>
         <td>${ag.tipo || 'Consulta'}</td>
+        <td>${ag.prioridade || '-'}</td>
         <td><span class="status ${ag.status}">${ag.status === 'confirmado' ? 'Confirmado' : ag.status === 'pendente' ? 'Pendente' : ag.status === 'agendado' ? 'Agendado' : ag.status}</span></td>
-        <td>${ag.observacoes || '-'}</td>
       </tr>`)
       .join('');
 
@@ -106,11 +107,11 @@ const DentistaRelatorioScreen: React.FC = () => {
         .kpi { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; text-align: center; }
         .kpi-value { font-size: 24px; font-weight: bold; color: #1E88E5; }
         .kpi-label { font-size: 12px; color: #666; margin-top: 5px; }
-        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        table { width: 100%; border-collapse: collapse; font-size: 9px; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 4px; text-align: left; }
         th { background: #1E88E5; color: white; }
         tr:nth-child(even) { background: #f9f9f9; }
-        .status { padding: 3px 8px; border-radius: 3px; font-size: 10px; }
+        .status { padding: 2px 5px; border-radius: 3px; font-size: 8px; }
         .status.confirmado { background: #4CAF50; color: white; }
         .status.pendente { background: #FF9800; color: white; }
         .status.agendado { background: #2196F3; color: white; }
@@ -150,16 +151,17 @@ const DentistaRelatorioScreen: React.FC = () => {
       <table>
         <thead>
           <tr>
+            <th>ID</th>
             <th>Data</th>
             <th>Hora</th>
             <th>Paciente</th>
             <th>Tipo</th>
+            <th>Prioridade</th>
             <th>Status</th>
-            <th>Observações</th>
           </tr>
         </thead>
         <tbody>
-          ${rows || '<tr><td colspan="6" style="text-align:center;">Nenhum agendamento encontrado</td></tr>'}
+          ${rows || '<tr><td colspan="7" style="text-align:center;">Nenhum agendamento encontrado</td></tr>'}
         </tbody>
       </table>
 
@@ -174,7 +176,8 @@ const DentistaRelatorioScreen: React.FC = () => {
     setGerandoPdf(true);
     
     try {
-      const filtrados = filtrarAgendamentos(type);
+      // Usa todos os agendamentos (sem filtro de data)
+      const filtrados = agendamentos;
       
       const periodo = type === 'dia' 
         ? 'Relatório do Dia' 
