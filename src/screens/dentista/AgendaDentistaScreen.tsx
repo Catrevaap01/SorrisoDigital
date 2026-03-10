@@ -88,6 +88,25 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       });
     };
 
+    const handleAgendar = async () => {
+      if (processingId) return;
+      setProcessingId(item.id);
+      const { agendarAgendamento } = await import('../../services/agendamentoService');
+      const res = await agendarAgendamento(item.id, profile.id);
+      if (res.success) {
+        Toast.show({ type: 'success', text1: 'Agendamento agendado' });
+        await carregarAgendamentos();
+        setProcessingId(null);
+        return;
+      }
+      setProcessingId(null);
+      Toast.show({
+        type: 'error',
+        text1: 'Erro ao agendar',
+        text2: res.error || 'Nao foi possivel agendar este paciente',
+      });
+    };
+
     const handleConfirmar = async () => {
       if (processingId) return;
       setProcessingId(item.id);
@@ -176,6 +195,18 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
           <View style={styles.actionRow}>
             {item.status === 'pendente' && (
               <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: COLORS.primary }]}
+                onPress={handleAgendar}
+                disabled={processingId === item.id}
+              >
+                <Ionicons name="calendar" size={16} color={COLORS.textInverse} />
+                <Text style={styles.actionButtonText}>
+                  {processingId === item.id ? 'Processando' : 'Agendar'}
+                </Text>
+              </TouchableOpacity>
+            )}
+            {item.status === 'agendado' && (
+              <TouchableOpacity
                 style={[styles.actionButton, { backgroundColor: COLORS.secondary }]}
                 onPress={handleConfirmar}
                 disabled={processingId === item.id}
@@ -186,7 +217,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
                 </Text>
               </TouchableOpacity>
             )}
-            {(item.status === 'agendado' || item.status === 'confirmado') && (
+            {item.status === 'confirmado' && (
               <TouchableOpacity
                 style={[styles.actionButton, { backgroundColor: '#9C27B0' }]}
                 onPress={handleRealizar}
@@ -218,7 +249,12 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
   const meusAgendadosDoDia = agendamentos.filter(
     (a) =>
       a.dentista_id === profile.id &&
-      (a.status === 'agendado' || a.status === 'confirmado')
+      a.status === 'agendado'
+  );
+  const meusConfirmadosDoDia = agendamentos.filter(
+    (a) =>
+      a.dentista_id === profile.id &&
+      a.status === 'confirmado'
   );
   const realizadosDoDia = agendamentos.filter(
     (a) =>
@@ -316,6 +352,20 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
             </Text>
           ) : (
             meusAgendadosDoDia.map((item) => (
+              <View key={`agendado-${item.id}`}>{renderAgendamento({ item })}</View>
+            ))
+          )}
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Confirmado</Text>
+            <Text style={styles.sectionCount}>{meusConfirmadosDoDia.length}</Text>
+          </View>
+          {meusConfirmadosDoDia.length === 0 ? (
+            <Text style={styles.sectionEmpty}>
+              Sem pacientes confirmados por este dentista neste dia.
+            </Text>
+          ) : (
+            meusConfirmadosDoDia.map((item) => (
               <View key={`meu-${item.id}`}>{renderAgendamento({ item })}</View>
             ))
           )}

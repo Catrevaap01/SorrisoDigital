@@ -155,8 +155,8 @@ const AdminProfileScreen: React.FC = () => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 24}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
     <ScrollView style={styles.container} keyboardShouldPersistTaps="always" keyboardDismissMode="on-drag">
       <View style={styles.header}>
@@ -291,8 +291,8 @@ const AdminProfileScreen: React.FC = () => {
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.versionText}>TeOdonto Angola v1.0.0</Text>
-        <Text style={styles.copyrightText}>2024 TeOdonto Angola. Todos os direitos reservados.</Text>
+        <Text style={styles.versionText}>Odontologia Angola v1.0.0</Text>
+        <Text style={styles.copyrightText}>2026 Odontologia Angola. Todos os direitos reservados.</Text>
       </View>
 
       <Modal visible={abrirChangePassword} animationType="slide" transparent>

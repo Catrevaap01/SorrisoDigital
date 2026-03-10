@@ -45,6 +45,22 @@ eas build -p android
 2. Run the installer
 3. Follow the installation wizard
 
+#### Step 1 Alternative: Download Only ADB (Lightweight)
+If you don't want to install Android Studio, you can download only ADB:
+
+1. Download **Android SDK Platform Tools** from:
+   👉 https://developer.android.com/studio/releases/platform-tools
+
+2. Extract the ZIP file to a folder (e.g., `C:\Android\platform-tools`)
+
+3. Add to PATH:
+   - `C:\Android\platform-tools`
+
+4. Verify installation:
+   ```bash
+   adb version
+   ```
+
 #### Step 2: Configure Environment Variables
 
 **For Windows:**

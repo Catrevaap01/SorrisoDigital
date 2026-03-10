@@ -48,7 +48,8 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -59,7 +60,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.logoCircle}>
             <Ionicons name="medical" size={50} color={COLORS.primary} />
           </View>
-          <Text style={styles.title}>TeOdonto</Text>
+          <Text style={styles.title}>Odontologia</Text>
           <Text style={styles.subtitle}>Angola</Text>
           <Text style={styles.tagline}>Bem-vindo! Crie sua conta</Text>
         </View>

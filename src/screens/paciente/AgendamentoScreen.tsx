@@ -160,7 +160,7 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
       data_agendamento: dataAgendamento.toISOString(),
       tipo: tipoConsulta,
       observacoes: observacoes.trim(),
-      status: 'agendado',
+      status: 'pendente',
       dentista_id: dentistaSelecionado || null,
     });
 
@@ -185,8 +185,8 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 24}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <ScrollView
         style={styles.container}

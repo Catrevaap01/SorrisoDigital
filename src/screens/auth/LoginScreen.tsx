@@ -38,7 +38,8 @@ export default function LoginScreen({ navigation }: any) {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
       style={styles.container}
     >
       <ScrollView
@@ -59,7 +60,7 @@ export default function LoginScreen({ navigation }: any) {
             <View style={styles.logoCircle}>
               <Ionicons name="medical" size={50} color={COLORS.primary} />
             </View>
-            <Text style={styles.title}>Te Odonto Angola</Text>
+            <Text style={styles.title}>Odontologia Angola</Text>
             <Text style={styles.subtitle}>Bem-vindo de volta</Text>
           </View>
 

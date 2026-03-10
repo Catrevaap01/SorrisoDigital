@@ -85,9 +85,10 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
   const filtros = [
     { id: 'todos', label: 'Todos' },
     { id: 'pendente', label: 'Pend.' },
-    { id: 'urgente', label: 'Urg.' },
-    { id: 'respondido', label: 'Resp.' },
+    { id: 'confirmado', label: 'Confirmado' },
+    { id: 'cancelado', label: 'Cancel.' },
     { id: 'realizado', label: 'Realiz.' },
+    { id: 'urgente', label: 'Urg.' },
   ];
 
   const triagensFiltradas =
@@ -114,6 +115,10 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     filtroAtivo === 'todos'
       ? agendamentos
       : agendamentos.filter((a) => {
+          // Para "confirmado", mostra tanto "confirmado" quanto "agendado" (legado)
+          if (filtroAtivo === 'confirmado') {
+            return a.status === 'confirmado' || a.status === 'agendado';
+          }
           // Para agendamentos, filtra por status
           return a.status === filtroAtivo;
         });

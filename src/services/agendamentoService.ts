@@ -70,11 +70,11 @@ export const buscarAgendaDentista = async (
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
 
-    // traz agendamentos atribuídos a este dentista OU pendentes de confirmação
+    // traz todos os agendamentos do dia: pendentes, agendados, confirmados, realizados e cancelados
     const { data, error } = await supabase
       .from('agendamentos')
       .select('*')
-      .or(`dentista_id.eq.${dentistaId},status.eq.pendente`)
+      .or(`dentista_id.eq.${dentistaId},status.eq.pendente,status.eq.agendado,status.eq.confirmado,status.eq.realizado,status.eq.cancelado`)
       .gte('data_agendamento', start.toISOString())
       .lt('data_agendamento', end.toISOString())
       .order('data_agendamento', { ascending: true });
@@ -86,7 +86,7 @@ export const buscarAgendaDentista = async (
     const { data: bloqueados } = await supabase
       .from('agendamentos')
       .select('paciente_id')
-      .in('status', ['agendado', 'confirmado'])
+      .in('status', ['pendente', 'agendado', 'confirmado'])
       .neq('dentista_id', dentistaId)
       .gte('data_agendamento', start.toISOString())
       .lt('data_agendamento', end.toISOString());
@@ -148,11 +148,11 @@ export const buscarTodosAgendamentosDentista = async (
 
     let agendaBase = (data || []) as Agendamento[];
 
-    // Busca pacientes bloqueados (com agendamento confirmado/outro dentista)
+    // Busca pacientes bloqueados (com agendamento pendente, confirmado/outro dentista)
     const { data: bloqueados } = await supabase
       .from('agendamentos')
       .select('paciente_id')
-      .in('status', ['agendado', 'confirmado'])
+      .in('status', ['pendente', 'agendado', 'confirmado'])
       .neq('dentista_id', dentistaId);
 
     const pacientesBloqueados = new Set(
@@ -195,9 +195,36 @@ export const buscarTodosAgendamentosDentista = async (
   }
 };
 
+
 /**
  * Marca um agendamento como confirmado pelo dentista.
  * Atualiza o status para 'agendado' e garante que o dentista_id esteja definido.
+ */
+export const agendarAgendamento = async (
+  agendamentoId: string,
+  dentistaId: string
+): Promise<ServiceResult<Agendamento>> => {
+  try {
+    const { data, error } = await supabase
+      .from('agendamentos')
+      .update({ status: 'agendado', dentista_id: dentistaId })
+      .eq('id', agendamentoId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { success: true, data: data as Agendamento };
+  } catch (err: any) {
+    const mapped = _handleTableMissing(err);
+    const message = mapped || err.message || 'Erro desconhecido';
+    return { success: false, error: message };
+  }
+};
+
+/**
+ * Marca um agendamento como confirmado definitivamente.
+ * Atualiza o status para 'confirmado'.
  */
 export const confirmarAgendamento = async (
   agendamentoId: string,
