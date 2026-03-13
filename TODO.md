@@ -1,18 +1,11 @@
-# Fix PerfilScreen Settings Navigation Duplication
+# Organize AjudaScreen.tsx (FAQs + Tutorials)
 
 ## Steps:
-- [x] Create/update TODO.md with this task
-- [x] Edit src/screens/paciente/PerfilScreen.tsx: Replace 4 'Settings' navigations with specific routes ('Notificacoes', 'Privacidade', 'Ajuda', 'TermosUso')
-- [x] Test: npx expo start --clear, go to Perfil → click each option (should open correct unique screens)
-- [x] Update TODO.md (mark complete), attempt_completion
+- [ ] Update TODO.md
+- [x] Edit src/screens/paciente/AjudaScreen.tsx: Add 8 expandable FAQs + 4 tutorial sections
+- [x] Test: expo start --clear, navigate Ajuda → expand/collapse, content fits
+- [x] Mark complete
 
-**Status**: PerfilScreen navigation fix complete. Ready for manual test.
-
-
-**Status**: Fixing navigation to match SettingsScreen fix.
-
-**Routes**:
-- Notificações → 'Notificacoes'
-- Privacidade → 'Privacidade'  
-- Ajuda → 'Ajuda'
-- Termos de Uso → 'TermosUso'
+**Details**:
+- FAQs: Triagem, Agendamento, Histórico, Mensagens, Senha, Perfil, Notificações, Suporte.
+- Tutorials: Higiene Bucal, Cuidados Pós-Triagem, App Navigation, Consultas Online.

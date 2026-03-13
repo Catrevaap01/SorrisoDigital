@@ -128,7 +128,7 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
 
       // Obtém a URI da imagem
       if (result.assets && result.assets[0]) {
-        const uri = result.assets[0].uri;
+        const {uri} = result.assets[0];
         
         // Valida se já atingiu o máximo de fotos
         if (imagens.length < 5) {

@@ -139,7 +139,7 @@ const DentistaRelatorioScreen: React.FC = () => {
           </style>
         </head>
         <body>
-          <h1>🦷 TeOdonto Angola - Relatório de Consultas</h1>
+          <h1>🦷 Odontologia Angola - Relatório de Consultas</h1>
           <div class="info">
             <p><strong>Dentista:</strong> ${profile?.nome || 'N/D'}</p>
             <p><strong>Especialidade:</strong> ${profile?.especialidade || 'N/D'}</p>

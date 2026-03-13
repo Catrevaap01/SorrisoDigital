@@ -83,7 +83,7 @@ export const gerarFichaHistorico = async (pacienteId: string): Promise<string> =
     </head>
     <body>
       <div class="header">
-        <div class="logo">🦷 TeOdonto Angola</div>
+        <div class="logo">🦷 Odontologia Angola</div>
         <div class="subtitle">Ficha Completa de Histórico - ${paciente.nome}</div>
       </div>
       
@@ -137,7 +137,7 @@ export const gerarFichaHistorico = async (pacienteId: string): Promise<string> =
       </table>
 
       <div class="footer">
-        <p>Este documento foi gerado automaticamente pelo sistema TeOdonto Angola</p>
+        <p>Este documento foi gerado automaticamente pelo sistema Odontologia Angola</p>
         <p>ID Paciente: ${pacienteId}</p>
       </div>
     </body>

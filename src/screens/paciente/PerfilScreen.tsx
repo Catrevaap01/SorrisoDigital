@@ -79,11 +79,9 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
 
   const handleSalvar = async () => {
     // if we are forcing profile completion, ensure telefone/provincia not empty
-    if (forceEdit) {
-      if (!telefone.trim() || !provincia.trim()) {
-        Toast.show({ type: 'error', text1: 'Telefone e província são obrigatórios' });
-        return;
-      }
+    if (forceEdit && (!telefone.trim() || !provincia.trim())) {
+          Toast.show({ type: 'error', text1: 'Telefone e província são obrigatórios' });
+          return;
     }
     const updates: Record<string, string> = {
       nome: nome.trim(),
