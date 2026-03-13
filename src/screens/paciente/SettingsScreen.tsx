@@ -1,69 +1,70 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { COLORS, SIZES, TYPOGRAPHY } from '../../styles/theme';
 import { Ionicons } from '@expo/vector-icons';
 
-const SettingsScreen: React.FC<any> = () => {
-  const [notificationsEnabled, setNotificationsEnabled] = React.useState<boolean>(true);
-
-  const openLink = (url: string) => {
-    Linking.canOpenURL(url).then((supported) => {
-      if (supported) {
-        Linking.openURL(url);
-      }
-    });
-  };
-
+const SettingsScreen: React.FC<any> = ({ navigation }) => {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.header}>Configurações</Text>
 
-      {/* Notificações */}
-      <View style={styles.row}>
-        <Text style={styles.label}>Notificações</Text>
-        <Switch
-          value={notificationsEnabled}
-          onValueChange={setNotificationsEnabled}
-          trackColor={{ true: COLORS.primary, false: COLORS.border }}
-          thumbColor={notificationsEnabled ? COLORS.primary : COLORS.surface}
-        />
-      </View>
-      <Text style={styles.description}>
-        Ative ou desative alertas push e local para novos
-        agendamentos, mensagens e avisos do aplicativo.
-      </Text>
-
-      {/* Privacidade */}
-      <TouchableOpacity style={styles.linkRow} onPress={() => {/* placeholder */}}>
-        <Text style={styles.label}>Privacidade</Text>
-        <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
-      </TouchableOpacity>
-      <Text style={styles.description}>
-        Veja como seus dados são coletados e usados. Esta seção
-        traz informações sobre política de privacidade.
-      </Text>
-
-      {/* Ajuda */}
-      <TouchableOpacity style={styles.linkRow} onPress={() => {/* placeholder */}}>
-        <Text style={styles.label}>Ajudar</Text>
-        <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
-      </TouchableOpacity>
-      <Text style={styles.description}>
-        Dicas de uso, perguntas frequentes e suporte.
-      </Text>
-
-      {/* Termos de Uso */}
-      <TouchableOpacity
-        style={styles.linkRow}
-        onPress={() => openLink('https://example.com/termos-de-uso')}
+      {/* Item Notificações - Único com o link corrigido */}
+      <TouchableOpacity 
+        style={styles.item} 
+        onPress={() => navigation.navigate('NotificacoesDetalhe')} // Nome igual ao do Navigator
+        activeOpacity={0.7}
       >
-        <Text style={styles.label}>Termos de Uso</Text>
+        <View style={styles.leftContent}>
+          <Ionicons name="notifications-outline" size={24} color={COLORS.text} />
+          <Text style={styles.label}>Notificações</Text>
+        </View>
         <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
       </TouchableOpacity>
-      <Text style={styles.description}>
-        Leia os termos e condições que regem a utilização
-        do serviço.
-      </Text>
+
+      <View style={styles.separator} />
+
+      {/* Outros itens mantendo a consistência */}
+      <TouchableOpacity 
+        style={styles.item} 
+        onPress={() => navigation.navigate('Privacidade')} 
+        activeOpacity={0.7}
+      >
+        <View style={styles.leftContent}>
+          <Ionicons name="shield-checkmark-outline" size={24} color={COLORS.text} />
+          <Text style={styles.label}>Privacidade</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+      </TouchableOpacity>
+
+      <View style={styles.separator} />
+
+      <TouchableOpacity 
+        style={styles.item} 
+        onPress={() => navigation.navigate('Ajuda')} 
+        activeOpacity={0.7}
+      >
+        <View style={styles.leftContent}>
+          <Ionicons name="help-circle-outline" size={24} color={COLORS.text} />
+          <Text style={styles.label}>Ajuda</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+      </TouchableOpacity>
+
+      <View style={styles.separator} />
+
+      <TouchableOpacity 
+        style={styles.item} 
+        onPress={() => navigation.navigate('TermosUso')} 
+        activeOpacity={0.7}
+      >
+        <View style={styles.leftContent}>
+          <Ionicons name="document-text-outline" size={24} color={COLORS.text} />
+          <Text style={styles.label}>Termos de Uso</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+      </TouchableOpacity>
+
+      <View style={styles.separator} />
     </ScrollView>
   );
 };
@@ -71,37 +72,38 @@ const SettingsScreen: React.FC<any> = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#FFFFFF',
   },
   content: {
-    padding: SIZES.md,
+    paddingTop: 40,
   },
   header: {
-    fontSize: TYPOGRAPHY.sizes.xl,
+    fontSize: 26,
     fontWeight: 'bold',
-    marginBottom: SIZES.lg,
-    color: COLORS.text,
+    marginBottom: 20,
+    paddingHorizontal: 20,
+    color: '#000',
   },
-  row: {
+  item: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: SIZES.sm,
+    justifyContent: 'space-between',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
   },
-  linkRow: {
+  leftContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: SIZES.sm,
   },
   label: {
-    fontSize: TYPOGRAPHY.sizes.md,
-    color: COLORS.text,
+    fontSize: 17,
+    color: '#333',
+    marginLeft: 15,
   },
-  description: {
-    fontSize: TYPOGRAPHY.sizes.sm,
-    color: COLORS.textSecondary,
-    marginBottom: SIZES.md,
+  separator: {
+    height: 1,
+    backgroundColor: '#EAEAEA',
+    marginLeft: 20,
   },
 });
 

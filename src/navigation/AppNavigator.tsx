@@ -205,6 +205,51 @@ const PacienteStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
           headerTintColor: COLORS.textInverse,
         }}
       />
+      <PacienteStackNav.Screen
+        name="Notificacoes"
+        component={require('../screens/paciente/NotificacoesScreen').default}
+        options={{
+          title: 'Notificações',
+          headerStyle: { backgroundColor: COLORS.primary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+      <PacienteStackNav.Screen
+        name="NotificacoesDetalhe"
+        component={require('../screens/paciente/NotificacoesDetalheScreen').default}
+        options={{
+          title: 'Minhas Notificações',
+          headerStyle: { backgroundColor: COLORS.primary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+      <PacienteStackNav.Screen
+        name="Privacidade"
+        component={require('../screens/paciente/PrivacidadeScreen').default}
+        options={{
+          title: 'Privacidade',
+          headerStyle: { backgroundColor: COLORS.primary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+      <PacienteStackNav.Screen
+        name="TermosUso"
+        component={require('../screens/paciente/TermosUsoScreen').default}
+        options={{
+          title: 'Termos de Uso',
+          headerStyle: { backgroundColor: COLORS.primary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+      <PacienteStackNav.Screen
+        name="Ajuda"
+        component={require('../screens/paciente/AjudaScreen').default}
+        options={{
+          title: 'Ajuda',
+          headerStyle: { backgroundColor: COLORS.primary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
     </PacienteStackNav.Navigator>
   );
 };
@@ -244,9 +289,55 @@ const DentistaStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
           headerTintColor: COLORS.textInverse,
         }}
       />
+      <DentistaStackNav.Screen
+        name="Notificacoes"
+        component={require('../screens/paciente/NotificacoesScreen').default}
+        options={{
+          title: 'Notificações',
+          headerStyle: { backgroundColor: COLORS.secondary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+      <DentistaStackNav.Screen
+        name="NotificacoesDetalhe"
+        component={require('../screens/paciente/NotificacoesDetalheScreen').default}
+        options={{
+          title: 'Minhas Notificações',
+          headerStyle: { backgroundColor: COLORS.secondary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+      <DentistaStackNav.Screen
+        name="Privacidade"
+        component={require('../screens/paciente/PrivacidadeScreen').default}
+        options={{
+          title: 'Privacidade',
+          headerStyle: { backgroundColor: COLORS.secondary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+      <DentistaStackNav.Screen
+        name="TermosUso"
+        component={require('../screens/paciente/TermosUsoScreen').default}
+        options={{
+          title: 'Termos de Uso',
+          headerStyle: { backgroundColor: COLORS.secondary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+      <DentistaStackNav.Screen
+        name="Ajuda"
+        component={require('../screens/paciente/AjudaScreen').default}
+        options={{
+          title: 'Ajuda',
+          headerStyle: { backgroundColor: COLORS.secondary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
     </DentistaStackNav.Navigator>
   );
 };
+
 
 // helper registration for components that need to force-refresh badge
 let refreshUnreadCallback: (() => void) | null = null;

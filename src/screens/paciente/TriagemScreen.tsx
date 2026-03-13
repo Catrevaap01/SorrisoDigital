@@ -27,6 +27,7 @@ import { PacienteTabParamList } from '../../navigation/types';
 type TriagemScreenProps = BottomTabScreenProps<PacienteTabParamList, 'Triagem'>;
 
 const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
+  // scrollRef e keyboard handler já existe abaixo
   const { profile } = useAuth();
   const { selectedDentist, selectDentist } = useDentist();
   const [etapa, setEtapa] = useState<number>(1);
@@ -114,12 +115,10 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
 
       // Depois abre a câmera
       const result = await ImagePicker.launchCameraAsync({
-        // use string literal per new API: 'images', 'videos' or 'livePhotos'
-        mediaTypes: 'images',
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.7,
-        videoMaxDuration: 0, // Apenas fotos
       });
 
       // Verifica se o usuário cancelou
@@ -172,11 +171,11 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
 
       // Abre a galeria
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'images',
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.7,
-        selectionLimit: 5 - imagens.length, // Permite selecionar múltiplas imagens
+        selectionLimit: 5 - imagens.length,
       });
 
       // Verifica se o usuário cancelou

@@ -46,6 +46,11 @@ export type PacienteStackParamList = {
   Agendamento: undefined;
   ChooseDentista: undefined; // força paciente escolher dentista antes de triagem/consulta
   Settings: undefined; // tela de configurações do aplicativo
+  Notificacoes: undefined;
+  NotificacoesDetalhe: undefined;
+  Privacidade: undefined;
+  TermosUso: undefined;
+  Ajuda: undefined;
 };
 
 export type DentistaStackParamList = {
@@ -53,7 +58,13 @@ export type DentistaStackParamList = {
   CasoDetalhe: { triagemId: string };
   PacienteHistorico: { pacienteId: string; pacienteNome?: string };
   Settings: undefined; // mesma tela de configurações usada pelo paciente
+  Notificacoes: undefined;
+  NotificacoesDetalhe: undefined;
+  Privacidade: undefined;
+  TermosUso: undefined;
+  Ajuda: undefined;
 };
+
 
 export type AdminStackParamList = {
   AdminDashboard: undefined;

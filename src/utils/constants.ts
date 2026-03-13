@@ -181,6 +181,11 @@ export const SINTOMAS = [
     icon: 'resize',
   },
   {
+    id: 'extracao',
+    label: 'Extração de Dente',
+    icon: 'remove-circle-outline',
+  },
+  {
     id: 'outro',
     label: 'Outro',
     icon: 'help-circle-outline',
