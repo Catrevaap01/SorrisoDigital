@@ -402,7 +402,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.opcaoItem}
-            onPress={() => navigation.getParent()?.navigate('Notificacoes')}
+onPress={() => navigation.getParent()?.navigate('Notificacoes' as any)}
           >
             <Ionicons name="notifications-outline" size={22} color={COLORS.textSecondary} />
             <Text style={styles.opcaoText}>Notificações</Text>
@@ -411,7 +411,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.opcaoItem}
-            onPress={() => navigation.getParent()?.navigate('Privacidade')}
+onPress={() => navigation.getParent()?.navigate('Privacidade' as any)}
           >
             <Ionicons name="shield-checkmark-outline" size={22} color={COLORS.textSecondary} />
             <Text style={styles.opcaoText}>Privacidade</Text>
@@ -420,7 +420,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.opcaoItem}
-            onPress={() => navigation.getParent()?.navigate('Ajuda')}
+            onPress={() => navigation.getParent()?.navigate('Ajuda' as any)}
           >
             <Ionicons name="help-circle-outline" size={22} color={COLORS.textSecondary} />
             <Text style={styles.opcaoText}>Ajuda</Text>
@@ -429,7 +429,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.opcaoItem}
-            onPress={() => navigation.getParent()?.navigate('TermosUso')}
+            onPress={() => navigation.getParent()?.navigate('TermosUso' as any)}
           >
             <Ionicons name="document-text-outline" size={22} color={COLORS.textSecondary} />
             <Text style={styles.opcaoText}>Termos de Uso</Text>
@@ -457,7 +457,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
       )}
 
       {/* VersÃ£o */}
-      <Text style={styles.versao}>TeOdonto Angola v1.0.0</Text>
+      <Text style={styles.versao}>Odontologia Angola v1.0.0</Text>
 
       {/* Modal de ProvÃ­ncias */}
       <Modal

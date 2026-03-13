@@ -111,7 +111,7 @@ const PacienteTabs: React.FC<TabsProps> = ({ unreadCount }) => (
           : undefined,
     })}
   >
-    <PacienteTab.Screen name="Início" component={HomeScreen} options={{ title: 'TeOdonto Angola' }} />
+    <PacienteTab.Screen name="Início" component={HomeScreen} options={{ title: 'Odontologia Angola' }} />
     <PacienteTab.Screen name="Triagem" component={TriagemScreen} />
     <PacienteTab.Screen name="Educação" component={EducacaoScreen} options={{ title: 'Educação' }} />
     <PacienteTab.Screen name="Histórico" component={HistoricoScreen} options={{ title: 'Histórico' }} />

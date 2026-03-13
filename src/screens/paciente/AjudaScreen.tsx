@@ -70,7 +70,7 @@ export default function AjudaScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.header}>🦷 Central de Ajuda</Text>
       <Text style={styles.description}>
-        Respostas rápidas para usar o TeOdonto. Toque nas perguntas para expandir.
+        Respostas rápidas para usar o Odonto. Toque nas perguntas para expandir.
       </Text>
 
       <View style={styles.section}>
@@ -123,7 +123,8 @@ export default function AjudaScreen() {
           <Ionicons name="call" size={24} color={COLORS.success} />
           <View>
             <Text style={styles.supportLabel}>Ligar Gratuito</Text>
-            <Text style={styles.supportText}>+244 912 345 678 (Seg-Sex 8h-18h)</Text>
+            <Text style={styles.supportText}>+244 912 345 678 </Text>
+            <Text style={styles.supportText}>Segunda à Sexta, 8h-18h</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
         </TouchableOpacity>

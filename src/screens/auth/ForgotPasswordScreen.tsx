@@ -66,13 +66,14 @@ export default function ForgotPasswordScreen({ navigation }: any) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-          <View style={styles.header}>
-            <TouchableOpacity
+          <TouchableOpacity
               style={styles.backButton}
               onPress={() => navigation.goBack()}
             >
-              <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
+              <Ionicons name="arrow-back" size={40} color={COLORS.primary} />
             </TouchableOpacity>
+            
+          <View style={styles.header}>
             <Text style={styles.title}>Esqueceu sua senha?</Text>
             <Text style={styles.subtitle}>
               Informe o e-mail cadastrado (apenas pacientes podem recuperar
