@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import { PacienteTabParamList } from '../../navigation/types';
 type TriagemScreenProps = BottomTabScreenProps<PacienteTabParamList, 'Triagem'>;
 
 const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
+  // scrollRef e keyboard handler já existe abaixo
   const { profile } = useAuth();
   const { selectedDentist, selectDentist } = useDentist();
   const [etapa, setEtapa] = useState<number>(1);
@@ -44,10 +45,7 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
   const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
   const scrollRef = useRef<ScrollView>(null);
 
-  const scrollToDescricao = useCallback(() => {
-    scrollRef.current?.scrollToEnd({ animated: true });
-  }, []);
-
+  // Funções de câmera/galeria - CORRIGIDO
   // load dentists on first render
   React.useEffect(() => {
     (async () => {
@@ -100,6 +98,7 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
       hideSub.remove();
     };
   }, []);
+
 
   const tirarFoto = async () => {
     try {
@@ -487,9 +486,6 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
           textAlignVertical="top"
           returnKeyType="done"
           disableFullscreenUI={true}
-          onFocus={scrollToDescricao}
-          blurOnSubmit={true}
-          onSubmitEditing={() => Keyboard.dismiss()}
           onContentSizeChange={(e) => {
             // keep fixed height, ignore content size
           }}
@@ -588,16 +584,13 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior="padding"
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      behavior={Platform.OS === 'ios' ? "padding" : undefined}
+      enabled={Platform.OS === 'ios'}
     >
       <ScrollView
         ref={scrollRef}
         style={styles.container}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 16 : 16 },
-        ]}
+        contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="always"
         keyboardDismissMode="on-drag"
         automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
@@ -870,102 +863,102 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: '600',
   },
-      imagensContainer: {
-        marginBottom: SIZES.md,
-      },
-    imagensCount: {
-      color: COLORS.textSecondary,
-      marginBottom: SIZES.sm,
-    },
-    imagemWrapper: {
-      position: 'relative',
-      marginRight: SIZES.sm,
-    },
-    imagemPreview: {
-        width: 100,
-        height: 100,
-        borderRadius: SIZES.radiusMd,
-      },
-    imagemRemove: {
-        position: 'absolute',
-        top: -10,
-        right: -10,
-        backgroundColor: COLORS.surface,
-        borderRadius: 15,
-      },
-    dicasBox: {
-      backgroundColor: '#E3F2FD',
-      padding: SIZES.md,
-      borderRadius: SIZES.radiusMd,
-      marginBottom: SIZES.md,
-    },
-    dicasTitle: {
-      fontWeight: 'bold',
-      color: COLORS.primaryDark,
-      marginBottom: SIZES.sm,
-    },
-    dicasItem: {
-      color: COLORS.textSecondary,
-      fontSize: SIZES.fontSm,
-      marginTop: 2,
-    },
-    enviarButton: {
-      backgroundColor: COLORS.secondary,
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      padding: SIZES.md,
-      borderRadius: SIZES.radiusMd,
-    },
-    enviarButtonText: {
-      color: COLORS.textInverse,
-      fontSize: SIZES.fontLg,
-      fontWeight: 'bold',
-      marginLeft: SIZES.sm,
-    },
-    avisoLegal: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      backgroundColor: '#FFF3E0',
-      padding: SIZES.md,
-      borderRadius: SIZES.radiusMd,
-      marginTop: SIZES.md,
-      marginBottom: SIZES.xl,
-    },
-    avisoLegalText: {
-      flex: 1,
-      marginLeft: SIZES.sm,
-      fontSize: SIZES.fontSm,
-      color: '#E65100',
-      lineHeight: 18,
-    },
-    // estilos para seleção de dentista
-    campo: {
-      marginTop: SIZES.md,
-    },
-    campoLabel: {
-      fontSize: SIZES.fontMd,
-      fontWeight: '600',
-      color: COLORS.text,
-      marginBottom: SIZES.xs,
-    },
-    selectButton: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      backgroundColor: COLORS.surface,
-      padding: SIZES.md,
-      borderRadius: SIZES.radiusMd,
-      borderWidth: 1,
-      borderColor: COLORS.border,
-    },
-    selectText: {
-      fontSize: SIZES.fontMd,
-      color: COLORS.text,
-    },
-    selectPlaceholder: {
-      color: COLORS.textSecondary,
-    },
-  });
+  imagensContainer: {
+    marginBottom: SIZES.md,
+  },
+  imagensCount: {
+    color: COLORS.textSecondary,
+    marginBottom: SIZES.sm,
+  },
+  imagemWrapper: {
+    position: 'relative',
+    marginRight: SIZES.sm,
+  },
+  imagemPreview: {
+    width: 100,
+    height: 100,
+    borderRadius: SIZES.radiusMd,
+  },
+  imagemRemove: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+    backgroundColor: COLORS.surface,
+    borderRadius: 15,
+  },
+  dicasBox: {
+    backgroundColor: '#E3F2FD',
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    marginBottom: SIZES.md,
+  },
+  dicasTitle: {
+    fontWeight: 'bold',
+    color: COLORS.primaryDark,
+    marginBottom: SIZES.sm,
+  },
+  dicasItem: {
+    color: COLORS.textSecondary,
+    fontSize: SIZES.fontSm,
+    marginTop: 2,
+  },
+  enviarButton: {
+    backgroundColor: COLORS.secondary,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+  },
+  enviarButtonText: {
+    color: COLORS.textInverse,
+    fontSize: SIZES.fontLg,
+    fontWeight: 'bold',
+    marginLeft: SIZES.sm,
+  },
+  avisoLegal: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFF3E0',
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    marginTop: SIZES.md,
+    marginBottom: SIZES.xl,
+  },
+  avisoLegalText: {
+    flex: 1,
+    marginLeft: SIZES.sm,
+    fontSize: SIZES.fontSm,
+    color: '#E65100',
+    lineHeight: 18,
+  },
+  // estilos para seleção de dentista
+  campo: {
+    marginTop: SIZES.md,
+  },
+  campoLabel: {
+    fontSize: SIZES.fontMd,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: SIZES.xs,
+  },
+  selectButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  selectText: {
+    fontSize: SIZES.fontMd,
+    color: COLORS.text,
+  },
+  selectPlaceholder: {
+    color: COLORS.textSecondary,
+  },
+});
 
 export default TriagemScreen;
