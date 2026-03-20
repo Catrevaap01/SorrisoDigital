@@ -201,7 +201,13 @@ export const criarDentista = async (
     const extra = Constants.expoConfig?.extra;
     const anonUrl = extra?.SUPABASE_URL;
     const anonKey = extra?.SUPABASE_ANON_KEY;
-    const anonClient = createClient(anonUrl || '', anonKey || '');
+    const anonClient = createClient(anonUrl || '', anonKey || '', {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      }
+    });
 
     const { data: authData, error: authError } = await anonClient.auth.signUp({
       email: normalizedEmail,

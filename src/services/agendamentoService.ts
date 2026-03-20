@@ -107,22 +107,22 @@ export const buscarAgendaDentista = async (
       .lt('data_agendamento', end.toISOString())
       .order('data_agendamento', { ascending: true });
     
-    const { data: agendaRaw = [], error } = await withTimeout(query, 12000);
+    const [agendaRes, bloqueadosRes] = await Promise.all([
+      withTimeout(query, 12000),
+      supabase
+        .from('agendamentos')
+        .select('paciente_id')
+        .in('status', ['pendente', 'agendado', 'confirmado'])
+        .neq('dentista_id', dentistaId)
+        .gte('data_agendamento', start.toISOString())
+        .lt('data_agendamento', end.toISOString())
+    ]);
 
-    if (error) throw error;
+    if (agendaRes.error) throw agendaRes.error;
 
-    let agendaBase = agendaRaw as Agendamento[];
-
-    const { data: bloqueados } = await supabase
-      .from('agendamentos')
-      .select('paciente_id')
-      .in('status', ['pendente', 'agendado', 'confirmado'])
-      .neq('dentista_id', dentistaId)
-      .gte('data_agendamento', start.toISOString())
-      .lt('data_agendamento', end.toISOString());
-
+    let agendaBase = (agendaRes.data || []) as Agendamento[];
     const pacientesBloqueados = new Set(
-      (bloqueados || []).map((b: any) => b.paciente_id).filter(Boolean)
+      (bloqueadosRes.data || []).map((b: any) => b.paciente_id).filter(Boolean)
     );
 
     agendaBase = agendaBase.filter((ag) => {
@@ -130,6 +130,7 @@ export const buscarAgendaDentista = async (
       if (!ag.paciente_id) return true;
       return !pacientesBloqueados.has(ag.paciente_id);
     });
+    
     const agendaEnriquecida = await enrichAgendamentosWithPacientes(agendaBase);
 
     return { success: true, data: agendaEnriquecida };
@@ -148,26 +149,24 @@ export const buscarTodosAgendamentosDentista = async (
   dentistaId: string
 ): Promise<ServiceResult<Agendamento[]>> => {
   try {
-    // Busca TODOS os agendamentos do dentista (qualquer status)
-    const { data, error } = await supabase
-      .from('agendamentos')
-      .select('*')
-      .eq('dentista_id', dentistaId)
-      .order('data_agendamento', { ascending: false });
+    const [agendaRes, bloqueadosRes] = await Promise.all([
+      supabase
+        .from('agendamentos')
+        .select('*')
+        .eq('dentista_id', dentistaId)
+        .order('data_agendamento', { ascending: false }),
+      supabase
+        .from('agendamentos')
+        .select('paciente_id')
+        .in('status', ['pendente', 'agendado', 'confirmado'])
+        .neq('dentista_id', dentistaId)
+    ]);
 
-    if (error) throw error;
+    if (agendaRes.error) throw agendaRes.error;
 
-    let agendaBase = (data || []) as Agendamento[];
-
-    // Busca pacientes bloqueados (com agendamento pendente, confirmado/outro dentista)
-    const { data: bloqueados } = await supabase
-      .from('agendamentos')
-      .select('paciente_id')
-      .in('status', ['pendente', 'agendado', 'confirmado'])
-      .neq('dentista_id', dentistaId);
-
+    let agendaBase = (agendaRes.data || []) as Agendamento[];
     const pacientesBloqueados = new Set(
-      (bloqueados || []).map((b: any) => b.paciente_id).filter(Boolean)
+      (bloqueadosRes.data || []).map((b: any) => b.paciente_id).filter(Boolean)
     );
 
     // Filtra pacientes bloqueados

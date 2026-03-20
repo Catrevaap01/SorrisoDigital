@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -13,7 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useDentist } from '../../contexts/DentistContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { DentistaProfile, listarDentistas } from '../../services/dentistaService';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { PacienteStackParamList } from '../../navigation/types';
 
@@ -93,6 +94,10 @@ const ChooseDentistaScreen: React.FC<ChooseDentistaProps> = ({ navigation }) => 
       <FlatList
         data={dentistas}
         keyExtractor={(item) => item.id}
+        contentContainerStyle={[
+          styles.listContent,
+          Platform.OS === 'web' && styles.webListContent
+        ]}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.item} onPress={() => handleSelect(item)}>
             <View style={styles.avatar}>
@@ -117,13 +122,30 @@ const ChooseDentistaScreen: React.FC<ChooseDentistaProps> = ({ navigation }) => 
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  title: { fontSize: TYPOGRAPHY.sizes.lg, fontWeight: '700', margin: SPACING.md, color: COLORS.text },
+  title: {
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: '700',
+    margin: SPACING.md,
+    color: COLORS.text,
+    textAlign: Platform.OS === 'web' ? 'center' : 'left',
+  },
+  listContent: { paddingBottom: 20 },
+  webListContent: {
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
+  },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: SPACING.md,
-    borderBottomWidth: 1,
+    marginHorizontal: Platform.OS === 'web' ? SPACING.md : 0,
+    backgroundColor: COLORS.surface,
+    borderRadius: Platform.OS === 'web' ? 12 : 0,
+    marginBottom: Platform.OS === 'web' ? SPACING.sm : 0,
+    borderBottomWidth: Platform.OS === 'web' ? 0 : 1,
     borderBottomColor: COLORS.border,
+    ...Platform.OS === 'web' ? SHADOWS.sm : {},
   },
   avatar: {
     width: 42,

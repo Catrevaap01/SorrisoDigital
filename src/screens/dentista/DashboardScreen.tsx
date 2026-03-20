@@ -51,15 +51,12 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     inicioSemana.setDate(inicioSemana.getDate() - 6);
     fimSemana.setDate(fimSemana.getDate() + 1);
 
-    let contResult: ServiceResult<Contadores> = { success: false, data: CONTADORES_DEFAULT };
-    let triResult: ServiceResult<Triagem[]> = { success: false, data: [] };
-    let agResult: ServiceResult<Agendamento[]> = { success: false, data: [] };
-    let hojeResult: ServiceResult<Agendamento[]> = { success: false, data: [] };
-
-    try { contResult = await buscarContadoresDentista(profile.id); } catch(e) { logger.warn('Dashboard contadores failed', e); }
-    try { triResult = await buscarTriagensDentista(profile.id); } catch(e) { logger.warn('Dashboard triagens failed', e); }
-    try { agResult = await buscarAgendamentosDentistaPorPeriodo(profile.id, inicioSemana, fimSemana); } catch(e) { logger.warn('Dashboard agendamentos failed', e); }
-    try { hojeResult = await buscarAgendaDentista(profile.id, new Date()); } catch(e) { logger.warn('Dashboard agenda hoje failed', e); }
+    const [contResult, triResult, agResult, hojeResult] = await Promise.all([
+      buscarContadoresDentista(profile.id).catch(e => ({ success: false, data: CONTADORES_DEFAULT, error: e.message })),
+      buscarTriagensDentista(profile.id).catch(e => ({ success: false, data: [], error: e.message })),
+      buscarAgendamentosDentistaPorPeriodo(profile.id, inicioSemana, fimSemana).catch(e => ({ success: false, data: [], error: e.message })),
+      buscarAgendaDentista(profile.id, new Date()).catch(e => ({ success: false, data: [], error: e.message }))
+    ]);
 
     setContadores(contResult.success ? contResult.data ?? CONTADORES_DEFAULT : CONTADORES_DEFAULT);
     setTriagens(triResult.success ? triResult.data ?? [] : []);
@@ -361,7 +358,10 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           ListHeaderComponent={header}
           ListEmptyComponent={<View style={styles.center}><Text style={styles.empty}>Nenhum item para este filtro.</Text></View>}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            Platform.OS === 'web' && styles.webContent
+          ]}
         />
       )}
 
@@ -379,6 +379,12 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   content: { paddingBottom: 110 },
+  webContent: {
+    maxWidth: 1100,
+    width: '100%',
+    alignSelf: 'center',
+    paddingBottom: 120,
+  },
 
   // Specialty Header
   specHeader: {
@@ -422,7 +428,7 @@ const styles = StyleSheet.create({
   // Grid
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: SIZES.md, paddingHorizontal: SIZES.md },
   metric: {
-    width: '48%',
+    width: Platform.OS === 'web' ? '23.5%' : '48%',
     backgroundColor: COLORS.surface,
     borderRadius: SIZES.radiusMd,
     padding: SIZES.md,

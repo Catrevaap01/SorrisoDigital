@@ -190,10 +190,16 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     >
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          Platform.OS === 'web' && styles.webScrollContent
+        ]}
         keyboardShouldPersistTaps="always"
         keyboardDismissMode="on-drag"
       >
+        <View style={[
+          Platform.OS === 'web' && styles.webContent
+        ]}>
       {/* Selecionar dentista (opcional) */}
       {dentistas.length > 0 && (
         <View style={styles.section}>
@@ -381,6 +387,7 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
       </View>
 
         <View style={{ height: 30 }} />
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -393,6 +400,20 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: SIZES.xl + 24,
+  },
+  webScrollContent: {
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    paddingVertical: SIZES.lg,
+  },
+  webContent: {
+    width: '100%',
+    maxWidth: 900,
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusLg,
+    ...SHADOWS.md,
+    marginVertical: SIZES.md,
+    overflow: 'hidden',
   },
   section: {
     backgroundColor: COLORS.surface,
@@ -411,7 +432,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   tipoCard: {
-    width: '48%',
+    width: Platform.OS === 'web' ? '23%' : '48%',
     backgroundColor: COLORS.background,
     borderRadius: SIZES.radiusMd,
     padding: SIZES.md,
@@ -419,6 +440,7 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.sm,
     borderWidth: 2,
     borderColor: 'transparent',
+    ...SHADOWS.sm,
   },
   tipoCardActive: {
     backgroundColor: COLORS.surface,

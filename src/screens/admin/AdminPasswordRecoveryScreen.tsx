@@ -164,21 +164,26 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
     >
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Recuperar Senhas</Text>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color={COLORS.textSecondary} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Buscar dentista..."
-            placeholderTextColor={COLORS.textSecondary}
-            value={busca}
-            onChangeText={handleBusca}
-          />
-          {busca ? (
-            <TouchableOpacity onPress={() => handleBusca('')}>
-              <Ionicons name="close-circle" size={20} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-          ) : null}
+        <View style={Platform.OS === 'web' && styles.headerContent}>
+          <Text style={styles.title}>Recuperar Senhas</Text>
+          <View style={[
+            styles.searchContainer,
+            Platform.OS === 'web' && { flex: 1, marginLeft: SPACING.xl }
+          ]}>
+            <Ionicons name="search" size={20} color={COLORS.textSecondary} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar dentista..."
+              placeholderTextColor={COLORS.textSecondary}
+              value={busca}
+              onChangeText={handleBusca}
+            />
+            {busca ? (
+              <TouchableOpacity onPress={() => handleBusca('')}>
+                <Ionicons name="close-circle" size={20} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
       </View>
 
@@ -190,6 +195,10 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
         <FlatList
           data={dentistas}
           keyExtractor={(item) => item.id}
+          contentContainerStyle={[
+            styles.listContent,
+            Platform.OS === 'web' && styles.webListContent
+          ]}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.dentistCard}
@@ -316,11 +325,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
+  headerContent: {
+    maxWidth: 900,
+    width: '100%',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   title: {
     fontSize: TYPOGRAPHY.sizes.xl,
     fontWeight: '700',
     color: COLORS.text,
-    marginBottom: SPACING.md,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -370,18 +386,33 @@ const styles = StyleSheet.create({
   name: { fontSize: TYPOGRAPHY.sizes.md, fontWeight: '600', color: COLORS.text },
   email: { fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.textSecondary, marginTop: 2 },
   especialidade: { fontSize: TYPOGRAPHY.sizes.xs, color: COLORS.textSecondary, marginTop: 2 },
+  listContent: { paddingVertical: SPACING.md },
+  webListContent: {
+    maxWidth: 900,
+    width: '100%',
+    alignSelf: 'center',
+  },
   emptyContainer: { justifyContent: 'center', alignItems: 'center', paddingTop: 100 },
   emptyText: { fontSize: TYPOGRAPHY.sizes.md, color: COLORS.textSecondary, marginTop: SPACING.md },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
+    alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
   },
   modalContent: {
     backgroundColor: COLORS.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '90%',
+    borderBottomLeftRadius: Platform.OS === 'web' ? 20 : 0,
+    borderBottomRightRadius: Platform.OS === 'web' ? 20 : 0,
+    maxWidth: Platform.OS === 'web' ? 600 : '100%',
+    width: '100%',
+    alignSelf: 'center',
+    maxHeight: Platform.OS === 'web' ? '80%' : '90%',
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -392,7 +423,10 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   modalTitle: { fontSize: TYPOGRAPHY.sizes.lg, fontWeight: '700', color: COLORS.text },
-  modalBody: { padding: SPACING.md },
+  modalBody: { 
+    padding: SPACING.md,
+    flexShrink: 1,
+  },
   dentistInfo: {
     alignItems: 'center',
     marginBottom: SPACING.lg,

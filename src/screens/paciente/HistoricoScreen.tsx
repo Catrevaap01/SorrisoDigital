@@ -601,6 +601,7 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
               style={[
                 styles.filtroButton,
                 filtroAtivo === item.id && styles.filtroButtonActive,
+                Platform.OS === 'web' && styles.webFiltroButton,
               ]}
               onPress={() => setFiltroAtivo(item.id)}
             >
@@ -631,7 +632,10 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
           data={dadosCombinados}
           keyExtractor={(item, index) => `${item.tipo}-${item.id}-${index}`}
           renderItem={renderItem}
-          contentContainerStyle={styles.lista}
+          contentContainerStyle={[
+            styles.lista,
+            Platform.OS === 'web' && styles.webLista
+          ]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -676,9 +680,11 @@ const styles = StyleSheet.create({
     paddingVertical: SIZES.sm,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
+    alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
   },
   filtrosList: {
     paddingHorizontal: SIZES.md,
+    alignSelf: Platform.OS === 'web' ? 'center' : 'auto',
   },
   filtroButton: {
     paddingHorizontal: SIZES.md,
@@ -686,6 +692,10 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radiusFull,
     backgroundColor: COLORS.background,
     marginRight: SIZES.sm,
+  },
+  webFiltroButton: {
+    paddingHorizontal: SIZES.lg,
+    marginHorizontal: SIZES.xs,
   },
   filtroButtonActive: {
     backgroundColor: COLORS.primary,
@@ -723,6 +733,12 @@ const styles = StyleSheet.create({
   },
   lista: {
     padding: SIZES.md,
+  },
+  webLista: {
+    maxWidth: 900,
+    width: '100%',
+    alignSelf: 'center',
+    paddingVertical: SIZES.lg,
   },
   listaLinhas: {
     paddingHorizontal: SIZES.md,

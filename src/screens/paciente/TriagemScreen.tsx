@@ -22,7 +22,7 @@ import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDentist } from '../../contexts/DentistContext';
 import { criarTriagem } from '../../services/triagemService';
-import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
+import { COLORS, SIZES, SHADOWS, SPACING } from '../../styles/theme';
 import { SINTOMAS, DURACAO_OPTIONS } from '../../utils/constants';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { PacienteTabParamList } from '../../navigation/types';
@@ -799,12 +799,16 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
     >
       <ScrollView
         ref={scrollRef}
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="always"
-        keyboardDismissMode="on-drag"
-        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+        contentContainerStyle={[
+          styles.scrollContent,
+          Platform.OS === 'web' && styles.webScrollContent
+        ]}
+        showsVerticalScrollIndicator={false}
       >
+        <View style={[
+          styles.content,
+          Platform.OS === 'web' && styles.webContent
+        ]}>
         {/* Indicador de Progresso */}
         <View style={styles.progressContainer}>
           {[1, 2, 3].map((step) => (
@@ -835,21 +839,34 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
             </React.Fragment>
           ))}
         </View>
-
+        
         <View style={styles.content}>
           {etapa === 1 && renderEtapa1()}
           {etapa === 2 && renderEtapa2()}
           {etapa === 3 && renderEtapa3()}
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
-  );
+      </View>
+    </ScrollView>
+  </KeyboardAvoidingView>
+);
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scrollContent: { flexGrow: 1 },
+  webScrollContent: {
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    paddingVertical: SPACING.lg,
+  },
+  content: { padding: SPACING.lg, paddingBottom: 40 },
+  webContent: {
+    width: '100%',
+    maxWidth: 800,
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusLg,
+    ...SHADOWS.md,
+    marginVertical: SPACING.md,
   },
   progressContainer: {
     flexDirection: 'row',
@@ -885,12 +902,7 @@ const styles = StyleSheet.create({
   progressLineActive: {
     backgroundColor: COLORS.primary,
   },
-  content: {
-    padding: SIZES.md,
-  },
-  scrollContent: {
-    paddingBottom: 0,
-  },
+
   backLink: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -916,17 +928,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    gap: SPACING.sm,
+    marginBottom: SPACING.xl,
   },
   sintomaCard: {
-    width: '48%',
+    width: Platform.OS === 'web' ? '23%' : '48%',
     backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusMd,
-    padding: SIZES.md,
-    marginBottom: SIZES.sm,
+    borderRadius: 12,
+    padding: SPACING.md,
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: COLORS.border,
-    ...SHADOWS.sm,
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#E8F1F8',
+    ...SHADOWS.small,
   },
   sintomaCardActive: {
     borderColor: COLORS.primary,

@@ -7,6 +7,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -261,7 +262,10 @@ const AdminReportsScreen: React.FC = () => {
           <ActivityIndicator size="large" color={COLORS.danger} />
         </View>
       ) : (
-        <>
+        <View style={[
+          styles.mainContent,
+          Platform.OS === 'web' && styles.webMainContent
+        ]}>
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Relatórios do Sistema</Text>
           </View>
@@ -340,7 +344,7 @@ const AdminReportsScreen: React.FC = () => {
           <View style={styles.footer}>
             <Text style={styles.footerText}>Ultimas estatísticas carregadas automaticamente</Text>
           </View>
-        </>
+        </View>
       )}
     </ScrollView>
   );
@@ -371,13 +375,30 @@ const styles = StyleSheet.create({
   header: { padding: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   headerTitle: { fontSize: TYPOGRAPHY.sizes.xl, fontWeight: '700', color: COLORS.text },
   headerSubtitle: { marginTop: SPACING.xs, fontSize: TYPOGRAPHY.sizes.sm, color: COLORS.textSecondary },
-  statsContainer: { padding: SPACING.md, gap: SPACING.sm },
+  statsContainer: { 
+    padding: SPACING.md, 
+    gap: SPACING.md,
+    flexDirection: Platform.OS === 'web' ? 'row' : 'column',
+    flexWrap: 'wrap',
+  },
+  mainContent: {
+    flex: 1,
+  },
+  webMainContent: {
+    width: '100%',
+    maxWidth: 1100,
+    alignSelf: 'center',
+    paddingHorizontal: SPACING.md,
+  },
   statCard: {
     backgroundColor: COLORS.surface,
     borderRadius: 12,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
-    borderLeftWidth: 4,
+    borderLeftWidth: 1, // Reduzido para ficar mais elegante
+    borderLeftColor: COLORS.border,
+    minWidth: Platform.OS === 'web' ? 200 : '100%',
+    flex: Platform.OS === 'web' ? 1 : undefined,
     ...SHADOWS.sm,
   },
   statContent: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },

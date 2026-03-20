@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
+import { COLORS, SPACING, TYPOGRAPHY, SIZES } from '../../styles/theme';
 
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/types';
@@ -58,10 +58,16 @@ export default function LoginScreen({ navigation }: NativeStackScreenProps<AuthS
       style={styles.container}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          Platform.OS === 'web' && styles.webScrollContent
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.content}>
+        <View style={[
+          styles.content,
+          Platform.OS === 'web' && styles.webContent
+        ]}>
 {loading && (
             <View style={styles.loadingOverlay}>
               <View style={styles.logoCircle}>
@@ -107,23 +113,24 @@ export default function LoginScreen({ navigation }: NativeStackScreenProps<AuthS
               disabled={loading || !email || !password}
               loading={loading}
             />
-          </View>
-          
-            <TouchableOpacity
-              style={styles.forgotLink}
-              onPress={() => navigation.navigate('ForgotPassword')}
-              disabled={loading}
-            >
-              <Text style={styles.forgotText}>Esqueceu sua senha?</Text>
-            </TouchableOpacity>
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Não tem uma conta? </Text>
-            <Button
-              title="Cadastre-se"
-              onPress={() => navigation.navigate('Register')}
-              variant="secondary"
-              disabled={loading}
-            />
+
+            {Platform.OS !== 'web' && (
+              <View style={styles.footer}>
+                <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+                  <Text style={styles.footerText}>
+                    Não tem uma conta? <Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>Cadastre-se</Text>
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  onPress={() => navigation.navigate('ForgotPassword')}
+                  style={{ marginTop: SPACING.md }}
+                >
+                  <Text style={{ color: COLORS.primary, fontSize: TYPOGRAPHY.sizes.small }}>
+                    Esqueceu a senha?
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -142,6 +149,24 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: SPACING.lg,
+  },
+  webScrollContent: {
+    backgroundColor: '#EEF2F6', // Fundo levemente azulado/cinza premium
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  webContent: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: COLORS.surface,
+    padding: SPACING.xl,
+    borderRadius: SIZES.radiusLg,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 10px 25px rgba(0,0,0,0.05), 0 5px 10px rgba(0,0,0,0.05)',
+      }
+    }),
+    marginVertical: SPACING.xl,
   },
   header: {
     marginBottom: SPACING.xl,

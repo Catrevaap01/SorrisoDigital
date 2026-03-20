@@ -550,18 +550,23 @@ const AdminDashboardScreen: React.FC = () => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Gerenciar Dentistas</Text>
-        <Pressable
-          style={styles.botaoCriar}
-          onPress={handleOpenCreateModal}
-          hitSlop={12}
-          android_ripple={{ color: 'rgba(0,0,0,0.08)', borderless: true }}
-        >
-          <Ionicons name="add-circle" size={28} color={COLORS.primary} />
-        </Pressable>
+        <View style={Platform.OS === 'web' && styles.headerContent}>
+          <Text style={styles.headerTitle}>Gerenciar Dentistas</Text>
+          <Pressable
+            style={styles.botaoCriar}
+            onPress={handleOpenCreateModal}
+            hitSlop={12}
+            android_ripple={{ color: 'rgba(0,0,0,0.08)', borderless: true }}
+          >
+            <Ionicons name="add-circle" size={28} color={COLORS.primary} />
+          </Pressable>
+        </View>
       </View>
 
-      <View style={styles.buscaContainer}>
+      <View style={[
+        styles.buscaContainer,
+        Platform.OS === 'web' && { maxWidth: 900, alignSelf: 'center', width: '90%' }
+      ]}>
         <Ionicons name="search" size={20} color={COLORS.textSecondary} />
         <TextInput
           style={styles.buscaInput}
@@ -615,7 +620,10 @@ const AdminDashboardScreen: React.FC = () => {
             </View>
           )}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listaContainer}
+          contentContainerStyle={[
+            styles.listaContainer,
+            Platform.OS === 'web' && styles.webListaContainer
+          ]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }
@@ -1203,6 +1211,14 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: COLORS.text,
   },
+  headerContent: {
+    width: '100%',
+    maxWidth: 900,
+    flexDirection: 'row',
+    alignSelf: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   botaoCriar: {
     padding: SPACING.sm,
   },
@@ -1259,6 +1275,11 @@ const styles = StyleSheet.create({
   listaContainer: {
     paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.lg,
+  },
+  webListaContainer: {
+    maxWidth: 900,
+    width: '100%',
+    alignSelf: 'center',
   },
   dentistaCard: {
     flexDirection: 'column',
@@ -1377,19 +1398,27 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
+    alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
   },
   keyboardAvoidingModal: {
     width: '100%',
-    justifyContent: 'flex-end',
+    maxWidth: Platform.OS === 'web' ? 600 : '100%',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
+    alignSelf: 'center',
   },
   modalContent: {
     backgroundColor: COLORS.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    borderBottomLeftRadius: Platform.OS === 'web' ? 20 : 0,
+    borderBottomRightRadius: Platform.OS === 'web' ? 20 : 0,
     paddingTop: SPACING.lg,
-    maxHeight: '90%',
-    paddingBottom: SPACING.xl,
+    maxHeight: Platform.OS === 'web' ? '80%' : '90%',
+    paddingBottom: SPACING.lg,
+    overflow: 'hidden',
+    display: 'flex',
+    flexDirection: 'column',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1408,6 +1437,7 @@ const styles = StyleSheet.create({
   modalForm: {
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.lg,
+    flexShrink: 1,
   },
   formGroup: {
     marginBottom: SPACING.lg,

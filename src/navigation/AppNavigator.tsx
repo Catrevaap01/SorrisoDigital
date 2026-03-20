@@ -4,7 +4,8 @@ import {
   StyleSheet, 
   Text, 
   View, 
-  Pressable 
+  Pressable,
+  Platform,
 } from 'react-native';
 
 const ActivityIndicator: React.ComponentType<any> = _ActivityIndicator || (() => null);
@@ -117,6 +118,19 @@ const PacienteTabs: React.FC<TabsProps> = ({ unreadCount }) => (
             ? '99+'
             : unreadCount
           : undefined,
+      tabBarStyle: Platform.OS === 'web' ? {
+        maxWidth: 800,
+        width: '100%',
+        alignSelf: 'center',
+        borderTopWidth: 1,
+        borderTopColor: COLORS.divider,
+        backgroundColor: COLORS.surface,
+        position: 'absolute',
+        bottom: 0,
+        left: '50%',
+        marginLeft: -400,
+        height: 60,
+      } : { height: 60 },
     })}
   >
     <PacienteTab.Screen name="Início" component={HomeScreen} options={{ title: 'Odontologia Angola' }} />
@@ -168,6 +182,19 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
             ? '99+'
             : unreadCount
           : undefined,
+      tabBarStyle: Platform.OS === 'web' ? {
+        maxWidth: 800,
+        width: '100%',
+        alignSelf: 'center',
+        borderTopWidth: 1,
+        borderTopColor: COLORS.divider,
+        backgroundColor: COLORS.surface,
+        position: 'absolute',
+        bottom: 0,
+        left: '50%',
+        marginLeft: -400,
+        height: 60,
+      } : { height: 60 },
     })}
   >
     <DentistaTab.Screen

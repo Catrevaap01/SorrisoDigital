@@ -8,7 +8,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { User } from '@supabase/supabase-js';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { universalStorage } from '../utils/storage';
 import { supabase, PROFILE_SCHEMA_FEATURES } from '../config/supabase';
 import Toast from 'react-native-toast-message';
 import { logger } from '../utils/logger';
@@ -68,6 +68,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [initializing, setInitializing] = useState<boolean>(true);
+  const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
+  const [lastLoginTime, setLastLoginTime] = useState<number>(0);
 
 
 
@@ -309,13 +311,21 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       const normalizedProfile = normalizeProfile(data);
       
       // LOGICA SINGLE DEVICE: Verificar se a sessao local coincide com a do banco
-      const localSessionId = await AsyncStorage.getItem(`last_session_id_${userId}`);
-      if (data.last_session_id && localSessionId && data.last_session_id !== localSessionId) {
-        logger.warn(`Sessao conflitante detectada para ${userId}. Local: ${localSessionId}, DB: ${data.last_session_id}. Forçando logout.`);
-        // Nao chamamos signOut direto para evitar loop, limpamos e avisamos
+      const localSessionId = await universalStorage.getItem(`last_session_id_${userId}`);
+      const isRecentlyLoggedIn = Date.now() - lastLoginTime < 30000; // 30 segundos de carência
+      
+      if (!isSigningIn && !isRecentlyLoggedIn && data.last_session_id && localSessionId && data.last_session_id !== localSessionId) {
+        // Se houver conflito, damos uma segunda chance (pode ser delay de propagação do Supabase)
+        logger.warn(`Possível conflito de sessão para ${userId}. Aguardando 2s para re-verificação...`);
+        await new Promise(r => setTimeout(r, 2000));
+        const { data: retryData } = await supabase.from('profiles').select('last_session_id').eq('id', userId).maybeSingle();
+        
+        if (retryData?.last_session_id && retryData.last_session_id !== localSessionId) {
+          logger.warn(`Sessao conflitante CONFIRMADA para ${userId}. Local: ${localSessionId}, DB: ${retryData.last_session_id}. Forçando logout.`);
+          // Nao chamamos signOut direto para evitar loop, limpamos e avisamos
         setUser(null);
         setProfile(null);
-        await AsyncStorage.removeItem(`last_session_id_${userId}`);
+        await universalStorage.removeItem(`last_session_id_${userId}`);
         await supabase.auth.signOut();
         Toast.show({
           type: 'info',
@@ -323,7 +333,8 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
           text2: 'Esta conta foi ligada noutro dispositivo.',
           visibilityTime: 6000,
         });
-        return null;
+          return null;
+        }
       }
 
       setProfile(normalizedProfile);
@@ -350,8 +361,8 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
     // Verificar sessÃ£o atual
     withTimeout(supabase.auth.getSession(), AUTH_BOOT_TIMEOUT_MS)
       .then(({ data: { session } }) => {
-        setUser(session?.user ?? null);
         if (session?.user) {
+          setLastLoginTime(Date.now()); // Inicializa tempo no boot
           void fetchProfile(session.user.id).finally(() => {
             setInitializing(false);
             setLoading(false);
@@ -397,6 +408,8 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
   ): Promise<{ success: boolean; data?: any; error?: HandledError }> => {
     try {
       setLoading(true);
+      setIsSigningIn(true);
+      setLastLoginTime(Date.now());
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
@@ -411,7 +424,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
         
         // Registrar nova sessao
         const newSessionId = generateSessionId();
-        await AsyncStorage.setItem(`last_session_id_${data.user.id}`, newSessionId);
+        await universalStorage.setItem(`last_session_id_${data.user.id}`, newSessionId);
         await supabase.from('profiles').update({ last_session_id: newSessionId }).eq('id', data.user.id);
       }
 
@@ -428,6 +441,8 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       return { success: false, error: handledError };
     } finally {
       setLoading(false);
+      // Aguarda um pouco mais para que o observer de auth state processe o novo session_id
+      setTimeout(() => setIsSigningIn(false), 5000);
     }
   };
 
@@ -441,6 +456,8 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
   ): Promise<{ success: boolean; data?: any; error?: HandledError }> => {
     try {
       setLoading(true);
+      setIsSigningIn(true);
+      setLastLoginTime(Date.now());
 
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
@@ -461,7 +478,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
 
         // Registrar sessao inicial
         const newSessionId = generateSessionId();
-        await AsyncStorage.setItem(`last_session_id_${data.user.id}`, newSessionId);
+        await universalStorage.setItem(`last_session_id_${data.user.id}`, newSessionId);
 
         const profileUpdates = Object.fromEntries(
           Object.entries({
@@ -501,6 +518,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       return { success: false, error: handledError };
     } finally {
       setLoading(false);
+      setTimeout(() => setIsSigningIn(false), 5000);
     }
   };
 
@@ -515,6 +533,9 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       setLoading(true);
 
       // 1) encerra sessao local imediatamente
+      if (user) {
+        await universalStorage.removeItem(`last_session_id_${user.id}`);
+      }
       setUser(null);
       setProfile(null);
 

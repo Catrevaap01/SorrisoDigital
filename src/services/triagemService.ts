@@ -400,22 +400,24 @@ export const buscarContadoresDentista = async (
   dentistaId: string
 ): Promise<ServiceResult<Contadores>> => {
   try {
-    const { data, error } = await supabase
-      .from('triagens')
-      .select('id, status, prioridade')
-      .eq('dentista_id', dentistaId);
+    // Executa as 3 consultas principais em paralelo para máxima velocidade
+    const [triagensRes, repliesRes, agendamentosRes] = await Promise.all([
+      supabase.from('triagens').select('id, status, prioridade').eq('dentista_id', dentistaId),
+      supabase.from('respostas_triagem').select('triagem_id').eq('dentista_id', dentistaId),
+      supabase.from('agendamentos').select('id, status').eq('dentista_id', dentistaId).eq('status', 'realizado')
+    ]);
 
-    if (error) throw error;
+    if (triagensRes.error) throw triagensRes.error;
+    
     const cont: Contadores = { pendente: 0, urgente: 0, respondido: 0, total: 0, realizados: 0 };
     const statusById: Record<string, string> = {};
     const priorityById: Record<string, string> = {};
 
-    (data || []).forEach((t: any) => {
+    (triagensRes.data || []).forEach((t: any) => {
       cont.total += 1;
       statusById[t.id] = t.status;
       priorityById[t.id] = t.prioridade;
       
-      // urgent - only count if NOT responded yet
       const isRespondido = t.status === 'respondido' || t.status === 'completo';
       if (!isRespondido && (t.status === 'urgente' || t.prioridade === 'urgente' || t.prioridade === 'alta')) {
         cont.urgente += 1;
@@ -425,18 +427,12 @@ export const buscarContadoresDentista = async (
       if (t.status === 'respondido' || t.status === 'completo') cont.respondido += 1;
     });
 
-    // additionally, if there are replies recorded but status wasn't updated, count them as responded
-    const { data: replies, error: replyErr } = await supabase
-      .from('respostas_triagem')
-      .select('triagem_id')
-      .eq('dentista_id', dentistaId);
-    if (!replyErr && replies) {
-      const respondedIds = new Set<string>((replies || []).map((r: any) => r.triagem_id));
+    if (!repliesRes.error && repliesRes.data) {
+      const respondedIds = new Set<string>((repliesRes.data || []).map((r: any) => r.triagem_id));
       respondedIds.forEach((id) => {
         const status = statusById[id];
         const prio = priorityById[id];
         if (status && status !== 'respondido' && status !== 'completo') {
-          // adjust counters: remove from pendente and urgent if necessary
           if (status === 'pendente') cont.pendente = Math.max(0, cont.pendente - 1);
           const isUrgente = status === 'urgente' || prio === 'urgente' || prio === 'alta';
           if (isUrgente) {
@@ -447,15 +443,8 @@ export const buscarContadoresDentista = async (
       });
     }
 
-    // Count realizados from agendamentos
-    const { data: agendamentos, error: agError } = await supabase
-      .from('agendamentos')
-      .select('id, status')
-      .eq('dentista_id', dentistaId)
-      .eq('status', 'realizado');
-    
-    if (!agError && agendamentos) {
-      cont.realizados = agendamentos.length;
+    if (!agendamentosRes.error && agendamentosRes.data) {
+      cont.realizados = agendamentosRes.data.length;
     }
 
     return { success: true, data: cont };
