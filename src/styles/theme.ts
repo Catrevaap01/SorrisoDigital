@@ -2,6 +2,8 @@
  * Temas e estilos globais da aplicação
  */
 
+import { Platform } from 'react-native';
+
 export interface ThemeColors {
   primary: string;
   primaryDark: string;
@@ -63,6 +65,7 @@ export interface ShadowStyle {
   shadowOpacity: number;
   shadowRadius: number;
   elevation: number;
+  boxShadow?: string;
 }
 
 export interface ThemeShadows {
@@ -148,35 +151,62 @@ export const SIZES: ThemeSizes = {
 };
 
 export const SHADOWS: ThemeShadows = {
-  small: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  sm: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  md: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  lg: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
+  small: Platform.select({
+    web: {
+      boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.1)',
+    },
+    default: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+    },
+  }) as ShadowStyle,
+  sm: Platform.select({
+    web: {
+      boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.1)',
+    },
+    default: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.1,
+      shadowRadius: 2,
+    },
+  }) as ShadowStyle,
+  md: Platform.select({
+    web: {
+      boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.15)',
+    },
+    default: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 4,
+    },
+  }) as ShadowStyle,
+  lg: Platform.select({
+    web: {
+      boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.2)',
+    },
+    default: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+    },
+  }) as ShadowStyle,
 };
+
+// Add elevation for Android separately if needed, or include in default
+// Note: React Native Web ignores elevation
+Object.keys(SHADOWS).forEach(key => {
+  const k = key as keyof ThemeShadows;
+  if (Platform.OS === 'android') {
+    if (k === 'small' || k === 'sm') SHADOWS[k].elevation = 1;
+    if (k === 'md') SHADOWS[k].elevation = 3;
+    if (k === 'lg') SHADOWS[k].elevation = 5;
+  }
+});
 // Espaçamento - usado para padding, margin, gap
 export const SPACING = {
   xs: 4,

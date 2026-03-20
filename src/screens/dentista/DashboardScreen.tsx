@@ -1,414 +1,548 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  RefreshControl,
-  Image,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../contexts/AuthContext';
-import { buscarTriagensDentista, buscarContadoresDentista } from '../../services/triagemService';
-import { buscarTodosAgendamentosDentista } from '../../services/agendamentoService';
-import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
-import { STATUS_TRIAGEM, PRIORIDADE, STATUS_AGENDAMENTO, TIPOS_CONSULTA } from '../../utils/constants';
-import { formatRelativeTime } from '../../utils/helpers';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { logger } from '../../utils/logger';
+import { useAuth } from '../../contexts/AuthContext';
 import { DentistaTabParamList } from '../../navigation/types';
+import { Agendamento, ServiceResult, buscarAgendaDentista, buscarAgendamentosDentistaPorPeriodo } from '../../services/agendamentoService';
+import { buscarContadoresDentista, buscarTriagensDentista, Contadores, Triagem } from '../../services/triagemService';
+import { COLORS, SHADOWS, SIZES } from '../../styles/theme';
+import { PRIORIDADE, STATUS_AGENDAMENTO, STATUS_TRIAGEM, TIPOS_CONSULTA } from '../../utils/constants';
+import { formatRelativeTime } from '../../utils/helpers';
+import { getEspecialidadeConfig, EspecialidadeConfig } from '../../config/specialtyConfig';
 
-type DashboardProps = BottomTabScreenProps<DentistaTabParamList, 'Dashboard'>;
+type Props = BottomTabScreenProps<DentistaTabParamList, 'Dashboard'>;
+type ListaItem = Triagem | Agendamento;
 
-const DashboardScreen: React.FC<DashboardProps> = ({ navigation }) => {
+const CONTADORES_DEFAULT: Contadores = { pendente: 0, urgente: 0, respondido: 0, total: 0, realizados: 0 };
+const PRECO_POR_TIPO: Record<string, number> = { consulta: 25000, avaliacao: 30000, retorno: 15000, urgencia: 45000, raio_x: 20000, panoramico: 35000, profilaxia: 22000, branqueamento: 60000, canal: 90000, ortodontia: 120000, restauracao: 40000 };
+
+const currency = (value: number) =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 });
+
+const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { profile } = useAuth();
-  const [triagens, setTriagens] = useState<any[]>([]);
-  const [agendamentos, setAgendamentos] = useState<any[]>([]);
-  const [triagensRecentes, setTriagensRecentes] = useState<any[]>([]);
-  const [contadores, setContadores] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [filtroAtivo, setFiltroAtivo] = useState<string>('todos');
+  const [triagens, setTriagens] = useState<Triagem[]>([]);
+  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
+  const [agendaHoje, setAgendaHoje] = useState<Agendamento[]>([]);
+  const [contadores, setContadores] = useState<Contadores>(CONTADORES_DEFAULT);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [filtroAtivo, setFiltroAtivo] = useState<'todos' | 'pendente' | 'urgente' | 'respondido' | 'realizados'>('todos');
+  const hasLoadedRef = useRef(false);
 
-  const carregarDados = async () => {
-    if (!profile?.id) return;
-
-    setLoading(true);
-
-    const contResult = await buscarContadoresDentista(profile.id);
-    if (contResult.success && contResult.data) {
-      setContadores(contResult.data);
-    } else if (!contResult.success) {
-      setContadores({ pendente: 0, urgente: 0, respondido: 0, total: 0, realizados: 0 });
-    }
-
-    const triagensResult = await buscarTriagensDentista(profile.id);
-    if (triagensResult.success) {
-      let all = triagensResult.data || [];
-
-      const missingIds = new Set<string>();
-      all.forEach((t: any) => {
-        if ((!t.paciente || !t.paciente.nome) && t.paciente_id) {
-          missingIds.add(t.paciente_id);
-        }
-      });
-      if (missingIds.size) {
-        const { data: patients } = await import('../../config/supabase').then((m) =>
-          m.supabase.from('profiles').select('id, nome, provincia').in('id', Array.from(missingIds))
-        );
-        const map = Object.fromEntries((patients || []).map((p: any) => [p.id, p]));
-        all = all.map((t: any) => {
-          if ((!t.paciente || !t.paciente.nome) && t.paciente_id && map[t.paciente_id]) {
-            return { ...t, paciente: { ...(t.paciente || {}), ...map[t.paciente_id] } };
-          }
-          return t;
-        });
-      }
-
-      setTriagensRecentes(all.slice(0, 5));
-      setTriagens(all);
-    } else {
-      setTriagens([]);
-      setTriagensRecentes([]);
-    }
-
-    const agendResult = await buscarTodosAgendamentosDentista(profile.id);
-    if (agendResult.success && agendResult.data) {
-      setAgendamentos(agendResult.data);
-    } else {
-      setAgendamentos([]);
-    }
-
-    setLoading(false);
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      carregarDados();
-    }, [filtroAtivo, profile?.id])
+  // Configuração por especialidade
+  const specConfig: EspecialidadeConfig = useMemo(
+    () => getEspecialidadeConfig(profile?.especialidade),
+    [profile?.especialidade]
   );
+
+  const carregarDados = useCallback(async () => {
+    if (!profile?.id) return;
+    if (!hasLoadedRef.current) {
+      setLoading(true);
+    }
+    const fimSemana = new Date();
+    const inicioSemana = new Date();
+    inicioSemana.setHours(0, 0, 0, 0);
+    inicioSemana.setDate(inicioSemana.getDate() - 6);
+    fimSemana.setDate(fimSemana.getDate() + 1);
+
+    let contResult: ServiceResult<Contadores> = { success: false, data: CONTADORES_DEFAULT };
+    let triResult: ServiceResult<Triagem[]> = { success: false, data: [] };
+    let agResult: ServiceResult<Agendamento[]> = { success: false, data: [] };
+    let hojeResult: ServiceResult<Agendamento[]> = { success: false, data: [] };
+
+    try { contResult = await buscarContadoresDentista(profile.id); } catch(e) { logger.warn('Dashboard contadores failed', e); }
+    try { triResult = await buscarTriagensDentista(profile.id); } catch(e) { logger.warn('Dashboard triagens failed', e); }
+    try { agResult = await buscarAgendamentosDentistaPorPeriodo(profile.id, inicioSemana, fimSemana); } catch(e) { logger.warn('Dashboard agendamentos failed', e); }
+    try { hojeResult = await buscarAgendaDentista(profile.id, new Date()); } catch(e) { logger.warn('Dashboard agenda hoje failed', e); }
+
+    setContadores(contResult.success ? contResult.data ?? CONTADORES_DEFAULT : CONTADORES_DEFAULT);
+    setTriagens(triResult.success ? triResult.data ?? [] : []);
+    setAgendamentos(agResult.success ? agResult.data ?? [] : []);
+    setAgendaHoje(hojeResult.success ? hojeResult.data ?? [] : []);
+
+    const errors = [contResult, triResult, agResult, hojeResult].filter(r => !r.success).length;
+    if (errors > 0) {
+      logger.warn(`Dashboard: ${errors}/4 services failed on ${Platform.OS}, showing partial data`);
+    }
+
+    hasLoadedRef.current = true;
+    setLoading(false);
+  }, [profile?.id]);
+
+  useFocusEffect(useCallback(() => { void carregarDados(); }, [carregarDados]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await carregarDados();
     setRefreshing(false);
-  }, [filtroAtivo]);
+  }, [carregarDados]);
 
-  const filtros = [
-    { id: 'todos', label: 'Todos', count: contadores.total ?? 0 },
-    { id: 'pendente', label: 'Pend.', count: contadores.pendente ?? 0 },
-    { id: 'urgente', label: 'Urg.', count: contadores.urgente ?? 0 },
-    { id: 'respondido', label: 'Resp.', count: contadores.respondido ?? 0 },
-    { id: 'realizados', label: 'Realiz.', count: contadores.realizados ?? 0 },
-  ];
+  const dashboard = useMemo(() => {
+    const now = new Date();
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const weekStart = new Date(start);
+    weekStart.setDate(weekStart.getDate() - 6);
+    const agendaSemana = agendamentos.filter((item) => new Date(item.data_agendamento) >= weekStart);
+    const realizadosHoje = agendaHoje.filter((item) => item.status === 'realizado');
+    const realizadosSemana = agendaSemana.filter((item) => item.status === 'realizado');
+    const canceladosSemana = agendaSemana.filter((item) => item.status === 'cancelado');
+    const proximos = [...agendaHoje]
+      .filter((item) => ['agendado', 'confirmado'].includes(item.status || '') && new Date(item.data_agendamento) >= now)
+      .sort((a, b) => new Date(a.data_agendamento).getTime() - new Date(b.data_agendamento).getTime())
+      .slice(0, 3);
+    const atrasados = agendaHoje.filter((item) => ['agendado', 'confirmado'].includes(item.status || '') && new Date(item.data_agendamento) < now);
+    const receitaHoje = realizadosHoje.reduce((sum, item) => sum + (PRECO_POR_TIPO[item.tipo || 'consulta'] || 0), 0);
+    const receitaSemana = realizadosSemana.reduce((sum, item) => sum + (PRECO_POR_TIPO[item.tipo || 'consulta'] || 0), 0);
+    const procedimentosMap = realizadosSemana.reduce((acc, item) => {
+      const tipo = item.tipo || 'consulta';
+      acc[tipo] = (acc[tipo] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    const procedimentos = Object.entries(procedimentosMap).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const taxaFaltas = canceladosSemana.length + realizadosSemana.length > 0
+      ? (canceladosSemana.length / (canceladosSemana.length + realizadosSemana.length)) * 100
+      : 0;
 
-  const getFilteredData = () => {
-    if (filtroAtivo === 'todos') {
-      return triagens;
-    } else if (filtroAtivo === 'respondido') {
-      return triagens.filter(
-        (t: any) => t.status === 'respondido' || t.status === 'completo' || (t.respostas && t.respostas.length > 0)
-      );
-    } else if (filtroAtivo === 'urgente') {
-      return triagens.filter(
-        (t: any) =>
-          (t.status === 'urgente' || t.prioridade === 'urgente' || t.prioridade === 'alta') &&
-          t.status !== 'respondido' &&
-          t.status !== 'completo' &&
-          t.status !== 'realizado' &&
-          (!t.respostas || t.respostas.length === 0)
-      );
-    } else if (filtroAtivo === 'pendente') {
-      return triagens.filter((t: any) => t.status === 'pendente');
-    } else if (filtroAtivo === 'realizados') {
-      return agendamentos.filter((a: any) => a.status === 'realizado');
-    } else {
-      return triagens.filter((t: any) => t.status === filtroAtivo);
+    return {
+      proximos,
+      atrasados,
+      receitaHoje,
+      receitaSemana,
+      faltasSemana: canceladosSemana.length,
+      atendidosHoje: new Set(realizadosHoje.map((item) => item.paciente_id).filter(Boolean)).size,
+      atendidosSemana: new Set(realizadosSemana.map((item) => item.paciente_id).filter(Boolean)).size,
+      procedimentos,
+      taxaFaltas,
+    };
+  }, [agendaHoje, agendamentos]);
+
+  const dadosFiltrados: ListaItem[] =
+    filtroAtivo === 'todos'
+      ? ([...triagens, ...agendamentos.filter(a => ['agendado', 'confirmado', 'realizado'].includes(a.status || ''))].sort(
+          (a, b) => new Date(b.created_at || (b as any).data_agendamento).getTime() - 
+                    new Date(a.created_at || (a as any).data_agendamento).getTime()
+        ))
+      : filtroAtivo === 'respondido'
+        ? triagens.filter((item) => (item.respostas && item.respostas.length > 0) || item.status === 'respondido' || item.status === 'completo')
+        : filtroAtivo === 'urgente'
+          ? triagens.filter((item) => (item.status === 'urgente' || item.prioridade === 'urgente' || item.prioridade === 'alta') && (!item.respostas || item.respostas.length === 0))
+          : filtroAtivo === 'pendente'
+            ? triagens.filter((item) => item.status === 'pendente' && (!item.respostas || item.respostas.length === 0))
+            : agendamentos.filter((item) => item.status === 'realizado');
+
+  const abrirCaso = (triagem: Triagem) => navigation.getParent<any>()?.navigate('CasoDetalhe', { triagemId: triagem.id });
+  const abrirPaciente = (agendamento: Agendamento) => {
+    if (!agendamento.paciente_id) return;
+    navigation.getParent<any>()?.navigate('PacienteHistorico', { pacienteId: agendamento.paciente_id, pacienteNome: agendamento.paciente?.nome });
+  };
+
+  const handleQuickAction = (screen?: string) => {
+    if (!screen) return;
+    if (screen === 'CadastrarPaciente') {
+      navigation.getParent<any>()?.navigate('CadastrarPaciente');
+    } else if (['Agenda', 'Mensagens', 'Pacientes'].includes(screen)) {
+      navigation.navigate(screen as any);
     }
+    // 'Dashboard' actions stay on current screen (filter change)
   };
 
-  const dadosFiltrados = getFilteredData();
-
-  const abrirCaso = (triagem: any) => {
-    const parentNav = navigation.getParent();
-    if (parentNav) {
-      parentNav.navigate('CasoDetalhe' as any, { triagemId: triagem.id });
+  const renderListItem = ({ item }: { item: ListaItem }) => {
+    if ('data_agendamento' in item) {
+      const statusInfo = STATUS_AGENDAMENTO[item.status || ''] || STATUS_AGENDAMENTO.pendente;
+      return (
+        <TouchableOpacity style={styles.card} onPress={() => abrirPaciente(item as Agendamento)}>
+          <View style={styles.cardRow}>
+            <Text style={styles.cardTitle}>{(item as Agendamento).paciente?.nome || 'Paciente'}</Text>
+            <View style={[styles.badgeContainer, { backgroundColor: statusInfo.color }]}>
+              <Ionicons name={statusInfo.icon as any} size={12} color={COLORS.textInverse} />
+              <Text style={styles.badgeText}>{statusInfo.label}</Text>
+            </View>
+          </View>
+          <Text style={styles.meta}>{TIPOS_CONSULTA[item.tipo || 'consulta']?.label || 'Consulta'} · {formatRelativeTime(item.data_agendamento)}</Text>
+        </TouchableOpacity>
+      );
     }
-  };
 
-  const renderContadores = () => (
-    <View style={styles.contadoresContainer}>
-      <View style={styles.contadorCard}>
-        <Text style={[styles.contadorNumero, { color: '#FFA726' }]}>{contadores.pendente || 0}</Text>
-        <Text style={styles.contadorLabel}>Pendentes</Text>
-      </View>
-      <View style={styles.contadorCard}>
-        <Text style={[styles.contadorNumero, { color: '#EF5350' }]}>{contadores.urgente || 0}</Text>
-        <Text style={styles.contadorLabel}>Urgentes</Text>
-      </View>
-      <View style={styles.contadorCard}>
-        <Text style={[styles.contadorNumero, { color: '#66BB6A' }]}>{contadores.respondido || 0}</Text>
-        <Text style={styles.contadorLabel}>Respondidos</Text>
-      </View>
-      <View style={styles.contadorCard}>
-        <Text style={[styles.contadorNumero, { color: '#9C27B0' }]}>{contadores.realizados || 0}</Text>
-        <Text style={styles.contadorLabel}>Realizados</Text>
-      </View>
-      <View style={styles.contadorCard}>
-        <Text style={[styles.contadorNumero, { color: COLORS.primary }]}>{contadores.total || 0}</Text>
-        <Text style={styles.contadorLabel}>Total</Text>
-      </View>
-    </View>
-  );
-
-  const renderTriagensRecentes = () => {
-    if (triagensRecentes.length === 0) return null;
+    const triagem = item as Triagem;
+    const temRespostas = triagem.respostas && triagem.respostas.length > 0;
+    const effectiveStatus = temRespostas ? 'respondido' : (triagem.status === 'urgente' || triagem.prioridade === 'urgente' || triagem.prioridade === 'alta' ? 'urgente' : (triagem.status || 'pendente'));
+    const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
+    const prioridade = PRIORIDADE[triagem.prioridade || ''] || PRIORIDADE.normal;
     return (
-      <View style={styles.recentesContainer}>
-        <Text style={styles.recentesTitle}>Triagens recentes</Text>
-        {triagensRecentes.slice(0, 3).map((item) => (
-          <TouchableOpacity key={item.id} style={styles.recenteItem} onPress={() => abrirCaso(item)} activeOpacity={0.7}>
-            <View style={styles.recenteMain}>
-              <Text style={styles.recenteSintoma} numberOfLines={1}>{item.sintoma_principal || 'Sem descricao'}</Text>
-              <Text style={styles.recenteMeta} numberOfLines={1}>{formatRelativeTime(item.created_at)} | Dor {item.intensidade_dor || 0}/10</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
-          </TouchableOpacity>
-        ))}
-      </View>
-    );
-  };
-
-  const renderTriagem = ({ item }: { item: any }) => {
-    const statusInfo = STATUS_TRIAGEM[item.status] || STATUS_TRIAGEM.pendente;
-    const prioridadeInfo = PRIORIDADE[item.prioridade] || PRIORIDADE.normal;
-    const temResposta = item.respostas && item.respostas.length > 0;
-    const dorAlta = item.intensidade_dor >= 7;
-
-    return (
-      <TouchableOpacity style={[styles.card, item.status === 'urgente' && styles.cardUrgente]} onPress={() => abrirCaso(item)} activeOpacity={0.7}>
-        <View style={styles.cardHeader}>
-          <View style={styles.pacienteInfo}>
-            <Text style={styles.pacienteNome}>{item.paciente?.nome || 'Paciente'}</Text>
-            <Text style={styles.pacienteDetalhe}>{item.paciente?.provincia || 'Angola'} • {formatRelativeTime(item.created_at)}</Text>
-          </View>
-          <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
-            <Text style={styles.statusText}>{statusInfo.label}</Text>
+      <TouchableOpacity style={styles.card} onPress={() => abrirCaso(triagem)}>
+        <View style={styles.cardRow}>
+          <Text style={styles.cardTitle}>{triagem.paciente?.nome || 'Paciente'}</Text>
+          <View style={[styles.badgeContainer, { backgroundColor: statusInfo.color }]}>
+            <Ionicons name={statusInfo.icon as any} size={12} color={COLORS.textInverse} />
+            <Text style={styles.badgeText}>{statusInfo.label}</Text>
           </View>
         </View>
-
-        <View style={styles.sintomaRow}>
-          <Ionicons name="medical" size={20} color={COLORS.secondary} />
-          <Text style={styles.sintomaText}>{item.sintoma_principal}</Text>
-        </View>
-
-        <View style={styles.tagsRow}>
-          <View style={[styles.tag, { backgroundColor: prioridadeInfo.color + '20' }]}>
-            <Text style={[styles.tagText, { color: prioridadeInfo.color }]}>{prioridadeInfo.label}</Text>
-          </View>
-          {dorAlta && (
-            <View style={[styles.tag, { backgroundColor: COLORS.danger + '20' }]}>
-              <Ionicons name="alert" size={12} color={COLORS.danger} />
-              <Text style={[styles.tagText, { color: COLORS.danger, marginLeft: 4 }]}>Dor {item.intensidade_dor}/10</Text>
-            </View>
-          )}
-          {item.imagens && item.imagens.length > 0 && (
-            <View style={[styles.tag, { backgroundColor: COLORS.primary + '20' }]}>
-              <Ionicons name="images" size={12} color={COLORS.primary} />
-              <Text style={[styles.tagText, { color: COLORS.primary, marginLeft: 4 }]}>{item.imagens.length} foto(s)</Text>
-            </View>
-          )}
-        </View>
-
-        {item.imagens && item.imagens.length > 0 && (
-          <View style={styles.imagensRow}>
-            {item.imagens.slice(0, 3).map((uri: string, index: number) => (
-              <Image key={index} source={{ uri }} style={styles.imagemMini} />
-            ))}
-            {item.imagens.length > 3 && (
-              <View style={styles.maisImagensBox}>
-                <Text style={styles.maisImagensText}>+{item.imagens.length - 3}</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        <View style={styles.cardFooter}>
-          {temResposta ? (
-            <View style={styles.footerColumn}>
-              <Text style={styles.footerText}>✓ Respondido</Text>
-              {item.respostas && item.respostas.length > 0 && (
-                <Text style={styles.footerPreview} numberOfLines={1} ellipsizeMode="tail">
-                  {item.respostas[0].orientacao || item.respostas[0].recomendacao || ''}
-                </Text>
-              )}
-            </View>
-          ) : (
-            <Text style={styles.footerText}>Aguardando análise</Text>
-          )}
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
-        </View>
+        <Text style={styles.meta}>{triagem.sintoma_principal || 'Sem sintoma'} · {formatRelativeTime(triagem.created_at)}</Text>
+        <Text style={[styles.priority, { color: prioridade.color }]}>{prioridade.label}</Text>
       </TouchableOpacity>
     );
   };
 
-  const renderAgendamento = ({ item }: { item: any }) => {
-    const statusInfo = STATUS_AGENDAMENTO[item.status] || STATUS_AGENDAMENTO.pendente;
-    const tipoConsulta = TIPOS_CONSULTA[item.tipo] || TIPOS_CONSULTA.consulta;
-
-    return (
-      <View style={[styles.card, styles.cardAgendamento]}>
-        <View style={styles.cardHeader}>
-          <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
-            <Ionicons name={statusInfo.icon as any} size={12} color="#fff" />
-            <Text style={styles.statusText}>{statusInfo.label}</Text>
+  const header = (
+    <View>
+      {/* Specialty Header */}
+      <View style={[styles.specHeader, { backgroundColor: COLORS.primary }]}>
+        <View style={styles.specHeaderContent}>
+          <View style={[styles.specIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+            <Ionicons name={specConfig.icon as any} size={28} color="white" />
           </View>
-          <Text style={styles.cardData}>{formatRelativeTime(item.data_agendamento)}</Text>
-        </View>
-
-        <View style={styles.tipoConsultaRow}>
-          <Ionicons name={tipoConsulta.icon as any} size={20} color={tipoConsulta.color} />
-          <Text style={[styles.tipoConsultaText, { color: tipoConsulta.color }]}>{tipoConsulta.label}</Text>
-        </View>
-
-        {item.paciente && (
-          <View style={styles.dentistaInfoRow}>
-            <Ionicons name="person" size={14} color={COLORS.textSecondary} />
-            <Text style={styles.dentistaNomeText}>Paciente: {item.paciente.nome}</Text>
-          </View>
-        )}
-
-        <View style={styles.cardInfoRow}>
-          <View style={styles.infoItem}>
-            <Ionicons name="calendar" size={14} color={COLORS.textSecondary} />
-            <Text style={styles.infoText}>
-              {new Date(item.data_agendamento).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-            </Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="time" size={14} color={COLORS.textSecondary} />
-            <Text style={styles.infoText}>
-              {new Date(item.data_agendamento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-            </Text>
+          <View style={styles.specInfo}>
+            <Text style={styles.specGreeting}>Olá, Dr(a). {profile?.nome?.split(' ')[0] || 'Dentista'}</Text>
+            <Text style={styles.specLabel}>{specConfig.label}</Text>
+            <Text style={styles.specDesc}>{specConfig.descricao}</Text>
           </View>
         </View>
-
-        {item.observacoes && <Text style={styles.cardDescricao} numberOfLines={2}>{item.observacoes}</Text>}
       </View>
-    );
-  };
 
-  const renderItem = ({ item }: { item: any }) => {
-    if (item.data_agendamento) {
-      return renderAgendamento({ item });
-    }
-    return renderTriagem({ item });
-  };
-
-  return (
-    <View style={styles.container}>
-      {renderContadores()}
-      {renderTriagensRecentes()}
-
-      <View style={styles.filtrosContainer}>
-        {filtros.map((filtro) => (
+      {/* Quick Actions por Especialidade */}
+      <View style={styles.quickActions}>
+        {specConfig.acoesRapidas.map((acao, idx) => (
           <TouchableOpacity
-            key={filtro.id}
-            style={[styles.filtroButton, filtroAtivo === filtro.id && styles.filtroButtonActive]}
-            onPress={() => setFiltroAtivo(filtro.id)}
+            key={idx}
+            style={styles.quickActionBtn}
+            onPress={() => handleQuickAction(acao.screen)}
           >
-            <Text style={[styles.filtroText, filtroAtivo === filtro.id && styles.filtroTextActive]}>{filtro.label}</Text>
-            <View style={[styles.filtroBadge, filtroAtivo === filtro.id && styles.filtroBadgeActive]}>
-              <Text style={[styles.filtroBadgeText, filtroAtivo === filtro.id && styles.filtroBadgeTextActive]}>{filtro.count}</Text>
+            <View style={[styles.quickActionIcon, { backgroundColor: '#E3F2FD' }]}>
+              <Ionicons name={acao.icon as any} size={20} color={COLORS.primary} />
             </View>
+            <Text style={styles.quickActionLabel} numberOfLines={1}>{acao.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
+      {/* Metrics Grid */}
+      <View style={styles.grid}>
+        <View style={styles.metric}>
+          <Text style={[styles.metricValue, { color: COLORS.primary }]}>{agendaHoje.length}</Text>
+          <Text style={styles.metricLabel}>Agenda do dia</Text>
+        </View>
+        <View style={styles.metric}>
+          <Text style={[styles.metricValue, { color: dashboard.atrasados.length > 0 ? COLORS.danger : COLORS.primary }]}>
+            {dashboard.atrasados.length}
+          </Text>
+          <Text style={styles.metricLabel}>Em atraso</Text>
+        </View>
+        <View style={styles.metric}>
+          <Text style={[styles.metricValue, { color: contadores.urgente > 0 ? COLORS.danger : COLORS.primary }]}>
+            {contadores.urgente}
+          </Text>
+          <Text style={styles.metricLabel}>Urgentes</Text>
+        </View>
+        <View style={styles.metric}>
+          <Text style={[styles.metricValue, { color: COLORS.success }]}>{contadores.respondido}</Text>
+          <Text style={styles.metricLabel}>Respondidos</Text>
+        </View>
+        <View style={styles.metric}>
+          <Text style={[styles.metricValue, { color: COLORS.secondary }]}>{contadores.realizados}</Text>
+          <Text style={styles.metricLabel}>Realizados</Text>
+        </View>
+      </View>
+
+      {/* Próximos atendimentos */}
+      <View style={styles.block}>
+        <View style={styles.blockHeader}>
+          <Ionicons name="time" size={18} color={COLORS.primary} />
+          <Text style={styles.blockTitle}>Próximos atendimentos</Text>
+        </View>
+        {dashboard.proximos.length === 0 ? (
+          <Text style={styles.empty}>Nenhum agendado para hoje.</Text>
+        ) : (
+          dashboard.proximos.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.line} onPress={() => abrirPaciente(item)}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.lineTitle}>{item.paciente?.nome || 'Paciente'}</Text>
+                <Text style={styles.lineMeta}>
+                  {new Date(item.data_agendamento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {TIPOS_CONSULTA[item.tipo || 'consulta']?.label || 'Consulta'}
+                </Text>
+              </View>
+              <View style={styles.timeChip}>
+                <Text style={styles.timeChipText}>
+                  {Math.max(0, Math.round((new Date(item.data_agendamento).getTime() - Date.now()) / 60000))} min
+                </Text>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
+      </View>
+
+      {/* Financeiro */}
+      <View style={styles.block}>
+        <View style={styles.blockHeader}>
+          <Ionicons name="stats-chart" size={18} color={COLORS.primary} />
+          <Text style={styles.blockTitle}>Financeiro e indicadores</Text>
+        </View>
+        <View style={styles.finRow}>
+          <View style={styles.finItem}>
+            <Text style={styles.finLabel}>Receita hoje</Text>
+            <Text style={[styles.finValue, { color: COLORS.primary }]}>{currency(dashboard.receitaHoje)}</Text>
+          </View>
+          <View style={styles.finItem}>
+            <Text style={styles.finLabel}>Receita semana</Text>
+            <Text style={[styles.finValue, { color: COLORS.primary }]}>{currency(dashboard.receitaSemana)}</Text>
+          </View>
+        </View>
+        <View style={styles.finRow}>
+          <View style={styles.finItem}>
+            <Text style={styles.finLabel}>Pacientes atendidos</Text>
+            <Text style={styles.finDetail}>{dashboard.atendidosHoje} hoje / {dashboard.atendidosSemana} semana</Text>
+          </View>
+          <View style={styles.finItem}>
+            <Text style={styles.finLabel}>Taxa de faltas</Text>
+            <Text style={[styles.finDetail, dashboard.taxaFaltas > 20 ? { color: COLORS.danger } : {}]}>
+              {dashboard.taxaFaltas.toFixed(0)}% ({dashboard.faltasSemana} faltas)
+            </Text>
+          </View>
+        </View>
+        {dashboard.procedimentos.length > 0 && (
+          <View style={styles.procSection}>
+            <Text style={styles.procTitle}>Procedimentos mais realizados</Text>
+            {dashboard.procedimentos.map(([tipo, total]) => (
+              <View key={tipo} style={styles.procRow}>
+                <View style={[styles.procDot, { backgroundColor: COLORS.primary }]} />
+                <Text style={styles.procText}>{TIPOS_CONSULTA[tipo]?.label || tipo}</Text>
+                <Text style={styles.procCount}>{total}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+
+      {/* Filtros */}
+      <View style={[styles.filters, Platform.OS === 'web' && styles.filtersWeb]}>
+        {([
+          ['todos', 'Todos', contadores.total],
+          ['pendente', Platform.OS === 'web' ? 'Pendente' : 'Pend.', contadores.pendente],
+          ['urgente', Platform.OS === 'web' ? 'Urgente' : 'Urg.', contadores.urgente],
+          ['respondido', Platform.OS === 'web' ? 'Respondido' : 'Resp.', contadores.respondido],
+          ['realizados', Platform.OS === 'web' ? 'Realizados' : 'Realiz.', contadores.realizados],
+        ] as const).map(([id, label, count]) => (
+          <TouchableOpacity
+            key={id}
+            style={[
+              styles.filter,
+              filtroAtivo === id && { backgroundColor: specConfig.color, borderColor: specConfig.color },
+              Platform.OS === 'web' && styles.filterWeb
+            ]}
+            onPress={() => setFiltroAtivo(id)}
+          >
+            <Text style={[styles.filterText, filtroAtivo === id && styles.filterTextActive]}>
+              {label} {count !== undefined ? `(${count})` : ''}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
       {loading ? (
-        <View style={styles.centerContainer}><Text style={styles.loadingText}>Carregando casos...</Text></View>
-      ) : dadosFiltrados.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <Ionicons name={filtroAtivo === 'realizados' ? 'checkmark-done' : 'checkmark-circle'} size={64} color={filtroAtivo === 'realizados' ? '#9C27B0' : COLORS.secondary} />
-          <Text style={styles.emptyTitle}>
-            {filtroAtivo === 'realizados' ? 'Nenhuma consulta realizada' : `Nenhum caso ${filtroAtivo}`}
-          </Text>
-          <Text style={styles.emptySubtitle}>
-            {filtroAtivo === 'pendente' ? 'Todos os casos foram analisados!' : filtroAtivo === 'realizados' ? 'As consultas realizadas aparecerão aqui' : 'Não há casos com esse filtro'}
-          </Text>
+        <View style={styles.center}>
+          <Ionicons name={specConfig.icon as any} size={48} color={specConfig.color} />
+          <Text style={[styles.empty, { marginTop: 12 }]}>Carregando painel...</Text>
         </View>
       ) : (
         <FlatList
           data={dadosFiltrados}
           keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.lista}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          showsVerticalScrollIndicator={false}
+          renderItem={renderListItem}
+          ListHeaderComponent={header}
+          ListEmptyComponent={<View style={styles.center}><Text style={styles.empty}>Nenhum item para este filtro.</Text></View>}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+          contentContainerStyle={styles.content}
         />
       )}
+
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: COLORS.primary }]}
+        onPress={() => navigation.getParent<any>()?.navigate('CadastrarPaciente')}
+      >
+        <Ionicons name="add" size={22} color={COLORS.textInverse} />
+        <Text style={styles.fabText}>Novo Paciente</Text>
+      </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  contadoresContainer: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: COLORS.surface, paddingVertical: SIZES.md, ...SHADOWS.sm },
-  contadorCard: { alignItems: 'center' },
-  contadorNumero: { fontSize: 28, fontWeight: 'bold' },
-  contadorLabel: { fontSize: SIZES.fontXs, color: COLORS.textSecondary, marginTop: 2 },
-  filtrosContainer: { flexDirection: 'row', backgroundColor: COLORS.surface, paddingVertical: SIZES.sm, paddingHorizontal: SIZES.sm, borderTopWidth: 1, borderTopColor: COLORS.divider },
-  recentesContainer: { backgroundColor: COLORS.surface, marginTop: SIZES.sm, marginHorizontal: SIZES.sm, borderRadius: SIZES.radiusMd, padding: SIZES.sm, ...SHADOWS.sm },
-  recentesTitle: { color: COLORS.text, fontSize: SIZES.fontMd, fontWeight: '700', marginBottom: SIZES.xs },
-  recenteItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: SIZES.xs },
-  recenteMain: { flex: 1, marginRight: SIZES.sm },
-  recenteSintoma: { color: COLORS.text, fontSize: SIZES.fontSm, fontWeight: '600' },
-  recenteMeta: { color: COLORS.textSecondary, fontSize: SIZES.fontXs, marginTop: 2 },
-  filtroButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: SIZES.sm, marginHorizontal: 2, borderRadius: SIZES.radiusSm },
-  filtroButtonActive: { backgroundColor: COLORS.secondary + '15' },
-  filtroText: { fontSize: SIZES.fontSm, color: COLORS.textSecondary },
-  filtroTextActive: { color: COLORS.secondary, fontWeight: '600' },
-  filtroBadge: { backgroundColor: COLORS.divider, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, marginLeft: 4 },
-  filtroBadgeActive: { backgroundColor: COLORS.secondary },
-  filtroBadgeText: { fontSize: SIZES.fontXs, color: COLORS.textSecondary },
-  filtroBadgeTextActive: { color: COLORS.textInverse },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: SIZES.xl },
-  loadingText: { color: COLORS.textSecondary },
-  emptyTitle: { fontSize: SIZES.fontLg, fontWeight: 'bold', color: COLORS.text, marginTop: SIZES.md },
-  emptySubtitle: { fontSize: SIZES.fontMd, color: COLORS.textSecondary, textAlign: 'center', marginTop: SIZES.xs },
-  lista: { padding: SIZES.md },
-  card: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusMd, padding: SIZES.md, marginBottom: SIZES.md, ...SHADOWS.sm },
-  cardAgendamento: { borderLeftWidth: 4, borderLeftColor: COLORS.primary },
-  cardUrgente: { borderLeftWidth: 4, borderLeftColor: COLORS.danger },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SIZES.sm },
-  pacienteInfo: { flex: 1 },
-  pacienteNome: { fontSize: SIZES.fontMd, fontWeight: 'bold', color: COLORS.text },
-  pacienteDetalhe: { fontSize: SIZES.fontSm, color: COLORS.textSecondary, marginTop: 2 },
-  statusBadge: { paddingHorizontal: SIZES.sm, paddingVertical: 4, borderRadius: SIZES.radiusFull },
-  statusText: { color: COLORS.textInverse, fontSize: SIZES.fontXs, fontWeight: 'bold' },
-  cardData: { fontSize: SIZES.fontSm, color: COLORS.textSecondary },
-  sintomaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SIZES.sm },
-  sintomaText: { flex: 1, marginLeft: SIZES.sm, fontSize: SIZES.fontMd, color: COLORS.text, fontWeight: '500' },
-  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: SIZES.sm },
-  tag: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SIZES.sm, paddingVertical: 4, borderRadius: SIZES.radiusSm, marginRight: SIZES.xs, marginBottom: SIZES.xs },
-  tagText: { fontSize: SIZES.fontXs, fontWeight: '600' },
-  tipoConsultaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SIZES.sm },
-  tipoConsultaText: { fontSize: SIZES.fontLg, fontWeight: 'bold', marginLeft: SIZES.sm },
-  dentistaInfoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SIZES.sm },
-  dentistaNomeText: { fontSize: SIZES.fontMd, color: COLORS.text, marginLeft: SIZES.xs },
-  cardInfoRow: { flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, borderTopColor: COLORS.divider, paddingTop: SIZES.sm },
-  infoItem: { flexDirection: 'row', alignItems: 'center', marginRight: SIZES.md, marginBottom: SIZES.xs },
-  infoText: { fontSize: SIZES.fontSm, color: COLORS.textSecondary, marginLeft: 4 },
-  imagensRow: { flexDirection: 'row', marginBottom: SIZES.sm },
-  imagemMini: { width: 50, height: 50, borderRadius: SIZES.radiusSm, marginRight: SIZES.xs },
-  maisImagensBox: { width: 50, height: 50, borderRadius: SIZES.radiusSm, backgroundColor: COLORS.divider, justifyContent: 'center', alignItems: 'center' },
-  maisImagensText: { color: COLORS.textSecondary, fontWeight: 'bold' },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: COLORS.divider, paddingTop: SIZES.sm },
-  footerText: { fontSize: SIZES.fontSm, color: COLORS.textSecondary },
-  footerColumn: { flex: 1 },
-  footerPreview: { fontSize: SIZES.fontXs, color: COLORS.textSecondary, opacity: 0.75, marginTop: 2 },
-  cardDescricao: { fontSize: SIZES.fontMd, color: COLORS.textSecondary, marginBottom: SIZES.sm },
+  content: { paddingBottom: 110 },
+
+  // Specialty Header
+  specHeader: {
+    paddingTop: 8,
+    paddingBottom: 20,
+    paddingHorizontal: SIZES.md,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    marginBottom: SIZES.md,
+  },
+  specHeaderContent: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  specIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  specInfo: { flex: 1 },
+  specGreeting: { color: 'rgba(255,255,255,0.85)', fontSize: SIZES.fontMd },
+  specLabel: { color: 'white', fontSize: SIZES.fontXl, fontWeight: '700', marginTop: 2 },
+  specDesc: { color: 'rgba(255,255,255,0.7)', fontSize: SIZES.fontSm, marginTop: 2 },
+
+  // Quick Actions
+  quickActions: {
+    flexDirection: 'row',
+    paddingHorizontal: SIZES.md,
+    gap: SIZES.sm,
+    marginBottom: SIZES.md,
+  },
+  quickActionBtn: { flex: 1, alignItems: 'center', gap: 6 },
+  quickActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickActionLabel: { fontSize: SIZES.fontXs+1, fontWeight: '600', color: COLORS.text, textAlign: 'center' },
+
+  // Grid
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: SIZES.md, paddingHorizontal: SIZES.md },
+  metric: {
+    width: '48%',
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.md,
+    marginBottom: SIZES.sm,
+    ...SHADOWS.sm,
+  },
+  metricValue: { fontSize: SIZES.fontXxl, fontWeight: '700' },
+  metricLabel: { marginTop: 4, fontSize: SIZES.fontSm, color: COLORS.textSecondary },
+
+  // Blocks
+  block: {
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.md,
+    marginBottom: SIZES.md,
+    marginHorizontal: SIZES.md,
+    ...SHADOWS.sm,
+  },
+  blockHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SIZES.sm },
+  blockTitle: { fontSize: SIZES.fontLg, fontWeight: '700', color: COLORS.text },
+  line: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: SIZES.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+  },
+  lineTitle: { fontSize: SIZES.fontMd, fontWeight: '600', color: COLORS.text },
+  lineMeta: { marginTop: 2, fontSize: SIZES.fontSm, color: COLORS.textSecondary },
+  timeChip: {
+    backgroundColor: '#FFF3E0',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: SIZES.radiusFull,
+  },
+  timeChipText: { fontSize: SIZES.fontSm, fontWeight: '700', color: '#E65100' },
+
+  // Financeiro
+  finRow: { flexDirection: 'row', gap: SIZES.sm, marginBottom: SIZES.sm },
+  finItem: { flex: 1 },
+  finLabel: { fontSize: SIZES.fontXs+1, color: COLORS.textSecondary, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  finValue: { fontSize: SIZES.fontLg, fontWeight: '700', marginTop: 2 },
+  finDetail: { fontSize: SIZES.fontSm, color: COLORS.text, marginTop: 2 },
+  procSection: { marginTop: SIZES.sm, paddingTop: SIZES.sm, borderTopWidth: 1, borderTopColor: COLORS.divider },
+  procTitle: { fontSize: SIZES.fontSm, fontWeight: '700', color: COLORS.text, marginBottom: 6 },
+  procRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  procDot: { width: 8, height: 8, borderRadius: 4 },
+  procText: { flex: 1, fontSize: SIZES.fontSm, color: COLORS.textSecondary },
+  procCount: { fontSize: SIZES.fontSm, fontWeight: '700', color: COLORS.text },
+
+  // Filters
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: SIZES.sm, marginBottom: SIZES.sm, paddingHorizontal: SIZES.md },
+  filter: {
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusFull,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  filterText: { fontSize: SIZES.fontSm, fontWeight: '600', color: COLORS.textSecondary },
+  filterTextActive: { color: COLORS.textInverse },
+  filtersWeb: {
+    paddingVertical: SIZES.sm,
+    flexWrap: 'nowrap',
+    overflow: 'scroll',
+  },
+  filterWeb: {
+    paddingHorizontal: 20,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+
+  // Cards
+  card: {
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.md,
+    marginBottom: SIZES.sm,
+    marginHorizontal: SIZES.md,
+    ...SHADOWS.sm,
+  },
+  cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: SIZES.sm },
+  cardTitle: { flex: 1, fontSize: SIZES.fontMd, fontWeight: '700', color: COLORS.text },
+  meta: { marginTop: 6, fontSize: SIZES.fontSm, color: COLORS.textSecondary },
+  badgeContainer: { 
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12, 
+    paddingVertical: 6, 
+    borderRadius: SIZES.radiusFull,
+    overflow: 'hidden',
+  },
+  badgeText: { 
+    color: COLORS.textInverse, 
+    fontSize: Platform.OS === 'web' ? SIZES.fontSm : SIZES.fontXs, 
+    fontWeight: '700', 
+  },
+  priority: { marginTop: 6, fontSize: SIZES.fontSm, fontWeight: '700' },
+
+  // Misc
+  center: { alignItems: 'center', justifyContent: 'center', paddingVertical: SIZES.xl },
+  empty: { fontSize: SIZES.fontSm, color: COLORS.textSecondary },
+
+  // FAB
+  fab: {
+    position: 'absolute',
+    right: SIZES.lg,
+    bottom: SIZES.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.sm,
+    borderRadius: SIZES.radiusFull,
+    paddingHorizontal: SIZES.md,
+    paddingVertical: 14,
+    ...SHADOWS.lg,
+  },
+  fabText: { color: COLORS.textInverse, fontSize: SIZES.fontMd, fontWeight: '700' },
 });
 
 export default DashboardScreen;

@@ -1,20 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, TYPOGRAPHY } from '../../styles/theme';
+import { COLORS, SIZES, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 import { useAuth } from '../../contexts/AuthContext';
-import { buscarTodasNotificacoes } from '../../services/notificacoesService';
+import {
+  buscarTodasNotificacoes,
+  Notificacao as ServiceNotificacao,
+} from '../../services/notificacoesService';
 import { marcarNotificacaoComoLida } from '../../services/notificacoesService';
 
-interface Notificacao {
-  id: string;
-  titulo: string;
-  mensagem: string;
-  lida: boolean;
+type Notificacao = ServiceNotificacao & {
   created_at: string;
-  tipo: string;
-  dados?: any;
-}
+};
 
 const NotificacoesDetalheScreen = () => {
   const { user } = useAuth();
@@ -27,7 +24,7 @@ const NotificacoesDetalheScreen = () => {
     setRefreshing(true);
     const result = await buscarTodasNotificacoes(user.id);
     if (result.success) {
-      setNotificacoes(result.data || []);
+      setNotificacoes((result.data || []).filter((item): item is Notificacao => !!item.created_at));
     }
     setRefreshing(false);
   };
@@ -91,6 +88,7 @@ const NotificacoesDetalheScreen = () => {
           renderItem={renderNotificacao}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
+          scrollEnabled={false}
         />
       )}
     </ScrollView>
@@ -151,11 +149,7 @@ const styles = StyleSheet.create({
   },
   notificacaoNaoLida: {
     borderLeftColor: COLORS.primary,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    ...SHADOWS.sm,
   },
   notificacaoHeader: {
     flexDirection: 'row',

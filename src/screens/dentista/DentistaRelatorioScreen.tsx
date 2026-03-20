@@ -11,20 +11,21 @@ import {
   FlatList,
   RefreshControl,
 } from 'react-native';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { buscarTodosAgendamentosDentista } from '../../services/agendamentoService';
-import { buscarPaciente } from '../../services/pacienteService';
+import { buscarPaciente, listarPacientes } from '../../services/pacienteService';
+import { exportHtmlAsPdf } from '../../utils/pdfExportUtils';
 import Loading from '../../components/ui/Loading';
 import { gerarFichaHistorico } from './gerarFichaHistorico';
 
 interface PacienteListItem {
   id: string;
   nome: string;
+  data_nascimento?: string;
+  genero?: string;
 }
 
 const DentistaRelatorioScreen: React.FC = () => {
@@ -46,42 +47,31 @@ const DentistaRelatorioScreen: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const result = await buscarTodosAgendamentosDentista(profile.id);
-      if (!result.success) {
-        const errMsg = result.error || 'Falha nos agendamentos';
-        Toast.show({
-          type: 'error',
-          text1: 'Erro ao carregar',
-          text2: errMsg
-        });
+      const [agResult, pacResult] = await Promise.all([
+        buscarTodosAgendamentosDentista(profile.id),
+        listarPacientes({ limit: 500 })
+      ]);
+
+      if (!agResult.success) {
+        const errMsg = typeof agResult.error === 'string' ? agResult.error : agResult.error?.message || 'Falha nos agendamentos';
+        Toast.show({ type: 'error', text1: 'Erro ao carregar agendamentos', text2: errMsg });
         setError(errMsg);
         setAgendamentos([]);
+      } else {
+        setAgendamentos(agResult.data || []);
+      }
+
+      if (!pacResult.success) {
+        Toast.show({ type: 'error', text1: 'Erro ao carregar pacientes', text2: pacResult.error || 'Falha' });
         setPacientesList([]);
       } else {
-        setAgendamentos(result.data || []);
-        
-        const uniquePacientes = Array.from(
-          new Set((result.data || []).map((ag: any) => ag.paciente_id).filter(Boolean))
-        );
-        
-        const pacientesList: PacienteListItem[] = [];
-        for (const id of uniquePacientes) {
-          try {
-            const pResult = await buscarPaciente(id);
-            if (pResult.success && pResult.data) {
-              pacientesList.push({
-                id, 
-                nome: pResult.data.nome || `Paciente ID: ${id}`
-              });
-            } else {
-              pacientesList.push({id, nome: `Paciente ID: ${id}`});
-            }
-          } catch (pErr) {
-            console.warn('Paciente fetch error:', id, pErr);
-            pacientesList.push({id, nome: `Paciente ID: ${id}`});
-          }
-        }
-        setPacientesList(pacientesList.sort((a,b) => a.nome.localeCompare(b.nome)));
+        const list = (pacResult.data || []).map(p => ({
+          id: p.id,
+          nome: p.nome || 'Paciente sem nome',
+          data_nascimento: p.data_nascimento,
+          genero: p.genero
+        }));
+        setPacientesList(list.sort((a, b) => a.nome.localeCompare(b.nome)));
       }
     } catch (error: any) {
       const errMsg = 'Erro de conexão - Verifique sua internet';
@@ -181,12 +171,12 @@ const DentistaRelatorioScreen: React.FC = () => {
         </body>
         </html>`;
 
-      const { uri } = await Print.printToFileAsync({ html });
+      const result = await exportHtmlAsPdf(html, `relatorio-consultas-${profile?.nome || 'dentista'}.pdf`);
       
-      await Sharing.shareAsync(uri, {
-        dialogTitle: 'Compartilhar relatório PDF',
-        mimeType: 'application/pdf'
-      });
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      
       Toast.show({
         type: 'success',
         text1: '✅ Relatório gerado!',
@@ -210,12 +200,12 @@ const DentistaRelatorioScreen: React.FC = () => {
     try {
       const html = await gerarFichaHistorico(pacienteId);
       
-      const { uri } = await Print.printToFileAsync({ html });
+      const result = await exportHtmlAsPdf(html, `ficha-${pacienteId.substring(0, 8)}.pdf`);
       
-      await Sharing.shareAsync(uri, {
-        dialogTitle: 'Compartilhar ficha PDF',
-        mimeType: 'application/pdf'
-      });
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      
       Toast.show({
         type: 'success',
         text1: '✅ Ficha gerada!',
@@ -356,7 +346,25 @@ const DentistaRelatorioScreen: React.FC = () => {
                   onPress={() => gerarFichaPaciente(item.id)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.pacienteNome}>{item.nome}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pacienteNome}>{item.nome}</Text>
+                    {(!!item.data_nascimento || !!item.genero) && (
+                      <View style={styles.pacienteDetails}>
+                        {!!item.data_nascimento && (
+                          <View style={styles.detailItem}>
+                            <Ionicons name="calendar-outline" size={10} color={COLORS.textSecondary} />
+                            <Text style={styles.detailText}>DT: {item.data_nascimento}</Text>
+                          </View>
+                        )}
+                        {!!item.genero && (
+                          <View style={styles.detailItem}>
+                            <Ionicons name="person-outline" size={10} color={COLORS.textSecondary} />
+                            <Text style={styles.detailText}>S: {item.genero}</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
                   <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
                 </TouchableOpacity>
               )}
@@ -566,14 +574,7 @@ const styles = StyleSheet.create({
     maxHeight: '80%',
     backgroundColor: COLORS.surface,
     borderRadius: 36,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
+    ...SHADOWS.lg,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -605,7 +606,22 @@ const styles = StyleSheet.create({
   pacienteNome: {
     fontSize: SIZES.fontMd,
     color: COLORS.text,
-    flex: 1,
+    fontWeight: '600',
+  },
+  pacienteDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 4,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  detailText: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
   },
   emptyModal: {
     alignItems: 'center',

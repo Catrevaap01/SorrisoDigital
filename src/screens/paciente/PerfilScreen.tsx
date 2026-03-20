@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -23,9 +23,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDentist } from '../../contexts/DentistContext';
 import { PROFILE_SCHEMA_FEATURES } from '../../config/supabase';
+import { calcularIdade } from '../../services/pacienteService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { PROVINCIAS_ANGOLA } from '../../utils/constants';
-import { getInitials, formatDate } from '../../utils/helpers';
+import { getInitials, formatDate, formatBirthDateInput } from '../../utils/helpers';
 
 const ESPECIALIDADES_DENTISTA = [
   'Ortodontia',
@@ -66,6 +67,10 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
   const [provincia, setProvincia] = useState<string>(profile?.provincia || '');
   const [crm, setCrm] = useState<string>(profile?.crm || profile?.numero_registro || '');
   const [especialidade, setEspecialidade] = useState<string>(profile?.especialidade || '');
+  const [dataNascimento, setDataNascimento] = useState<string>(profile?.data_nascimento || '');
+  const [genero, setGenero] = useState<string>(profile?.genero || '');
+  const [processandoLogout, setProcessandoLogout] = useState(false);
+  const [showGeneros, setShowGeneros] = useState<boolean>(false);
 
   useEffect(() => {
     setNome(profile?.nome || '');
@@ -74,16 +79,18 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
     if (isDentista) {
       setCrm(profile?.crm || profile?.numero_registro || '');
       setEspecialidade(profile?.especialidade || '');
+    } else {
+      setDataNascimento(profile?.data_nascimento || '');
+      setGenero(profile?.genero || '');
     }
   }, [profile]);
 
   const handleSalvar = async () => {
-    // if we are forcing profile completion, ensure telefone/provincia not empty
     if (forceEdit && (!telefone.trim() || !provincia.trim())) {
-          Toast.show({ type: 'error', text1: 'Telefone e província são obrigatórios' });
-          return;
+      Toast.show({ type: 'error', text1: 'Telefone e província são obrigatórios' });
+      return;
     }
-    const updates: Record<string, string> = {
+    const updates: Record<string, any> = {
       nome: nome.trim(),
       telefone: telefone.trim(),
     };
@@ -103,6 +110,9 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
       updates.crm = crm.trim();
       updates.numero_registro = crm.trim();
       updates.especialidade = especialidade.trim();
+    } else {
+      updates.data_nascimento = dataNascimento;
+      updates.genero = genero;
     }
 
     if (canEditProvincia) {
@@ -112,13 +122,11 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
     setSalvandoPerfil(true);
     try {
       const result = await updateProfile(updates);
-
       if (result.success) {
         await refreshProfile();
         setEditando(false);
         Toast.show({ type: 'success', text1: 'Dados atualizados com sucesso' });
         if (forceEdit) {
-          // profile completed: abre fluxo do paciente e direciona para escolher dentista
           requestAutoOpenChooseDentist();
           navigation.replace('PacienteMain');
         }
@@ -141,11 +149,12 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
     if (isDentista) {
       setCrm(profile?.crm || profile?.numero_registro || '');
       setEspecialidade(profile?.especialidade || '');
+    } else {
+      setDataNascimento(profile?.data_nascimento || '');
+      setGenero(profile?.genero || '');
     }
     setEditando(false);
   };
-
-  const [processandoLogout, setProcessandoLogout] = useState(false);
 
   const executarLogout = async () => {
     setProcessandoLogout(true);
@@ -158,7 +167,6 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
 
   const handleLogout = () => {
     if (forceEdit) {
-      // during forced profile completion user must not logout
       Toast.show({ type: 'info', text1: 'Complete seu perfil antes de sair' });
       return;
     }
@@ -188,6 +196,10 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
   };
 
   const isDentista = profile?.tipo === 'dentista' || profile?.tipo === 'medico';
+  const idadePaciente =
+    !isDentista && profile?.data_nascimento
+      ? calcularIdade(profile.data_nascimento)
+      : null;
 
   return (
     <KeyboardAvoidingView
@@ -200,13 +212,15 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
       keyboardShouldPersistTaps="always"
       keyboardDismissMode="on-drag"
     >
-      {/* Header do Perfil */}
       <View style={[styles.header, isDentista && styles.headerDentista]}>
         <View style={styles.avatarContainer}>
           <Text style={styles.avatarText}>{getInitials(profile?.nome)}</Text>
         </View>
         <Text style={styles.headerNome}>{profile?.nome || 'Usuario'}</Text>
         <Text style={styles.headerEmail}>{profile?.email}</Text>
+        {!isDentista && idadePaciente !== null && (
+          <Text style={styles.headerExtra}>{idadePaciente} anos</Text>
+        )}
         <View style={styles.tipoBadge}>
           <Ionicons 
             name={isDentista ? 'medical' : 'person'} 
@@ -218,6 +232,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
           </Text>
         </View>
       </View>
+      
       {salvandoPerfil && (
         <View style={styles.savingBanner}>
           <ActivityIndicator size="small" color={COLORS.primary} />
@@ -225,7 +240,6 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
         </View>
       )}
 
-      {/* Dados Pessoais */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Dados Pessoais</Text>
@@ -240,7 +254,6 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
           )}
         </View>
 
-        {/* Nome */}
         <View style={styles.campo}>
           <Text style={styles.campoLabel}>Nome</Text>
           {editando ? (
@@ -255,12 +268,11 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
           )}
         </View>
 
-        {/* Email (não editável) */}
         <View style={styles.campo}>
           <Text style={styles.campoLabel}>Email</Text>
           <Text style={styles.campoValor}>{profile?.email || '-'}</Text>
         </View>
-        {/* Telefone */}
+
         <View style={styles.campo}>
           <Text style={styles.campoLabel}>Telefone</Text>
           {editando ? (
@@ -276,7 +288,57 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
           )}
         </View>
 
-        {/* Província (paciente) */}
+        {!isDentista && (
+          <>
+            <View style={styles.campo}>
+              <Text style={styles.campoLabel}>Data de Nascimento</Text>
+              {editando ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    value={dataNascimento}
+                    onChangeText={(v) => setDataNascimento(formatBirthDateInput(v))}
+                    placeholder="AAAA-MM-DD"
+                    keyboardType="numeric"
+                    maxLength={10}
+                  />
+                  {dataNascimento.length === 10 && (
+                    <Text style={{ fontWeight: 'bold', color: COLORS.secondary }}>
+                      {calcularIdade(dataNascimento)} anos
+                    </Text>
+                  )}
+                </View>
+              ) : (
+                <Text style={styles.campoValor}>{profile?.data_nascimento || '-'}</Text>
+              )}
+            </View>
+            <View style={styles.campo}>
+              <Text style={styles.campoLabel}>Gênero / Sexo</Text>
+              {editando ? (
+                <TouchableOpacity
+                  style={styles.selectButton}
+                  onPress={() => setShowGeneros(true)}
+                >
+                  <Text style={[styles.selectText, !genero && styles.selectPlaceholder]}>
+                    {genero || 'Selecione'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.campoValor}>{profile?.genero || '-'}</Text>
+              )}
+            </View>
+            {!editando && (
+              <View style={styles.campo}>
+                <Text style={styles.campoLabel}>Idade</Text>
+                <Text style={styles.campoValor}>
+                  {idadePaciente !== null ? `${idadePaciente} anos` : '-'}
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+
         {!isDentista && canEditProvincia && (
           <View style={styles.campo}>
             <Text style={styles.campoLabel}>Província</Text>
@@ -297,14 +359,12 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
         )}
       </View>
 
-      {/* seção profissional separada para dentistas */}
       {isDentista && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Informações Profissionais</Text>
           </View>
 
-          {/* CRM */}
           <View style={styles.campo}>
             <Text style={styles.campoLabel}>CRM / Registro</Text>
             {editando ? (
@@ -319,7 +379,6 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
             )}
           </View>
 
-          {/* Especialidade */}
           <View style={styles.campo}>
             <Text style={styles.campoLabel}>Especialidade</Text>
             {editando ? (
@@ -337,7 +396,6 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
             )}
           </View>
 
-          {/* Província */}
           {canEditProvincia && (
             <View style={styles.campo}>
               <Text style={styles.campoLabel}>Província</Text>
@@ -359,7 +417,6 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
         </View>
       )}
 
-      {/* Membro desde */}
       <View style={styles.section}>
         <View style={styles.campo}>
           <Text style={styles.campoLabel}>Membro desde</Text>
@@ -368,7 +425,6 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* Botões de Edição */}
         {editando && (
           <View style={styles.editButtons}>
             <TouchableOpacity
@@ -394,15 +450,13 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
         )}
       </View>
 
-
-      {/* OpÃ§Ãµes */}
       {!forceEdit && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Configurações</Text>
 
           <TouchableOpacity
             style={styles.opcaoItem}
-onPress={() => navigation.getParent()?.navigate('Notificacoes' as any)}
+            onPress={() => navigation.getParent()?.navigate('Notificacoes' as any)}
           >
             <Ionicons name="notifications-outline" size={22} color={COLORS.textSecondary} />
             <Text style={styles.opcaoText}>Notificações</Text>
@@ -411,7 +465,7 @@ onPress={() => navigation.getParent()?.navigate('Notificacoes' as any)}
 
           <TouchableOpacity
             style={styles.opcaoItem}
-onPress={() => navigation.getParent()?.navigate('Privacidade' as any)}
+            onPress={() => navigation.getParent()?.navigate('Privacidade' as any)}
           >
             <Ionicons name="shield-checkmark-outline" size={22} color={COLORS.textSecondary} />
             <Text style={styles.opcaoText}>Privacidade</Text>
@@ -438,7 +492,6 @@ onPress={() => navigation.getParent()?.navigate('Privacidade' as any)}
         </View>
       )}
 
-      {/* BotÃ£o Sair */}
       {!forceEdit && (
         <TouchableOpacity
           style={styles.logoutButton}
@@ -456,10 +509,8 @@ onPress={() => navigation.getParent()?.navigate('Privacidade' as any)}
         </TouchableOpacity>
       )}
 
-      {/* VersÃ£o */}
       <Text style={styles.versao}>Odontologia Angola v1.0.0</Text>
 
-      {/* Modal de ProvÃ­ncias */}
       <Modal
         visible={showProvincias}
         transparent
@@ -550,6 +601,51 @@ onPress={() => navigation.getParent()?.navigate('Privacidade' as any)}
         </View>
       </Modal>
 
+      <Modal
+        visible={showGeneros}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowGeneros(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Selecione o Gênero</Text>
+              <TouchableOpacity onPress={() => setShowGeneros(false)}>
+                <Ionicons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {['Masculino', 'Feminino', 'Outro'].map((item) => (
+                <TouchableOpacity
+                  key={item}
+                  style={[
+                    styles.provinciaItem,
+                    genero === item && styles.provinciaItemActive,
+                  ]}
+                  onPress={() => {
+                    setGenero(item);
+                    setShowGeneros(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.provinciaItemText,
+                      genero === item && styles.provinciaItemTextActive,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                  {genero === item && (
+                    <Ionicons name="checkmark" size={20} color={COLORS.primary} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       <View style={{ height: 30 }} />
     </ScrollView>
     </KeyboardAvoidingView>
@@ -557,19 +653,14 @@ onPress={() => navigation.getParent()?.navigate('Privacidade' as any)}
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
   header: {
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     paddingVertical: SIZES.xl,
     paddingHorizontal: SIZES.md,
   },
-  headerDentista: {
-    backgroundColor: COLORS.secondary,
-  },
+  headerDentista: { backgroundColor: COLORS.secondary },
   avatarContainer: {
     width: 80,
     height: 80,
@@ -579,22 +670,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SIZES.md,
   },
-  avatarText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.textInverse,
-  },
-  headerNome: {
-    fontSize: SIZES.fontXl,
-    fontWeight: 'bold',
-    color: COLORS.textInverse,
-  },
-  headerEmail: {
-    fontSize: SIZES.fontMd,
-    color: COLORS.textInverse,
-    opacity: 0.8,
-    marginTop: 2,
-  },
+  avatarText: { fontSize: 28, fontWeight: 'bold', color: COLORS.textInverse },
+  headerNome: { fontSize: SIZES.fontXl, fontWeight: 'bold', color: COLORS.textInverse },
+  headerEmail: { fontSize: SIZES.fontMd, color: COLORS.textInverse, opacity: 0.8, marginTop: 2 },
+  headerExtra: { fontSize: SIZES.fontSm, color: COLORS.textInverse, opacity: 0.9, marginTop: SIZES.xs },
   tipoBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -604,19 +683,9 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radiusFull,
     marginTop: SIZES.md,
   },
-  tipoText: {
-    marginLeft: SIZES.xs,
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
-  tipoTextDentista: {
-    color: COLORS.secondary,
-  },
-  section: {
-    backgroundColor: COLORS.surface,
-    marginTop: SIZES.md,
-    padding: SIZES.md,
-  },
+  tipoText: { marginLeft: SIZES.xs, color: COLORS.primary, fontWeight: '600' },
+  tipoTextDentista: { color: COLORS.secondary },
+  section: { backgroundColor: COLORS.surface, marginTop: SIZES.md, padding: SIZES.md },
   savingBanner: {
     marginHorizontal: SIZES.md,
     marginTop: SIZES.md,
@@ -630,35 +699,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  savingBannerText: {
-    marginLeft: SIZES.sm,
-    color: COLORS.text,
-    fontSize: SIZES.fontSm,
-    fontWeight: '600',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SIZES.md,
-  },
-  sectionTitle: {
-    fontSize: SIZES.fontLg,
-    fontWeight: 'bold',
-    color: COLORS.text,
-  },
-  campo: {
-    marginBottom: SIZES.md,
-  },
-  campoLabel: {
-    fontSize: SIZES.fontSm,
-    color: COLORS.textSecondary,
-    marginBottom: 4,
-  },
-  campoValor: {
-    fontSize: SIZES.fontMd,
-    color: COLORS.text,
-  },
+  savingBannerText: { marginLeft: SIZES.sm, color: COLORS.text, fontSize: SIZES.fontSm, fontWeight: '600' },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SIZES.md },
+  sectionTitle: { fontSize: SIZES.fontLg, fontWeight: 'bold', color: COLORS.text },
+  campo: { marginBottom: SIZES.md },
+  campoLabel: { fontSize: SIZES.fontSm, color: COLORS.textSecondary, marginBottom: 4 },
+  campoValor: { fontSize: SIZES.fontMd, color: COLORS.text },
   input: {
     backgroundColor: COLORS.background,
     borderRadius: SIZES.radiusSm,
@@ -678,45 +724,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  selectText: {
-    fontSize: SIZES.fontMd,
-    color: COLORS.text,
-  },
-  selectPlaceholder: {
-    color: COLORS.textLight,
-  },
-  editButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: SIZES.md,
-  },
-  editButton: {
-    flex: 1,
-    paddingVertical: SIZES.sm,
-    borderRadius: SIZES.radiusMd,
-    alignItems: 'center',
-  },
+  selectText: { fontSize: SIZES.fontMd, color: COLORS.text },
+  selectPlaceholder: { color: COLORS.textLight },
+  editButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: SIZES.md },
+  editButton: { flex: 1, paddingVertical: SIZES.sm, borderRadius: SIZES.radiusMd, alignItems: 'center' },
   cancelButton: {
     backgroundColor: COLORS.background,
     marginRight: SIZES.sm,
     borderWidth: 1,
     borderColor: COLORS.border,
   },
-  cancelButtonText: {
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-  },
-  saveButton: {
-    backgroundColor: COLORS.primary,
-    marginLeft: SIZES.sm,
-  },
-  saveButtonText: {
-    color: COLORS.textInverse,
-    fontWeight: 'bold',
-  },
-  buttonDisabled: {
-    backgroundColor: COLORS.primaryLight,
-  },
+  cancelButtonText: { color: COLORS.textSecondary, fontWeight: '600' },
+  saveButton: { backgroundColor: COLORS.primary, marginLeft: SIZES.sm },
+  saveButtonText: { color: COLORS.textInverse, fontWeight: 'bold' },
+  buttonDisabled: { backgroundColor: COLORS.primaryLight },
   opcaoItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -724,12 +745,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
-  opcaoText: {
-    flex: 1,
-    marginLeft: SIZES.md,
-    fontSize: SIZES.fontMd,
-    color: COLORS.text,
-  },
+  opcaoText: { flex: 1, marginLeft: SIZES.md, fontSize: SIZES.fontMd, color: COLORS.text },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -738,24 +754,9 @@ const styles = StyleSheet.create({
     marginTop: SIZES.md,
     padding: SIZES.md,
   },
-  logoutText: {
-    marginLeft: SIZES.sm,
-    fontSize: SIZES.fontMd,
-    fontWeight: '600',
-    color: COLORS.danger,
-  },
-  versao: {
-    textAlign: 'center',
-    color: COLORS.textLight,
-    fontSize: SIZES.fontSm,
-    marginTop: SIZES.lg,
-  },
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
+  logoutText: { marginLeft: SIZES.sm, fontSize: SIZES.fontMd, fontWeight: '600', color: COLORS.danger },
+  versao: { textAlign: 'center', color: COLORS.textLight, fontSize: SIZES.fontSm, marginTop: SIZES.lg },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: {
     backgroundColor: COLORS.surface,
     borderTopLeftRadius: SIZES.radiusXl,
@@ -770,11 +771,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
-  modalTitle: {
-    fontSize: SIZES.fontLg,
-    fontWeight: 'bold',
-    color: COLORS.text,
-  },
+  modalTitle: { fontSize: SIZES.fontLg, fontWeight: 'bold', color: COLORS.text },
   provinciaItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -783,22 +780,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
-  provinciaItemActive: {
-    backgroundColor: '#E3F2FD',
-  },
-  provinciaItemText: {
-    fontSize: SIZES.fontMd,
-    color: COLORS.text,
-  },
-  provinciaItemTextActive: {
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
+  provinciaItemActive: { backgroundColor: COLORS.backgroundSecondary },
+  provinciaItemText: { fontSize: SIZES.fontMd, color: COLORS.text },
+  provinciaItemTextActive: { color: COLORS.primary, fontWeight: 'bold' },
 });
 
 export default PerfilScreen;
-
-
-
-
-

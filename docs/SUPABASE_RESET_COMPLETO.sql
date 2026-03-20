@@ -89,6 +89,11 @@ CREATE TABLE public.profiles (
     crm TEXT,
     numero_registro TEXT,
     especialidade TEXT,
+    historico_medico TEXT,
+    alergias TEXT,
+    medicamentos_atuais TEXT,
+    observacoes_gerais TEXT,
+    documentos_urls TEXT[] DEFAULT '{}',
     foto_url TEXT,
     senha_alterada BOOLEAN DEFAULT FALSE,
 
@@ -96,7 +101,8 @@ CREATE TABLE public.profiles (
         REFERENCES public.provincias(id)
         ON DELETE SET NULL,
 
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ========================================

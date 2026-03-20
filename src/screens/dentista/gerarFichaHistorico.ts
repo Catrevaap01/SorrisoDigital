@@ -1,3 +1,4 @@
+import { PacienteProfile } from '../../services/pacienteService';
 import { buscarPaciente } from '../../services/pacienteService';
 import { buscarTriagensPaciente } from '../../services/triagemService';
 import { formatDateTime } from '../../utils/helpers';
@@ -21,11 +22,11 @@ export const gerarFichaHistorico = async (pacienteId: string): Promise<string> =
     const pacienteRaw = pResult.data || { nome: 'Paciente não encontrado' };
     const paciente: SafePaciente = {
       nome: pacienteRaw.nome || 'Paciente não encontrado',
-      data_nascimento: (pacienteRaw as any).data_nascimento,
-      genero: (pacienteRaw as any).genero,
-      historico_medico: (pacienteRaw as any).historico_medico,
-      alergias: (pacienteRaw as any).alergias,
-      medicamentos_atuais: (pacienteRaw as any).medicamentos_atuais,
+      data_nascimento: (pacienteRaw as PacienteProfile).data_nascimento,
+      genero: (pacienteRaw as PacienteProfile).genero,
+      historico_medico: (pacienteRaw as PacienteProfile).historico_medico,
+      alergias: (pacienteRaw as PacienteProfile).alergias,
+      medicamentos_atuais: (pacienteRaw as PacienteProfile).medicamentos_atuais,
     };
 
     const triagens = tResult.data || [];

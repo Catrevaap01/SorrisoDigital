@@ -1,20 +1,52 @@
+/**
+ * Serviço de exportação PDF
+ * Gera PDFs para: relatório geral, relatório de dentista, histórico médico do paciente, e ficha
+ * Funciona tanto em web (print dialog) quanto mobile (expo-print + sharing)
+ */
+
+import { Platform } from 'react-native';
 import { gerarRelatorioDentista, gerarRelatorioGeral } from './relatorioService';
-import { imprimirRelatorio } from './relatorioService';
+import { exportHtmlAsPdf } from '../utils/pdfExportUtils';
+import { supabase } from '../config/supabase';
 
 type PdfResult = { success: boolean; error?: string };
 
-const getPrintModules = () => {
+const formatDate = (d: string | null | undefined) => {
+  if (!d) return '-';
   try {
-    // Optional Expo modules
-    // eslint-disable-next-line global-require
-    const Print = require('expo-print');
-    // eslint-disable-next-line global-require
-    const Sharing = require('expo-sharing');
-    return { Print, Sharing };
+    return new Date(d).toLocaleDateString('pt-AO', { day: '2-digit', month: '2-digit', year: 'numeric' });
   } catch {
-    return null;
+    return d;
   }
 };
+
+const CSS_BASE = `
+  @page { size: A4; margin: 20mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; padding: 32px; color: #222; line-height: 1.5; background: white; }
+  .header { text-align: center; border-bottom: 3px solid #1E88E5; padding-bottom: 16px; margin-bottom: 24px; }
+  .header h1 { color: #1E88E5; font-size: 24px; margin: 0; }
+  .header .sub { color: #666; font-size: 13px; margin-top: 4px; }
+  .header .badge { display: inline-block; background: #E3F2FD; color: #1565C0; padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 8px; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin: 20px 0; }
+  .kpi { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 10px; padding: 14px; text-align: center; }
+  .kpi-value { font-size: 28px; font-weight: 700; color: #1E88E5; }
+  .kpi-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 13px; }
+  th { background: #1E88E5; color: white; padding: 10px 12px; text-align: left; font-weight: 600; }
+  td { padding: 10px 12px; border-bottom: 1px solid #eee; }
+  tr:nth-child(even) { background: #fafafa; }
+  .section { margin: 24px 0; }
+  .section h2 { color: #1E88E5; font-size: 18px; border-bottom: 2px solid #E3F2FD; padding-bottom: 6px; margin-bottom: 12px; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .info-item .label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+  .info-item .value { font-size: 14px; color: #333; font-weight: 500; }
+  .footer { text-align: center; margin-top: 40px; color: #bbb; font-size: 10px; border-top: 1px solid #eee; padding-top: 12px; }
+  .alert { background: #FFF3E0; border-left: 4px solid #E65100; padding: 10px 14px; border-radius: 6px; margin: 12px 0; font-size: 13px; }
+  @media print { body { padding: 16px; } }
+`;
+
+// ─── Relatório Geral ──────────────────────────────────────────
 
 const buildGeneralHtml = (relatorio: any): string => {
   const rows = (relatorio.dentistas || [])
@@ -23,162 +55,179 @@ const buildGeneralHtml = (relatorio: any): string => {
       <tr>
         <td>${d.dentista?.nome || '-'}</td>
         <td>${d.dentista?.especialidade || '-'}</td>
-        <td>${d.totalTriagens}</td>
-        <td>${d.triagensRespondidas}</td>
-        <td>${d.triagensPendentes}</td>
-        <td>${d.percentualResposta}%</td>
+        <td>${d.dentista?.crm || '-'}</td>
+        <td style="text-align:center">${d.totalTriagens}</td>
+        <td style="text-align:center">${d.triagensRespondidas}</td>
+        <td style="text-align:center">${d.triagensPendentes}</td>
+        <td style="text-align:center;font-weight:700">${d.percentualResposta}%</td>
       </tr>`
     )
     .join('');
 
-  return `
-  <html>
-    <head>
-      <meta charset="utf-8" />
-      <style>
-        body { font-family: Arial; padding: 24px; color: #111; }
-        h1 { margin: 0; color: #1E88E5; }
-        .meta { margin-top: 8px; color: #555; }
-        .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 20px 0; }
-        .kpi { border: 1px solid #ddd; border-radius: 8px; padding: 10px; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background: #f5f7fa; }
-      </style>
-    </head>
-    <body>
-      <h1>Relatorio Geral</h1>
-      <div class="meta">Gerado em: ${new Date(relatorio.dataGeracao).toLocaleString('pt-PT')}</div>
-      <div class="kpis">
-        <div class="kpi">Total dentistas: <b>${relatorio.totalDentistas}</b></div>
-        <div class="kpi">Total cadastros mês: <b>${relatorio.cadastrosMes || 0}</b></div>
-        <div class="kpi">Dentistas mês: <b>${relatorio.dentistasMes || 0}</b></div>
-        <div class="kpi">Pacientes mês: <b>${relatorio.pacientesMes || 0}</b></div>
-        <div class="kpi">Dentistas ativos: <b>${relatorio.dentistasAtivos}</b></div>
-        <div class="kpi">Total triagens: <b>${relatorio.totalTriagens}</b></div>
-        <div class="kpi">Taxa resposta: <b>${relatorio.percentualResposta}%</b></div>
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Nome</th>
-            <th>Especialidade</th>
-            <th>Triagens</th>
-            <th>Respondidas</th>
-            <th>Pendentes</th>
-            <th>Taxa</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </body>
-  </html>`;
+  return `<!DOCTYPE html><html lang="pt-AO"><head><meta charset="utf-8"><title>Relatório Geral</title><style>${CSS_BASE}</style></head><body>
+    <div class="header">
+      <h1>🦷 Odontologia de Angola</h1>
+      <div class="sub">Relatório Geral do Sistema</div>
+      <div class="badge">📋 ${formatDate(relatorio.dataGeracao)}</div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-value">${relatorio.totalDentistas}</div><div class="kpi-label">Dentistas</div></div>
+      <div class="kpi"><div class="kpi-value">${relatorio.totalPacientes}</div><div class="kpi-label">Pacientes</div></div>
+      <div class="kpi"><div class="kpi-value">${relatorio.dentistasAtivos}</div><div class="kpi-label">Ativos</div></div>
+      <div class="kpi"><div class="kpi-value">${relatorio.totalTriagens}</div><div class="kpi-label">Triagens</div></div>
+      <div class="kpi"><div class="kpi-value">${relatorio.totalConsultas || 0}</div><div class="kpi-label">Consultas</div></div>
+      <div class="kpi"><div class="kpi-value">${relatorio.totalMensagens || 0}</div><div class="kpi-label">Mensagens</div></div>
+      <div class="kpi"><div class="kpi-value">${relatorio.percentualResposta}%</div><div class="kpi-label">Taxa Resposta</div></div>
+      <div class="kpi"><div class="kpi-value">${relatorio.cadastrosMes || 0}</div><div class="kpi-label">Cadastros Mês</div></div>
+    </div>
+    <div class="section"><h2>Dentistas</h2>
+    <table>
+      <thead><tr>
+        <th>Nome</th><th>Especialidade</th><th>CRM</th><th>Triagens</th><th>Resp.</th><th>Pend.</th><th>Taxa</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <div class="footer">Relatório gerado automaticamente pelo sistema TeOdonto Angola</div>
+  </body></html>`;
 };
+
+// ─── Relatório do Dentista ──────────────────────────────────────
 
 const buildDentistaHtml = (data: any): string => {
   const d = data.dentista;
   const e = data.estatisticas;
   const rows = (data.triagens || [])
-    .slice(0, 80)
+    .slice(0, 100)
     .map(
       (t: any) => `
       <tr>
-        <td>${new Date(t.created_at).toLocaleDateString('pt-PT')}</td>
+        <td>${formatDate(t.created_at)}</td>
         <td>${t.sintoma_principal || '-'}</td>
-        <td>${t.status || '-'}</td>
+        <td>${t.localizacao || '-'}</td>
+        <td><span style="font-weight:600">${t.status || '-'}</span></td>
         <td>${t.prioridade || '-'}</td>
       </tr>`
     )
     .join('');
 
-  return `
-  <html>
-    <head>
-      <meta charset="utf-8" />
-      <style>
-        body { font-family: Arial; padding: 24px; color: #111; }
-        h1 { margin: 0; color: #1E88E5; }
-        .sub { margin-top: 8px; color: #555; }
-        .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 20px 0; }
-        .kpi { border: 1px solid #ddd; border-radius: 8px; padding: 10px; }
-        table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background: #f5f7fa; }
-      </style>
-    </head>
-    <body>
-      <h1>Relatorio do Dentista</h1>
-      <div class="sub">${d?.nome || '-'} (${d?.email || '-'})</div>
-      <div class="kpis">
-        <div class="kpi">Total triagens: <b>${e.totalTriagens}</b></div>
-        <div class="kpi">Respondidas: <b>${e.triagensRespondidas}</b></div>
-        <div class="kpi">Pendentes: <b>${e.triagensPendentes}</b></div>
-        <div class="kpi">Taxa resposta: <b>${e.percentualResposta}%</b></div>
+  return `<!DOCTYPE html><html lang="pt-AO"><head><meta charset="utf-8"><title>Relatório Dentista</title><style>${CSS_BASE}</style></head><body>
+    <div class="header">
+      <h1>🦷 Relatório do Dentista</h1>
+      <div class="sub">Dr(a). ${d?.nome || '-'} — ${d?.especialidade || 'Clínica Geral'}</div>
+      <div class="badge">CRM: ${d?.crm || '-'} | ${d?.email || '-'}</div>
+    </div>
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-value">${e.totalTriagens}</div><div class="kpi-label">Total Triagens</div></div>
+      <div class="kpi"><div class="kpi-value">${e.triagensRespondidas}</div><div class="kpi-label">Respondidas</div></div>
+      <div class="kpi"><div class="kpi-value">${e.triagensPendentes}</div><div class="kpi-label">Pendentes</div></div>
+      <div class="kpi"><div class="kpi-value">${e.percentualResposta}%</div><div class="kpi-label">Taxa Resposta</div></div>
+    </div>
+    <div class="section"><h2>Triagens</h2>
+    <table>
+      <thead><tr><th>Data</th><th>Sintoma</th><th>Localização</th><th>Status</th><th>Prioridade</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <div class="footer">Relatório gerado automaticamente pelo sistema TeOdonto Angola</div>
+  </body></html>`;
+};
+
+// ─── Histórico Médico do Paciente ──────────────────────────────
+
+const buildHistoricoPacienteHtml = (
+  paciente: any,
+  triagens: any[],
+  agendamentos: any[]
+): string => {
+  const triagemRows = triagens
+    .slice(0, 50)
+    .map(
+      (t: any) => `
+      <tr>
+        <td>${formatDate(t.created_at)}</td>
+        <td>${t.sintoma_principal || '-'}</td>
+        <td>${t.localizacao || '-'}</td>
+        <td>${t.intensidade_dor ?? '-'}/10</td>
+        <td>${t.status || '-'}</td>
+        <td>${t.dentista?.nome || 'Pendente'}</td>
+        <td>${t.descricao ? t.descricao.substring(0, 60) + (t.descricao.length > 60 ? '...' : '') : '-'}</td>
+      </tr>`
+    )
+    .join('');
+
+  const agendRows = agendamentos
+    .slice(0, 50)
+    .map(
+      (a: any) => `
+      <tr>
+        <td>${formatDate(a.data_agendamento)}</td>
+        <td>${a.tipo || '-'}</td>
+        <td>${a.status || '-'}</td>
+        <td>${a.dentista?.nome || '-'}</td>
+        <td>${a.observacoes ? a.observacoes.substring(0, 60) : '-'}</td>
+      </tr>`
+    )
+    .join('');
+
+  const idade = paciente.data_nascimento
+    ? Math.floor((Date.now() - new Date(paciente.data_nascimento).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+    : null;
+
+  return `<!DOCTYPE html><html lang="pt-AO"><head><meta charset="utf-8"><title>Histórico do Paciente</title><style>${CSS_BASE}</style></head><body>
+    <div class="header">
+      <h1>🦷 Histórico Médico do Paciente</h1>
+      <div class="sub">${paciente.nome || '-'}</div>
+      <div class="badge">📋 Gerado em ${formatDate(new Date().toISOString())}</div>
+    </div>
+
+    <div class="section"><h2>👤 Dados Pessoais</h2>
+      <div class="info-grid">
+        <div class="info-item"><span class="label">Nome</span><span class="value">${paciente.nome || '-'}</span></div>
+        <div class="info-item"><span class="label">Email</span><span class="value">${paciente.email || '-'}</span></div>
+        <div class="info-item"><span class="label">Telefone</span><span class="value">${paciente.telefone || '-'}</span></div>
+        <div class="info-item"><span class="label">Data Nascimento</span><span class="value">${formatDate(paciente.data_nascimento)}${idade ? ` (${idade} anos)` : ''}</span></div>
+        <div class="info-item"><span class="label">Género</span><span class="value">${paciente.genero || '-'}</span></div>
+        <div class="info-item"><span class="label">Província</span><span class="value">${paciente.provincia || paciente.provincias?.nome || '-'}</span></div>
       </div>
-      <table>
-        <thead>
-          <tr>
-            <th>Data</th>
-            <th>Sintoma</th>
-            <th>Status</th>
-            <th>Prioridade</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </body>
-  </html>`;
+    </div>
+
+    ${paciente.historico_medico || paciente.alergias || paciente.medicamentos_atuais ? `
+    <div class="section"><h2>🏥 Informações Médicas</h2>
+      ${paciente.historico_medico ? `<div class="info-item" style="margin-bottom:8px"><span class="label">Histórico Médico</span><span class="value">${paciente.historico_medico}</span></div>` : ''}
+      ${paciente.alergias ? `<div class="alert">⚠️ <strong>Alergias:</strong> ${paciente.alergias}</div>` : ''}
+      ${paciente.medicamentos_atuais ? `<div class="info-item"><span class="label">Medicamentos Atuais</span><span class="value">${paciente.medicamentos_atuais}</span></div>` : ''}
+    </div>` : ''}
+
+    <div class="section"><h2>📋 Triagens (${triagens.length})</h2>
+    ${triagens.length === 0 ? '<p style="color:#888">Nenhuma triagem registrada.</p>' : `
+    <table>
+      <thead><tr><th>Data</th><th>Sintoma</th><th>Localização</th><th>Dor</th><th>Status</th><th>Dentista</th><th>Descrição</th></tr></thead>
+      <tbody>${triagemRows}</tbody>
+    </table>`}
+    </div>
+
+    <div class="section"><h2>📅 Agendamentos (${agendamentos.length})</h2>
+    ${agendamentos.length === 0 ? '<p style="color:#888">Nenhum agendamento registrado.</p>' : `
+    <table>
+      <thead><tr><th>Data</th><th>Tipo</th><th>Status</th><th>Dentista</th><th>Obs.</th></tr></thead>
+      <tbody>${agendRows}</tbody>
+    </table>`}
+    </div>
+
+    <div class="footer">
+      <p>TeOdonto Angola — Sistema Digital de Odontologia</p>
+      <p>ID do Paciente: ${paciente.id} | Documento confidencial</p>
+    </div>
+  </body></html>`;
 };
 
-const exportHtmlAsPdf = async (html: string): Promise<PdfResult> => {
-  const modules = getPrintModules();
-  if (!modules) {
-    const fallback = await imprimirRelatorio(html);
-    if (fallback.success) {
-      return { success: true };
-    }
-    return {
-      success: false,
-      error:
-        fallback.error ||
-        'PDF indisponivel neste ambiente. Instale expo-print/expo-sharing para exportar PDF.',
-    };
-  }
-
-  try {
-    const { uri } = await modules.Print.printToFileAsync({ html });
-    const canShare = await modules.Sharing.isAvailableAsync();
-    if (canShare) {
-      await modules.Sharing.shareAsync(uri, {
-        UTI: 'com.adobe.pdf',
-        mimeType: 'application/pdf',
-      });
-      return { success: true };
-    }
-    const fallback = await imprimirRelatorio(html);
-    if (fallback.success) {
-      return { success: true };
-    }
-    return {
-      success: false,
-      error:
-        'Compartilhamento de PDF indisponivel no dispositivo. Use exportacao HTML/CSV.',
-    };
-  } catch (error: any) {
-    const fallback = await imprimirRelatorio(html);
-    if (fallback.success) {
-      return { success: true };
-    }
-    return { success: false, error: error.message || 'Erro ao gerar PDF' };
-  }
-};
+// ─── Public API ──────────────────────────────────────────────────
 
 export const exportarRelatorioGeralPdf = async (): Promise<PdfResult> => {
   const result = await gerarRelatorioGeral();
   if (!result.success || !result.data) {
-    return { success: false, error: result.error || 'Erro ao gerar relatorio geral' };
+    return { success: false, error: result.error || 'Erro ao gerar relatório geral' };
   }
-  return exportHtmlAsPdf(buildGeneralHtml(result.data));
+  return exportHtmlAsPdf(buildGeneralHtml(result.data), 'relatorio-geral.pdf');
 };
 
 export const exportarRelatorioDentistaPdf = async (
@@ -186,7 +235,61 @@ export const exportarRelatorioDentistaPdf = async (
 ): Promise<PdfResult> => {
   const result = await gerarRelatorioDentista(dentistaId);
   if (!result.success || !result.data) {
-    return { success: false, error: result.error || 'Erro ao gerar relatorio do dentista' };
+    return { success: false, error: result.error || 'Erro ao gerar relatório do dentista' };
   }
-  return exportHtmlAsPdf(buildDentistaHtml(result.data));
+  return exportHtmlAsPdf(buildDentistaHtml(result.data), 'relatorio-dentista.pdf');
+};
+
+export const exportarHistoricoPacientePdf = async (
+  pacienteId: string
+): Promise<PdfResult> => {
+  try {
+    // Buscar dados do paciente, triagens e agendamentos em paralelo
+    const [pacienteRes, triagensRes, agendamentosRes] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id, nome, email, telefone, data_nascimento, genero, provincia, provincia_id, historico_medico, alergias, medicamentos_atuais, provincias(nome)')
+        .eq('id', pacienteId)
+        .single(),
+      supabase
+        .from('triagens')
+        .select('*, dentista:dentista_id(nome)')
+        .eq('paciente_id', pacienteId)
+        .order('created_at', { ascending: false })
+        .limit(50),
+      supabase
+        .from('agendamentos')
+        .select('*, dentista:dentista_id(nome)')
+        .eq('paciente_id', pacienteId)
+        .order('data_agendamento', { ascending: false })
+        .limit(50),
+    ]);
+
+    if (pacienteRes.error || !pacienteRes.data) {
+      return { success: false, error: 'Paciente não encontrado' };
+    }
+
+    const paciente = {
+      ...pacienteRes.data,
+      provincia: pacienteRes.data.provincia || (pacienteRes.data as any).provincias?.nome || '-',
+    };
+
+    const triagens = triagensRes.data || [];
+    const agendamentos = (agendamentosRes.data || []).map((a: any) => ({
+      ...a,
+      dentista: a.dentista || undefined,
+    }));
+
+    const html = buildHistoricoPacienteHtml(paciente, triagens, agendamentos);
+    return exportHtmlAsPdf(html, `historico-${paciente.nome?.replace(/[^a-z0-9]/gi, '_') || 'paciente'}.pdf`);
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao gerar histórico do paciente' };
+  }
+};
+
+/**
+ * Exporta a ficha de cadastro como PDF (reutiliza HTML da fichaService)
+ */
+export const exportarFichaPdf = async (html: string, nomeP?: string): Promise<PdfResult> => {
+  return exportHtmlAsPdf(html, `ficha-${nomeP?.replace(/[^a-z0-9]/gi, '_') || 'paciente'}.pdf`);
 };

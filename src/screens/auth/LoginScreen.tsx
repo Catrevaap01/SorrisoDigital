@@ -15,7 +15,10 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
 
-export default function LoginScreen({ navigation }: any) {
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { AuthStackParamList } from '../../navigation/types';
+
+export default function LoginScreen({ navigation }: NativeStackScreenProps<AuthStackParamList, 'Login'>) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,7 +33,19 @@ export default function LoginScreen({ navigation }: any) {
     try {
       await login(email.trim().toLowerCase(), password);
     } catch (err: any) {
-      setError(err.message || 'Erro ao fazer login');
+      let userError = err.message || 'Erro ao fazer login';
+      
+      // Ficha/temp cred common errors
+      const lowerMsg = userError.toLowerCase();
+      if (lowerMsg.includes('invalid login') || lowerMsg.includes('senha')) {
+        userError = 'Credenciais inválidas. Verifique email e senha da ficha.';
+      } else if (lowerMsg.includes('must be changed') || lowerMsg.includes('force')) {
+        userError = 'Senha temporária expirou. Peça nova ficha ao dentista.';
+      } else if (lowerMsg.includes('email not confirmed')) {
+        userError = 'Email precisa confirmação. Verifique caixa de entrada.';
+      }
+      
+      setError(userError);
     } finally {
       setLoading(false);
     }
@@ -47,7 +62,7 @@ export default function LoginScreen({ navigation }: any) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-          {loading && (
+{loading && (
             <View style={styles.loadingOverlay}>
               <View style={styles.logoCircle}>
                 <Ionicons name="medical" size={50} color={COLORS.primary} />
@@ -93,6 +108,7 @@ export default function LoginScreen({ navigation }: any) {
               loading={loading}
             />
           </View>
+          
             <TouchableOpacity
               style={styles.forgotLink}
               onPress={() => navigation.navigate('ForgotPassword')}

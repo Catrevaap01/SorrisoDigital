@@ -21,9 +21,9 @@ export const STATUS_TRIAGEM: Record<string, { label: string; color: string; icon
     icon: 'alert-circle-outline',
   },
   completo: {
-    label: 'Completo',
+    label: 'Finalizado',
     color: '#42A5F5',
-    icon: 'check-done-outline',
+    icon: 'checkmark-done-outline',
   },
 };
 

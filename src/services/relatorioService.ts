@@ -6,6 +6,7 @@
 import { Platform, Share } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../config/supabase';
+import { exportHtmlAsPdf } from '../utils/pdfExportUtils';
 import { DentistaProfile } from './dentistaService';
 
 export interface RelatorioDentista {
@@ -50,22 +51,46 @@ export const gerarRelatorioGeral = async (): Promise<{
   error?: string;
 }> => {
   try {
+    const dataAgora = new Date();
+    const inicioMes = new Date(dataAgora.getFullYear(), dataAgora.getMonth(), 1).toISOString();
+
     const [
       { data: dentistas, error: dentistasError },
-      { data: pacientes, error: pacientesError },
-      { data: triagens, error: triagensError },
+      { count: totalPacientes, error: pacientesError },
+      { data: triagens, error: triagensError }, // We still need this for per-dentist stats
       { count: consultasCount, error: consultasError },
       { count: mensagensCount, error: mensagensError },
+      { count: dentistasMesCount, error: dentistasMesError },
+      { count: pacientesMesCount, error: pacientesMesError },
     ] = await Promise.all([
+      // 1. Listagem de dentistas (campos essenciais)
       supabase
         .from('profiles')
-        .select('id, nome, email, especialidade, crm, telefone, provincia, created_at')
+        .select('id, nome, email, especialidade, crm, created_at')
         .eq('tipo', 'dentista')
         .order('nome', { ascending: true }),
-      supabase.from('profiles').select('id, created_at').eq('tipo', 'paciente'),
+      
+      // 2. Total de pacientes (só contagem)
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('tipo', 'paciente'),
+      
+      // 3. Triagens (apenas campos para estatísticas)
       supabase.from('triagens').select('dentista_id, status, updated_at'),
+      
+      // 4. Consultas (só contagem)
       supabase.from('agendamentos').select('*', { count: 'exact', head: true }),
+      
+      // 5. Mensagens (só contagem)
       supabase.from('messages').select('*', { count: 'exact', head: true }),
+      
+      // 6. Dentistas do mês (só contagem)
+      supabase.from('profiles').select('*', { count: 'exact', head: true })
+        .eq('tipo', 'dentista')
+        .gte('created_at', inicioMes),
+        
+      // 7. Pacientes do mês (só contagem)
+      supabase.from('profiles').select('*', { count: 'exact', head: true })
+        .eq('tipo', 'paciente')
+        .gte('created_at', inicioMes),
     ]);
 
     if (dentistasError) return { success: false, error: dentistasError.message };
@@ -73,6 +98,8 @@ export const gerarRelatorioGeral = async (): Promise<{
     if (triagensError) return { success: false, error: triagensError.message };
     if (consultasError) return { success: false, error: consultasError.message };
     if (mensagensError) return { success: false, error: mensagensError.message };
+    if (dentistasMesError) return { success: false, error: dentistasMesError.message };
+    if (pacientesMesError) return { success: false, error: pacientesMesError.message };
 
     const relatoriosDentistas: RelatorioDentista[] = (dentistas || []).map(
       (dentista: any) => {
@@ -118,33 +145,36 @@ export const gerarRelatorioGeral = async (): Promise<{
       totalTriagens > 0 ? (totalRespondidas / totalTriagens) * 100 : 0;
 
     // calcular metrics do mês atual
-    const dataAgora = new Date();
-    const inicioMes = new Date(dataAgora.getFullYear(), dataAgora.getMonth(), 1);
-    const perfisMes = [...(dentistas || []), ...(pacientes || [])].filter((p: any) => {
-      const created = p?.created_at ? new Date(p.created_at) : null;
-      return created && created >= inicioMes;
-    });
-    const dentistasMes = (dentistas || []).filter((d: any) => {
-      const created = d?.created_at ? new Date(d.created_at) : null;
-      return created && created >= inicioMes;
-    }).length;
-    const pacientesMes = (pacientes || []).filter((p: any) => {
-      const created = p?.created_at ? new Date(p.created_at) : null;
-      return created && created >= inicioMes;
-    }).length;
+    // const dataAgora = new Date(); // Already defined
+    // const inicioMes = new Date(dataAgora.getFullYear(), dataAgora.getMonth(), 1); // Now done on server
+    // const perfisMes = [...(dentistas || []), ...(pacientes || [])].filter((p: any) => {
+    //   const created = p?.created_at ? new Date(p.created_at) : null;
+    //   return created && created >= inicioMes;
+    // });
+    // const dentistasMes = (dentistas || []).filter((d: any) => {
+    //   const created = d?.created_at ? new Date(d.created_at) : null;
+    //   return created && created >= inicioMes;
+    // }).length;
+    // const pacientesMes = (pacientes || []).filter((p: any) => {
+    //   const created = p?.created_at ? new Date(p.created_at) : null;
+    //   return created && created >= inicioMes;
+    // }).length;
+
+    // Log para debug (opcional, mas ajuda a ver se os dados estão chegando)
+    console.log(`Relatório: ${dentistas?.length} dentistas, ${totalPacientes} pacientes. Novos no mês: ${dentistasMesCount}D, ${pacientesMesCount}P`);
 
     const relatorio: RelatorioGeral = {
       totalDentistas: dentistas?.length || 0,
-      totalPacientes: pacientes?.length || 0,
+      totalPacientes: Number(totalPacientes || 0),
       dentistasAtivos: relatoriosDentistas.filter((r) => r.totalTriagens > 0).length,
       totalTriagens,
       totalConsultas: Number(consultasCount || 0),
       totalMensagens: Number(mensagensCount || 0),
       triagensRespondidas: totalRespondidas,
       percentualResposta: Math.round(percentualGeral),
-      cadastrosMes: perfisMes.length,
-      dentistasMes,
-      pacientesMes,
+      cadastrosMes: (dentistasMesCount || 0) + (pacientesMesCount || 0),
+      dentistasMes: dentistasMesCount || 0,
+      pacientesMes: pacientesMesCount || 0,
       dentistas: relatoriosDentistas,
       dataGeracao: new Date().toISOString(),
     };
@@ -456,23 +486,5 @@ export const gerarHTMLRelatorio = (relatorio: RelatorioGeral): string => {
  * Imprime o relatorio (web) ou compartilha o HTML (mobile)
  */
 export const imprimirRelatorio = async (html: string): Promise<ExportResult> => {
-  try {
-    if (Platform.OS === 'web') {
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(html);
-        printWindow.document.close();
-        setTimeout(() => {
-          printWindow.print();
-        }, 250);
-        return { success: true };
-      }
-      return { success: false, error: 'Janela de impressao bloqueada' };
-    }
-
-    const filename = `relatorio-geral-${new Date().toISOString().split('T')[0]}.html`;
-    return await saveAndShareNative(html, filename, 'HTML');
-  } catch (error: any) {
-    return { success: false, error: error?.message || 'Erro ao preparar impressao' };
-  }
+  return exportHtmlAsPdf(html, `relatorio-geral-${new Date().toISOString().split('T')[0]}.pdf`);
 };

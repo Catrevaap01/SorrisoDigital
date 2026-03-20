@@ -1,3 +1,6 @@
+-- Arquivo SQL principal do projeto.
+-- Consolida configuracao de profiles, agendamentos, conversations e messages.
+
 /**
  * Script SQL para criar a estrutura de admin no Supabase
  * 
@@ -44,6 +47,16 @@ CREATE TRIGGER on_auth_user_created
 -- ============================================
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+CREATE OR REPLACE FUNCTION public.is_admin_user(check_user_id uuid)
+RETURNS boolean AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = check_user_id
+      AND tipo = 'admin'
+  );
+$$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public;
+
 -- Política para usuários lerem seu próprio perfil
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile"
@@ -63,33 +76,21 @@ DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
 CREATE POLICY "Admins can view all profiles"
   ON public.profiles
   FOR SELECT
-  USING (
-    auth.uid() IN (
-      SELECT id FROM public.profiles WHERE tipo = 'admin'
-    )
-  );
+  USING (public.is_admin_user(auth.uid()));
 
 -- Política para admin atualizar qualquer perfil
 DROP POLICY IF EXISTS "Admins can update any profile" ON public.profiles;
 CREATE POLICY "Admins can update any profile"
   ON public.profiles
   FOR UPDATE
-  USING (
-    auth.uid() IN (
-      SELECT id FROM public.profiles WHERE tipo = 'admin'
-    )
-  );
+  USING (public.is_admin_user(auth.uid()));
 
 -- Política para admin inserir perfis (necessária quando RLS está ativa)
 DROP POLICY IF EXISTS "Admins can insert profiles" ON public.profiles;
 CREATE POLICY "Admins can insert profiles" 
   ON public.profiles
   FOR INSERT
-  WITH CHECK (
-    auth.uid() IN (
-      SELECT id FROM public.profiles WHERE tipo = 'admin'
-    )
-  );
+  WITH CHECK (public.is_admin_user(auth.uid()));
 
 -- ============================================
 -- 4. CRIAR PRIMEIRO ADMIN (OPCIONAL)
@@ -118,6 +119,16 @@ ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS cro TEXT;
 ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS especialidade TEXT;
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS historico_medico TEXT;
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS alergias TEXT;
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS medicamentos_atuais TEXT;
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS observacoes_gerais TEXT;
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS documentos_urls TEXT[] DEFAULT '{}';
 
 -- ============================================
 -- 6. TABELAS DE AGENDAMENTOS (e demais)
@@ -133,15 +144,36 @@ CREATE TABLE IF NOT EXISTS public.agendamentos (
     data_agendamento timestamptz NOT NULL,
     tipo text,
     observacoes text,
-    status text,
+    status text DEFAULT 'pendente',
     prioridade text,
     created_at timestamptz NOT NULL DEFAULT NOW(),
     updated_at timestamptz NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE IF EXISTS public.agendamentos
+ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'pendente';
+
+UPDATE public.agendamentos
+SET status = 'realizado'
+WHERE status = 'concluido';
+
+UPDATE public.agendamentos
+SET status = 'pendente'
+WHERE status IS NULL
+   OR status = ''
+   OR status NOT IN ('pendente', 'agendado', 'confirmado', 'cancelado', 'realizado');
+
+ALTER TABLE IF EXISTS public.agendamentos
+DROP CONSTRAINT IF EXISTS chk_agendamento_status;
+
+ALTER TABLE IF EXISTS public.agendamentos
+ADD CONSTRAINT chk_agendamento_status
+CHECK (status IN ('pendente', 'agendado', 'confirmado', 'cancelado', 'realizado'));
+
 -- índices úteis
 CREATE INDEX IF NOT EXISTS idx_agendamentos_paciente ON public.agendamentos(paciente_id);
 CREATE INDEX IF NOT EXISTS idx_agendamentos_dentista ON public.agendamentos(dentista_id);
+CREATE INDEX IF NOT EXISTS idx_agendamentos_status ON public.agendamentos(status);
 
 -- habilitar RLS depois de criar a tabela (políticas podem ser aplicadas via
 -- outros scripts, como SUPABASE_RLS_ADMIN_READ_REPORTS.sql)
@@ -230,13 +262,13 @@ DROP POLICY IF EXISTS "Admins can view all conversations" ON public.conversation
 CREATE POLICY "Admins can view all conversations"
   ON public.conversations
   FOR SELECT
-  USING (auth.uid() IN (SELECT id FROM public.profiles WHERE tipo = 'admin'));
+  USING (public.is_admin_user(auth.uid()));
 
 DROP POLICY IF EXISTS "Admins can view all messages" ON public.messages;
 CREATE POLICY "Admins can view all messages"
   ON public.messages
   FOR SELECT
-  USING (auth.uid() IN (SELECT id FROM public.profiles WHERE tipo = 'admin'));
+  USING (public.is_admin_user(auth.uid()));
 
 -- ============================================
 -- FIM DO SCRIPT

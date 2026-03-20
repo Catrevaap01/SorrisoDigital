@@ -39,6 +39,10 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
   const diasSemana = gerarSemana();
 
   const carregarAgendamentos = async () => {
+    if (!profile?.id) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     const result = await buscarAgendaDentista(profile.id, dataSelecionada);
     if (result.success) {
@@ -103,7 +107,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       Toast.show({
         type: 'error',
         text1: 'Erro ao agendar',
-        text2: res.error || 'Nao foi possivel agendar este paciente',
+        text2: (typeof res.error === 'string' ? res.error : res.error?.message) || 'Não foi possível agendar este paciente',
       });
     };
 
@@ -123,7 +127,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       Toast.show({
         type: 'error',
         text1: 'Erro ao confirmar',
-        text2: res.error || 'Nao foi possivel confirmar este agendamento',
+        text2: (typeof res.error === 'string' ? res.error : res.error?.message) || 'Não foi possível confirmar este agendamento',
       });
     };
 
@@ -142,7 +146,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       Toast.show({
         type: 'error',
         text1: 'Erro ao cancelar',
-        text2: res.error || 'Nao foi possivel cancelar este agendamento',
+        text2: (typeof res.error === 'string' ? res.error : res.error?.message) || 'Não foi possível cancelar este agendamento',
       });
     };
 
@@ -161,7 +165,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       Toast.show({
         type: 'error',
         text1: 'Erro ao marcar',
-        text2: res.error || 'Nao foi possivel marcar como realizado',
+        text2: (typeof res.error === 'string' ? res.error : res.error?.message) || 'Não foi possível marcar como realizado',
       });
     };
 

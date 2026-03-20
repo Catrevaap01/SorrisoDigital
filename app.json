@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Odontologia_de_Angola",
+    "name": "Odontologia de Angola",
     "slug": "TeOdontoAngola",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1E88E5"
     },
     "ios": {
       "supportsTablet": true
@@ -24,12 +24,22 @@
       "package": "com.antoniotati.TeOdontoAngola"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "Odontologia de Angola",
+      "shortName": "TeOdonto",
+      "description": "Sistema Digital de Odontologia de Angola - Gestão de pacientes, triagens e agendamentos",
+      "themeColor": "#1E88E5",
+      "backgroundColor": "#F5F5F5",
+      "display": "standalone",
+      "orientation": "portrait",
+      "startUrl": "/",
+      "scope": "/"
     },
     "plugins": [
       "expo-secure-store"
     ],
     "extra": {
+      "APP_URL": "https://teodontoangola.vercel.app",
       "SUPABASE_URL": "https://yyscwmcghokyzhtcluif.supabase.co",
       "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5c2N3bWNnaG9reXpodGNsdWlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNjgyOTYsImV4cCI6MjA4NzY0NDI5Nn0.cgpvENp4tnmblre10I2x7PxqSKOtrOPUAEOIi5RyOeg",
       "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5c2N3bWNnaG9reXpodGNsdWlmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjA2ODI5NiwiZXhwIjoyMDg3NjQ0Mjk2fQ.FwA-pcwih72mOv36lawPFYWhRb7BiKCQksITjrNzwFg",

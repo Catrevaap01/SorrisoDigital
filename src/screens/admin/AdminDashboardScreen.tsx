@@ -15,6 +15,7 @@ import {
   Modal,
   ActivityIndicator,
   FlatList,
+  SectionList,
   Alert,
   RefreshControl,
   KeyboardAvoidingView,
@@ -591,15 +592,35 @@ const AdminDashboardScreen: React.FC = () => {
           </Text>
         </View>
       ) : (
-        <FlatList
-          data={dentistas}
+        <SectionList
+          sections={(() => {
+            const groups: Record<string, DentistaProfile[]> = {};
+            dentistas.forEach((d) => {
+              const spec = d.especialidade || 'Sem especialidade';
+              if (!groups[spec]) groups[spec] = [];
+              groups[spec].push(d);
+            });
+            return Object.entries(groups)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([title, data]) => ({ title, data }));
+          })()}
           renderItem={renderDentista}
+          renderSectionHeader={({ section: { title, data } }) => (
+            <View style={styles.sectionHeader}>
+              <Ionicons name="medical" size={18} color={COLORS.primary} />
+              <Text style={styles.sectionTitle}>{title}</Text>
+              <View style={styles.sectionBadge}>
+                <Text style={styles.sectionBadgeText}>{data.length}</Text>
+              </View>
+            </View>
+          )}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listaContainer}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }
           onScrollBeginDrag={() => setExpandedDentistaId(null)}
+          stickySectionHeadersEnabled={false}
         />
       )}
 
@@ -1499,6 +1520,37 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.body,
     fontWeight: '600',
     color: COLORS.text,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#E3F2FD',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.xs,
+    borderRadius: 8,
+    marginHorizontal: SPACING.md,
+  },
+  sectionTitle: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.sizes.body,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  sectionBadge: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    minWidth: 28,
+    alignItems: 'center',
+  },
+  sectionBadgeText: {
+    color: COLORS.textInverse,
+    fontSize: TYPOGRAPHY.sizes.small,
+    fontWeight: '700',
   },
 });
 

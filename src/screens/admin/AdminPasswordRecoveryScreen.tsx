@@ -21,7 +21,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 import { listarDentistas, DentistaProfile } from '../../services/dentistaService';
 import { recuperarSenhaDentista } from '../../services/passwordRecoveryService';
 import { copiarParaAreaDeTransferencia } from '../../utils/senhaUtils';
@@ -345,11 +345,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    ...SHADOWS.sm,
   },
   cardContent: {
     flexDirection: 'row',

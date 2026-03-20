@@ -9,6 +9,7 @@ import {
   Image,
   Modal,
   ScrollView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -144,8 +145,9 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
   };
 
   const renderTriagem = ({ item }) => {
-    const statusInfo = STATUS_TRIAGEM[item.status] || STATUS_TRIAGEM.pendente;
     const temResposta = item.respostas && item.respostas.length > 0;
+    const effectiveStatus = temResposta ? 'respondido' : (item.status === 'urgente' || item.prioridade === 'urgente' || Number(item.intensidade_dor || 0) >= 8 ? 'urgente' : (item.status || 'pendente'));
+    const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
 
     return (
       <TouchableOpacity
@@ -198,9 +200,18 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
         {temResposta && (
           <View style={styles.respostaPreview}>
             <View style={styles.respostaHeader}>
-              <Ionicons name="chatbubbles" size={16} color={COLORS.secondary} />
-              <Text style={styles.respostaHeaderText}>Resposta do Dentista</Text>
+              <Ionicons name="person-circle-outline" size={16} color={COLORS.secondary} />
+              <Text style={styles.respostaHeaderText}>
+                Dr(a). {item.respostas[0].dentista?.nome || 'Dentista'}
+              </Text>
             </View>
+            
+            {item.respostas[0].recomendacao && (
+              <Text style={styles.recomendacaoDestaque}>
+                ⭐ {item.respostas[0].recomendacao}
+              </Text>
+            )}
+            
             <Text style={styles.respostaTexto} numberOfLines={2}>
               {item.respostas[0].orientacao}
             </Text>
@@ -361,12 +372,40 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
                 </View>
               )}
 
-              {triagemSelecionada.descricao && (
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalLabel}>Descrição</Text>
-                  <Text style={styles.modalValueMultiline}>
-                    {triagemSelecionada.descricao}
-                  </Text>
+              {triagemSelecionada.respostas && triagemSelecionada.respostas.length > 0 && (
+                <View style={[styles.modalSection, styles.modalSectionResposta]}>
+                  <View style={styles.modalSectionHeader}>
+                    <Ionicons name="chatbubbles" size={20} color={COLORS.secondary} />
+                    <Text style={[styles.modalSectionTitle, { color: COLORS.secondary }]}>
+                      Avaliação do Dentista
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.dentistaInfoBox}>
+                    <Ionicons name="person-circle" size={40} color={COLORS.secondary} />
+                    <View style={{ marginLeft: 12 }}>
+                      <Text style={styles.modalDentistaNome}>
+                        Dr(a). {triagemSelecionada.respostas[0].dentista?.nome || 'Dentista'}
+                      </Text>
+                      <Text style={styles.modalDentistaSub}>Profissional de Odontologia</Text>
+                    </View>
+                  </View>
+
+                  {triagemSelecionada.respostas[0].recomendacao && (
+                    <View style={styles.recomendacaoBox}>
+                      <Text style={styles.recomendacaoLabel}>Recomendação:</Text>
+                      <Text style={styles.recomendacaoValor}>
+                        {triagemSelecionada.respostas[0].recomendacao}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={styles.orientacaoBox}>
+                    <Text style={styles.orientacaoLabel}>Orientação detalhada:</Text>
+                    <Text style={styles.orientacaoValor}>
+                      {triagemSelecionada.respostas[0].orientacao}
+                    </Text>
+                  </View>
                 </View>
               )}
 
@@ -803,38 +842,51 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   respostaPreview: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: SIZES.radiusSm,
-    padding: SIZES.sm,
-    marginTop: SIZES.sm,
+    backgroundColor: '#F5FEF9',
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    marginTop: SIZES.md,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.secondary,
   },
   respostaHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SIZES.xs,
+    marginBottom: 6,
   },
   respostaHeaderText: {
     fontSize: SIZES.fontSm,
-    fontWeight: '600',
+    fontWeight: 'bold',
     color: COLORS.secondary,
-    marginLeft: SIZES.xs,
+    marginLeft: 6,
+  },
+  recomendacaoDestaque: {
+    fontSize: SIZES.fontXs,
+    fontWeight: '600',
+    color: '#2E7D32',
+    marginBottom: 4,
   },
   respostaTexto: {
     fontSize: SIZES.fontSm,
-    color: COLORS.text,
+    color: COLORS.textSecondary,
     lineHeight: 18,
   },
   // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
+    alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
   },
   modalContent: {
     backgroundColor: COLORS.surface,
     borderTopLeftRadius: SIZES.radiusXl,
     borderTopRightRadius: SIZES.radiusXl,
+    borderBottomLeftRadius: Platform.OS === 'web' ? SIZES.radiusXl : 0,
+    borderBottomRightRadius: Platform.OS === 'web' ? SIZES.radiusXl : 0,
     maxHeight: '90%',
+    width: Platform.OS === 'web' ? '100%' : undefined,
+    maxWidth: Platform.OS === 'web' ? 600 : undefined,
     paddingBottom: SIZES.xl,
   },
   modalHeader: {
@@ -977,6 +1029,75 @@ const styles = StyleSheet.create({
     fontSize: SIZES.fontSm,
     color: '#E65100',
     lineHeight: 18,
+  },
+  modalSectionResposta: {
+    backgroundColor: '#F0F9F4',
+    borderColor: '#C8E6C9',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+    marginHorizontal: 16,
+  },
+  modalSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalSectionTitle: {
+    fontSize: SIZES.fontMd,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  dentistaInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  modalDentistaNome: {
+    fontSize: SIZES.fontMd,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  modalDentistaSub: {
+    fontSize: SIZES.fontXs,
+    color: COLORS.textSecondary,
+  },
+  recomendacaoBox: {
+    backgroundColor: '#E8F5E9',
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 12,
+  },
+  recomendacaoLabel: {
+    fontSize: 10,
+    textTransform: 'uppercase',
+    color: '#2E7D32',
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  recomendacaoValor: {
+    fontSize: SIZES.fontMd,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  orientacaoBox: {
+    padding: 4,
+  },
+  orientacaoLabel: {
+    fontSize: 10,
+    textTransform: 'uppercase',
+    color: COLORS.textSecondary,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  orientacaoValor: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.text,
+    lineHeight: 20,
   },
 });
 

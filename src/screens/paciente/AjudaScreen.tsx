@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, SIZES, TYPOGRAPHY } from '../../styles/theme';
+import { COLORS, SIZES, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 
 const FAQs = [
   {
@@ -168,11 +168,7 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.xl,
     borderRadius: SIZES.radiusLg,
     padding: SIZES.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    ...SHADOWS.md,
   },
   sectionHeader: {
     flexDirection: 'row',

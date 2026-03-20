@@ -1,14 +1,21 @@
-﻿/**
+/**
  * Auth Context
- * Gerencia o estado de autenticaÃ§Ã£o global da aplicaÃ§Ã£o
+ * Gerencia o estado de autenticação global da aplicação
  */
 
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { User } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, PROFILE_SCHEMA_FEATURES } from '../config/supabase';
 import Toast from 'react-native-toast-message';
 import { logger } from '../utils/logger';
+import { withTimeout } from '../utils/withTimeout';
 import { handleError, HandledError } from '../utils/errorHandler';
+
+const AUTH_BOOT_TIMEOUT_MS = 30000;
 
 export interface UserProfile {
   id: string;
@@ -62,6 +69,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [initializing, setInitializing] = useState<boolean>(true);
 
+
+
   const PROVINCIAS_STATIC_ORDER = [
     'Luanda',
     'Benguela',
@@ -87,6 +96,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (!id || id < 1 || id > PROVINCIAS_STATIC_ORDER.length) return undefined;
     return PROVINCIAS_STATIC_ORDER[id - 1];
   };
+
+  // Helper from pacienteService (copied for RLS fallback)
+  const getAdminClient = (): SupabaseClient | null => {
+    const extra = Constants.expoConfig?.extra;
+    const SUPABASE_URL = extra?.SUPABASE_URL as string | undefined;
+    const SUPABASE_SERVICE_ROLE_KEY = extra?.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
+    return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
+  };
+
+  const isRowLevelSecurityError = (error: any): boolean => {
+    const msg = String(error?.message || '').toLowerCase();
+    return (
+      error?.code === '42501' ||
+      msg.includes('row-level security') ||
+      msg.includes('violates row-level security')
+    );
+  };
+
+  const getAdminClientFromContext = () => getAdminClient();
 
   const normalizeProfile = (rawProfile: any): UserProfile => {
     if (!rawProfile) return rawProfile as UserProfile;
@@ -201,11 +236,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (staticId) {
         return staticId;
       }
-      logger.warn('Provincia nao encontrada para nome informado:', provinciaNome);
+logger.warn('Província não encontrada para nome informado:', provinciaNome);
     }
 
     return matched?.id;
   };
+
+  const generateSessionId = () => `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
   /**
    * Buscar perfil do usuÃ¡rio
@@ -217,11 +254,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         : '*';
 
       // use maybeSingle to avoid throwing when não há linhas
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(selectQuery)
-        .eq('id', userId)
-        .maybeSingle();
+      let { data, error } = await withTimeout(
+        supabase
+          .from('profiles')
+          .select(selectQuery)
+          .eq('id', userId)
+          .maybeSingle(),
+        AUTH_BOOT_TIMEOUT_MS
+      );
+
+      // Fallback for RLS/blocked/recursion 500 errors: try admin client
+      if (error && (isRowLevelSecurityError(error) || (error as any).status === 500 || (error as any).code === '500')) {
+        logger.warn(`RLS or 500 error in fetchProfile for ${userId}, trying admin fallback`, error);
+        const adminClient = getAdminClientFromContext();
+        if (adminClient) {
+          ({ data, error } = await withTimeout(
+            adminClient
+              .from('profiles')
+              .select(selectQuery)
+              .eq('id', userId)
+              .maybeSingle(),
+            5000
+          ));
+        }
+      }
 
       if (error) throw error;
 
@@ -251,8 +307,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       const normalizedProfile = normalizeProfile(data);
+      
+      // LOGICA SINGLE DEVICE: Verificar se a sessao local coincide com a do banco
+      const localSessionId = await AsyncStorage.getItem(`last_session_id_${userId}`);
+      if (data.last_session_id && localSessionId && data.last_session_id !== localSessionId) {
+        logger.warn(`Sessao conflitante detectada para ${userId}. Local: ${localSessionId}, DB: ${data.last_session_id}. Forçando logout.`);
+        // Nao chamamos signOut direto para evitar loop, limpamos e avisamos
+        setUser(null);
+        setProfile(null);
+        await AsyncStorage.removeItem(`last_session_id_${userId}`);
+        await supabase.auth.signOut();
+        Toast.show({
+          type: 'info',
+          text1: 'SessÃ£o Encerrada',
+          text2: 'Esta conta foi ligada noutro dispositivo.',
+          visibilityTime: 6000,
+        });
+        return null;
+      }
+
       setProfile(normalizedProfile);
-      logger.info('Perfil do usuário carregado com sucesso');
+      logger.info('Perfil do usuÃ¡rio carregado com sucesso');
       return normalizedProfile;
     } catch (error) {
       const handledError = handleError(error, 'AuthProvider.fetchProfile');
@@ -266,14 +341,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * Escutar mudanÃ§as de autenticaÃ§Ã£o
    */
   useEffect(() => {
-    // Verificar sessÃ£o atual
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      }
+    const bootTimeout = setTimeout(() => {
+      logger.warn(`Auth bootstrap excedeu ${AUTH_BOOT_TIMEOUT_MS}ms. Liberando app com fallback.`);
       setInitializing(false);
-    });
+      setLoading(false);
+    }, AUTH_BOOT_TIMEOUT_MS);
+
+    // Verificar sessÃ£o atual
+    withTimeout(supabase.auth.getSession(), AUTH_BOOT_TIMEOUT_MS)
+      .then(({ data: { session } }) => {
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          void fetchProfile(session.user.id).finally(() => {
+            setInitializing(false);
+            setLoading(false);
+          });
+          return;
+        }
+        setInitializing(false);
+        setLoading(false);
+      })
+      .catch((error) => {
+        logger.warn('Falha/timeout ao obter sessao inicial:', error);
+        setInitializing(false);
+        setLoading(false);
+      });
 
     // Escutar mudanÃ§as de estado de autenticaÃ§Ã£o
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -290,7 +382,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     );
 
-    return () => subscription?.unsubscribe();
+    return () => {
+      clearTimeout(bootTimeout);
+      subscription?.unsubscribe();
+    };
   }, []);
 
   /**
@@ -310,11 +405,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (error) throw error;
 
-      Toast.show({
-        type: 'success',
-        text1: 'Bem-vindo!',
-        text2: 'Login realizado com sucesso',
-      });
+      if (data.user) {
+        // Encerra outras sessoes no Supabase Auth
+        await supabase.auth.signOut({ scope: 'others' });
+        
+        // Registrar nova sessao
+        const newSessionId = generateSessionId();
+        await AsyncStorage.setItem(`last_session_id_${data.user.id}`, newSessionId);
+        await supabase.from('profiles').update({ last_session_id: newSessionId }).eq('id', data.user.id);
+      }
 
       logger.info('Utilizador fez login com sucesso');
       return { success: true, data };
@@ -360,11 +459,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (data.user) {
         const provinciaId = await resolveProvinciaId(userData.provincia);
 
+        // Registrar sessao inicial
+        const newSessionId = generateSessionId();
+        await AsyncStorage.setItem(`last_session_id_${data.user.id}`, newSessionId);
+
         const profileUpdates = Object.fromEntries(
           Object.entries({
             telefone: userData.telefone,
             provincia: PROFILE_SCHEMA_FEATURES.hasProvincia ? userData.provincia : undefined,
             provincia_id: PROFILE_SCHEMA_FEATURES.usesProvinciaId ? provinciaId : undefined,
+            last_session_id: newSessionId,
           }).filter(([, value]) => value !== undefined)
         );
 
@@ -602,4 +706,3 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 };
 
 export default AuthContext;
-

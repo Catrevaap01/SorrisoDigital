@@ -1,8 +1,10 @@
 /**
+
  * Operações relacionadas a agendamentos de consultas
  */
 
 import { supabase } from '../config/supabase';
+import { withTimeout } from '../utils/withTimeout';
 import { HandledError, handleError } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
 
@@ -36,8 +38,33 @@ export interface Agendamento {
 export interface ServiceResult<T> {
   success: boolean;
   data?: T;
-  error?: string;
+  error?: string | import('../utils/errorHandler').HandledError;
 }
+
+const enrichAgendamentosWithPacientes = async (
+  agendaBase: Agendamento[]
+): Promise<Agendamento[]> => {
+  const pacienteIds = Array.from(
+    new Set(agendaBase.map((a) => a.paciente_id).filter(Boolean))
+  ) as string[];
+
+    let pacientesById: Record<string, any> = {};
+    if (pacienteIds.length > 0) {
+      const { data: pacientes = [], error: pacientesError } = await supabase
+        .from('profiles')
+        .select('id, nome, telefone, email')
+        .in('id', pacienteIds);
+
+      if (!pacientesError && pacientes.length > 0) {
+        pacientesById = Object.fromEntries(pacientes.map((p: any) => [p.id, p]));
+      }
+    }
+
+  return agendaBase.map((ag) => ({
+    ...ag,
+    paciente: ag.paciente || pacientesById[ag.paciente_id || ''] || undefined,
+  }));
+};
 
 export const criarAgendamento = async (
   dados: Omit<Agendamento, 'id' | 'created_at' | 'updated_at'>
@@ -70,18 +97,21 @@ export const buscarAgendaDentista = async (
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
 
-    // traz todos os agendamentos do dia: pendentes, agendados, confirmados, realizados e cancelados
-    const { data, error } = await supabase
+    // ✅ TIMEOUT + LIMIT 200 agendamentos  
+    const query = supabase
       .from('agendamentos')
       .select('*')
+      .limit(200)
       .or(`dentista_id.eq.${dentistaId},status.eq.pendente,status.eq.agendado,status.eq.confirmado,status.eq.realizado,status.eq.cancelado`)
       .gte('data_agendamento', start.toISOString())
       .lt('data_agendamento', end.toISOString())
       .order('data_agendamento', { ascending: true });
+    
+    const { data: agendaRaw = [], error } = await withTimeout(query, 12000);
 
     if (error) throw error;
 
-    let agendaBase = (data || []) as Agendamento[];
+    let agendaBase = agendaRaw as Agendamento[];
 
     const { data: bloqueados } = await supabase
       .from('agendamentos')
@@ -100,26 +130,7 @@ export const buscarAgendaDentista = async (
       if (!ag.paciente_id) return true;
       return !pacientesBloqueados.has(ag.paciente_id);
     });
-    const pacienteIds = Array.from(
-      new Set(agendaBase.map((a) => a.paciente_id).filter(Boolean))
-    ) as string[];
-
-    let pacientesById: Record<string, any> = {};
-    if (pacienteIds.length > 0) {
-      const { data: pacientes, error: pacientesError } = await supabase
-        .from('profiles')
-        .select('id, nome, telefone, email')
-        .in('id', pacienteIds);
-
-      if (!pacientesError && pacientes) {
-        pacientesById = Object.fromEntries(pacientes.map((p: any) => [p.id, p]));
-      }
-    }
-
-    const agendaEnriquecida = agendaBase.map((ag) => ({
-      ...ag,
-      paciente: ag.paciente || pacientesById[ag.paciente_id || ''] || undefined,
-    }));
+    const agendaEnriquecida = await enrichAgendamentosWithPacientes(agendaBase);
 
     return { success: true, data: agendaEnriquecida };
   } catch (err: any) {
@@ -166,26 +177,35 @@ export const buscarTodosAgendamentosDentista = async (
       return !pacientesBloqueados.has(ag.paciente_id);
     });
 
-    const pacienteIds = Array.from(
-      new Set(agendaBase.map((a) => a.paciente_id).filter(Boolean))
-    ) as string[];
+    const agendaEnriquecida = await enrichAgendamentosWithPacientes(agendaBase);
 
-    let pacientesById: Record<string, any> = {};
-    if (pacienteIds.length > 0) {
-      const { data: pacientes, error: pacientesError } = await supabase
-        .from('profiles')
-        .select('id, nome, telefone, email')
-        .in('id', pacienteIds);
+    return { success: true, data: agendaEnriquecida };
+  } catch (err: any) {
+    const mapped = _handleTableMissing(err);
+    const message = mapped || err.message || 'Erro desconhecido';
+    return { success: false, error: message };
+  }
+};
 
-      if (!pacientesError && pacientes) {
-        pacientesById = Object.fromEntries(pacientes.map((p: any) => [p.id, p]));
-      }
-    }
+export const buscarAgendamentosDentistaPorPeriodo = async (
+  dentistaId: string,
+  dataInicio: Date,
+  dataFim: Date
+): Promise<ServiceResult<Agendamento[]>> => {
+  try {
+    const { data, error } = await supabase
+      .from('agendamentos')
+      .select('*')
+      .eq('dentista_id', dentistaId)
+      .gte('data_agendamento', dataInicio.toISOString())
+      .lt('data_agendamento', dataFim.toISOString())
+      .order('data_agendamento', { ascending: false });
 
-    const agendaEnriquecida = agendaBase.map((ag) => ({
-      ...ag,
-      paciente: ag.paciente || pacientesById[ag.paciente_id || ''] || undefined,
-    }));
+    if (error) throw error;
+
+    const agendaEnriquecida = await enrichAgendamentosWithPacientes(
+      (data || []) as Agendamento[]
+    );
 
     return { success: true, data: agendaEnriquecida };
   } catch (err: any) {

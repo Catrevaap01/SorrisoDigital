@@ -13,7 +13,7 @@ import Toast from 'react-native-toast-message';
 import ConversationsListScreen from '../shared/ConversationsListScreen';
 import ChatScreen from '../shared/ChatScreen';
 import { useAuth } from '../../contexts/AuthContext';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 import { DentistaProfile, listarDentistas } from '../../services/dentistaService';
 import { obterOuCriarConversa } from '../../services/messagesService';
 
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
+    ...SHADOWS.md,
   },
   modalOverlay: {
     flex: 1,

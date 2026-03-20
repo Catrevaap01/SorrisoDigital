@@ -11,10 +11,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { buscarTriagensPaciente } from '../../services/triagemService';
-import { buscarPaciente, PacienteProfile } from '../../services/pacienteService';
+import { buscarPaciente, PacienteProfile, calcularIdade } from '../../services/pacienteService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { STATUS_TRIAGEM } from '../../utils/constants';
 import { formatRelativeTime, formatDateTime } from '../../utils/helpers';
+import { exportarHistoricoPacientePdf } from '../../services/pdfReportService';
+import Toast from 'react-native-toast-message';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { DentistaStackParamList } from '../../navigation/types';
 
@@ -33,6 +35,7 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [paciente, setPaciente] = useState<PacienteProfile | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const carregarDados = async () => {
     setLoading(true);
@@ -62,7 +65,9 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
   }, [pacienteId]);
 
   const renderTriagemLinha = ({ item }) => {
-    const statusInfo = STATUS_TRIAGEM[item.status] || STATUS_TRIAGEM.pendente;
+    const temResposta = item.respostas && item.respostas.length > 0;
+    const effectiveStatus = temResposta ? 'respondido' : (item.status === 'urgente' || item.prioridade === 'urgente' || Number(item.intensidade_dor || 0) >= 8 ? 'urgente' : (item.status || 'pendente'));
+    const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
     return (
       <TouchableOpacity
         style={styles.rowItem}
@@ -99,10 +104,15 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
       <View style={styles.pacienteInfoSection}>
         <Text style={styles.sectionTitle}>Dados do Paciente</Text>
         {paciente.data_nascimento && (
-          <Text style={styles.infoText}>
-            <Text style={styles.infoLabel}>Nascimento: </Text>
-            {formatDateTime(paciente.data_nascimento)}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={styles.infoText}>
+              <Text style={styles.infoLabel}>Nascimento: </Text>
+              {paciente.data_nascimento}
+            </Text>
+            <Text style={[styles.infoText, { color: COLORS.secondary, fontWeight: 'bold' }]}>
+              ({calcularIdade(paciente.data_nascimento)} anos)
+            </Text>
+          </View>
         )}
         {paciente.genero && (
           <Text style={styles.infoText}>
@@ -139,6 +149,21 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
         <Text style={styles.headerTitle}>
           Histórico de {pacienteNome || 'Paciente'}
         </Text>
+        <TouchableOpacity
+          style={styles.pdfBtn}
+          onPress={async () => {
+            setExporting(true);
+            const res = await exportarHistoricoPacientePdf(pacienteId);
+            setExporting(false);
+            if (!res.success) {
+              Toast.show({ type: 'error', text1: 'Erro', text2: res.error || 'Falha ao gerar PDF' });
+            }
+          }}
+          disabled={exporting}
+        >
+          <Ionicons name="download" size={18} color={COLORS.primary} />
+          <Text style={styles.pdfBtnText}>{exporting ? 'Gerando...' : 'PDF'}</Text>
+        </TouchableOpacity>
       </View>
       {renderPacienteInfo()}
       {loading ? (
@@ -176,9 +201,22 @@ const styles = StyleSheet.create({
   headerContainer: {
     padding: SIZES.md,
     backgroundColor: COLORS.surface,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     ...SHADOWS.sm,
   },
-  headerTitle: { fontSize: SIZES.fontLg, fontWeight: 'bold', color: COLORS.text },
+  headerTitle: { fontSize: SIZES.fontLg, fontWeight: 'bold', color: COLORS.text, flex: 1 },
+  pdfBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E3F2FD',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  pdfBtnText: { color: COLORS.primary, fontSize: SIZES.fontSm, fontWeight: '700' },
   pacienteInfoSection: {
     padding: SIZES.md,
     backgroundColor: COLORS.surface,

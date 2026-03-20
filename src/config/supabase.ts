@@ -1,7 +1,8 @@
-﻿import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import Constants from 'expo-constants'
+import { Platform } from 'react-native'
 
-// Pegando variÃ¡veis exatamente como estÃ£o no app.json
+// Pegando variáveis exatamente como estão no app.json
 const extra = Constants.expoConfig?.extra
 
 const SUPABASE_URL = extra?.SUPABASE_URL
@@ -15,7 +16,14 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 
 export const supabase: SupabaseClient = createClient(
   SUPABASE_URL,
-  SUPABASE_ANON_KEY
+  SUPABASE_ANON_KEY,
+  {
+    auth: {
+      persistSession: true,
+      detectSessionInUrl: Platform.OS === 'web', // Web fix: handle hash for auth
+      autoRefreshToken: true,
+    }
+  }
 )
 
 // Ajuste conforme o schema real do projeto no Supabase.

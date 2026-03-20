@@ -23,6 +23,7 @@ export type PacienteTabParamList = {
 export type DentistaTabParamList = {
   Dashboard: undefined;
   Agenda: undefined;
+  Pacientes: undefined;
   Relatorio: undefined;
   Mensagens:
     | {
@@ -57,6 +58,7 @@ export type DentistaStackParamList = {
   DentistaTabs: undefined;
   CasoDetalhe: { triagemId: string };
   PacienteHistorico: { pacienteId: string; pacienteNome?: string };
+  CadastrarPaciente: undefined;
   Settings: undefined; // mesma tela de configurações usada pelo paciente
   Notificacoes: undefined;
   NotificacoesDetalhe: undefined;
@@ -64,6 +66,7 @@ export type DentistaStackParamList = {
   TermosUso: undefined;
   Ajuda: undefined;
 };
+
 
 
 export type AdminStackParamList = {

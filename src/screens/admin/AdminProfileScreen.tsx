@@ -135,21 +135,14 @@ const AdminProfileScreen: React.FC = () => {
   };
 
   const handleLogout = () => {
-    Alert.alert('Terminar sessao', 'Tem certeza que deseja sair da sua conta?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Sair',
-        style: 'destructive',
-        onPress: async () => {
-          setProcessando(true);
-          try {
-            await signOut();
-          } finally {
-            setProcessando(false);
-          }
-        },
-      },
-    ]);
+    const confirmed = Platform.OS === 'web' 
+      ? window.confirm('Tem certeza que deseja sair da sua conta?')
+      : true;
+
+    if (!confirmed) return;
+
+    setProcessando(true);
+    signOut().finally(() => setProcessando(false));
   };
 
   return (

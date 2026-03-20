@@ -140,15 +140,16 @@ export const recuperarSenhaPaciente = async (
     const adminClient = getAdminClient();
     const authApi = adminClient?.auth.admin || supabase.auth.admin;
 
-    // fetch user by email
-    // listUsers supports filtering by email
-    const { data: listData, error: listError } = await authApi.listUsers({
-      email: pacienteEmail,
-    });
+    const { data: listData, error: listError } = await authApi.listUsers();
     if (listError) {
       return { success: false, error: listError.message };
     }
-    const users = listData?.users || [];
+    const allUsers = ((listData?.users as Array<{ email?: string; user_metadata?: any; id: string }>) || []);
+    const users = allUsers.filter(
+      (candidate) =>
+        candidate.email?.trim().toLowerCase() ===
+        pacienteEmail.trim().toLowerCase()
+    );
     if (users.length === 0) {
       return { success: false, error: 'Usuário não encontrado' };
     }
@@ -258,4 +259,3 @@ export const atualizarSenhaAposLogin = async (
     };
   }
 };
-

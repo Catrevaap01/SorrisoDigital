@@ -22,8 +22,8 @@ export interface InputProps extends Omit<TextInputProps, 'style'> {
   onChangeText?: (text: string) => void;
   error?: string;
   secureTextEntry?: boolean;
-  icon?: ReactNode;
-  rightIcon?: ReactNode;
+  icon?: ReactNode | keyof typeof Ionicons.glyphMap;
+  rightIcon?: ReactNode | keyof typeof Ionicons.glyphMap;
   onRightIconPress?: () => void;
   keyboardType?: TextInputProps['keyboardType'];
   multiline?: boolean;
@@ -59,6 +59,24 @@ export const Input: React.FC<InputProps> = ({
     setShowPassword(!showPassword);
   };
 
+  const renderIconNode = (
+    iconNode?: ReactNode | keyof typeof Ionicons.glyphMap
+  ): ReactNode => {
+    if (!iconNode) return null;
+
+    if (typeof iconNode === 'string') {
+      return (
+        <Ionicons
+          name={iconNode as keyof typeof Ionicons.glyphMap}
+          size={20}
+          color={COLORS.textSecondary}
+        />
+      );
+    }
+
+    return iconNode;
+  };
+
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
@@ -70,7 +88,7 @@ export const Input: React.FC<InputProps> = ({
           error && styles.inputWrapperError,
         ]}
       >
-        {icon && <View style={styles.iconLeft}>{icon}</View>}
+        {icon && <View style={styles.iconLeft}>{renderIconNode(icon)}</View>}
 
         <TextInput
           style={[
@@ -112,7 +130,7 @@ export const Input: React.FC<InputProps> = ({
             style={styles.iconRight}
             onPress={onRightIconPress}
           >
-            {rightIcon}
+            {renderIconNode(rightIcon)}
           </TouchableOpacity>
         )}
       </View>

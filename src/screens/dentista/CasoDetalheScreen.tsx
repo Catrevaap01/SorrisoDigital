@@ -20,7 +20,7 @@ import { buscarTriagemPorId, responderTriagem, atualizarStatusTriagem } from '..
 import { obterOuCriarConversa } from '../../services/messagesService';
 import { supabase } from '../../config/supabase';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
-import { STATUS_TRIAGEM, RECOMENDACAO, TIPOS_CONSULTA } from '../../utils/constants';
+import { STATUS_TRIAGEM, RECOMENDACAO } from '../../utils/constants';
 import { formatDateTime } from '../../utils/helpers';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { DentistaStackParamList } from '../../navigation/types';
@@ -85,6 +85,14 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
       return;
     }
 
+    if (Platform.OS === 'web') {
+      const confirmou = window.confirm('Deseja enviar esta orientação ao paciente?');
+      if (confirmou) {
+        processarResposta();
+      }
+      return;
+    }
+
     Alert.alert(
       'Confirmar Resposta',
       'Deseja enviar esta orientação ao paciente?',
@@ -96,28 +104,58 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
   };
 
   const processarResposta = async () => {
-    setEnviando(true);
-
-    const result = await responderTriagem(triagemId, profile.id, {
-      orientacao: orientacao.trim(),
-      recomendacao,
-      observacoes: observacoes.trim(),
-    });
-
-    setEnviando(false);
-
-    if (result.success) {
-      Toast.show({
-        type: 'success',
-        text1: 'Resposta enviada!',
-        text2: 'O paciente será notificado',
-      });
-      navigation.goBack();
-    } else {
+    console.log('🚀 Iniciando processarResposta...');
+    
+    if (!profile?.id) {
+      console.error('❌ Perfil do dentista não carregado');
       Toast.show({
         type: 'error',
-        text1: 'Erro ao enviar',
-        text2: 'Tente novamente',
+        text1: 'Erro de autenticação',
+        text2: 'Seu perfil ainda não foi carregado. Tente novamente em instantes.',
+      });
+      return;
+    }
+
+    setEnviando(true);
+
+    try {
+      console.log('📡 Chamando responderTriagem...', { triagemId, profileId: profile.id });
+      const result = await responderTriagem(triagemId, profile.id, {
+        orientacao: orientacao.trim(),
+        recomendacao,
+        observacoes: observacoes.trim(),
+      }, {
+        pacienteId: triagem.paciente_id!,
+        dentistaNome: profile.nome || 'Dentista',
+        dentistaAvatar: profile.foto_url || null
+      });
+
+      console.log('📥 Resultado do responderTriagem:', result);
+      setEnviando(false);
+
+      if (result.success) {
+        Toast.show({
+          type: 'success',
+          text1: 'Resposta enviada!',
+          text2: 'O paciente será notificado',
+        });
+        navigation.goBack();
+      } else {
+        const errorMsg = typeof result.error === 'object' ? result.error.message : String(result.error);
+        console.error('❌ Erro no result.success=false:', errorMsg);
+        Toast.show({
+          type: 'error',
+          text1: 'Erro ao enviar',
+          text2: errorMsg || 'Tente novamente',
+        });
+      }
+    } catch (err) {
+      console.error('💥 Erro catastrófico no processarResposta:', err);
+      setEnviando(false);
+      Toast.show({
+        type: 'error',
+        text1: 'Erro crítico',
+        text2: 'Falha na conexão ou erro interno. Tente novamente.',
       });
     }
   };
@@ -200,8 +238,9 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
     );
   }
 
-  const statusInfo = STATUS_TRIAGEM[triagem.status] || STATUS_TRIAGEM.pendente;
-  const jaRespondido = triagem.respostas && triagem.respostas.length > 0;
+  const temResposta = triagem && triagem.respostas && triagem.respostas.length > 0;
+  const effectiveStatus = temResposta ? 'respondido' : (triagem?.status === 'urgente' || triagem?.prioridade === 'urgente' || Number(triagem?.intensidade_dor || 0) >= 8 ? 'urgente' : (triagem?.status || 'pendente'));
+  const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
 
   return (
     <KeyboardAvoidingView
@@ -214,7 +253,6 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-      {/* Header do Paciente */}
       <View style={styles.pacienteCard}>
         <View style={styles.pacienteHeader}>
           <View style={styles.pacienteAvatar}>
@@ -222,27 +260,14 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
           </View>
           <View style={styles.pacienteInfo}>
             <Text style={styles.pacienteNome}>{triagem.paciente?.nome || 'Paciente'}</Text>
-            <Text style={styles.pacienteDetalhe}>{triagem.paciente?.email}</Text>
-            {triagem.paciente?.telefone && (
+            {triagem.paciente?.telefone ? (
               <Text style={styles.pacienteDetalhe}>
-                <Ionicons name="call-outline" size={12} /> {triagem.paciente.telefone}
+                <Ionicons name="call-outline" size={12} /> {String(triagem.paciente.telefone)}
               </Text>
-            )}
-            {triagem.paciente?.provincia && (
-              <Text style={styles.pacienteDetalhe}>
-                <Ionicons name="location-outline" size={12} /> {triagem.paciente.provincia}
-              </Text>
-            )}
-            {triagem.paciente?.data_nascimento && (
-              <Text style={styles.pacienteDetalhe}>
-                <Ionicons name="calendar" size={12} /> {formatDateTime(triagem.paciente.data_nascimento)}
-              </Text>
-            )}
-            {triagem.paciente?.genero && (
-              <Text style={styles.pacienteDetalhe}>
-                <Ionicons name="male-female" size={12} /> {triagem.paciente.genero}
-              </Text>
-            )}
+            ) : null}
+            <Text style={styles.pacienteResumo}>
+              {`Caso enviado ${formatDateTime(triagem.created_at)}`}
+            </Text>
           </View>
         </View>
         <View style={styles.pacienteButtonsRow}>
@@ -267,19 +292,12 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
           </TouchableOpacity>
         </View>
       </View>
-
-      {/* Status e Data */}
       <View style={styles.statusCard}>
         <View style={[styles.statusBadgeLarge, { backgroundColor: statusInfo.color }]}>
           <Ionicons name={statusInfo.icon as any} size={18} color="#fff" />
           <Text style={styles.statusTextLarge}>{statusInfo.label}</Text>
         </View>
-        <Text style={styles.dataText}>
-          Enviado em {formatDateTime(triagem.created_at)}
-        </Text>
       </View>
-
-      {/* Informações da Triagem */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Informações do Caso</Text>
 
@@ -304,23 +322,20 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
           </View>
         </View>
 
-        {triagem.localizacao && (
+        {triagem.localizacao ? (
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Localização</Text>
             <Text style={styles.infoValor}>{triagem.localizacao}</Text>
           </View>
-        )}
-
-        {triagem.descricao && (
+        ) : null}
+        {triagem.descricao ? (
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Descrição do Paciente</Text>
             <Text style={styles.descricaoText}>{triagem.descricao}</Text>
           </View>
-        )}
+        ) : null}
       </View>
-
-      {/* Imagens */}
-      {triagem.imagens && triagem.imagens.length > 0 && (
+      {triagem.imagens && triagem.imagens.length > 0 ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Fotos Enviadas ({triagem.imagens.length})</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -335,42 +350,10 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
           </ScrollView>
           <Text style={styles.imagemDica}>Toque para ampliar</Text>
         </View>
-      )}
-
-
+      ) : null}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>
-          Agendamentos do Paciente ({triagem.agendamentos?.length || 0})
-        </Text>
-        {!triagem.agendamentos || triagem.agendamentos.length === 0 ? (
-          <Text style={styles.infoValor}>Nenhum agendamento encontrado.</Text>
-        ) : (
-          triagem.agendamentos.map((agendamento: any) => (
-            <View key={agendamento.id} style={styles.agendamentoCard}>
-              <View style={styles.agendamentoHeader}>
-                <Text style={styles.agendamentoTipo}>
-                  {TIPOS_CONSULTA[agendamento.tipo]?.label || agendamento.tipo || 'Consulta'}
-                </Text>
-                <Text style={styles.agendamentoStatus}>{agendamento.status || 'agendado'}</Text>
-              </View>
-              <Text style={styles.agendamentoData}>
-                {agendamento.data_agendamento
-                  ? formatDateTime(agendamento.data_agendamento)
-                  : 'Data nao informada'}
-              </Text>
-              {!!agendamento.observacoes && (
-                <Text style={styles.agendamentoObs} numberOfLines={2}>
-                  {agendamento.observacoes}
-                </Text>
-              )}
-            </View>
-          ))
-        )}
-      </View>
-      {/* Formulário de Resposta */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>
-          {jaRespondido ? 'Sua Resposta' : 'Responder ao Paciente'}
+          {temResposta ? 'Sua Resposta' : 'Responder ao Paciente'}
         </Text>
 
         {/* Orientação */}
@@ -384,7 +367,7 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
           multiline
           numberOfLines={5}
           textAlignVertical="top"
-          editable={!jaRespondido}
+          editable={!temResposta}
         />
 
         {/* Recomendação */}
@@ -398,8 +381,8 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
                 recomendacao === key && styles.recomendacaoCardActive,
                 recomendacao === key && { borderColor: info.color },
               ]}
-              onPress={() => !jaRespondido && setRecomendacao(key)}
-              disabled={jaRespondido}
+              onPress={() => !temResposta && setRecomendacao(key)}
+              disabled={temResposta}
             >
               <Ionicons
                 name={info.icon as any}
@@ -429,12 +412,10 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
           multiline
           numberOfLines={2}
           textAlignVertical="top"
-          editable={!jaRespondido}
+          editable={!temResposta}
         />
       </View>
-
-      {/* Botões de Ação */}
-      {!jaRespondido && (
+      {!temResposta ? (
         <View style={styles.acoesContainer}>
           <TouchableOpacity
             style={styles.urgenteButton}
@@ -459,9 +440,7 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
             )}
           </TouchableOpacity>
         </View>
-      )}
-
-      {/* Aviso */}
+      ) : null}
       <View style={styles.avisoContainer}>
         <Ionicons name="information-circle" size={18} color={COLORS.accent} />
         <Text style={styles.avisoText}>
@@ -469,8 +448,6 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
           presencial quando necessário e evite diagnósticos definitivos.
         </Text>
       </View>
-
-      {/* Modal de Imagem */}
       <Modal
         visible={!!imagemModal}
         transparent
@@ -569,6 +546,11 @@ const styles = StyleSheet.create({
     fontSize: SIZES.fontSm,
     color: COLORS.textSecondary,
     marginTop: 2,
+  },
+  pacienteResumo: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    marginTop: 6,
   },
   statusCard: {
     flexDirection: 'row',
@@ -805,4 +787,3 @@ const styles = StyleSheet.create({
 });
 
 export default CasoDetalheScreen;
-

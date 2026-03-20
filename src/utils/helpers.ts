@@ -31,6 +31,17 @@ export const formatRelativeTime = (date: string | Date): string => {
 };
 
 /**
+ * Aplica mascara YYYY-MM-DD enquanto o usuario digita.
+ */
+export const formatBirthDateInput = (value: string): string => {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+};
+
+/**
  * Comprime imagem (placeholder para expo-image-manipulator)
  */
 export const compressImage = async (uri: string, quality: number = 0.7): Promise<string> => {

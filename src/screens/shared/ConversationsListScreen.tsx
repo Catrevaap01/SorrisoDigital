@@ -15,18 +15,21 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 import { supabase } from '../../config/supabase';
 import {
   Conversation,
   listarConversasDoUsuario,
   contarMensagensNaoLidas,
+  obterOuCriarConversa,
 } from '../../services/messagesService';
+import { listarPacientes, PacienteProfile } from '../../services/pacienteService';
 
 interface ConversationsListScreenProps {
   onSelectConversation: (
@@ -49,6 +52,13 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [busca, setBusca] = useState('');
+
+  // Estados para Nova Conversa
+  const [modalVisible, setModalVisible] = useState(false);
+  const [pacientes, setPacientes] = useState<PacienteProfile[]>([]);
+  const [pacientesOrig, setPacientesOrig] = useState<PacienteProfile[]>([]);
+  const [loadingPacientes, setLoadingPacientes] = useState(false);
+  const [buscaPaciente, setBuscaPaciente] = useState('');
 
   // Carregar conversas
   const carregarConversas = async () => {
@@ -174,6 +184,71 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
     setRefreshing(false);
   };
 
+  // Funções para iniciar nova conversa
+  const carregarPacientes = async () => {
+    setLoadingPacientes(true);
+    try {
+      const resp = await listarPacientes();
+      if (resp.success && resp.data) {
+        setPacientes(resp.data);
+        setPacientesOrig(resp.data);
+      }
+    } catch (e) {
+      console.error('Erro ao carregar pacientes:', e);
+    } finally {
+      setLoadingPacientes(false);
+    }
+  };
+
+  const handleBuscaPaciente = (text: string) => {
+    setBuscaPaciente(text);
+    if (!text.trim()) {
+      setPacientes(pacientesOrig);
+      return;
+    }
+    const filtered = pacientesOrig.filter(p => 
+      p.nome.toLowerCase().includes(text.toLowerCase()) || 
+      p.email?.toLowerCase().includes(text.toLowerCase())
+    );
+    setPacientes(filtered);
+  };
+
+  const iniciarConversa = async (paciente: PacienteProfile) => {
+    if (!user?.id) return;
+    
+    setLoading(true);
+    setModalVisible(false);
+    
+    try {
+      const result = await obterOuCriarConversa(
+        user.id,
+        paciente.id,
+        user.user_metadata?.nome || 'Dentista',
+        paciente.nome,
+        user.user_metadata?.foto_url,
+        paciente.foto_url
+      );
+
+      if (result.success && result.data) {
+        onSelectConversation(
+          result.data.id, 
+          paciente.nome, 
+          paciente.foto_url
+        );
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Erro',
+          text2: result.error || 'Não foi possível iniciar a conversa'
+        });
+      }
+    } catch (e) {
+      console.error('Chat error:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Renderizar item de conversa
   const renderConversa = ({
     item,
@@ -253,7 +328,7 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
         </View>
 
         {/* Lista de conversas */}
-        {loading ? (
+        {loading && !refreshing ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={COLORS.primary} />
           </View>
@@ -275,12 +350,82 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
                 />
                 <Text style={styles.emptyText}>Nenhuma conversa</Text>
                 <Text style={styles.emptySubtext}>
-                  {busca ? 'Nenhuma conversa encontrada' : 'Comece uma nova conversa'}
+                  {busca ? 'Nenhuma conversa encontrada' : 'Toque no "+" para iniciar uma nova conversa'}
                 </Text>
               </View>
             }
           />
         )}
+
+        {/* Floating Action Button for New Chat */}
+        <TouchableOpacity 
+          style={styles.fab}
+          onPress={() => {
+            setModalVisible(true);
+            carregarPacientes();
+          }}
+        >
+          <Ionicons name="add" size={30} color={COLORS.textInverse} />
+        </TouchableOpacity>
+
+        {/* Modal Seleção de Paciente */}
+        <Modal
+          visible={modalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Nova Conversa</Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                  <Ionicons name="close" size={24} color={COLORS.text} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalSearch}>
+                <Ionicons name="search" size={20} color={COLORS.textSecondary} />
+                <TextInput
+                  style={styles.modalSearchInput}
+                  placeholder="Buscar paciente..."
+                  value={buscaPaciente}
+                  onChangeText={handleBuscaPaciente}
+                  autoFocus
+                />
+              </View>
+
+              {loadingPacientes ? (
+                <ActivityIndicator style={{ marginTop: 20 }} color={COLORS.primary} />
+              ) : (
+                <FlatList
+                  data={pacientes}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity 
+                      style={styles.pacienteItem}
+                      onPress={() => iniciarConversa(item)}
+                    >
+                      <View style={styles.pacienteAvatar}>
+                        <Text style={styles.pacienteAvatarText}>
+                          {item.nome.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View>
+                        <Text style={styles.pacienteNome}>{item.nome}</Text>
+                        {item.telefone && <Text style={styles.pacienteMeta}>{item.telefone}</Text>}
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                  style={{ flex: 1 }}
+                  ListEmptyComponent={
+                    <Text style={styles.emptyTextCentral}>Nenhum paciente encontrado</Text>
+                  }
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
       </View>
     </KeyboardAvoidingView>
   );
@@ -386,6 +531,93 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.sm,
     color: COLORS.textSecondary,
     marginTop: SPACING.xs,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...SHADOWS.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: COLORS.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: '80%',
+    padding: SPACING.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  modalSearch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalSearchInput: {
+    flex: 1,
+    paddingVertical: SPACING.md,
+    marginLeft: SPACING.sm,
+    fontSize: 16,
+    color: COLORS.text,
+  },
+  pacienteItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    gap: SPACING.md,
+  },
+  pacienteAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#E3F2FD',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pacienteAvatarText: {
+    color: COLORS.primary,
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  pacienteNome: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  pacienteMeta: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  emptyTextCentral: {
+    textAlign: 'center',
+    marginTop: 40,
+    color: COLORS.textSecondary,
   },
 });
 

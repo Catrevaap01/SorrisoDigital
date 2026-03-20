@@ -180,7 +180,9 @@ const HomeScreen: React.FC<HomeProps> = ({ navigation }) => {
         </View>
       ) : (
         triagensRecentes.map((triagem) => {
-          const statusInfo = STATUS_TRIAGEM[triagem.status] || STATUS_TRIAGEM.pendente;
+          const temResposta = triagem.respostas && triagem.respostas.length > 0;
+    const effectiveStatus = temResposta ? 'respondido' : (triagem.status === 'urgente' || triagem.prioridade === 'urgente' || Number(triagem.intensidade_dor || 0) >= 8 ? 'urgente' : (triagem.status || 'pendente'));
+    const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
 
           return (
             <TouchableOpacity
@@ -190,7 +192,9 @@ const HomeScreen: React.FC<HomeProps> = ({ navigation }) => {
             >
               <View style={styles.triagemHeader}>
                 <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
-                  <Ionicons name={statusInfo.icon as any} size={12} color="#fff" />
+                  {temResposta && (
+                    <Ionicons name="chatbubbles" size={12} color="#fff" style={{ marginRight: 4 }} />
+                  )}
                   <Text style={styles.statusText}>{statusInfo.label}</Text>
                 </View>
                 <Text style={styles.triagemData}>
@@ -200,9 +204,21 @@ const HomeScreen: React.FC<HomeProps> = ({ navigation }) => {
 
               <Text style={styles.triagemSintoma}>{triagem.sintoma_principal}</Text>
 
-              {triagem.respostas && triagem.respostas.length > 0 && (
+              {temResposta && (
                 <View style={styles.respostaPreview}>
-                  <Ionicons name="chatbubble" size={14} color={COLORS.primary} />
+                  <View style={styles.respostaHeader}>
+                    <Ionicons name="person-circle-outline" size={16} color={COLORS.primary} />
+                    <Text style={styles.dentistaNome}>
+                      Dr(a). {triagem.respostas[0].dentista?.nome || 'Dentista'}
+                    </Text>
+                  </View>
+                  
+                  {triagem.respostas[0].recomendacao && (
+                    <Text style={styles.recomendacaoText} numberOfLines={1}>
+                      ⭐ {triagem.respostas[0].recomendacao}
+                    </Text>
+                  )}
+                  
                   <Text style={styles.respostaText} numberOfLines={2}>
                     {triagem.respostas[0].orientacao}
                   </Text>
@@ -399,14 +415,34 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   respostaPreview: {
+    backgroundColor: '#F0F7FF',
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    marginTop: SIZES.md,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.primary,
+  },
+  respostaHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: SIZES.xs,
+    marginBottom: 4,
+  },
+  dentistaNome: {
+    fontSize: SIZES.fontSm,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginLeft: 4,
+  },
+  recomendacaoText: {
+    fontSize: SIZES.fontXs,
+    fontWeight: '600',
+    color: COLORS.secondary,
+    marginBottom: 4,
   },
   respostaText: {
-    marginLeft: SIZES.xs,
     fontSize: SIZES.fontSm,
     color: COLORS.textSecondary,
+    lineHeight: 18,
   },
   avisoContainer: {
     flexDirection: 'row',

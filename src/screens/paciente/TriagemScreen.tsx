@@ -12,19 +12,75 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Ellipse, G, Path, Text as SvgText } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDentist } from '../../contexts/DentistContext';
 import { criarTriagem } from '../../services/triagemService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
-import { SINTOMAS, DURACAO_OPTIONS, LOCALIZACAO_DENTE } from '../../utils/constants';
+import { SINTOMAS, DURACAO_OPTIONS } from '../../utils/constants';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { PacienteTabParamList } from '../../navigation/types';
 
 type TriagemScreenProps = BottomTabScreenProps<PacienteTabParamList, 'Triagem'>;
+
+const ARCADA_SUPERIOR = ['18', '17', '16', '15', '14', '13', '12', '11', '21', '22', '23', '24', '25', '26', '27', '28'];
+const ARCADA_INFERIOR = ['48', '47', '46', '45', '44', '43', '42', '41', '31', '32', '33', '34', '35', '36', '37', '38'];
+const SVG_WIDTH = 344;
+const SVG_HEIGHT = 248;
+
+const formatarLocalizacaoTriagem = (dentes: Set<string>): string => {
+  if (dentes.size === 0) return '';
+  const sorted = Array.from(dentes).sort((a, b) => Number(a) - Number(b));
+  return dentes.size === 1 ? `Dente ${sorted[0]}` : `Dentes ${sorted.join(', ')}`;
+};
+
+const createToothPath = (
+  centerX: number,
+  centerY: number,
+  width: number,
+  height: number,
+  inverted: boolean
+): string => {
+  const halfW = width / 2;
+  const crownH = height * 0.42;
+  const rootH = height - crownH;
+  const topY = centerY - height / 2;
+  const bottomY = centerY + height / 2;
+  const crownBottomY = inverted ? topY + rootH : topY + crownH;
+  const rootStartY = crownBottomY;
+
+  if (!inverted) {
+    return [
+      `M ${centerX - halfW} ${topY + crownH * 0.3}`,
+      `Q ${centerX - halfW} ${topY} ${centerX - halfW * 0.35} ${topY}`,
+      `L ${centerX + halfW * 0.35} ${topY}`,
+      `Q ${centerX + halfW} ${topY} ${centerX + halfW} ${topY + crownH * 0.3}`,
+      `L ${centerX + halfW * 0.72} ${crownBottomY}`,
+      `Q ${centerX + halfW * 0.42} ${rootStartY + rootH * 0.72} ${centerX + halfW * 0.12} ${bottomY}`,
+      `Q ${centerX} ${bottomY - rootH * 0.18} ${centerX - halfW * 0.12} ${bottomY}`,
+      `Q ${centerX - halfW * 0.42} ${rootStartY + rootH * 0.72} ${centerX - halfW * 0.72} ${crownBottomY}`,
+      'Z',
+    ].join(' ');
+  }
+
+  return [
+    `M ${centerX - halfW * 0.72} ${rootStartY}`,
+    `Q ${centerX - halfW * 0.42} ${topY + rootH * 0.28} ${centerX - halfW * 0.12} ${topY}`,
+    `Q ${centerX} ${topY + rootH * 0.18} ${centerX + halfW * 0.12} ${topY}`,
+    `Q ${centerX + halfW * 0.42} ${topY + rootH * 0.28} ${centerX + halfW * 0.72} ${rootStartY}`,
+    `L ${centerX + halfW} ${bottomY - crownH * 0.3}`,
+    `Q ${centerX + halfW} ${bottomY} ${centerX + halfW * 0.35} ${bottomY}`,
+    `L ${centerX - halfW * 0.35} ${bottomY}`,
+    `Q ${centerX - halfW} ${bottomY} ${centerX - halfW} ${bottomY - crownH * 0.3}`,
+    'Z',
+  ].join(' ');
+};
 
 const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
   // scrollRef e keyboard handler já existe abaixo
@@ -38,11 +94,13 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
   const [descricao, setDescricao] = useState<string>('');
   const [duracao, setDuracao] = useState<string>('');
   const [localizacao, setLocalizacao] = useState<string>('');
+  const [dentesSelecionados, setDentesSelecionados] = useState<Set<string>>(new Set());
   const [intensidadeDor, setIntensidadeDor] = useState<number>(0);
   const [imagens, setImagens] = useState<string[]>([]);
   const [dentistas, setDentistas] = useState<any[]>([]);
   const [dentistaSelecionado, setDentistaSelecionado] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
+  const [sugestoesAbertas, setSugestoesAbertas] = useState<boolean>(false);
   const scrollRef = useRef<ScrollView>(null);
 
   // Funções de câmera/galeria - CORRIGIDO
@@ -284,6 +342,7 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
       setDescricao('');
       setDuracao('');
       setLocalizacao('');
+      setDentesSelecionados(new Set());
       setIntensidadeDor(0);
       setImagens([]);
       setEtapa(1);
@@ -343,6 +402,126 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
   );
 
   // Renderizar Etapa 2 - Detalhes
+  const selecionarDente = (denteId: string) => {
+    setDentesSelecionados((prev) => {
+      const next = new Set(prev);
+      if (next.has(denteId)) {
+        next.delete(denteId);
+      } else {
+        next.add(denteId);
+      }
+      setLocalizacao(formatarLocalizacaoTriagem(next));
+      return next;
+    });
+  };
+
+  const renderOdontogramaSvg = () => {
+    const buildArc = (
+      teeth: string[],
+      centerY: number,
+      inverted: boolean
+    ) => {
+      const startX = 28;
+      const spacing = 18;
+
+      return teeth.map((tooth, index) => {
+        const centerX = startX + index * spacing + 16;
+        const curveDistance = Math.abs(index - 7.5);
+        const curveOffset = (7.5 - curveDistance) * 3.4;
+        const toothHeight = tooth.endsWith('1') || tooth.endsWith('2') || tooth.endsWith('3') ? 38 : 34;
+        const toothWidth = tooth.endsWith('6') || tooth.endsWith('7') || tooth.endsWith('8') ? 17 : 15;
+        const y = inverted ? centerY + curveOffset : centerY - curveOffset;
+        const ativo = dentesSelecionados.has(tooth);
+
+        return (
+          <G 
+            key={`${inverted ? 'lower' : 'upper'}-${tooth}`} 
+            onPress={() => selecionarDente(tooth)}
+            style={Platform.OS === 'web' ? { cursor: 'pointer' } as any : undefined}
+          >
+            <Path
+              d={createToothPath(centerX, y, toothWidth, toothHeight, inverted)}
+              fill={ativo ? COLORS.primary : '#FFFFFF'}
+              stroke={ativo ? COLORS.primaryDark : '#9EB6CC'}
+              strokeWidth={ativo ? 2 : 1.4}
+            />
+            <SvgText
+              x={centerX}
+              y={inverted ? y + toothHeight * 0.95 : y + toothHeight * 0.88}
+              fontSize="8"
+              fontWeight="700"
+              fill={ativo ? COLORS.primaryDark : '#5C6F82'}
+              textAnchor="middle"
+            >
+              {tooth}
+            </SvgText>
+          </G>
+        );
+      });
+    };
+
+    return (
+      <View style={styles.svgWrapper}>
+        <Svg width="100%" height={SVG_HEIGHT} viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}>
+          <Ellipse
+            cx={SVG_WIDTH / 2}
+            cy={70}
+            rx={144}
+            ry={44}
+            fill="#FDE2DB"
+            stroke="#F5C9BD"
+            strokeWidth="1.4"
+          />
+          <Ellipse
+            cx={SVG_WIDTH / 2}
+            cy={178}
+            rx={144}
+            ry={44}
+            fill="#FDE2DB"
+            stroke="#F5C9BD"
+            strokeWidth="1.4"
+          />
+          <Path
+            d="M 60 122 Q 172 108 284 122"
+            stroke="#E5B7AA"
+            strokeWidth="3"
+            fill="none"
+          />
+          <Path
+            d="M 60 126 Q 172 140 284 126"
+            stroke="#E5B7AA"
+            strokeWidth="3"
+            fill="none"
+          />
+
+          <SvgText
+            x={SVG_WIDTH / 2}
+            y="24"
+            fontSize="13"
+            fontWeight="700"
+            fill="#6A5B58"
+            textAnchor="middle"
+          >
+            Arcada superior
+          </SvgText>
+          <SvgText
+            x={SVG_WIDTH / 2}
+            y="236"
+            fontSize="13"
+            fontWeight="700"
+            fill="#6A5B58"
+            textAnchor="middle"
+          >
+            Arcada inferior
+          </SvgText>
+
+          {buildArc(ARCADA_SUPERIOR, 82, false)}
+          {buildArc(ARCADA_INFERIOR, 166, true)}
+        </Svg>
+      </View>
+    );
+  };
+
   const renderEtapa2 = () => (
     <View>
       <TouchableOpacity style={styles.backLink} onPress={() => setEtapa(1)}>
@@ -379,63 +558,94 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
       </ScrollView>
 
       {/* Localização */}
-      <Text style={styles.fieldLabel}>Onde está o problema?</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={styles.optionsRow}>
-          {LOCALIZACAO_DENTE.map((loc) => (
-            <TouchableOpacity
-              key={loc.id}
-              style={[
-                styles.optionChip,
-                localizacao === loc.id && styles.optionChipActive,
-              ]}
-              onPress={() => setLocalizacao(loc.id)}
-            >
-              <Text
-                style={[
-                  styles.optionChipText,
-                  localizacao === loc.id && styles.optionChipTextActive,
-                ]}
-              >
-                {loc.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
+      <Text style={styles.fieldLabel}>Toque no dente que dói</Text>
+      <Text style={styles.fieldHelperText}>
+        Toque diretamente na imagem da boca para marcar o dente com dor.
+      </Text>
+      <View style={styles.bocaCard}>
+        {renderOdontogramaSvg()}
+        <Text style={styles.toothHint}>
+          {dentesSelecionados.size > 0
+            ? `Selecionados: ${formatarLocalizacaoTriagem(dentesSelecionados)} (${dentesSelecionados.size})`
+            : 'Nenhum dente selecionado (toque para selecionar vários)'}
+        </Text>
+      </View>
 
-      {/* Escolher dentista */}
-      {dentistas.length > 0 && (
-        <View style={styles.campo}>
-          <Text style={styles.campoLabel}>Enviar para</Text>
-          <TouchableOpacity
-            style={styles.selectButton}
-            onPress={() => {
-              // simple picker using Alert for now
-              const alertOptions = dentistas.map((d) => ({
-                text: d.nome,
-                onPress: () => {
-                  setDentistaSelecionado(d.id);
-                  // persist choice globally (fire and forget)
-                  selectDentist({ id: d.id, nome: d.nome, foto_url: d.foto_url });
-                },
-              }));
-
-              Alert.alert('Escolher dentista', '', [
-                ...alertOptions,
-                { text: 'Cancelar', style: 'cancel' },
-              ]);
-            }}
-          >
-            <Text style={[styles.selectText, !dentistaSelecionado && styles.selectPlaceholder]}>
-              {dentistaSelecionado
-                ? dentistas.find((d) => d.id === dentistaSelecionado)?.nome
-                : 'Selecione'}
-            </Text>
-            <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
-          </TouchableOpacity>
+      {!!localizacao && (
+        <View style={styles.localizacaoResumo}>
+          <Ionicons name="medical" size={16} color={COLORS.primary} />
+          <Text style={styles.localizacaoResumoTexto}>{localizacao}</Text>
         </View>
       )}
+
+      {/* Escolher dentista */}
+      <View style={styles.campo}>
+        <Text style={styles.campoLabel}>Enviar para</Text>
+        <TouchableOpacity
+          style={styles.selectButton}
+          onPress={() => setSugestoesAbertas(true)}
+        >
+          <Text style={[styles.selectText, !dentistaSelecionado && styles.selectPlaceholder]}>
+            {dentistaSelecionado
+              ? dentistas.find((d) => d.id === dentistaSelecionado)?.nome
+              : 'Selecione um profissional (Opcional)'}
+          </Text>
+          <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Modal de Seleção de Dentista */}
+      <Modal
+        visible={sugestoesAbertas}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSugestoesAbertas(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setSugestoesAbertas(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Escolher Dentista</Text>
+              <TouchableOpacity onPress={() => setSugestoesAbertas(false)}>
+                <Ionicons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <FlatList
+              data={dentistas}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.dentistaSelectItem}
+                  onPress={() => {
+                    setDentistaSelecionado(item.id);
+                    selectDentist({ id: item.id, nome: item.nome, foto_url: item.foto_url });
+                    setSugestoesAbertas(false);
+                  }}
+                >
+                  <View style={styles.dentistaSelectInfo}>
+                    <Text style={styles.dentistaSelectNome}>{item.nome}</Text>
+                    {item.especialidade && (
+                      <Text style={styles.dentistaSelectEspecialidade}>{item.especialidade}</Text>
+                    )}
+                  </View>
+                  {dentistaSelecionado === item.id && (
+                    <Ionicons name="checkmark-circle" size={24} color={COLORS.secondary} />
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text style={styles.emptyText}>Nenhum dentista disponível no momento.</Text>
+                </View>
+              }
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Intensidade da dor */}
       <Text style={styles.fieldLabel}>
@@ -574,7 +784,7 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
       <View style={styles.avisoLegal}>
         <Ionicons name="information-circle" size={18} color={COLORS.accent} />
         <Text style={styles.avisoLegalText}>
-          Esta triagem é apenas orientativa e não substitui consulta presencial 
+          Esta triagem é apenas orientativa e não substitui consulta presencial
           com profissional de odontologia.
         </Text>
       </View>
@@ -789,6 +999,39 @@ const styles = StyleSheet.create({
     color: COLORS.textInverse,
     fontWeight: '600',
   },
+  bocaCard: {
+    marginTop: SIZES.sm,
+    backgroundColor: '#FFF7F3',
+    borderRadius: SIZES.radiusLg,
+    padding: SIZES.md,
+    borderWidth: 1,
+    borderColor: '#F0D6CD',
+    ...SHADOWS.sm,
+  },
+  svgWrapper: {
+    alignItems: 'center',
+  },
+  toothHint: {
+    marginTop: SIZES.sm,
+    textAlign: 'center',
+    color: COLORS.textSecondary,
+    fontSize: SIZES.fontSm,
+  },
+  localizacaoResumo: {
+    marginTop: SIZES.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.sm,
+  },
+  localizacaoResumoTexto: {
+    flex: 1,
+    marginLeft: SIZES.xs,
+    color: COLORS.secondaryDark,
+    fontSize: SIZES.fontSm,
+    fontWeight: '600',
+  },
   dorContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -958,6 +1201,67 @@ const styles = StyleSheet.create({
   },
   selectPlaceholder: {
     color: COLORS.textSecondary,
+  },
+  // Submodal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
+    alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
+  },
+  modalContent: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: SIZES.radiusXl,
+    borderTopRightRadius: SIZES.radiusXl,
+    borderBottomLeftRadius: Platform.OS === 'web' ? SIZES.radiusXl : 0,
+    borderBottomRightRadius: Platform.OS === 'web' ? SIZES.radiusXl : 0,
+    maxHeight: '70%',
+    width: Platform.OS === 'web' ? '100%' : undefined,
+    maxWidth: Platform.OS === 'web' ? 500 : undefined,
+    paddingBottom: Platform.OS === 'ios' ? 40 : SIZES.xl,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SIZES.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  modalTitle: {
+    fontSize: SIZES.fontLg,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  dentistaSelectItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: SIZES.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  dentistaSelectInfo: {
+    flex: 1,
+  },
+  dentistaSelectNome: {
+    fontSize: SIZES.fontMd,
+    fontWeight: '500',
+    color: COLORS.text,
+  },
+  dentistaSelectEspecialidade: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  emptyContainer: {
+    padding: SIZES.xl,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: COLORS.textSecondary,
+    fontSize: SIZES.fontMd,
+    textAlign: 'center',
   },
 });
 

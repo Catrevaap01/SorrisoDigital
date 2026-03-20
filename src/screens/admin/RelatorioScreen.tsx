@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Tela de Relatórios do Administrador
  * Visualiza e exporta relatórios de dentistas
  */
@@ -39,28 +39,28 @@ const RelatorioScreen: React.FC = () => {
   const [loadingPdf, setLoadingPdf] = useState<string | null>(null);
 
   const carregarRelatorio = useCallback(async () => {
-    setLoading(true);
-    try {
-      const resultado = await gerarRelatorioGeral();
-      if (resultado.success && resultado.data) {
-        setDadosRelatorio(resultado.data);
-        setRelatorioCarregado(true);
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Erro',
-          text2: resultado.error || 'Erro ao carregar relatório',
-        });
-      }
-    } catch (error) {
-      Toast.show({
-        type: 'error',
-        text1: 'Erro',
-        text2: 'Ocorreu um erro ao carregar o relatório',
-      });
-    } finally {
-      setLoading(false);
-    }
+    setLoading((actualLoading) => {
+      if (actualLoading) return actualLoading;
+      
+      // Iniciamos o carregamento em uma microtask separada para não bloquear
+      (async () => {
+        try {
+          const resultado = await gerarRelatorioGeral();
+          if (resultado.success && resultado.data) {
+            setDadosRelatorio(resultado.data);
+            setRelatorioCarregado(true);
+          } else {
+            console.error('Erro ao carregar relatorio:', resultado.error);
+          }
+        } catch (error) {
+          console.error('Exceção ao carregar relatorio:', error);
+        } finally {
+          setLoading(false);
+        }
+      })();
+      
+      return true;
+    });
   }, []);
 
   useFocusEffect(
@@ -201,7 +201,7 @@ const RelatorioScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Cards de Resumo */}
+        {/* Cards de Resumo Gerais */}
         <View style={styles.resumoContainer}>
           <View style={[styles.resumoCard, { borderLeftColor: COLORS.primary }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -269,6 +269,43 @@ const RelatorioScreen: React.FC = () => {
               <View style={{ marginLeft: SPACING.md }}>
                 <Text style={styles.resumoValor}>{dadosRelatorio.percentualResposta}%</Text>
                 <Text style={styles.resumoLabel}>Taxa de Resposta</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+        
+        {/* Resumo do Mês Atual */}
+        <View style={styles.sectionHeaderCustom}>
+          <Text style={styles.sectionTitleCustom}>Resumo do Mês Atual</Text>
+        </View>
+
+        <View style={styles.resumoContainer}>
+          <View style={[styles.resumoCard, { borderLeftColor: COLORS.primary, backgroundColor: '#E3F2FD' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="people" size={24} color={COLORS.primary} />
+              <View style={{ marginLeft: SPACING.md }}>
+                <Text style={styles.resumoValor}>{dadosRelatorio.dentistasMes || 0}</Text>
+                <Text style={styles.resumoLabel}>Novos Dentistas (Mês)</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.resumoCard, { borderLeftColor: COLORS.info, backgroundColor: '#E1F5FE' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="person-add" size={24} color={COLORS.info} />
+              <View style={{ marginLeft: SPACING.md }}>
+                <Text style={styles.resumoValor}>{dadosRelatorio.pacientesMes || 0}</Text>
+                <Text style={styles.resumoLabel}>Novos Pacientes (Mês)</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.resumoCard, { borderLeftColor: COLORS.success, backgroundColor: '#E8F5E9' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="id-card-outline" size={24} color={COLORS.success} />
+              <View style={{ marginLeft: SPACING.md }}>
+                <Text style={styles.resumoValor}>{dadosRelatorio.cadastrosMes || 0}</Text>
+                <Text style={styles.resumoLabel}>Total de Cadastros (Mês)</Text>
               </View>
             </View>
           </View>
@@ -515,6 +552,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingBottom: SPACING.lg,
     fontStyle: 'italic',
+  },
+  sectionHeaderCustom: {
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    paddingBottom: SPACING.xs,
+  },
+  sectionTitleCustom: {
+    fontSize: TYPOGRAPHY.sizes.h3,
+    fontWeight: 'bold',
+    color: COLORS.textSecondary,
   },
   loadingContainer: {
     flex: 1,

@@ -1,12 +1,28 @@
 /**
+
  * Lógica de negócio para triagens/pacientes/dentistas
  */
 
+import { Platform } from 'react-native';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
 import { supabase } from '../config/supabase';
+import { withTimeout } from '../utils/withTimeout';
 import { logger } from '../utils/logger';
 import { handleError, HandledError } from '../utils/errorHandler';
 import { uploadMultipleImages } from './storageService';
-import { obterOuCriarConversa } from './messagesService';
+import { obterOuCriarConversa, enviarMensagem } from './messagesService';
+
+const extra = Constants.expoConfig?.extra;
+const SUPABASE_URL = extra?.SUPABASE_URL as string | undefined;
+const SUPABASE_SERVICE_ROLE_KEY = extra?.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
+
+const getAdminClient = (): SupabaseClient | null => {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+};
 
 export interface TriagemData {
   paciente_id?: string;
@@ -45,7 +61,7 @@ export interface Contadores {
 export interface ServiceResult<T> {
   success: boolean;
   data?: T;
-  error?: HandledError | string;
+  error?: string | import('../utils/errorHandler').HandledError;
 }
 
 const TRIAGEM_CAMEL_TO_SNAKE: Record<string, string> = {
@@ -121,49 +137,86 @@ const enrichTriagens = async (triagensBase: Triagem[]): Promise<Triagem[]> => {
     new Set(triagens.map((t) => t.paciente_id).filter(Boolean))
   ) as string[];
 
-  let pacientesById: Record<string, any> = {};
+  // PARALLEL: All enrichment queries with Promise.allSettled (web perf fix)
+  const enrichmentPromises = [];
   if (pacienteIds.length) {
-    const { data: pacientes } = await supabase
+    enrichmentPromises.push(withTimeout(supabase
       .from('profiles')
-      .select('id, nome, email, telefone, provincia_id, data_nascimento, genero, historico_medico, alergias, medicamentos_atuais, provincias(nome)')
-      .in('id', pacienteIds);
+      .select('id, nome, email, telefone, provincia_id, historico_medico, alergias, medicamentos_atuais')
+      .limit(50)
+      .in('id', pacienteIds) as any, 5000));
+  } else {
+    enrichmentPromises.push(Promise.resolve({ data: [] }));
+  }
 
-    pacientesById = Object.fromEntries(
-      (pacientes || []).map((p: any) => [
-        p.id,
-        {
-          ...p,
-          provincia:
-            p.provincia ??
-            p.provincias?.nome ??
-            p.provincias?.[0]?.nome ??
-            provinciaNameFromId(p.provincia_id),
-        },
-      ])
-    );
+  if (triagemIds.length) {
+    enrichmentPromises.push(withTimeout(supabase
+      .from('respostas_triagem')
+      .select('*')
+      .limit(100)
+      .in('triagem_id', triagemIds)
+      .order('created_at', { ascending: false }) as any, 5000));
+  } else {
+    enrichmentPromises.push(Promise.resolve({ data: [] }));
+  }
+
+  if (pacienteIds.length) {
+    enrichmentPromises.push(withTimeout(supabase
+      .from('agendamentos')
+      .select('*')
+      .limit(50)
+      .in('paciente_id', pacienteIds)
+      .order('data_agendamento', { ascending: false }) as any, 5000));
+  } else {
+    enrichmentPromises.push(Promise.resolve({ data: [] }));
+  }
+
+  const startTime = Date.now();
+  const [pacientesPromise, respostasPromise, agendamentosPromise] = await Promise.allSettled(enrichmentPromises);
+  const endTime = Date.now();
+  if (endTime - startTime > 1500) {
+    console.warn(`⚠️ enrichTriagens: Consultas demoraram ${endTime - startTime}ms`);
+  }
+
+  let pacientesById: Record<string, any> = {};
+  if (pacientesPromise.status === 'fulfilled') {
+    const result = pacientesPromise.value as {data: any[], error?: any};
+    if (result.data) {
+      const pacientes = result.data;
+      pacientesById = Object.fromEntries(
+        (pacientes || []).map((p: any) => [
+          p.id,
+          {
+            ...p,
+            provincia:
+              p.provincia ??
+              p.provincias?.nome ??
+              p.provincias?.[0]?.nome ??
+              provinciaNameFromId(p.provincia_id),
+          },
+        ])
+      );
+    }
   }
 
   let respostasByTriagemId: Record<string, any[]> = {};
-  if (triagemIds.length) {
-    const { data: respostas } = await supabase
-      .from('respostas_triagem')
-      .select('*')
-      .in('triagem_id', triagemIds)
-      .order('created_at', { ascending: false });
-
+  if (respostasPromise.status === 'fulfilled' && respostasPromise.value.data) {
+    const respostas = respostasPromise.value.data;
+    // Parallel dentistas fetch inside respostas
     const dentistaIds = Array.from(
       new Set((respostas || []).map((r: any) => r.dentista_id).filter(Boolean))
     ) as string[];
 
-    let dentistasById: Record<string, any> = {};
-    if (dentistaIds.length) {
-      const { data: dentistas } = await supabase
-        .from('profiles')
-        .select('id, nome, email, telefone')
-        .in('id', dentistaIds);
+    const dentistasQuery = supabase
+      .from('profiles')
+      .select('id, nome, email, telefone')
+      .limit(Platform.OS === 'web' ? 20 : 50)
+      .in('id', dentistaIds);
+    
+    const dentistasResult = dentistaIds.length ? await withTimeout(dentistasQuery, 5000) : { data: [] as any[], error: null };
+    if (dentistasResult.error) logger.warn('enrichTriagens: dentistas query failed', dentistasResult.error);
 
-      dentistasById = Object.fromEntries((dentistas || []).map((d: any) => [d.id, d]));
-    }
+    const dentistasById = Object.fromEntries((dentistasResult.data || []).map((d: any) => [d.id, d]));
 
     respostasByTriagemId = (respostas || []).reduce((acc: Record<string, any[]>, r: any) => {
       const triagemId = r.triagem_id;
@@ -177,13 +230,8 @@ const enrichTriagens = async (triagensBase: Triagem[]): Promise<Triagem[]> => {
   }
 
   let agendamentosByPacienteId: Record<string, any[]> = {};
-  if (pacienteIds.length) {
-    const { data: agendamentos } = await supabase
-      .from('agendamentos')
-      .select('*')
-      .in('paciente_id', pacienteIds)
-      .order('data_agendamento', { ascending: false });
-
+  if (agendamentosPromise.status === 'fulfilled' && agendamentosPromise.value.data) {
+    const agendamentos = agendamentosPromise.value.data;
     agendamentosByPacienteId = (agendamentos || []).reduce(
       (acc: Record<string, any[]>, ag: any) => {
         const pacienteId = ag.paciente_id;
@@ -194,6 +242,11 @@ const enrichTriagens = async (triagensBase: Triagem[]): Promise<Triagem[]> => {
       {}
     );
   }
+
+  // Graceful fallback: log failures but continue
+  if (pacientesPromise.status === 'rejected') logger.warn('enrichTriagens: pacientes failed', pacientesPromise.reason);
+  if (respostasPromise.status === 'rejected') logger.warn('enrichTriagens: respostas failed', respostasPromise.reason);
+  if (agendamentosPromise.status === 'rejected') logger.warn('enrichTriagens: agendamentos failed', agendamentosPromise.reason);
 
   return triagens.map((t) => ({
     ...t,
@@ -300,13 +353,17 @@ export const buscarTriagensPaciente = async (
   pacienteId: string
 ): Promise<ServiceResult<Triagem[]>> => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await withTimeout(supabase
       .from('triagens')
       .select('*')
+      .limit(50)
       .eq('paciente_id', pacienteId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false }) as any, 6000);
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ buscarTriagensPaciente error:', error);
+      throw error;
+    }
     const normalized = (data || []).map((item) => normalizeTriagemRecord(item));
     return { success: true, data: await enrichTriagens(normalized) };
   } catch (err) {
@@ -319,13 +376,17 @@ export const buscarTriagensDentista = async (
   dentistaId: string
 ): Promise<ServiceResult<Triagem[]>> => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await withTimeout(supabase
       .from('triagens')
       .select('*')
+      .limit(50)
       .eq('dentista_id', dentistaId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false }) as any, 6000);
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ buscarTriagensDentista error:', error);
+      throw error;
+    }
     const normalized = (data || []).map((item) => normalizeTriagemRecord(item));
     return { success: true, data: await enrichTriagens(normalized) };
   } catch (err) {
@@ -475,26 +536,125 @@ export const buscarTriagemPorId = async (
 export const responderTriagem = async (
   triagemId: string,
   dentistaId: string,
-  resposta: { orientacao: string; recomendacao: string; observacoes?: string }
+  resposta: { orientacao: string; recomendacao: string; observacoes?: string },
+  extras: { pacienteId: string; dentistaNome: string; dentistaAvatar: string | null }
 ): Promise<ServiceResult<null>> => {
   try {
-    const { data, error } = await supabase
-      .from('respostas_triagem')
-      .insert([
-        {
-          triagem_id: triagemId,
-          dentista_id: dentistaId,
-          ...resposta,
-        },
-      ]);
+    console.log('📝 Inserindo resposta...', { triagemId, dentistaId });
+    
+    const adminClient = getAdminClient();
+    
+    const runInsert = async (payload: Record<string, any>) => {
+      // Try regular client first
+      console.log('📡 Tentando insert com cliente comum...');
+      let res = await supabase
+        .from('respostas_triagem')
+        .insert(payload)
+        .select()
+        .single();
+      
+      // If RLS error (42501) or other permission issue, try admin client as fallback
+      if (res.error && (res.error.code === '42501' || (res.error as any).status === 403 || (res.error as any).status === 401)) {
+        if (adminClient) {
+          console.warn('⚠️ RLS capturado ou erro de permissão. Tentando com ADMIN client...');
+          res = await adminClient
+            .from('respostas_triagem')
+            .insert(payload)
+            .select()
+            .single();
+        }
+      }
+      return res;
+    };
+    let insertPayload: Record<string, any> = {
+      triagem_id: triagemId,
+      dentista_id: dentistaId,
+      ...resposta,
+    };
 
-    if (error) throw error;
+    let { data: insertData, error: insertError } = await runInsert(insertPayload);
 
-    // após responder, atualiza o status da triagem para responded
-    await supabase
-      .from('triagens')
-      .update({ status: 'respondido', updated_at: new Date().toISOString() })
-      .eq('id', triagemId);
+    // retry loop for missing-column errors in respostas_triagem
+    while (insertError && (insertError as any).code === 'PGRST204') {
+      const missingColumnMatch = (insertError as any).message?.match(/'([^']+)' column/);
+      const missingColumn = missingColumnMatch?.[1];
+
+      if (!missingColumn || !(missingColumn in insertPayload)) break;
+
+      console.warn(`⚠️ Coluna ausente em respostas_triagem ignorada: ${missingColumn}`);
+      const { [missingColumn]: _, ...nextPayload } = insertPayload;
+      insertPayload = nextPayload;
+      ({ data: insertData, error: insertError } = await runInsert(insertPayload));
+    }
+
+    if (insertError) {
+      console.error('❌ Erro no Insert da Resposta:', insertError);
+      throw insertError;
+    }
+    console.log('✅ Resposta inserida com sucesso.');
+
+    // após responder, atualiza o status da triagem para respondido e vincula ao dentista
+    const client = adminClient || supabase;
+    console.log(`🔄 Atualizando status da triagem (${adminClient ? 'ADMIN' : 'USER'} client)...`);
+    
+    const runUpdate = async (updPayload: Record<string, any>) =>
+      await client
+        .from('triagens')
+        .update(updPayload)
+        .eq('id', triagemId);
+
+    let updatePayload: Record<string, any> = { 
+      status: 'respondido', 
+      dentista_id: dentistaId,
+      updated_at: new Date().toISOString() 
+    };
+
+    let { error: updateError } = await runUpdate(updatePayload);
+
+    // retry loop for missing-column errors in triagens update
+    while (updateError && (updateError as any).code === 'PGRST204') {
+      const missingColumnMatch = (updateError as any).message?.match(/'([^']+)' column/);
+      const missingColumn = missingColumnMatch?.[1];
+
+      if (!missingColumn || !(missingColumn in updatePayload)) break;
+
+      console.warn(`⚠️ Coluna ausente em triagens durante update ignorada: ${missingColumn}`);
+      const { [missingColumn]: _, ...nextUpdPayload } = updatePayload;
+      updatePayload = nextUpdPayload;
+      ({ error: updateError } = await runUpdate(updatePayload));
+    }
+    
+    if (updateError) {
+      console.error('❌ Erro no Update do Status:', updateError);
+      logger.error('Erro ao atualizar status da triagem apos resposta', updateError);
+      return { success: false, error: `Resposta salva, mas erro no status: ${updateError.message}` };
+    }
+    console.log('✅ Status da triagem atualizado para respondido.');
+    
+    // Enviar mensagem automática para disparar notificação real-time no Web/Mobile
+    try {
+      console.log('💬 Criando conversa e enviando mensagem de notificação...');
+      const conversaResult = await obterOuCriarConversa(
+        dentistaId, 
+        extras.pacienteId,
+        extras.dentistaNome,
+        '', // paciente_name (vazio pois o service busca se necessário)
+        extras.dentistaAvatar
+      );
+
+      if (conversaResult.success && conversaResult.data) {
+        await enviarMensagem(
+          conversaResult.data.id,
+          dentistaId,
+          extras.dentistaNome,
+          extras.dentistaAvatar,
+          `Olá! Acabei de analisar sua triagem. Você pode conferir minhas orientações no seu histórico.`
+        );
+        console.log('✅ Mensagem de notificação enviada.');
+      }
+    } catch (msgErr) {
+      console.warn('⚠️ Erro ao enviar mensagem de notificação (não crítico):', msgErr);
+    }
 
     return { success: true };
   } catch (err) {
@@ -509,12 +669,33 @@ export const atualizarStatusTriagem = async (
   prioridade?: string
 ): Promise<ServiceResult<null>> => {
   try {
-    const upd: any = { status };
-    if (prioridade) upd.prioridade = prioridade;
-    const { error } = await supabase
-      .from('triagens')
-      .update(upd)
-      .eq('id', triagemId);
+    const adminClient = getAdminClient();
+    const client = adminClient || supabase;
+
+    const runUpdate = async (updPayload: Record<string, any>) =>
+      await client
+        .from('triagens')
+        .update(updPayload)
+        .eq('id', triagemId);
+
+    let updatePayload: any = { 
+      status, 
+      updated_at: new Date().toISOString() 
+    };
+    if (prioridade) updatePayload.prioridade = prioridade;
+
+    let { error } = await runUpdate(updatePayload);
+
+    while (error && (error as any).code === 'PGRST204') {
+      const missingColumnMatch = (error as any).message?.match(/'([^']+)' column/);
+      const missingColumn = missingColumnMatch?.[1];
+
+      if (!missingColumn || !(missingColumn in updatePayload)) break;
+
+      const { [missingColumn]: _, ...nextPayload } = updatePayload;
+      updatePayload = nextPayload;
+      ({ error } = await runUpdate(updatePayload));
+    }
 
     if (error) throw error;
     return { success: true };

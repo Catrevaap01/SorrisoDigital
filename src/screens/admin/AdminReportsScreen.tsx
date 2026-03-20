@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../config/supabase';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 import { gerarRelatorioGeral } from '../../services/relatorioService';
 import {
   exportarRelatorioDentistaPdf,
@@ -111,7 +111,6 @@ const AdminReportsScreen: React.FC = () => {
             pacientesMesAtual: Number(row.pacientes_mes_atual || 0),
           };
 
-          // Se o RPC não trouxer campos mensais, calcula no app para manter o painel correto.
           if (
             row.cadastros_mes_atual === undefined ||
             row.dentistas_mes_atual === undefined ||
@@ -135,7 +134,6 @@ const AdminReportsScreen: React.FC = () => {
               totalPacientes,
               totalConsultas: Number(row.total_consultas || 0),
               totalMensagens: Number(row.total_mensagens || 0),
-              // requisito: total do mes deve bater com total geral
               cadastrosMesAtual: totalCadastros,
               dentistasMesAtual: monthStats.dentistasMesAtual,
               pacientesMesAtual: monthStats.pacientesMesAtual,
@@ -145,7 +143,6 @@ const AdminReportsScreen: React.FC = () => {
       }
 
       if (!usedRpc) {
-        // fallback to manual queries if RPC failed or returned no rows
         const [
           { data: perfis, error: perfisError },
           { data: mensagens, error: mensagensError },
@@ -156,15 +153,9 @@ const AdminReportsScreen: React.FC = () => {
           supabase.from('agendamentos').select('id'),
         ]);
 
-      if (perfisError) {
-        throw perfisError;
-      }
-      if (mensagensError) {
-        throw mensagensError;
-      }
-      if (consultasError) {
-        throw consultasError;
-      }
+      if (perfisError) throw perfisError;
+      if (mensagensError) throw mensagensError;
+      if (consultasError) throw consultasError;
 
       const perfisList = perfis || [];
       const totalPacientes = perfisList.filter((p: any) => normalizeTipo(p?.tipo) === 'paciente').length;
@@ -181,35 +172,29 @@ const AdminReportsScreen: React.FC = () => {
         totalPacientes,
         totalConsultas: (consultas || []).length,
         totalMensagens: (mensagens || []).length,
-        // requisito: total do mes deve bater com total geral
         cadastrosMesAtual: totalCadastros,
         dentistasMesAtual: monthStats.dentistasMesAtual,
         pacientesMesAtual: monthStats.pacientesMesAtual,
       });
       }
 
-      // nao bloquear o painel principal enquanto carrega o resumo detalhado
-      void gerarRelatorioGeral()
-        .then((relatorio) => {
-          if (!relatorio.success || !relatorio.data) return;
-          setDentistasResumo(
-            relatorio.data.dentistas.map((d) => ({
-              id: d.dentista.id,
-              nome: d.dentista.nome || 'Dentista',
-              especialidade: d.dentista.especialidade,
-              totalTriagens: d.totalTriagens,
-              triagensRespondidas: d.triagensRespondidas,
-            }))
-          );
-        })
-        .catch(() => {
-          // sem bloqueio de UI para falha no resumo detalhado
-        });
+      void gerarRelatorioGeral().then((relatorio) => {
+        if (!relatorio.success || !relatorio.data) return;
+        setDentistasResumo(
+          relatorio.data.dentistas.map((d) => ({
+            id: d.dentista.id,
+            nome: d.dentista.nome || 'Dentista',
+            especialidade: d.dentista.especialidade,
+            totalTriagens: d.totalTriagens,
+            triagensRespondidas: d.triagensRespondidas,
+          }))
+        );
+      }).catch(() => {});
     } catch (error) {
       Toast.show({
         type: 'error',
         text1: 'Erro ao carregar estatisticas',
-        text2: 'Verifique as politicas RLS para permitir leitura no relatorio',
+        text2: 'Verifique as politicas RLS',
       });
     } finally {
       setLoading(false);
@@ -243,7 +228,7 @@ const AdminReportsScreen: React.FC = () => {
     Toast.show({
       type: 'success',
       text1: 'PDF gerado',
-      text2: 'Relatorio geral pronto para compartilhar/imprimir',
+      text2: 'Relatorio geral pronto',
     });
   };
 
@@ -262,7 +247,7 @@ const AdminReportsScreen: React.FC = () => {
     Toast.show({
       type: 'success',
       text1: 'PDF gerado',
-      text2: 'Relatorio do dentista pronto para compartilhar/imprimir',
+      text2: 'Relatorio do dentista pronto',
     });
   };
 
@@ -279,8 +264,6 @@ const AdminReportsScreen: React.FC = () => {
         <>
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Relatórios do Sistema</Text>
-            <Text style={styles.headerSubtitle}>
-            </Text>
           </View>
 
           <View style={styles.statsContainer}>
@@ -323,7 +306,7 @@ const AdminReportsScreen: React.FC = () => {
               ) : (
                 <>
                   <Ionicons name="print" size={18} color={COLORS.textInverse} />
-                  <Text style={styles.exportButtonText}>Imprimir/Compartilhar Relatorio Geral</Text>
+                  <Text style={styles.exportButtonText}>Imprimir Relatorio Geral</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -346,7 +329,7 @@ const AdminReportsScreen: React.FC = () => {
                   ) : (
                     <>
                       <Ionicons name="document-text-outline" size={18} color={COLORS.primary} />
-                      <Text style={styles.dentistaPdfButtonText}>Imprimir/Compartilhar</Text>
+                      <Text style={styles.dentistaPdfButtonText}>Imprimir</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -355,7 +338,7 @@ const AdminReportsScreen: React.FC = () => {
           </View>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Ultimas estatisticas carregadas automaticamente</Text>
+            <Text style={styles.footerText}>Ultimas estatísticas carregadas automaticamente</Text>
           </View>
         </>
       )}
@@ -395,11 +378,7 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     marginBottom: SPACING.sm,
     borderLeftWidth: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    ...SHADOWS.sm,
   },
   statContent: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   statText: { flex: 1 },
@@ -411,11 +390,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface,
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+    ...SHADOWS.sm,
   },
   resumoRow: {
     flexDirection: 'row',

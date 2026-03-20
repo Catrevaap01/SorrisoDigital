@@ -7,18 +7,20 @@
  * Contém: Maiúscula, número, caractere especial e 10 caracteres de comprimento
  */
 export const gerarSenhaTemporaria = (): string => {
-  const maiusculas = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const minusculas = 'abcdefghijklmnopqrstuvwxyz';
-  const numeros = '0123456789';
-  const especiais = '!@#$%^&*';
+  // Evitar caracteres ambíguos: I, l, 1, 0, O
+  const maiusculas = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const minusculas = 'abcdefghijkmnopqrstuvwxyz';
+  const numeros = '23456789';
+  const especiais = '!#$@-'; // Caracteres muito seguros e fáceis de digitar no celular
 
   let senha = '';
   senha += maiusculas[Math.floor(Math.random() * maiusculas.length)];
+  senha += minusculas[Math.floor(Math.random() * minusculas.length)];
   senha += numeros[Math.floor(Math.random() * numeros.length)];
   senha += especiais[Math.floor(Math.random() * especiais.length)];
 
   const todosOsCaracteres = maiusculas + minusculas + numeros + especiais;
-  for (let i = 3; i < 10; i++) {
+  for (let i = 4; i < 10; i++) {
     senha += todosOsCaracteres[Math.floor(Math.random() * todosOsCaracteres.length)];
   }
 

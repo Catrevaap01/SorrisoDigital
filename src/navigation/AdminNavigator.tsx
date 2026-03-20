@@ -1,13 +1,13 @@
-﻿/**
+/**
  * Navegador do Admin com Bottom Tabs
- * Dashboard, RelatÃ³rios, RecuperaÃ§Ã£o de Senhas, Perfil
+ * Dashboard, Relatórios, Recuperação de Senhas, Perfil
  */
 
 import React from 'react';
 import { Text, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../styles/theme';
+import { COLORS, SHADOWS } from '../styles/theme';
 import { useAuth } from '../contexts/AuthContext';
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import AdminReportsScreen from '../screens/admin/AdminReportsScreen';
@@ -70,7 +70,7 @@ const AdminNavigator: React.FC = () => {
           paddingHorizontal: 10,
           borderTopLeftRadius: 18,
           borderTopRightRadius: 18,
-          elevation: 10,
+          ...SHADOWS.lg,
         },
         tabBarItemStyle: {
           borderRadius: 12,

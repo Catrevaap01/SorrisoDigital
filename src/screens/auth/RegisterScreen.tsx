@@ -112,12 +112,19 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
           </View>
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleRegister}
-            disabled={loading}
+            style={[styles.button, styles.buttonDisabled]}
+            disabled={true}
           >
-            <Text style={styles.buttonText}>Cadastrar</Text>
+            <Text style={[styles.buttonText, { opacity: 0.5 }]}>Cadastro pelo Dentista</Text>
           </TouchableOpacity>
+
+          <View style={styles.infoBox}>
+            <Ionicons name="information-circle-outline" size={20} color={COLORS.primary} />
+            <Text style={styles.infoText}>
+              O cadastro é realizado pelo dentista responsável.
+            </Text>
+          </View>
+
 
           <TouchableOpacity
             style={styles.registerLink}
@@ -128,7 +135,15 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.registerTextBold}>Faça login</Text>
             </Text>
           </TouchableOpacity>
+
+          <View style={styles.infoBox}>
+            <Ionicons name="information-circle-outline" size={20} color={COLORS.primary} />
+            <Text style={styles.infoText}>
+              O cadastro é realizado pelo dentista responsável.
+            </Text>
+          </View>
         </View>
+
 
         {/* Aviso Legal */}
         <View style={styles.disclaimer}>
@@ -153,6 +168,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: SIZES.lg,
   },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    marginTop: SIZES.md,
+  },
+  infoText: {
+    flex: 1,
+    marginLeft: SIZES.sm,
+    fontSize: SIZES.fontSm,
+    color: COLORS.primary,
+  },
+
   logoContainer: {
     alignItems: 'center',
     marginBottom: SIZES.xl,

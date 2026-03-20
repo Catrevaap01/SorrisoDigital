@@ -1,5 +1,11 @@
-﻿import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator as _ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { 
+  ActivityIndicator as _ActivityIndicator, 
+  StyleSheet, 
+  Text, 
+  View, 
+  Pressable 
+} from 'react-native';
 
 const ActivityIndicator: React.ComponentType<any> = _ActivityIndicator || (() => null);
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -39,6 +45,8 @@ import DentistaRelatorioScreen from '../screens/dentista/DentistaRelatorioScreen
 import CasoDetalheScreen from '../screens/dentista/CasoDetalheScreen';
 import PacienteHistoricoScreen from '../screens/dentista/PacienteHistoricoScreen';
 import DentistaMensagensScreen from '../screens/dentista/DentistaMensagensScreen';
+import NovoPacienteScreen from '../screens/dentista/NovoPacienteScreen';
+import GerirPacientesScreen from '../screens/dentista/GerirPacientesScreen';
 import AdminNavigator from './AdminNavigator';
 
 let AgendaDentistaScreen: React.ComponentType<any>;
@@ -133,6 +141,9 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
           case 'Agenda':
             iconName = focused ? 'calendar' : 'calendar-outline';
             break;
+          case 'Pacientes':
+            iconName = focused ? 'people' : 'people-outline';
+            break;
           case 'Relatorio':
             iconName = focused ? 'document-text' : 'document-text-outline';
             break;
@@ -165,6 +176,21 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
       options={{ title: 'Painel do Dentista' }}
     />
     <DentistaTab.Screen name="Agenda" component={AgendaDentistaScreen} />
+    <DentistaTab.Screen
+      name="Pacientes"
+      component={GerirPacientesScreen}
+      options={({ navigation }) => ({ 
+        title: 'Acompanhamento',
+        headerLeft: () => (
+          <Pressable 
+            onPress={() => navigation.navigate('Dashboard')}
+            style={{ marginLeft: 16 }}
+          >
+            <Ionicons name="arrow-back" size={24} color={COLORS.textInverse} />
+          </Pressable>
+        )
+      })}
+    />
     <DentistaTab.Screen name="Relatorio" component={DentistaRelatorioScreen} options={{ title: 'Relatórios' }} />
     <DentistaTab.Screen name="Mensagens" component={DentistaMensagensScreen} />
     <DentistaTab.Screen name="Perfil" component={PerfilScreen} />
@@ -279,6 +305,17 @@ const DentistaStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
           headerTintColor: COLORS.textInverse,
         }}
       />
+
+      <DentistaStackNav.Screen
+        name="CadastrarPaciente"
+        component={NovoPacienteScreen}
+        options={{
+          title: 'Cadastrar Paciente',
+          headerStyle: { backgroundColor: COLORS.secondary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+
 
       <DentistaStackNav.Screen
         name="Settings"
