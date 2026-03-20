@@ -10,15 +10,17 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { COLORS, SPACING, TYPOGRAPHY, SIZES } from '../../styles/theme';
-
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { COLORS, SPACING, TYPOGRAPHY, SIZES, SHADOWS } from '../../styles/theme';
 import { AuthStackParamList } from '../../navigation/types';
 
-export default function LoginScreen({ navigation }: NativeStackScreenProps<AuthStackParamList, 'Login'>) {
+export default function LoginScreen({
+  navigation,
+}: NativeStackScreenProps<AuthStackParamList, 'Login'>) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,25 +28,61 @@ export default function LoginScreen({ navigation }: NativeStackScreenProps<AuthS
 
   const { login } = useAuth();
 
-  const handleLogin = async () => {
+  React.useEffect(() => {
+    if (Platform.OS === 'web') {
+      const params = new URLSearchParams(window.location.search);
+      const urlEmail = params.get('email');
+      const urlPassword = params.get('password');
+
+      if (urlEmail) setEmail(urlEmail.trim());
+      if (urlPassword) setPassword(urlPassword);
+
+      if (urlEmail && urlPassword) {
+        console.log('QR: Auto-login detected from URL params');
+        setTimeout(() => {
+          void handleLogin(urlEmail.trim(), urlPassword);
+        }, 1000);
+      }
+    }
+  }, []);
+
+  const handleLogin = async (overrideEmail?: string, overridePass?: string) => {
     setError('');
     setLoading(true);
 
     try {
-      await login(email.trim().toLowerCase(), password);
+      const emailValue = overrideEmail ?? email;
+      const cleanEmail =
+        typeof emailValue === 'string' ? emailValue.trim().toLowerCase() : '';
+      const cleanPass = typeof overridePass === 'string' ? overridePass : password;
+
+      if (!cleanEmail || !cleanPass) {
+        throw new Error('Informe email e senha para entrar.');
+      }
+
+      console.log(
+        `Attempting login for: [${cleanEmail}] (Pass length: ${String(cleanPass).length})`
+      );
+
+      const result = await login(cleanEmail, cleanPass);
+      if (!result.success) {
+        throw result.error || new Error('Erro ao fazer login');
+      }
+
+      console.log('Login successful from LoginScreen');
     } catch (err: any) {
-      let userError = err.message || 'Erro ao fazer login';
-      
-      // Ficha/temp cred common errors
+      console.error('Login failed from LoginScreen:', err);
+      let userError = err?.message || 'Erro ao fazer login';
+
       const lowerMsg = userError.toLowerCase();
       if (lowerMsg.includes('invalid login') || lowerMsg.includes('senha')) {
-        userError = 'Credenciais inválidas. Verifique email e senha da ficha.';
+        userError = 'Credenciais invalidas. Verifique email e senha da ficha.';
       } else if (lowerMsg.includes('must be changed') || lowerMsg.includes('force')) {
-        userError = 'Senha temporária expirou. Peça nova ficha ao dentista.';
+        userError = 'Senha temporaria expirou. Peca nova ficha ao dentista.';
       } else if (lowerMsg.includes('email not confirmed')) {
-        userError = 'Email precisa confirmação. Verifique caixa de entrada.';
+        userError = 'Email precisa confirmacao. Verifique a caixa de entrada.';
       }
-      
+
       setError(userError);
     } finally {
       setLoading(false);
@@ -60,83 +98,86 @@ export default function LoginScreen({ navigation }: NativeStackScreenProps<AuthS
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          Platform.OS === 'web' && styles.webScrollContent
+          Platform.OS === 'web' && styles.webScrollContent,
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[
-          styles.content,
-          Platform.OS === 'web' && styles.webContent
-        ]}>
-{loading && (
-            <View style={styles.loadingOverlay}>
+        <View style={Platform.OS === 'web' ? styles.webWrapper : styles.content}>
+          <View style={[styles.content, Platform.OS === 'web' && styles.webCard]}>
+            {loading && (
+              <View style={styles.loadingOverlay}>
+                <View style={styles.logoCircle}>
+                  <Ionicons name="medical" size={50} color={COLORS.primary} />
+                </View>
+                <ActivityIndicator
+                  size="large"
+                  color={COLORS.primary}
+                  style={{ marginTop: SPACING.lg }}
+                />
+              </View>
+            )}
+
+            <View style={styles.logoContainer}>
               <View style={styles.logoCircle}>
                 <Ionicons name="medical" size={50} color={COLORS.primary} />
               </View>
-              <ActivityIndicator size="large" color={COLORS.primary} style={{marginTop:SPACING.lg}} />
+              <Text style={styles.title}>Odontologia Angola</Text>
+              <Text style={styles.subtitle}>Bem-vindo de volta</Text>
             </View>
-          )}
-          {/* logo same as cadastro */}
-          <View style={styles.logoContainer}>
-            <View style={styles.logoCircle}>
-              <Ionicons name="medical" size={50} color={COLORS.primary} />
-            </View>
-            <Text style={styles.title}>Odontologia Angola</Text>
-            <Text style={styles.subtitle}>Bem-vindo de volta</Text>
-          </View>
 
-          <View style={styles.form}>
-            <Input
-              label="E-mail"
-              placeholder="seu@email.com"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              editable={!loading}
-            />
+            <View style={styles.form}>
+              <Input
+                label="E-mail"
+                placeholder="seu@email.com"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!loading}
+              />
 
-            <Input
-              label="Senha"
-              placeholder="Sua senha"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              editable={!loading}
-            />
+              <Input
+                label="Senha"
+                placeholder="Sua senha"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                editable={!loading}
+              />
 
-            {error ? <Text style={styles.error}>{error}</Text> : null}
+              {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            <Button
-              title={loading ? 'Entrando...' : 'Entrar'}
-              onPress={handleLogin}
-              disabled={loading || !email || !password}
-              loading={loading}
-            />
+              <Button
+                title={loading ? 'Entrando...' : 'Entrar'}
+                onPress={() => {
+                  void handleLogin();
+                }}
+                disabled={loading || !email || !password}
+                loading={loading}
+              />
 
-            {Platform.OS !== 'web' && (
-              <View style={styles.footer}>
-                <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                  <Text style={styles.footerText}>
-                    Não tem uma conta? <Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>Cadastre-se</Text>
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={() => navigation.navigate('ForgotPassword')}
-                  style={{ marginTop: SPACING.md }}
+              <TouchableOpacity
+                onPress={() => navigation.navigate('ForgotPassword')}
+                style={{ marginTop: SPACING.md, alignItems: 'center' }}
+              >
+                <Text
+                  style={{
+                    color: COLORS.primary,
+                    fontSize: TYPOGRAPHY.sizes.small,
+                  }}
                 >
-                  <Text style={{ color: COLORS.primary, fontSize: TYPOGRAPHY.sizes.small }}>
-                    Esqueceu a senha?
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
+                  Esqueceu a senha?
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
+
+const safeShadow = SHADOWS?.sm || {};
 
 const styles = StyleSheet.create({
   container: {
@@ -146,87 +187,70 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-  },
-  content: {
     padding: SPACING.lg,
   },
-  webScrollContent: {
-    backgroundColor: '#EEF2F6', // Fundo levemente azulado/cinza premium
+  content: {
+    flex: 1,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: SPACING.xl,
+    marginTop: SPACING.xl,
+  },
+  logoCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  webContent: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: COLORS.surface,
-    padding: SPACING.xl,
-    borderRadius: SIZES.radiusLg,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 10px 25px rgba(0,0,0,0.05), 0 5px 10px rgba(0,0,0,0.05)',
-      }
-    }),
-    marginVertical: SPACING.xl,
-  },
-  header: {
-    marginBottom: SPACING.xl,
-    alignItems: 'center',
+    marginBottom: SPACING.md,
+    ...safeShadow,
   },
   title: {
     fontSize: TYPOGRAPHY.sizes.h1,
     fontWeight: 'bold',
     color: COLORS.primary,
-    marginBottom: SPACING.xs,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: TYPOGRAPHY.sizes.body,
-    color: COLORS.text,
+    fontSize: SIZES.fontMd,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SIZES.xs,
   },
-  logoContainer: {
-    marginBottom: SPACING.xl,
-    alignItems: 'center',
+  form: {
+    gap: SPACING.md,
   },
-  logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.surface,
-    justifyContent: 'center',
-    alignItems: 'center',
+  error: {
+    color: COLORS.danger,
+    fontSize: SIZES.fontSm,
+    textAlign: 'center',
     marginBottom: SPACING.sm,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
+    zIndex: 1000,
   },
-  form: {
-    marginBottom: SPACING.lg,
-    gap: SPACING.md,
-  },
-  error: {
-    color: COLORS.error,
-    fontSize: TYPOGRAPHY.sizes.small,
-    textAlign: 'center',
-  },
-  footer: {
+  webWrapper: {
+    width: '100%',
     alignItems: 'center',
-    gap: SPACING.sm,
-    marginTop: SPACING.lg,
+    justifyContent: 'center',
   },
-  footerText: {
-    color: COLORS.text,
-    fontSize: TYPOGRAPHY.sizes.body,
+  webScrollContent: {
+    paddingVertical: 40,
   },
-  forgotLink: {
-    alignSelf: 'flex-end',
-    marginTop: SPACING.xs,
-    marginBottom: SPACING.md,
-  },
-  forgotText: {
-    color: COLORS.primary,
-    fontSize: TYPOGRAPHY.sizes.small,
+  webCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: COLORS.surface,
+    padding: SPACING.xl,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    ...(SHADOWS?.md || {}),
   },
 });

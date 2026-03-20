@@ -2,7 +2,7 @@
  * Funções auxiliares reutilizáveis
  */
 
-import { format, formatDistanceToNow, parseISO } from 'date-fns';
+import { format, formatDistanceToNow, isValid, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 /**
@@ -11,6 +11,9 @@ import { ptBR } from 'date-fns/locale';
 export const formatDate = (date: string | Date, pattern: string = 'dd/MM/yyyy'): string => {
   if (!date) return '';
   const parsedDate = typeof date === 'string' ? parseISO(date) : date;
+  if (!isValid(parsedDate)) {
+    return typeof date === 'string' ? date : '';
+  }
   return format(parsedDate, pattern, { locale: ptBR });
 };
 
@@ -27,6 +30,9 @@ export const formatDateTime = (date: string | Date): string => {
 export const formatRelativeTime = (date: string | Date): string => {
   if (!date) return '';
   const parsedDate = typeof date === 'string' ? parseISO(date) : date;
+  if (!isValid(parsedDate)) {
+    return typeof date === 'string' ? date : '';
+  }
   return formatDistanceToNow(parsedDate, { locale: ptBR, addSuffix: true });
 };
 

@@ -27,6 +27,7 @@ import {
   Conversation,
   listarConversasDoUsuario,
   contarMensagensNaoLidas,
+  marcarMensagensComoLidas,
   obterOuCriarConversa,
 } from '../../services/messagesService';
 import { listarPacientes, PacienteProfile } from '../../services/pacienteService';
@@ -139,8 +140,22 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
           })
         );
 
-        setConversas(conversasComNaoLidas);
-        setConversasOrig(conversasComNaoLidas);
+        const conversasParaLimpar = conversasComNaoLidas.filter((conversa) => conversa.naoLidas > 0);
+
+        if (conversasParaLimpar.length > 0) {
+          await Promise.all(
+            conversasParaLimpar.map((conversa) =>
+              marcarMensagensComoLidas(conversa.id, user.id)
+            )
+          );
+        }
+
+        const conversasSincronizadas = conversasComNaoLidas.map((conversa) =>
+          conversa.naoLidas > 0 ? { ...conversa, naoLidas: 0 } : conversa
+        );
+
+        setConversas(conversasSincronizadas);
+        setConversasOrig(conversasSincronizadas);
       }
     } catch (error) {
       Toast.show({
@@ -150,11 +165,14 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
       });
     } finally {
       setLoading(false);
+      // sincroniza também a badge do menu
+      import('../../navigation/AppNavigator').then(m => m.triggerUnreadRefresh());
     }
   };
 
   useFocusEffect(
     useCallback(() => {
+      import('../../navigation/AppNavigator').then((m) => m.markUnreadAsSeen());
       carregarConversas();
     }, [user?.id])
   );
@@ -266,9 +284,30 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
     return (
       <TouchableOpacity
         style={styles.conversaCard}
-        onPress={() =>
-          onSelectConversation(item.id, otherUserName, otherUserAvatar)
-        }
+        onPress={async () => {
+          if (user?.id) {
+            const unreadToClear = item.naoLidas || 0;
+            if (unreadToClear > 0) {
+              await import('../../navigation/AppNavigator').then((m) =>
+                m.adjustUnreadCount(-unreadToClear)
+              );
+            }
+            await marcarMensagensComoLidas(item.id, user.id);
+            await import('../../navigation/AppNavigator').then((m) => m.triggerUnreadRefresh());
+          }
+
+          setConversas((prev) =>
+            prev.map((conversa) =>
+              conversa.id === item.id ? { ...conversa, naoLidas: 0 } : conversa
+            )
+          );
+          setConversasOrig((prev) =>
+            prev.map((conversa) =>
+              conversa.id === item.id ? { ...conversa, naoLidas: 0 } : conversa
+            )
+          );
+          onSelectConversation(item.id, otherUserName, otherUserAvatar);
+        }}
       >
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{otherUserName.charAt(0).toUpperCase()}</Text>
@@ -338,6 +377,10 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
             renderItem={renderConversa}
             keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
+            contentContainerStyle={[
+              { paddingBottom: SPACING.xl },
+              Platform.OS === 'web' && { paddingBottom: 100 }
+            ]}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
             }
@@ -534,7 +577,7 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 24,
+    bottom: Platform.OS === 'web' ? 90 : 24,
     right: 24,
     width: 60,
     height: 60,

@@ -78,17 +78,7 @@ const isDentistaLike = (row: any): boolean => {
   );
 };
 
-// insert profile with upsert to guarantee correct tipo even if auth
-// trigger already created a row with default 'paciente'. using upsert avoids
-// duplicate-key errors and ensures the desired fields prevail.
-//
-// When RLS is enabled the query may fail if the database schema is out‑of‑date
-// and the payload contains a column that doesn't exist yet. supabase-js will
-// return a `{ code: 'PGRST204' }` error in that case. existing code only handled
-// this for updates, so attempting to create a new dentist against an old
-// database would crash with "Could not find the 'crm' column". we retry here
-// by stripping the missing column from the payload and trying again. this keeps
-// the admin UX working even if the DBA hasn't run the migration yet.
+
 const upsertProfile = async (payload: Record<string, any>) => {
   let currentPayload: Record<string, any> = { ...payload };
 

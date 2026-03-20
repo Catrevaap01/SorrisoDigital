@@ -9,13 +9,14 @@ import Constants from 'expo-constants';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { User } from '@supabase/supabase-js';
 import { universalStorage } from '../utils/storage';
-import { supabase, PROFILE_SCHEMA_FEATURES } from '../config/supabase';
+import { supabase, PROFILE_SCHEMA_FEATURES, SUPABASE_URL } from '../config/supabase';
 import Toast from 'react-native-toast-message';
 import { logger } from '../utils/logger';
 import { withTimeout } from '../utils/withTimeout';
 import { handleError, HandledError } from '../utils/errorHandler';
 
-const AUTH_BOOT_TIMEOUT_MS = 30000;
+const AUTH_BOOT_TIMEOUT_MS = 10000;
+const AUTH_NETWORK_TIMEOUT_MS = 5000;
 
 export interface UserProfile {
   id: string;
@@ -68,8 +69,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [initializing, setInitializing] = useState<boolean>(true);
-  const [isSigningIn, setIsSigningIn] = useState<boolean>(false);
-  const [lastLoginTime, setLastLoginTime] = useState<number>(0);
+  const [isSigningIn, setIsSigningInState] = useState<boolean>(false);
+  const [lastLoginTime, setLastLoginTimeState] = useState<number>(0);
+
+  // Refs para evitar problemas de closure no onAuthStateChange/fetchProfile
+  const isSigningInRef = React.useRef(false);
+  const lastLoginTimeRef = React.useRef(0);
+
+  const setIsSigningIn = (val: boolean) => {
+    isSigningInRef.current = val;
+    setIsSigningInState(val);
+  };
+
+  const setLastLoginTime = (val: number) => {
+    lastLoginTimeRef.current = val;
+    setLastLoginTimeState(val);
+  };
 
 
 
@@ -101,11 +116,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Helper from pacienteService (copied for RLS fallback)
   const getAdminClient = (): SupabaseClient | null => {
-    const extra = Constants.expoConfig?.extra;
-    const SUPABASE_URL = extra?.SUPABASE_URL as string | undefined;
-    const SUPABASE_SERVICE_ROLE_KEY = extra?.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
-    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
-    return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    const extra = Constants.expoConfig?.extra || (Constants as any).manifest2?.extra || (Constants as any).manifest?.extra;
+    const url = extra?.SUPABASE_URL;
+    const key = extra?.SUPABASE_SERVICE_ROLE_KEY;
+    
+    if (!url || !key) {
+      console.warn('⚠️ getAdminClient: Admin keys missing in Constants.extra');
+      return null;
+    }
+
+    return createClient(url, key, {
       auth: {
         persistSession: false,
         autoRefreshToken: false,
@@ -125,10 +145,87 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const getAdminClientFromContext = () => getAdminClient();
 
+  const checkSupabaseReachable = async (): Promise<boolean> => {
+    if (!SUPABASE_URL) return false;
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    try {
+      const controller =
+        typeof AbortController !== 'undefined' ? new AbortController() : undefined;
+
+      timeoutId = setTimeout(() => controller?.abort(), AUTH_NETWORK_TIMEOUT_MS);
+
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/health`, {
+        method: 'GET',
+        signal: controller?.signal,
+        headers: {
+          apikey: String(Constants.expoConfig?.extra?.SUPABASE_ANON_KEY || ''),
+        },
+      });
+
+      return response.ok;
+    } catch (error) {
+      logger.warn('Supabase indisponivel na verificacao de conectividade:', error);
+      return false;
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  };
+
+  const validarPerfilPorEmail = async (
+    email: string
+  ): Promise<{ exists: boolean; tipo?: string; nome?: string }> => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    let result = await supabase
+      .from('profiles')
+      .select('id, nome, tipo')
+      .eq('email', normalizedEmail)
+      .maybeSingle();
+
+    if ((!result.data || result.error) && getAdminClientFromContext()) {
+      const admin = getAdminClientFromContext();
+      if (admin) {
+        result = await admin
+          .from('profiles')
+          .select('id, nome, tipo')
+          .eq('email', normalizedEmail)
+          .maybeSingle();
+      }
+    }
+
+    if (!result.data) {
+      return { exists: false };
+    }
+
+    return {
+      exists: true,
+      tipo: result.data.tipo,
+      nome: result.data.nome,
+    };
+  };
+
   const normalizeProfile = (rawProfile: any): UserProfile => {
     if (!rawProfile) return rawProfile as UserProfile;
 
     const normalizedTipo = rawProfile.tipo === 'medico' ? 'dentista' : rawProfile.tipo;
+    const observacoesGerais = String(rawProfile.observacoes_gerais || '');
+    const dataNascimentoExtraida =
+      rawProfile.data_nascimento ||
+      observacoesGerais.match(/\[DN\]: ([^ [\]\n]+)/)?.[1] ||
+      undefined;
+    const generoExtraido =
+      rawProfile.genero ||
+      observacoesGerais.match(/\[G\]: ([^ [\]\n]+)/)?.[1] ||
+      undefined;
+    const idadeExtraidaRaw =
+      rawProfile.idade ??
+      observacoesGerais.match(/\[IDADE\]: (\d{1,3})/)?.[1];
+    const idadeExtraida =
+      idadeExtraidaRaw !== undefined && idadeExtraidaRaw !== null && !Number.isNaN(Number(idadeExtraidaRaw))
+        ? Number(idadeExtraidaRaw)
+        : undefined;
 
     if (PROFILE_SCHEMA_FEATURES.usesProvinciaId) {
       const provinciaNome =
@@ -141,12 +238,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         ...rawProfile,
         tipo: normalizedTipo,
         provincia: provinciaNome,
+        data_nascimento: dataNascimentoExtraida,
+        genero: generoExtraido,
+        idade: idadeExtraida,
       } as UserProfile;
     }
 
     return {
       ...rawProfile,
       tipo: normalizedTipo,
+      data_nascimento: dataNascimentoExtraida,
+      genero: generoExtraido,
+      idade: idadeExtraida,
     } as UserProfile;
   };
 
@@ -312,12 +415,14 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       
       // LOGICA SINGLE DEVICE: Verificar se a sessao local coincide com a do banco
       const localSessionId = await universalStorage.getItem(`last_session_id_${userId}`);
-      const isRecentlyLoggedIn = Date.now() - lastLoginTime < 30000; // 30 segundos de carência
+      const delta = Date.now() - lastLoginTimeRef.current;
+      const isRecentlyLoggedIn = delta < 45000; // 45 segundos de carência (aumentado para evitar race conditions)
       
-      if (!isSigningIn && !isRecentlyLoggedIn && data.last_session_id && localSessionId && data.last_session_id !== localSessionId) {
-        // Se houver conflito, damos uma segunda chance (pode ser delay de propagação do Supabase)
-        logger.warn(`Possível conflito de sessão para ${userId}. Aguardando 2s para re-verificação...`);
-        await new Promise(r => setTimeout(r, 2000));
+      if (!isSigningInRef.current && !isRecentlyLoggedIn && data.last_session_id && localSessionId && data.last_session_id !== localSessionId) {
+        console.warn(`🚨 Login: Session Mismatch for ${userId}. DB: ${data.last_session_id}, Local: ${localSessionId}, Delta: ${delta}ms`);
+        // Se houver conflito, damos uma segunda chance com delay maior
+        logger.warn(`Possível conflito de sessão para ${userId}. Aguardando 3s para re-verificação...`);
+        await new Promise(r => setTimeout(r, 3000));
         const { data: retryData } = await supabase.from('profiles').select('last_session_id').eq('id', userId).maybeSingle();
         
         if (retryData?.last_session_id && retryData.last_session_id !== localSessionId) {
@@ -352,28 +457,43 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
    * Escutar mudanÃ§as de autenticaÃ§Ã£o
    */
   useEffect(() => {
+    let bootstrapReleased = false;
     const bootTimeout = setTimeout(() => {
       logger.warn(`Auth bootstrap excedeu ${AUTH_BOOT_TIMEOUT_MS}ms. Liberando app com fallback.`);
       setInitializing(false);
       setLoading(false);
     }, AUTH_BOOT_TIMEOUT_MS);
 
-    // Verificar sessÃ£o atual
+    const releaseBootstrap = () => {
+      if (bootstrapReleased) return;
+      bootstrapReleased = true;
+      clearTimeout(bootTimeout);
+      setInitializing(false);
+      setLoading(false);
+    };
+
+    // Verificar sessÃ£o atual e FORÃAR LOGOUT SE ENCONTRAR (Logout on Reload)
+    void checkSupabaseReachable().then((reachable) => {
+      if (!reachable) {
+        logger.warn('Bootstrap: Supabase indisponivel, seguindo sem sessao inicial.');
+        releaseBootstrap();
+      }
+    });
+
     withTimeout(supabase.auth.getSession(), AUTH_BOOT_TIMEOUT_MS)
       .then(({ data: { session } }) => {
         if (session?.user) {
+          console.log(`📡 Bootstrap: Recovered session for ${session.user.id}.`);
           setLastLoginTime(Date.now()); // Inicializa tempo no boot
           void fetchProfile(session.user.id).finally(() => {
-            setInitializing(false);
-            setLoading(false);
+            releaseBootstrap();
           });
           return;
         }
-        setInitializing(false);
-        setLoading(false);
+        releaseBootstrap();
       })
       .catch((error) => {
-        logger.warn('Falha/timeout ao obter sessao inicial:', error);
+        console.warn('⚠️ Bootstrap: Falha ao obter sessao inicial:', error);
         setInitializing(false);
         setLoading(false);
       });
@@ -410,28 +530,111 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       setLoading(true);
       setIsSigningIn(true);
       setLastLoginTime(Date.now());
+      const isReachable = await checkSupabaseReachable();
+      if (!isReachable) {
+        throw new Error('Servidor de autenticacao indisponivel. Verifique a internet e tente novamente.');
+      }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
-        password,
-      });
+      console.log(`📡 Login: Starting signInWithPassword for ${email}`);
+      const { data, error } = await withTimeout(
+        supabase.auth.signInWithPassword({
+          email: email.trim().toLowerCase(),
+          password,
+        }),
+        20000 // 20s timeout for auth
+      );
 
       if (error) throw error;
 
       if (data.user) {
-        // Encerra outras sessoes no Supabase Auth
-        await supabase.auth.signOut({ scope: 'others' });
+        console.log(`🔐 Login: Authenticated ${data.user.email} (${data.user.id})`);
+        
+        // Encerra outras sessoes no Supabase Auth (Não bloqueante)
+        console.log('📡 Login: Invaliding other sessions (non-blocking)...');
+        void supabase.auth.signOut({ scope: 'others' }).catch(err => {
+          console.warn('⚠️ Login: signOut(others) failed (ignoring):', err);
+        });
         
         // Registrar nova sessao
         const newSessionId = generateSessionId();
+        console.log(`📡 Login: New Session ID: ${newSessionId}`);
         await universalStorage.setItem(`last_session_id_${data.user.id}`, newSessionId);
-        await supabase.from('profiles').update({ last_session_id: newSessionId }).eq('id', data.user.id);
+        
+        const runSessionUpdate = async () => {
+          try {
+            let res = await withTimeout(
+              supabase
+                .from('profiles')
+                .update({ last_session_id: newSessionId })
+                .eq('id', data.user.id),
+              10000 // 10s timeout for profile update
+            );
+            
+            if (res.error && isRowLevelSecurityError(res.error)) {
+              console.warn('⚠️ Login: RLS error on session update, trying admin fallback...');
+              const admin = getAdminClient(); // Use common helper
+              if (admin) {
+                res = await withTimeout(
+                  admin
+                    .from('profiles')
+                    .update({ last_session_id: newSessionId })
+                    .eq('id', data.user.id),
+                  10000
+                );
+              }
+            }
+            return res;
+          } catch (updateErr) {
+            console.error('❌ Login: Session update timed out or crashed:', updateErr);
+            return { error: updateErr };
+          }
+        };
+
+        const updateResult = (await runSessionUpdate()) as any;
+        if (updateResult.error) {
+          console.error('❌ Login: Failed to update last_session_id in DB:', updateResult.error);
+        } else {
+          console.log('✅ Login: Session ID updated in DB successfully.');
+        }
       }
 
       logger.info('Utilizador fez login com sucesso');
       return { success: true, data };
     } catch (error) {
-      const handledError = handleError(error, 'AuthProvider.signIn');
+      let handledError = handleError(error, 'AuthProvider.signIn');
+
+      const rawMessage = String((error as any)?.message || '').toLowerCase();
+      if (rawMessage.includes('invalid login credentials') && typeof email === 'string') {
+        try {
+          const profileValidation = await validarPerfilPorEmail(email);
+
+          if (!profileValidation.exists) {
+            handledError = {
+              ...handledError,
+              type: 'NOT_FOUND_ERROR' as any,
+              message:
+                'Paciente nao encontrado com este email. Peca ao dentista para confirmar o cadastro ou gerar nova ficha.',
+            };
+          } else if (profileValidation.tipo !== 'paciente') {
+            handledError = {
+              ...handledError,
+              type: 'AUTH_ERROR' as any,
+              message:
+                `Este email pertence a uma conta do tipo ${profileValidation.tipo || 'desconhecido'}, nao a um paciente.`,
+            };
+          } else {
+            handledError = {
+              ...handledError,
+              type: 'AUTH_ERROR' as any,
+              message:
+                'Senha incorreta ou ficha antiga. Use a senha mais recente gerada pelo dentista ou redefina a senha.',
+            };
+          }
+        } catch (validationError) {
+          console.warn('Login: falha ao validar perfil por email.', validationError);
+        }
+      }
+
       Toast.show({
         type: 'error',
         text1: 'Erro no login',
@@ -441,8 +644,11 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       return { success: false, error: handledError };
     } finally {
       setLoading(false);
-      // Aguarda um pouco mais para que o observer de auth state processe o novo session_id
-      setTimeout(() => setIsSigningIn(false), 5000);
+      // Aumentado para 15s para garantir que fetchProfile corra em paz no Web
+      setTimeout(() => {
+        console.log('📡 Login: isSigningIn grace period expired.');
+        setIsSigningIn(false);
+      }, 15000);
     }
   };
 
@@ -532,45 +738,54 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
     try {
       setLoading(true);
 
+      const userId = user?.id;
+
       // 1) encerra sessao local imediatamente
-      if (user) {
-        await universalStorage.removeItem(`last_session_id_${user.id}`);
+      if (userId) {
+        console.log(`🚪 SignOut: Initiating global signout for ${userId}`);
+        await universalStorage.removeItem(`last_session_id_${userId}`);
+        
+        // Tenta limpar ID de sessao no banco (admin fallback se necessario)
+        const runSessionCleanup = async () => {
+          let res = await supabase.from('profiles').update({ last_session_id: null }).eq('id', userId);
+          if (res.error && isRowLevelSecurityError(res.error)) {
+            const admin = getAdminClientFromContext();
+            if (admin) res = await admin.from('profiles').update({ last_session_id: null }).eq('id', userId);
+          }
+          return res;
+        };
+        void runSessionCleanup();
       }
+
       setUser(null);
       setProfile(null);
 
       Toast.show({
         type: 'success',
         text1: 'Sessao terminada',
-        text2: 'Terminou sessao com sucesso',
+        text2: 'Terminou sessao em todos os dispositivos',
       });
 
-      // 2) tenta logout remoto sem bloquear a navegacao
+      // 2) tenta logout remoto GLOBAL sem bloquear a navegacao
       void supabase.auth
-        .signOut()
+        .signOut({ scope: 'global' }) // Invalida todas as sessoes em todos os dispositivos
         .then(({ error }) => {
           if (error) {
             remoteSignOutError = error;
-            logger.warn('Logout remoto falhou, mantendo logout local:', remoteSignOutError);
+            logger.warn('Logout global falhou, mantendo logout local:', remoteSignOutError);
           } else {
-            logger.info('Utilizador desconectado com sucesso');
+            console.log('✅ SignOut: Global signout success');
           }
         })
         .catch((error: unknown) => {
           remoteSignOutError = error;
-          logger.warn('Falha inesperada no logout remoto, mantendo logout local:', remoteSignOutError);
+          logger.warn('Falha inesperada no logout global:', remoteSignOutError);
         });
     } catch (error: unknown) {
       const handledError = handleError(error, 'AuthProvider.signOut');
       logger.error('Erro ao fazer logout:', handledError);
-      // fallback final para não prender o usuário logado na UI
       setUser(null);
       setProfile(null);
-      Toast.show({
-        type: 'info',
-        text1: 'Sessao local terminada',
-        text2: 'Falha no logout remoto, mas voce saiu deste dispositivo',
-      });
     } finally {
       setLoading(false);
     }

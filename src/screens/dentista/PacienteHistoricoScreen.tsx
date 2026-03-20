@@ -6,15 +6,14 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
-  ScrollView,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../contexts/AuthContext';
 import { buscarTriagensPaciente } from '../../services/triagemService';
 import { buscarPaciente, PacienteProfile, calcularIdade } from '../../services/pacienteService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { STATUS_TRIAGEM } from '../../utils/constants';
-import { formatRelativeTime, formatDateTime } from '../../utils/helpers';
+import { formatRelativeTime } from '../../utils/helpers';
 import { exportarHistoricoPacientePdf } from '../../services/pdfReportService';
 import Toast from 'react-native-toast-message';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -30,7 +29,6 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
   navigation,
 }) => {
   const { pacienteId, pacienteNome } = route.params;
-  const { profile } = useAuth();
   const [triagens, setTriagens] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -64,10 +62,15 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
     setRefreshing(false);
   }, [pacienteId]);
 
-  const renderTriagemLinha = ({ item }) => {
+  const renderTriagemLinha = ({ item }: { item: any }) => {
     const temResposta = item.respostas && item.respostas.length > 0;
-    const effectiveStatus = temResposta ? 'respondido' : (item.status === 'urgente' || item.prioridade === 'urgente' || Number(item.intensidade_dor || 0) >= 8 ? 'urgente' : (item.status || 'pendente'));
+    const effectiveStatus = temResposta
+      ? 'respondido'
+      : item.status === 'urgente' || item.prioridade === 'urgente' || Number(item.intensidade_dor || 0) >= 8
+        ? 'urgente'
+        : item.status || 'pendente';
     const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
+
     return (
       <TouchableOpacity
         style={styles.rowItem}
@@ -144,7 +147,7 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* header com nome */}
+      {/* Header com nome */}
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>
           Histórico de {pacienteNome || 'Paciente'}
@@ -165,7 +168,9 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
           <Text style={styles.pdfBtnText}>{exporting ? 'Gerando...' : 'PDF'}</Text>
         </TouchableOpacity>
       </View>
+
       {renderPacienteInfo()}
+
       {loading ? (
         <View style={styles.centerContainer}>
           <Text style={styles.loadingText}>Carregando histórico...</Text>
@@ -175,14 +180,14 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
           <Ionicons
             name="document-text-outline"
             size={64}
-            color={COLORS.textLight}
+            color={COLORS.textSecondary}
           />
           <Text style={styles.emptyTitle}>Nenhum histórico encontrado</Text>
         </View>
       ) : (
         <FlatList
           data={triagens}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item: any) => item.id}
           renderItem={renderTriagemLinha}
           contentContainerStyle={styles.listaLinhas}
           refreshControl={

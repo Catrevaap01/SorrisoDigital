@@ -5,6 +5,7 @@ import { formatDateTime } from '../../utils/helpers';
 
 interface SafePaciente {
   nome: string;
+  email?: string;
   data_nascimento?: string;
   genero?: string;
   historico_medico?: string;
@@ -16,12 +17,13 @@ export const gerarFichaHistorico = async (pacienteId: string): Promise<string> =
   try {
     const [pResult, tResult] = await Promise.all([
       buscarPaciente(pacienteId),
-      buscarTriagensPaciente(pacienteId)
+      buscarTriagensPaciente(pacienteId),
     ]);
 
     const pacienteRaw = pResult.data || { nome: 'Paciente não encontrado' };
     const paciente: SafePaciente = {
       nome: pacienteRaw.nome || 'Paciente não encontrado',
+      email: (pacienteRaw as PacienteProfile).email,
       data_nascimento: (pacienteRaw as PacienteProfile).data_nascimento,
       genero: (pacienteRaw as PacienteProfile).genero,
       historico_medico: (pacienteRaw as PacienteProfile).historico_medico,
@@ -36,24 +38,28 @@ export const gerarFichaHistorico = async (pacienteId: string): Promise<string> =
       month: 'long',
       year: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
 
-    const triagemRows = triagens
-      .map((t: any) => {
-        const statusLabel = t.status === 'pendente' ? 'Pendente' :
-                           t.status === 'em_analise' ? 'Em Análise' :
-                           t.status === 'concluida' ? 'Concluída' : t.status;
-        return `
-        <tr>
-          <td>${t.id.substring(0, 6)}</td>
-          <td>${formatDateTime(t.created_at)}</td>
-          <td>${t.sintoma_principal || '-'}</td>
-          <td>${t.intensidade_dor || '-'}</td>
-          <td>${statusLabel}</td>
-        </tr>`;
-      })
-      .join('') || '<tr><td colspan="5" style="text-align:center;">Nenhuma triagem encontrada</td></tr>';
+    const triagemRows =
+      triagens
+        .map((t: any) => {
+          const statusLabel =
+            t.status === 'pendente' ? 'Pendente' :
+            t.status === 'em_analise' ? 'Em Análise' :
+            t.status === 'concluida' ? 'Concluída' :
+            t.status;
+          return `
+          <tr>
+            <td>${t.id.substring(0, 6)}</td>
+            <td>${formatDateTime(t.created_at)}</td>
+            <td>${t.sintoma_principal || '-'}</td>
+            <td>${t.intensidade_dor || '-'}</td>
+            <td>${statusLabel}</td>
+          </tr>`;
+        })
+        .join('') ||
+      '<tr><td colspan="5" style="text-align:center;">Nenhuma triagem encontrada</td></tr>';
 
     return `
     <!DOCTYPE html>
@@ -61,25 +67,22 @@ export const gerarFichaHistorico = async (pacienteId: string): Promise<string> =
     <head>
       <meta charset="utf-8">
       <style>
-        body { font-family: Arial, sans-serif; padding: 20px; color: #333; line-height: 1.4; }
-        .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #1E88E5; padding-bottom: 20px; }
-        .logo { font-size: 28px; font-weight: bold; color: #1E88E5; }
-        .subtitle { color: #666; margin-top: 8px; font-size: 16px; }
-        .paciente-info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
-        .info-row { display: flex; margin-bottom: 10px; }
-        .info-label { font-weight: bold; color: #1E88E5; min-width: 140px; }
+        @page { size: A4; margin: 10mm; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; color: #333; line-height: 1.4; max-width: 210mm; margin: auto; }
+        .header { text-align: center; margin-bottom: 20px; border-bottom: 3px solid #1E88E5; padding-bottom: 15px; }
+        .logo { font-size: 24px; font-weight: bold; color: #1E88E5; }
+        .subtitle { color: #666; margin-top: 4px; font-size: 14px; }
+        .paciente-info { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #e0e0e0; }
+        .info-row { display: flex; margin-bottom: 6px; font-size: 13px; }
+        .info-label { font-weight: bold; color: #1E88E5; min-width: 150px; }
         .info-value { flex: 1; }
-        .period { background: #e3f2fd; padding: 12px; border-radius: 6px; margin: 20px 0; text-align: center; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .period { background: #e3f2fd; padding: 10px; border-radius: 6px; margin: 15px 0; text-align: center; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 11px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
         th { background: #1E88E5; color: white; font-weight: bold; }
         tr:nth-child(even) { background: #f9f9f9; }
-        .status { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
-        .status.pendente { background: #FF9800; color: white; }
-        .status.em_analise { background: #2196F3; color: white; }
-        .status.concluida { background: #4CAF50; color: white; }
-        .footer { margin-top: 40px; text-align: center; color: #999; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px; }
-        @media print { body { margin: 0; padding: 10px; } }
+        .footer { margin-top: 30px; text-align: center; color: #999; font-size: 10px; border-top: 1px solid #eee; padding-top: 15px; }
+        @media print { body { margin: 0; padding: 0; } }
       </style>
     </head>
     <body>
@@ -87,7 +90,7 @@ export const gerarFichaHistorico = async (pacienteId: string): Promise<string> =
         <div class="logo">🦷 Odontologia Angola</div>
         <div class="subtitle">Ficha Completa de Histórico - ${paciente.nome}</div>
       </div>
-      
+
       <div class="period">
         <strong>Ficha de Histórico do Paciente</strong><br>
         Gerado em: ${dataGeracao}

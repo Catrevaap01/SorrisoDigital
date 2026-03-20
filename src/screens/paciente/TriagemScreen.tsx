@@ -125,17 +125,21 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
   // if there's no dentist chosen at all, force the user to pick one
   useEffect(() => {
     if (!selectedDentist) {
-      Alert.alert(
-        'Dentista obrigatório',
-        'Você deve selecionar um dentista antes de enviar triagem.',
-        [
-          {
-            text: 'Escolher agora',
-            onPress: () => navigation.getParent()?.navigate('ChooseDentista' as any),
-          },
-        ],
-        { cancelable: false }
-      );
+      if (Platform.OS === 'web') {
+        navigation.getParent()?.navigate('ChooseDentista' as any);
+      } else {
+        Alert.alert(
+          'Dentista obrigatório',
+          'Você deve selecionar um dentista antes de enviar triagem.',
+          [
+            {
+              text: 'Escolher agora',
+              onPress: () => navigation.getParent()?.navigate('ChooseDentista' as any),
+            },
+          ],
+          { cancelable: false }
+        );
+      }
     }
   }, [selectedDentist]);
 
@@ -164,6 +168,10 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       
       if (status !== 'granted') {
+        if (Platform.OS === 'web') {
+          selecionarGaleria();
+          return;
+        }
         Alert.alert(
           'Permissão Necessária',
           'Precisamos de acesso à câmera para tirar fotos. Por favor, ative a permissão nas configurações do aplicativo.'
@@ -174,7 +182,7 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
       // Depois abre a câmera
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
+        allowsEditing: Platform.OS !== 'web',
         aspect: [4, 3],
         quality: 0.7,
       });
@@ -206,11 +214,15 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
       }
     } catch (error: any) {
       console.error('Erro ao tirar foto:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Erro ao acessar câmera',
-        text2: error.message || 'Tente novamente',
-      });
+      if (Platform.OS === 'web') {
+        selecionarGaleria();
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Erro ao acessar câmera',
+          text2: error.message || 'Tente novamente',
+        });
+      }
     }
   };
 

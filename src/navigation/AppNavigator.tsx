@@ -81,7 +81,7 @@ interface TabsProps {
 const PacienteTabs: React.FC<TabsProps> = ({ unreadCount }) => (
   <PacienteTab.Navigator
     id="PacienteTab"
-    screenOptions={({ route }) => ({
+    screenOptions={({ route, navigation }) => ({
       tabBarIcon: ({ focused, color, size }) => {
         let iconName = 'ellipse';
         switch (route.name) {
@@ -106,18 +106,23 @@ const PacienteTabs: React.FC<TabsProps> = ({ unreadCount }) => (
         }
         return <Ionicons name={iconName as any} size={size} color={color} />;
       },
+      tabBarBadge: (() => {
+        const state = navigation.getState();
+        const activeRouteName = state.routes[state.index]?.name;
+        const isActiveMensagens = route.name === 'Mensagens' && activeRouteName === 'Mensagens';
+
+        return route.name === 'Mensagens' && !isActiveMensagens && unreadCount > 0
+          ? unreadCount > 99
+            ? '99+'
+            : unreadCount
+          : undefined;
+      })(),
       tabBarActiveTintColor: COLORS.primary,
       tabBarInactiveTintColor: COLORS.textSecondary,
       tabBarHideOnKeyboard: true,
       headerStyle: { backgroundColor: COLORS.primary },
       headerTintColor: COLORS.textInverse,
       headerTitleStyle: { fontWeight: 'bold' },
-      tabBarBadge:
-        route.name === 'Mensagens' && unreadCount > 0
-          ? unreadCount > 99
-            ? '99+'
-            : unreadCount
-          : undefined,
       tabBarStyle: Platform.OS === 'web' ? {
         maxWidth: 800,
         width: '100%',
@@ -145,7 +150,7 @@ const PacienteTabs: React.FC<TabsProps> = ({ unreadCount }) => (
 const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
   <DentistaTab.Navigator
     id="DentistaTab"
-    screenOptions={({ route }) => ({
+    screenOptions={({ route, navigation }) => ({
       tabBarIcon: ({ focused, color, size }) => {
         let iconName = 'ellipse';
         switch (route.name) {
@@ -170,18 +175,23 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
         }
         return <Ionicons name={iconName as any} size={size} color={color} />;
       },
+      tabBarBadge: (() => {
+        const state = navigation.getState();
+        const activeRouteName = state.routes[state.index]?.name;
+        const isActiveMensagens = route.name === 'Mensagens' && activeRouteName === 'Mensagens';
+
+        return route.name === 'Mensagens' && !isActiveMensagens && unreadCount > 0
+          ? unreadCount > 99
+            ? '99+'
+            : unreadCount
+          : undefined;
+      })(),
       tabBarActiveTintColor: COLORS.secondary,
       tabBarInactiveTintColor: COLORS.textSecondary,
       tabBarHideOnKeyboard: true,
       headerStyle: { backgroundColor: COLORS.secondary },
       headerTintColor: COLORS.textInverse,
       headerTitleStyle: { fontWeight: 'bold' },
-      tabBarBadge:
-        route.name === 'Mensagens' && unreadCount > 0
-          ? unreadCount > 99
-            ? '99+'
-            : unreadCount
-          : undefined,
       tabBarStyle: Platform.OS === 'web' ? {
         maxWidth: 800,
         width: '100%',
@@ -405,28 +415,60 @@ const DentistaStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
 
 // helper registration for components that need to force-refresh badge
 let refreshUnreadCallback: (() => void) | null = null;
+let adjustUnreadCountCallback: ((delta: number) => void) | null = null;
+let markUnreadSeenCallback: (() => void) | null = null;
 export const registerUnreadRefresh = (cb: () => void) => {
   refreshUnreadCallback = cb;
 };
+export const registerUnreadAdjust = (cb: (delta: number) => void) => {
+  adjustUnreadCountCallback = cb;
+};
+export const registerUnreadSeen = (cb: () => void) => {
+  markUnreadSeenCallback = cb;
+};
 export const triggerUnreadRefresh = () => {
-  if (refreshUnreadCallback) refreshUnreadCallback();
+  if (refreshUnreadCallback) {
+    refreshUnreadCallback();
+  }
+};
+export const adjustUnreadCount = (delta: number) => {
+  if (adjustUnreadCountCallback && delta !== 0) {
+    adjustUnreadCountCallback(delta);
+  }
+};
+export const markUnreadAsSeen = () => {
+  if (markUnreadSeenCallback) {
+    markUnreadSeenCallback();
+  }
 };
 
 const AppNavigator: React.FC = () => {
   const { user, profile, initializing, loading } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
+  const unreadSuppressedRef = React.useRef(false);
 
   const userId = user?.id;
 
   const refreshUnreadCount = useCallback(async () => {
     if (!userId) {
       setUnreadCount(0);
+      unreadSuppressedRef.current = false;
       return;
     }
 
     const result = await contarMensagensNaoLidasTotalUsuario(userId);
     if (result.success) {
-      setUnreadCount(result.count || 0);
+      if (result.count && result.count > 0) {
+        console.log('📊 Unread check:', result.count);
+      }
+      if (result.count && result.count > 0 && (result as any).data) {
+        const unreadConvs = (result as any).data.map((m: any) => m.conversation_id);
+        console.log('📍 Unread messages in conversations:', [...new Set(unreadConvs)]);
+      }
+      if ((result.count || 0) === 0) {
+        unreadSuppressedRef.current = false;
+      }
+      setUnreadCount(unreadSuppressedRef.current ? 0 : (result.count || 0));
     }
   }, [userId]);
 
@@ -438,52 +480,49 @@ const AppNavigator: React.FC = () => {
 
     // allow other components to manually trigger this same logic
     registerUnreadRefresh(refreshUnreadCount);
+    registerUnreadAdjust((delta: number) => {
+      setUnreadCount((prev) => Math.max(0, prev + delta));
+    });
+    registerUnreadSeen(() => {
+      unreadSuppressedRef.current = true;
+      setUnreadCount(0);
+    });
 
     refreshUnreadCount();
 
     const channel = supabase
-      .channel(`messages-badge-${userId}`)
+      .channel('messages-realtime-badge')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
+        { event: '*', schema: 'public', table: 'messages' },
         async (payload) => {
-          const msg = payload.new as {
-            conversation_id?: string;
-            sender_id?: string;
-            sender_name?: string;
-            content?: string;
-          };
-
-          if (!msg?.conversation_id) {
+          console.log('🔔 Mensagem alterada:', payload.eventType);
+          if (payload.eventType === 'INSERT') {
+            unreadSuppressedRef.current = false;
+          }
+          // Reduzido para 300ms para resposta mais rápida
+          setTimeout(async () => {
             await refreshUnreadCount();
-            return;
-          }
-
-          if (msg.sender_id && msg.sender_id !== userId) {
-            const senderName = msg.sender_name || 'Nova mensagem';
-            await notifyNewMessage('Nova mensagem', `${senderName}: ${msg.content || ''}`);
-          }
-
-          await refreshUnreadCount();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'messages' },
-        async () => {
-          await refreshUnreadCount();
+            console.log('✅ Contador atualizado via realtime');
+          }, 300);
         }
       )
       .subscribe();
 
+    // Aumentado polling para a cada 3 segundos para consistência absoluta
+    const interval = setInterval(async () => {
+      await refreshUnreadCount();
+    }, 3000);
+
     return () => {
       channel.unsubscribe();
+      clearInterval(interval);
     };
   }, [refreshUnreadCount, userId]);
 
   if (initializing) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, { backgroundColor: '#EEF2F6' }]}>
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
@@ -494,7 +533,7 @@ const AppNavigator: React.FC = () => {
   // evitar spinner infinito.
   if (user && !profile && loading) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, { backgroundColor: '#EEF2F6' }]}>
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );

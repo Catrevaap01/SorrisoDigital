@@ -82,15 +82,15 @@ const NovoPacienteScreen: React.FC<Props> = ({ navigation: propNavigation }) => 
 
       const html = await gerarFichaCadastroHTML(
         result.data,
-        formData.email,
+        result.tempEmail || formData.email, // ✅ Use normalized email from result
         result.tempPassword,
         dentista?.nome || 'Dentista'
       );
 
       setFichaHtml(html);
-      // QR aponta para a URL real da PWA para instalar o app
-      setQrCodeValue(APP_URL);
-      setCreatedCredentials({ email: formData.email, password: result.tempPassword });
+      // QR aponta para o login com auto-fill
+      setQrCodeValue(`${APP_URL}/login?email=${encodeURIComponent(result.tempEmail || formData.email)}&password=${encodeURIComponent(result.tempPassword)}`);
+      setCreatedCredentials({ email: result.tempEmail || formData.email, password: result.tempPassword });
       setPreviewFicha(true);
 
       Toast.show({ type: 'success', text1: '✅ Paciente criado com sucesso!', text2: 'Ficha pronta para impressão' });
@@ -207,10 +207,11 @@ const NovoPacienteScreen: React.FC<Props> = ({ navigation: propNavigation }) => 
           </View>
 
           <Button
-            title={loading ? 'Criando...' : '👤 Criar Paciente + Ficha'}
+            title={loading ? 'Criando...' : '👤 Cadastrar e Gerar QR Ficha'}
             onPress={handleCreatePaciente}
             loading={loading}
             style={styles.btn}
+            icon="qr-code-outline"
           />
         </View>
       </ScrollView>

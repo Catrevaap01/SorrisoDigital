@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -23,10 +23,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDentist } from '../../contexts/DentistContext';
 import { PROFILE_SCHEMA_FEATURES } from '../../config/supabase';
-import { calcularIdade } from '../../services/pacienteService';
+import { buscarPaciente, parsePacienteProfile, validarData } from '../../services/pacienteService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { PROVINCIAS_ANGOLA } from '../../utils/constants';
-import { getInitials, formatDate, formatBirthDateInput } from '../../utils/helpers';
+import { getInitials, formatDate } from '../../utils/helpers';
+import { exportHtmlAsPdf } from '../../utils/pdfExportUtils';
+import { gerarFichaHistorico } from '../dentista/gerarFichaHistorico';
 
 const ESPECIALIDADES_DENTISTA = [
   'Ortodontia',
@@ -49,6 +51,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
   const { requestAutoOpenChooseDentist } = useDentist();
   const [editando, setEditando] = useState<boolean>(forceEdit);
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
+  const [baixandoPdf, setBaixandoPdf] = useState(false);
 
   useEffect(() => {
     if (forceEdit && (!profile?.telefone || !profile?.provincia)) {
@@ -67,10 +70,40 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
   const [provincia, setProvincia] = useState<string>(profile?.provincia || '');
   const [crm, setCrm] = useState<string>(profile?.crm || profile?.numero_registro || '');
   const [especialidade, setEspecialidade] = useState<string>(profile?.especialidade || '');
-  const [dataNascimento, setDataNascimento] = useState<string>(profile?.data_nascimento || '');
+  const [idade, setIdade] = useState<string>('');
   const [genero, setGenero] = useState<string>(profile?.genero || '');
   const [processandoLogout, setProcessandoLogout] = useState(false);
   const [showGeneros, setShowGeneros] = useState<boolean>(false);
+  const [perfilCarregado, setPerfilCarregado] = useState<any>(null);
+  const isDentista = profile?.tipo === 'dentista' || profile?.tipo === 'medico';
+  const perfilPaciente = useMemo(
+    () => (!isDentista && (perfilCarregado || profile) ? parsePacienteProfile({ ...(perfilCarregado || profile) }) : profile),
+    [isDentista, perfilCarregado, profile]
+  );
+  const idadePaciente = useMemo(() => {
+    if (isDentista) return null;
+    if (typeof perfilPaciente?.idade === 'number' && perfilPaciente.idade >= 0) {
+      return perfilPaciente.idade;
+    }
+    if (perfilPaciente?.data_nascimento && validarData(perfilPaciente.data_nascimento)) {
+      const anoNascimento = Number(String(perfilPaciente.data_nascimento).split('-')[0]);
+      const anoAtual = new Date().getFullYear();
+      return Number.isFinite(anoNascimento) && anoNascimento > 1900 ? anoAtual - anoNascimento : null;
+    }
+    return null;
+  }, [isDentista, perfilPaciente]);
+
+  useEffect(() => {
+    const carregarPerfilCompleto = async () => {
+      if (isDentista || !profile?.id) return;
+      const result = await buscarPaciente(profile.id, { forceRefresh: true });
+      if (result.success && result.data) {
+        setPerfilCarregado(result.data);
+      }
+    };
+
+    void carregarPerfilCompleto();
+  }, [isDentista, profile?.id]);
 
   useEffect(() => {
     setNome(profile?.nome || '');
@@ -80,10 +113,14 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
       setCrm(profile?.crm || profile?.numero_registro || '');
       setEspecialidade(profile?.especialidade || '');
     } else {
-      setDataNascimento(profile?.data_nascimento || '');
-      setGenero(profile?.genero || '');
+      setIdade(
+        typeof perfilPaciente?.idade === 'number' && perfilPaciente.idade >= 0
+          ? String(perfilPaciente.idade)
+          : ''
+      );
+      setGenero(perfilPaciente?.genero || '');
     }
-  }, [profile]);
+  }, [isDentista, perfilPaciente, profile]);
 
   const handleSalvar = async () => {
     if (forceEdit && (!telefone.trim() || !provincia.trim())) {
@@ -111,8 +148,16 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
       updates.numero_registro = crm.trim();
       updates.especialidade = especialidade.trim();
     } else {
-      updates.data_nascimento = dataNascimento;
-      updates.genero = genero;
+      const idadeLimpa = idade.trim();
+      const generoLimpo = genero.trim();
+
+      if (idadeLimpa && /^\d{1,3}$/.test(idadeLimpa)) {
+        updates.idade = Number(idadeLimpa);
+      }
+
+      if (generoLimpo) {
+        updates.genero = generoLimpo;
+      }
     }
 
     if (canEditProvincia) {
@@ -141,6 +186,25 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
       setSalvandoPerfil(false);
     }
   };
+  
+  const handleGerarPDF = async () => {
+    if (!profile?.id) return;
+    setBaixandoPdf(true);
+    try {
+      Toast.show({ type: 'info', text1: 'Gerando PDF...', text2: 'Aguarde um instante' });
+      const html = await gerarFichaHistorico(profile.id);
+      const result = await exportHtmlAsPdf(html, `ficha_${profile.nome || 'paciente'}.pdf`);
+      if (result.success) {
+        Toast.show({ type: 'success', text1: 'PDF gerado com sucesso' });
+      } else {
+        Toast.show({ type: 'error', text1: 'Erro ao gerar PDF', text2: result.error });
+      }
+    } catch (error: any) {
+      Toast.show({ type: 'error', text1: 'Erro inesperado', text2: error.message });
+    } finally {
+      setBaixandoPdf(false);
+    }
+  };
 
   const handleCancelar = () => {
     setNome(profile?.nome || '');
@@ -150,8 +214,12 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
       setCrm(profile?.crm || profile?.numero_registro || '');
       setEspecialidade(profile?.especialidade || '');
     } else {
-      setDataNascimento(profile?.data_nascimento || '');
-      setGenero(profile?.genero || '');
+      setIdade(
+        typeof perfilPaciente?.idade === 'number' && perfilPaciente.idade >= 0
+          ? String(perfilPaciente.idade)
+          : ''
+      );
+      setGenero(perfilPaciente?.genero || '');
     }
     setEditando(false);
   };
@@ -194,12 +262,6 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
       ]
     );
   };
-
-  const isDentista = profile?.tipo === 'dentista' || profile?.tipo === 'medico';
-  const idadePaciente =
-    !isDentista && profile?.data_nascimento
-      ? calcularIdade(profile.data_nascimento)
-      : null;
 
   return (
     <KeyboardAvoidingView
@@ -291,25 +353,18 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
         {!isDentista && (
           <>
             <View style={styles.campo}>
-              <Text style={styles.campoLabel}>Data de Nascimento</Text>
+              <Text style={styles.campoLabel}>Idade</Text>
               {editando ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <TextInput
-                    style={[styles.input, { flex: 1 }]}
-                    value={dataNascimento}
-                    onChangeText={(v) => setDataNascimento(formatBirthDateInput(v))}
-                    placeholder="AAAA-MM-DD"
-                    keyboardType="numeric"
-                    maxLength={10}
-                  />
-                  {dataNascimento.length === 10 && (
-                    <Text style={{ fontWeight: 'bold', color: COLORS.secondary }}>
-                      {calcularIdade(dataNascimento)} anos
-                    </Text>
-                  )}
-                </View>
+                <TextInput
+                  style={styles.input}
+                  value={idade}
+                  onChangeText={(v) => setIdade(v.replace(/\D/g, '').slice(0, 3))}
+                  placeholder="idade (exemplo 25)"
+                  keyboardType="numeric"
+                  maxLength={3}
+                />
               ) : (
-                <Text style={styles.campoValor}>{profile?.data_nascimento || '-'}</Text>
+                <Text style={styles.campoValor}>{idadePaciente !== null ? `${idadePaciente} anos` : '-'}</Text>
               )}
             </View>
             <View style={styles.campo}>
@@ -325,17 +380,10 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
                   <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
                 </TouchableOpacity>
               ) : (
-                <Text style={styles.campoValor}>{profile?.genero || '-'}</Text>
+                <Text style={styles.campoValor}>{perfilPaciente?.genero || '-'}</Text>
               )}
             </View>
-            {!editando && (
-              <View style={styles.campo}>
-                <Text style={styles.campoLabel}>Idade</Text>
-                <Text style={styles.campoValor}>
-                  {idadePaciente !== null ? `${idadePaciente} anos` : '-'}
-                </Text>
-              </View>
-            )}
+            
           </>
         )}
 
@@ -450,9 +498,30 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
         )}
       </View>
 
-      {!forceEdit && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Configurações</Text>
+        {!forceEdit && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Documentação</Text>
+            <TouchableOpacity 
+              style={styles.opcaoItem} 
+              onPress={handleGerarPDF}
+              disabled={baixandoPdf}
+            >
+              <Ionicons name="document-outline" size={22} color={COLORS.primary} />
+              <Text style={[styles.opcaoText, { color: COLORS.primary, fontWeight: 'bold' }]}>
+                {baixandoPdf ? 'Gerando Ficha...' : 'Baixar Ficha (PDF)'}
+              </Text>
+              {baixandoPdf ? (
+                <ActivityIndicator size="small" color={COLORS.primary} />
+              ) : (
+                <Ionicons name="download-outline" size={20} color={COLORS.primary} />
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!forceEdit && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Configurações</Text>
 
           <TouchableOpacity
             style={styles.opcaoItem}

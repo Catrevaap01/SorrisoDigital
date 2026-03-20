@@ -13,25 +13,22 @@ import { UserProfile } from '../contexts/AuthContext';
 import { withTimeout } from '../utils/withTimeout';
 import { deleteImage } from '../services/storageService';
 
-const extra = Constants.expoConfig?.extra;
-const SUPABASE_URL = extra?.SUPABASE_URL as string | undefined;
-const SUPABASE_SERVICE_ROLE_KEY = extra?.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
-
 const getAdminClient = (): SupabaseClient | null => {
-  console.log('🔑 SERVICE ROLE:', !!SUPABASE_SERVICE_ROLE_KEY);
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    console.error('❌ Service role missing - web delete fallback disabled');
+  const extra = Constants.expoConfig?.extra || (Constants as any).manifest2?.extra || (Constants as any).manifest?.extra;
+  const url = extra?.SUPABASE_URL;
+  const key = extra?.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !key) {
+    console.warn('⚠️ pacienteService: Admin keys missing in Constants.extra');
     return null;
   }
-  const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  return createClient(url, key, {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
       detectSessionInUrl: false,
     },
   });
-  console.log('✅ AdminClient created for delete');
-  return adminClient;
 };
 
 
@@ -67,9 +64,16 @@ const setCache = async (key: string, data: PacienteProfile) => {
   } catch {}
 };
 
+const clearCache = async (key: string) => {
+  try {
+    await AsyncStorage.removeItem(key);
+  } catch {}
+};
+
 export interface PacienteProfile extends UserProfile {
   data_nascimento?: string;
   genero?: 'Masculino' | 'Feminino' | 'Outro';
+  idade?: number;
   endereco?: string;
   historico_medico?: string;
   alergias?: string;
@@ -105,6 +109,35 @@ const removeMissingSchemaColumns = <T extends Record<string, any>>(
   return fallbackPayload as T;
 };
 
+/**
+ * Tenta extrair dados das observacoes_gerais se os campos principais estiverem nulos
+ */
+export const parsePacienteProfile = (p: PacienteProfile): PacienteProfile => {
+  if (!p) return p;
+  const obs = p.observacoes_gerais || '';
+  
+  if (!p.data_nascimento || p.data_nascimento === '-') {
+    const dnMatch = obs.match(/\[DN\]: ([^ [\]\n]+)/);
+    if (dnMatch && dnMatch[1] !== '-') p.data_nascimento = dnMatch[1];
+  }
+  
+  if (!p.genero || (p.genero as string) === '-') {
+    const gMatch = obs.match(/\[G\]: ([^ [\]\n]+)/);
+    if (gMatch && gMatch[1] !== '-') p.genero = gMatch[1] as any;
+  }
+
+  if (p.idade === undefined || p.idade === null) {
+    const idadeMatch = obs.match(/\[IDADE\]: (\d{1,3})/);
+    if (idadeMatch) {
+      p.idade = Number(idadeMatch[1]);
+    } else if (p.data_nascimento && validarData(p.data_nascimento)) {
+      p.idade = calcularIdade(p.data_nascimento) ?? undefined;
+    }
+  }
+  
+  return p;
+};
+
 const isRowLevelSecurityError = (error: any): boolean => {
   const msg = String(error?.message || '').toLowerCase();
   return (
@@ -124,9 +157,12 @@ const upsertPacienteProfile = async (payload: Record<string, any>) => {
       .from('profiles')
       .upsert([currentPayload], { onConflict: 'id' })
       .select()
-      .single();
+      .maybeSingle();
 
     if (!result.error) {
+      if (!result.data) {
+        return { ...result, error: { message: 'Erro ao persistir dados do perfil' } };
+      }
       return result;
     }
 
@@ -149,36 +185,73 @@ const upsertPacienteProfile = async (payload: Record<string, any>) => {
  * Buscar perfil completo de um paciente
  */
 export const buscarPaciente = async (
-  pacienteId: string
+  pacienteId: string,
+  options?: { forceRefresh?: boolean }
 ): Promise<{ success: boolean; data?: PacienteProfile; error?: string }> => {
   // Verifica cache primeiro
   const cacheKey = getCacheKey(pacienteId);
-  const cached = await getFromCache(cacheKey);
-  if (cached) {
-    return { success: true, data: cached };
+  if (!options?.forceRefresh) {
+    const cached = await getFromCache(cacheKey);
+    if (cached) {
+      return { success: true, data: cached };
+    }
+  } else {
+    await clearCache(cacheKey);
   }
 
   try {
-    const { data, error } = await withTimeout(
-      supabase
+    const runSearch = async () => {
+      let res = await supabase
         .from('profiles')
         .select('*')
         .eq('id', pacienteId)
         .eq('tipo', 'paciente')
-        .single(),
-      12000
-    );
+        .maybeSingle();
+
+      if (res.error && isRowLevelSecurityError(res.error)) {
+        const admin = getAdminClient();
+        if (admin) {
+          res = await admin
+            .from('profiles')
+            .select('*')
+            .eq('id', pacienteId)
+            .eq('tipo', 'paciente')
+            .maybeSingle();
+        }
+      }
+      return res;
+    };
+
+    const { data, error } = await withTimeout(runSearch(), 12000);
 
     if (error) {
       return { success: false, error: error.message };
     }
 
-    // Cache resultado
     if (data) {
-      await setCache(cacheKey, data as PacienteProfile);
+      const parsed = parsePacienteProfile(data as PacienteProfile);
+      await setCache(cacheKey, parsed);
+      return { success: true, data: parsed };
     }
 
-    return { success: true, data: data as PacienteProfile };
+    // 🔥 AGGRESSIVE FALLBACK: Try admin if no data found (RLS might be hiding it)
+    const admin = getAdminClient();
+    if (admin) {
+      const { data: adminData } = await admin
+        .from('profiles')
+        .select('*')
+        .eq('id', pacienteId)
+        .eq('tipo', 'paciente')
+        .maybeSingle();
+
+      if (adminData) {
+        const parsed = parsePacienteProfile(adminData as PacienteProfile);
+        await setCache(cacheKey, parsed);
+        return { success: true, data: parsed };
+      }
+    }
+
+    return { success: true, data: null as any };
   } catch (error: any) {
     return { success: false, error: error.message || 'Erro ao buscar paciente (timeout 12s)' };
   }
@@ -192,7 +265,32 @@ export const atualizarPerfil = async (
   updates: Partial<PacienteProfile>
 ): Promise<{ success: boolean; data?: PacienteProfile; error?: string }> => {
   try {
-    let payload = sanitizePacienteUpdates(updates);
+    // 1. Fetch current to merge safely
+    const { data: current } = await buscarPaciente(pacienteId, { forceRefresh: true });
+    const profile = current;
+
+    const dnStr = updates.data_nascimento || profile?.data_nascimento || '-';
+    const gStr = updates.genero || profile?.genero || '-';
+    const idadeAtual =
+      typeof updates.idade === 'number'
+        ? updates.idade
+        : typeof profile?.idade === 'number'
+          ? profile.idade
+          : (profile?.data_nascimento && validarData(profile.data_nascimento)
+              ? calcularIdade(profile.data_nascimento)
+              : undefined);
+    // Clean existing tags from obs before merging new ones to avoid stacking
+    let cleanObs = (updates.observacoes_gerais || profile?.observacoes_gerais || '')
+      .replace(/\[DN\]: [^ [\]]+ /g, '')
+      .replace(/\[G\]: [^ [\]]+ /g, '')
+      .replace(/\[IDADE\]: \d{1,3} /g, '')
+      .trim();
+
+    const mergedObservacoes = `[DN]: ${dnStr} [G]: ${gStr} [IDADE]: ${idadeAtual ?? '-'} ${cleanObs}`;
+    let payload = sanitizePacienteUpdates({
+      ...updates,
+      observacoes_gerais: mergedObservacoes.trim()
+    });
     const adminClient = getAdminClient();
     let client: SupabaseClient = supabase;
 
@@ -202,10 +300,20 @@ export const atualizarPerfil = async (
         .update(payload)
         .eq('id', pacienteId)
         .select()
-        .single();
+        .maybeSingle();
 
       if (!error) {
-        return { success: true, data: data as PacienteProfile };
+        if (!data) {
+          // 🔥 AGGRESSIVE FALLBACK: If no data returned (RLS hiding update), try admin
+          if (client === supabase && adminClient) {
+            client = adminClient;
+            continue;
+          }
+          return { success: false, error: 'Paciente não encontrado ou sem permissão para atualizar' };
+        }
+        const parsed = parsePacienteProfile(data as PacienteProfile);
+        await setCache(getCacheKey(pacienteId), parsed);
+        return { success: true, data: parsed };
       }
 
       // 1. Check for missing columns
@@ -326,7 +434,8 @@ export const listarPacientes = async (
       return { success: false, error: error.message };
     }
 
-    return { success: true, data: (data || []) as PacienteProfile[] };
+    const parsedData = (data || []).map(p => parsePacienteProfile(p as PacienteProfile));
+    return { success: true, data: parsedData };
   } catch (error: any) {
     return { success: false, error: error.message || 'Erro ao listar pacientes (timeout 12s)' };
   }
@@ -341,6 +450,7 @@ export interface CriarPacienteData {
   telefone?: string;
   data_nascimento?: string;
   genero?: 'Masculino' | 'Feminino' | 'Outro';
+  idade?: number;
   historico_medico?: string;
   alergias?: string;
   medicamentos_atuais?: string;
@@ -352,6 +462,7 @@ export interface CriarPacienteResult {
   success: boolean;
   data?: PacienteProfile;
   tempPassword?: string;
+  tempEmail?: string;
   emailSent?: boolean;
   warning?: string;
   error?: string;
@@ -429,6 +540,11 @@ export const createPaciente = async (
     }
 
     // Profile upsert
+    const idadeCalculada =
+      data.data_nascimento && validarData(data.data_nascimento)
+        ? calcularIdade(data.data_nascimento) ?? null
+        : null;
+
     const profilePayload = {
       id: authData.user.id,
       email: normalizedEmail,
@@ -441,11 +557,10 @@ export const createPaciente = async (
       alergias: data.alergias || null,
       medicamentos_atuais: data.medicamentos_atuais || null,
       provincia: data.provincia || null,
+      idade: idadeCalculada,
       temp_password: tempPassword,
-      // Fallback: se a coluna temp_password não existir no banco, salvamos aqui
-      observacoes_gerais: data.observacoes_gerais 
-        ? `${data.observacoes_gerais}\n[SENHA]: ${tempPassword}` 
-        : `[SENHA]: ${tempPassword}`,
+      // Mantém apenas tags de dados clínicos sem expor a senha
+      observacoes_gerais: `[DN]: ${data.data_nascimento || '-'} [G]: ${data.genero || '-'} [IDADE]: ${idadeCalculada ?? '-'}${data.observacoes_gerais ? ' ' + data.observacoes_gerais : ''}`.trim(),
       updated_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
     };
@@ -459,6 +574,8 @@ export const createPaciente = async (
       await adminClientForCreate.auth.admin.deleteUser(authData.user.id);
       return { success: false, error: profileError.message };
     }
+
+    await setCache(getCacheKey(authData.user.id), parsePacienteProfile(profileData as PacienteProfile));
 
     // Send welcome email
     const { sendPasswordRecoveryEmail } = await import('./emailService');
@@ -479,6 +596,7 @@ console.log('✅ Patient created - Ficha ready. Skipping auth test to preserve d
       success: true,
       data: profileData as PacienteProfile,
       tempPassword,
+      tempEmail: normalizedEmail, // ✅ Used for Ficha to ensure 100% match with Auth
       emailSent: emailResult.success,
     };
   } catch (error: any) {
@@ -564,12 +682,13 @@ export const resetarSenhaPaciente = async (
       .from('profiles')
       .select('email, nome, observacoes_gerais')
       .eq('id', pacienteId)
-      .single();
+      .maybeSingle();
 
     if (fetchError || !profile) return { success: false, error: 'Paciente não encontrado' };
 
     // 2. Atualizar senha no Auth e forçar mudança
-    const { error: authError } = await adminClient.auth.admin.updateUserById(
+    console.log(`🔐 Admin: Updating password for patient ${pacienteId} (${profile?.email})`);
+    const { data: authUpdate, error: authError } = await adminClient.auth.admin.updateUserById(
       pacienteId,
       { 
         password: newPassword,
@@ -579,16 +698,17 @@ export const resetarSenhaPaciente = async (
       }
     );
 
-    if (authError) return { success: false, error: `Auth: ${authError.message}` };
+    if (authError) {
+      console.error('❌ Admin Auth Update Error:', authError);
+      return { success: false, error: `Auth: ${authError.message}` };
+    }
+    console.log('✅ Admin Auth Update Success:', !!authUpdate?.user);
 
-    // 3. Atualizar Profile (incluindo fallback)
+    // 3. Atualizar Profile (apenas temp_password — sem expor senha em observacoes_gerais)
     const updates: Partial<PacienteProfile> = {
       temp_password: newPassword,
       senha_alterada: false,
-      observacoes_gerais: profile.observacoes_gerais 
-        ? `${profile.observacoes_gerais}\n[SENHA]: ${newPassword}` 
-        : `[SENHA]: ${newPassword}`,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     };
 
     const result = await atualizarPerfil(pacienteId, updates);
@@ -599,4 +719,3 @@ export const resetarSenhaPaciente = async (
     return { success: false, error: err.message };
   }
 };
-

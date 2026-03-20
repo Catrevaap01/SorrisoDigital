@@ -412,6 +412,7 @@ export const buscarContadoresDentista = async (
     const cont: Contadores = { pendente: 0, urgente: 0, respondido: 0, total: 0, realizados: 0 };
     const statusById: Record<string, string> = {};
     const priorityById: Record<string, string> = {};
+    const respondedIdsInContadores = new Set<string>();
 
     (triagensRes.data || []).forEach((t: any) => {
       cont.total += 1;
@@ -419,26 +420,39 @@ export const buscarContadoresDentista = async (
       priorityById[t.id] = t.prioridade;
       
       const isRespondido = t.status === 'respondido' || t.status === 'completo';
-      if (!isRespondido && (t.status === 'urgente' || t.prioridade === 'urgente' || t.prioridade === 'alta')) {
-        cont.urgente += 1;
+      if (isRespondido) {
+        cont.respondido += 1;
+        respondedIdsInContadores.add(t.id);
+      } else {
+        const isUrgente = t.status === 'urgente' || t.prioridade === 'urgente' || t.prioridade === 'alta';
+        if (isUrgente) {
+          cont.urgente += 1;
+        }
+        if (t.status === 'pendente') {
+          cont.pendente += 1;
+        }
       }
-      
-      if (t.status === 'pendente') cont.pendente += 1;
-      if (t.status === 'respondido' || t.status === 'completo') cont.respondido += 1;
     });
 
     if (!repliesRes.error && repliesRes.data) {
-      const respondedIds = new Set<string>((repliesRes.data || []).map((r: any) => r.triagem_id));
-      respondedIds.forEach((id) => {
-        const status = statusById[id];
-        const prio = priorityById[id];
-        if (status && status !== 'respondido' && status !== 'completo') {
-          if (status === 'pendente') cont.pendente = Math.max(0, cont.pendente - 1);
-          const isUrgente = status === 'urgente' || prio === 'urgente' || prio === 'alta';
-          if (isUrgente) {
-            cont.urgente = Math.max(0, cont.urgente - 1);
+      const respondedViaReplies = new Set<string>((repliesRes.data || []).map((r: any) => r.triagem_id));
+      respondedViaReplies.forEach((id) => {
+        // Se ainda não contamos como respondido pelo status, mas tem resposta, contamos agora
+        if (!respondedIdsInContadores.has(id)) {
+          const status = statusById[id];
+          const prio = priorityById[id];
+          if (status) {
+            // Se era pendente ou urgente, decrementamos o contador original
+            if (status === 'pendente') {
+              cont.pendente = Math.max(0, cont.pendente - 1);
+            }
+            const isUrgente = status === 'urgente' || prio === 'urgente' || prio === 'alta';
+            if (isUrgente) {
+              cont.urgente = Math.max(0, cont.urgente - 1);
+            }
+            cont.respondido += 1;
+            respondedIdsInContadores.add(id);
           }
-          cont.respondido += 1;
         }
       });
     }
@@ -447,6 +461,11 @@ export const buscarContadoresDentista = async (
       cont.realizados = agendamentosRes.data.length;
     }
 
+    // Nota: O contador no frontend agora engloba triagens e agendamentos.
+    // Para simplificar, o contador de total ja inclui as triagens. 
+    // Os agendamentos que estao 'respondidos' (via triagem) sao filtrados no UI.
+    // Para manter a consistencia, garantimos que o respondido represente triagens unicas respondidas.
+    
     return { success: true, data: cont };
   } catch (err) {
     const handled = handleError(err, 'triagemService.buscarContadoresDentista');

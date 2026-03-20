@@ -5,7 +5,7 @@ import { Platform } from 'react-native'
 // Pegando variáveis exatamente como estão no app.json
 const extra = Constants.expoConfig?.extra
 
-const SUPABASE_URL = extra?.SUPABASE_URL
+export const SUPABASE_URL = extra?.SUPABASE_URL
 const SUPABASE_ANON_KEY = extra?.SUPABASE_ANON_KEY
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {

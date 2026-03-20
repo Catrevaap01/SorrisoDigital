@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -53,11 +54,16 @@ const HomeScreen: React.FC<HomeProps> = ({ navigation }) => {
       return;
     }
 
-    // if no dentist has been chosen yet, prompt right away
+    // if no dentist has been chosen yet, prompt/redirect
     if (!selectedDentist) {
-      Alert.alert('Selecione um dentista', 'Antes de continuar, por favor escolha um dentista.', [
-        { text: 'OK', onPress: () => navigation.getParent()?.navigate('ChooseDentista' as any) },
-      ], { cancelable: false });
+      if (Platform.OS === 'web') {
+        // On web, direct redirect is more reliable than Alert.alert bootstrap
+        navigation.getParent()?.navigate('ChooseDentista' as any);
+      } else {
+        Alert.alert('Selecione um dentista', 'Antes de continuar, por favor escolha um dentista.', [
+          { text: 'OK', onPress: () => navigation.getParent()?.navigate('ChooseDentista' as any) },
+        ], { cancelable: false });
+      }
     }
   }, [selectedDentist, consumeAutoOpenChooseDentist, navigation]);
 

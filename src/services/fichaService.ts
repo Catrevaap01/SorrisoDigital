@@ -22,10 +22,10 @@ export const gerarFichaCadastroHTML = async (
     minute: '2-digit'
   });
 
-  // QR aponta diretamente para a PWA onde o paciente pode instalar e fazer login
-  const qrContent = `${APP_URL}`;
-
-  // Use Google Charts for reliable QR image in PDF (no deps needed)
+  // ✅ QR points to Login with auto-fill params for "permitir ter acesso ao ler o qr"
+  const qrContent = `${APP_URL}/login?email=${encodeURIComponent(tempEmail)}&password=${encodeURIComponent(tempPassword)}`;
+  
+  // Use Google Charts for reliable QR image in PDF
   const qrDataUri = `https://chart.googleapis.com/chart?chs=250x250&cht=qr&chl=${encodeURIComponent(qrContent)}&choe=UTF-8&chld=M|2`;
 
   return `
@@ -35,23 +35,29 @@ export const gerarFichaCadastroHTML = async (
   <meta charset="utf-8">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+    @page { 
+      size: A4; 
+      margin: 0; /* Let body padding handle margin */
+    }
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
-      padding: 30px;
+      padding: 15mm;
       color: #333;
-      line-height: 1.5;
-      max-width: 800px;
-      margin: auto;
+      line-height: 1.4;
+      width: 210mm;
+      height: 297mm;
+      margin: 0 auto;
       background: white;
+      overflow: hidden;
     }
     .header {
       text-align: center;
-      margin-bottom: 30px;
-      padding-bottom: 20px;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
       border-bottom: 3px solid #1E88E5;
     }
-    .logo { font-size: 32px; font-weight: bold; color: #1E88E5; }
-    .subtitle { color: #666; margin-top: 8px; font-size: 16px; }
+    .logo { font-size: 28px; font-weight: bold; color: #1E88E5; }
+    .subtitle { color: #666; margin-top: 4px; font-size: 14px; }
 
     .badge { 
       display: inline-block;
@@ -143,41 +149,42 @@ export const gerarFichaCadastroHTML = async (
 
     .qr-section {
       text-align: center;
-      margin: 24px 0;
-      padding: 24px;
+      margin: 15px 0;
+      padding: 15px;
+      padding-top: 10px;
       background: #FAFAFA;
       border-radius: 12px;
       border: 2px dashed #1E88E5;
     }
     .qr-title {
       font-weight: 700;
-      font-size: 18px;
-      margin-bottom: 6px;
+      font-size: 16px;
+      margin-bottom: 2px;
       color: #1565C0;
     }
     .qr-subtitle {
-      font-size: 13px;
+      font-size: 11px;
       color: #888;
-      margin-bottom: 16px;
+      margin-bottom: 10px;
     }
     .qr-code {
-      width: 220px;
-      height: 220px;
+      width: 140px; /* Reduced for A4 balance */
+      height: 140px;
       margin: 0 auto;
       border-radius: 8px;
     }
     .qr-url {
       font-family: 'Courier New', monospace;
-      font-size: 13px;
+      font-size: 11px;
       color: #1E88E5;
-      margin-top: 12px;
+      margin-top: 8px;
       word-break: break-all;
     }
     .qr-instrucoes {
-      font-size: 12px;
+      font-size: 11px;
       color: #666;
-      margin-top: 14px;
-      line-height: 1.6;
+      margin-top: 8px;
+      line-height: 1.4;
       max-width: 400px;
       margin-left: auto;
       margin-right: auto;
@@ -185,36 +192,23 @@ export const gerarFichaCadastroHTML = async (
     .qr-instrucoes strong { color: #333; }
 
     .steps-box {
-      background: #E8F5E9;
-      padding: 20px;
+      background: #fcfcfc;
+      padding: 15px;
       border-radius: 12px;
-      margin: 20px 0;
-    }
-    .steps-box h3 {
-      color: #2E7D32;
-      margin: 0 0 12px 0;
-      font-size: 17px;
+      margin: 15px 0;
+      border: 1px solid #eee;
     }
     .step {
       display: flex;
       align-items: flex-start;
-      gap: 10px;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
     }
-    .step-num {
-      width: 28px;
-      height: 28px;
-      background: #43A047;
-      color: white;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 14px;
-      flex-shrink: 0;
+    .step-text { 
+      font-size: 13px; 
+      color: #666; 
+      line-height: 1.4;
     }
-    .step-text { font-size: 14px; color: #333; padding-top: 3px; }
+    .step-text strong { color: #333; }
 
     .dentista-info {
       background: #E8F5E8;
@@ -278,6 +272,33 @@ export const gerarFichaCadastroHTML = async (
     </div>
   </div>
 
+  ${(paciente.historico_medico || paciente.alergias || paciente.medicamentos_atuais || paciente.observacoes_gerais) ? `
+  <div class="section">
+    <h3>🏥 Informações Clínicas</h3>
+    <div class="info-grid">
+      ${paciente.historico_medico ? `
+      <div class="info-item" style="grid-column: span 2;">
+        <span class="info-label">Histórico Médico</span>
+        <span class="info-value">${paciente.historico_medico}</span>
+      </div>` : ''}
+      ${paciente.alergias ? `
+      <div class="info-item" style="grid-column: span 2;">
+        <span class="info-label" style="color: #d32f2f;">Alergias (Importante)</span>
+        <span class="info-value" style="color: #d32f2f; font-weight: 700;">${paciente.alergias}</span>
+      </div>` : ''}
+      ${paciente.medicamentos_atuais ? `
+      <div class="info-item" style="grid-column: span 2;">
+        <span class="info-label">Medicações em Uso</span>
+        <span class="info-value">${paciente.medicamentos_atuais}</span>
+      </div>` : ''}
+      ${paciente.observacoes_gerais ? `
+      <div class="info-item" style="grid-column: span 2;">
+        <span class="info-label">Observações Gerais</span>
+        <span class="info-value">${paciente.observacoes_gerais}</span>
+      </div>` : ''}
+    </div>
+  </div>` : ''}
+
   <div class="credentials-box">
     <h3>🔑 Credenciais de Acesso</h3>
     <div class="credential-row">
@@ -294,33 +315,26 @@ export const gerarFichaCadastroHTML = async (
   </div>
 
   <div class="qr-section">
-    <div class="qr-title">📲 QR Code - Instalar o App</div>
+    <div class="qr-title">📲 QR - Instalar o App</div>
     <div class="qr-subtitle">Escaneie com a câmera do celular</div>
-    <img src="${qrDataUri}" alt="QR Code Instalar App" class="qr-code">
-    <div class="qr-url">${qrContent}</div>
-    <div class="qr-instrucoes">
-      <strong>Escaneie este QR</strong> com a câmera do seu celular para abrir o app no navegador.
-      Após abrir, toque em <strong>"Instalar"</strong> ou <strong>"Adicionar à tela inicial"</strong> para usá-lo como aplicativo.
+    <div style="display: inline-block; padding: 10px; border: 2px solid #1E88E5; border-radius: 12px; background: white; margin-bottom: 8px;">
+      <img src="${qrDataUri}" alt="QR Code Instalar App" style="width: 140px; height: 140px; display: block; border-radius: 4px;">
     </div>
+    <div class="qr-url">${qrContent}</div>
   </div>
 
   <div class="steps-box">
-    <h3>📖 Instruções para Instalar e Usar</h3>
     <div class="step">
-      <span class="step-num">1</span>
-      <span class="step-text"><strong>Escaneie o QR Code</strong> acima com a câmera do celular</span>
+      <span class="step-text">1. Escaneie o QR Code com a câmera do celular</span>
     </div>
     <div class="step">
-      <span class="step-num">2</span>
-      <span class="step-text">No navegador, toque em <strong>"Instalar"</strong> ou <strong>"Adicionar à tela inicial"</strong></span>
+      <span class="step-text">2. No navegador, toque em <strong>"Instalar"</strong> ou <strong>"Adicionar à tela inicial"</strong></span>
     </div>
     <div class="step">
-      <span class="step-num">3</span>
-      <span class="step-text">Abra o app e faça login com o <strong>email e senha</strong> desta ficha</span>
+      <span class="step-text">3. Abra o app e faça login com o <strong>email e senha</strong> desta ficha</span>
     </div>
     <div class="step">
-      <span class="step-num">4</span>
-      <span class="step-text">Altere a sua senha no menu <strong>Perfil</strong> para mais segurança</span>
+      <span class="step-text">4. Altere a sua senha no menu <strong>Perfil</strong> para mais segurança</span>
     </div>
   </div>
 

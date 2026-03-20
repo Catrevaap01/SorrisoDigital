@@ -7,6 +7,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -190,7 +191,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: SPACING.lg,
-    bottom: SPACING.xl,
+    bottom: Platform.OS === 'web' ? 90 : SPACING.xl,
     width: 56,
     height: 56,
     borderRadius: 28,

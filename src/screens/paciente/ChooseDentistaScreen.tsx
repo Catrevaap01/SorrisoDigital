@@ -134,6 +134,7 @@ const styles = StyleSheet.create({
     maxWidth: 600,
     width: '100%',
     alignSelf: 'center',
+    paddingBottom: 100,
   },
   item: {
     flexDirection: 'row',

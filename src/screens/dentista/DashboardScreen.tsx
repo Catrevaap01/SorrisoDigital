@@ -120,19 +120,41 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     };
   }, [agendaHoje, agendamentos]);
 
-  const dadosFiltrados: ListaItem[] =
-    filtroAtivo === 'todos'
-      ? ([...triagens, ...agendamentos.filter(a => ['agendado', 'confirmado', 'realizado'].includes(a.status || ''))].sort(
-          (a, b) => new Date(b.created_at || (b as any).data_agendamento).getTime() - 
-                    new Date(a.created_at || (a as any).data_agendamento).getTime()
-        ))
-      : filtroAtivo === 'respondido'
-        ? triagens.filter((item) => (item.respostas && item.respostas.length > 0) || item.status === 'respondido' || item.status === 'completo')
-        : filtroAtivo === 'urgente'
-          ? triagens.filter((item) => (item.status === 'urgente' || item.prioridade === 'urgente' || item.prioridade === 'alta') && (!item.respostas || item.respostas.length === 0))
-          : filtroAtivo === 'pendente'
-            ? triagens.filter((item) => item.status === 'pendente' && (!item.respostas || item.respostas.length === 0))
-            : agendamentos.filter((item) => item.status === 'realizado');
+  const dadosFiltrados: ListaItem[] = useMemo(() => {
+    const respondidosIds = new Set(triagens.filter(t => (t.respostas && t.respostas.length > 0) || (t.status || '').toLowerCase() === 'respondido').map(t => t.paciente_id));
+    const urgentesIds = new Set(triagens.filter(t => !respondidosIds.has(t.paciente_id) && ((t.status || '').toLowerCase() === 'urgente' || (t.prioridade || '').toLowerCase() === 'urgente' || (t.prioridade || '').toLowerCase() === 'alta')).map(t => t.paciente_id));
+
+    if (filtroAtivo === 'todos') {
+      const filteredAgendamentos = agendamentos.filter(a => {
+        const s = (a.status || '').toLowerCase();
+        return ['agendado', 'confirmado', 'realizado', 'pendente'].includes(s);
+      });
+      return [...triagens, ...filteredAgendamentos].sort(
+        (a, b) => new Date(b.created_at || (b as any).data_agendamento).getTime() - 
+                  new Date(a.created_at || (a as any).data_agendamento).getTime()
+      );
+    }
+
+    if (filtroAtivo === 'respondido') {
+      const tResp = triagens.filter(t => respondidosIds.has(t.paciente_id));
+      const aResp = agendamentos.filter(a => respondidosIds.has(a.paciente_id) && (a.status || '').toLowerCase() !== 'realizado');
+      return [...tResp, ...aResp];
+    }
+
+    if (filtroAtivo === 'urgente') {
+      const tUrg = triagens.filter(t => urgentesIds.has(t.paciente_id));
+      const aUrg = agendamentos.filter(a => urgentesIds.has(a.paciente_id) && (a.status || '').toLowerCase() !== 'realizado');
+      return [...tUrg, ...aUrg];
+    }
+
+    if (filtroAtivo === 'pendente') {
+      const tPend = triagens.filter(t => !respondidosIds.has(t.paciente_id) && !urgentesIds.has(t.paciente_id) && (t.status || '').toLowerCase() === 'pendente');
+      const aPend = agendamentos.filter(a => !respondidosIds.has(a.paciente_id) && !urgentesIds.has(a.paciente_id) && (a.status || '').toLowerCase() === 'pendente');
+      return [...tPend, ...aPend];
+    }
+
+    return agendamentos.filter((item) => (item.status || '').toLowerCase() === 'realizado');
+  }, [triagens, agendamentos, filtroAtivo]);
 
   const abrirCaso = (triagem: Triagem) => navigation.getParent<any>()?.navigate('CasoDetalhe', { triagemId: triagem.id });
   const abrirPaciente = (agendamento: Agendamento) => {
@@ -152,7 +174,20 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   const renderListItem = ({ item }: { item: ListaItem }) => {
     if ('data_agendamento' in item) {
-      const statusInfo = STATUS_AGENDAMENTO[item.status || ''] || STATUS_AGENDAMENTO.pendente;
+      const agendamento = item as Agendamento;
+      const statusLower = (agendamento.status || 'pendente').toLowerCase();
+      
+      // Check if patient has any responded triage
+      const isRespondido = triagens.some(t => 
+        t.paciente_id === agendamento.paciente_id && 
+        ((t.respostas && t.respostas.length > 0) || (t.status || '').toLowerCase() === 'respondido')
+      );
+
+      const effectiveStatus = (isRespondido && (statusLower === 'pendente' || statusLower === 'agendado'))
+        ? 'respondido'
+        : statusLower;
+
+      const statusInfo = (effectiveStatus === 'respondido' ? STATUS_TRIAGEM.respondido : (STATUS_AGENDAMENTO[effectiveStatus] || STATUS_AGENDAMENTO.pendente));
       return (
         <TouchableOpacity style={styles.card} onPress={() => abrirPaciente(item as Agendamento)}>
           <View style={styles.cardRow}>
@@ -169,9 +204,23 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
     const triagem = item as Triagem;
     const temRespostas = triagem.respostas && triagem.respostas.length > 0;
-    const effectiveStatus = temRespostas ? 'respondido' : (triagem.status === 'urgente' || triagem.prioridade === 'urgente' || triagem.prioridade === 'alta' ? 'urgente' : (triagem.status || 'pendente'));
+    const ultimaResposta = temRespostas ? triagem.respostas![0] : null;
+
+    const statusLower = (triagem.status || 'pendente').toLowerCase();
+    const prioLower = (triagem.prioridade || 'normal').toLowerCase();
+
+    // Se tem respostas OU o status é explicitamente respondido/completo
+    const isRespondido = temRespostas || statusLower === 'respondido' || statusLower === 'completo';
+
+    const effectiveStatus = isRespondido 
+      ? 'respondido' 
+      : (statusLower === 'urgente' || prioLower === 'urgente' || prioLower === 'alta' 
+          ? 'urgente' 
+          : (STATUS_TRIAGEM[statusLower] ? statusLower : 'pendente'));
+
     const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
-    const prioridade = PRIORIDADE[triagem.prioridade || ''] || PRIORIDADE.normal;
+    const prioridade = PRIORIDADE[prioLower] || PRIORIDADE.normal;
+    
     return (
       <TouchableOpacity style={styles.card} onPress={() => abrirCaso(triagem)}>
         <View style={styles.cardRow}>
@@ -182,7 +231,30 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
         <Text style={styles.meta}>{triagem.sintoma_principal || 'Sem sintoma'} · {formatRelativeTime(triagem.created_at)}</Text>
-        <Text style={[styles.priority, { color: prioridade.color }]}>{prioridade.label}</Text>
+        
+        {temRespostas && ultimaResposta && (
+          <View style={styles.responseSummary}>
+            <View style={styles.responseHeader}>
+              <Ionicons name="person-circle-outline" size={16} color={COLORS.success} />
+              <Text style={styles.responseTextDentista}>
+                Dr(a). {ultimaResposta.dentista?.nome?.split(' ')[0] || 'Dentista'}
+              </Text>
+            </View>
+            <View style={styles.responseMain}>
+              <View style={styles.recommendationRow}>
+                <Ionicons name="star" size={14} color="#FFD700" />
+                <Text style={styles.recommendationText}>{ultimaResposta.recomendacao || 'Análise concluída'}</Text>
+              </View>
+              <Text style={styles.observationText} numberOfLines={2}>
+                {ultimaResposta.orientacao || ultimaResposta.observacoes || 'Sem observações adicionais'}
+              </Text>
+            </View>
+          </View>
+        )}
+        
+        {!temRespostas && (
+          <Text style={[styles.priority, { color: prioridade.color }]}>{prioridade.label}</Text>
+        )}
       </TouchableOpacity>
     );
   };
@@ -369,7 +441,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         style={[styles.fab, { backgroundColor: COLORS.primary }]}
         onPress={() => navigation.getParent<any>()?.navigate('CadastrarPaciente')}
       >
-        <Ionicons name="add" size={22} color={COLORS.textInverse} />
+        <Ionicons name="qr-code-outline" size={20} color={COLORS.textInverse} />
         <Text style={styles.fabText}>Novo Paciente</Text>
       </TouchableOpacity>
     </View>
@@ -383,7 +455,7 @@ const styles = StyleSheet.create({
     maxWidth: 1100,
     width: '100%',
     alignSelf: 'center',
-    paddingBottom: 120,
+    paddingBottom: 160, // Increased for web to clear the absolute tab bar
   },
 
   // Specialty Header
@@ -531,6 +603,44 @@ const styles = StyleSheet.create({
   },
   priority: { marginTop: 6, fontSize: SIZES.fontSm, fontWeight: '700' },
 
+  responseSummary: {
+    marginTop: SIZES.md,
+    backgroundColor: '#F1F8E9',
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.md,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.success,
+  },
+  responseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  responseTextDentista: {
+    fontSize: SIZES.fontSm,
+    fontWeight: '700',
+    color: COLORS.success,
+  },
+  responseMain: {
+    gap: 4,
+  },
+  recommendationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  recommendationText: {
+    fontSize: SIZES.fontSm,
+    fontWeight: '700',
+    color: '#388E3C',
+  },
+  observationText: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+  },
+
   // Misc
   center: { alignItems: 'center', justifyContent: 'center', paddingVertical: SIZES.xl },
   empty: { fontSize: SIZES.fontSm, color: COLORS.textSecondary },
@@ -539,7 +649,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: SIZES.lg,
-    bottom: SIZES.lg,
+    bottom: Platform.OS === 'web' ? 80 : SIZES.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: SIZES.sm,

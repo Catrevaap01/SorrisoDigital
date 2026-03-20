@@ -37,8 +37,10 @@ import {
 import { gerarFichaHistorico } from './gerarFichaHistorico';
 import { gerarFichaCadastroHTML } from '../../services/fichaService';
 import { deleteImage, uploadImage } from '../../services/storageService';
-import { COLORS, SHADOWS, SIZES } from '../../styles/theme';
+import { COLORS, SHADOWS, SIZES, SPACING, TYPOGRAPHY } from '../../styles/theme';
 import { formatBirthDateInput } from '../../utils/helpers';
+
+const safeShadow = SHADOWS?.sm || {};
 
 type Props = BottomTabScreenProps<DentistaTabParamList, 'Pacientes'>;
 
@@ -270,9 +272,14 @@ if (!formData.nome.trim()) {
       
       const result = await exportHtmlAsPdf(html, `ficha_${paciente.nome || 'paciente'}.pdf`);
       if (!result.success) {
-        Toast.show({ type: 'error', text1: 'Erro ao gerar PDF', text2: result.error || 'Tente novamente' });
+        console.error('❌ PDF Export Error:', result.error);
+        Toast.show({ 
+          type: 'error', 
+          text1: 'Erro ao gerar PDF', 
+          text2: Platform.OS === 'web' ? 'Verifique se o seu navegador bloqueou o pop-up ou tente outro navegador.' : (result.error || 'Tente novamente')
+        });
       } else {
-        Toast.show({ type: 'success', text1: 'Ficha gerada!', text2: 'Nova senha ativa' });
+        Toast.show({ type: 'success', text1: 'Ficha gerada!', text2: Platform.OS === 'web' ? 'Verifique a nova aba ou downloads' : 'Nova senha ativa' });
       }
       
       // Recarregar lista para mostrar a nova senha no card
@@ -380,17 +387,12 @@ Toast.show({ type: 'error', text1: 'Falha ao enviar documento', text2: uploadRes
                 )}
               </View>
             )}
-            {(() => {
-              const regex = /\[SENHA\]:?\s*([^\s\n]+)/;
-              const senha = item.temp_password || item.observacoes_gerais?.match(regex)?.[1];
-              if (!senha) return null;
-              return (
-                <View style={styles.tempPassBox}>
-                  <Ionicons name="key-outline" size={14} color={COLORS.secondary} />
-                  <Text style={styles.tempPassText}>Senha: {senha}</Text>
-                </View>
-              );
-            })()}
+            {!!item.temp_password && (
+              <View style={styles.tempPassBox}>
+                <Ionicons name="key-outline" size={14} color={COLORS.secondary} />
+                <Text style={styles.tempPassText}>Senha: {item.temp_password}</Text>
+              </View>
+            )}
             {!!item.telefone && <Text style={styles.cardMeta}>{item.telefone}</Text>}
             <Text style={styles.cardCode}>{codigo}</Text>
           </View>
@@ -406,7 +408,7 @@ Toast.show({ type: 'error', text1: 'Falha ao enviar documento', text2: uploadRes
             <Text style={styles.actionText}>Gerir</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionButton} onPress={() => handleImprimirFicha(item)}>
-            <Ionicons name="card-outline" size={18} color={COLORS.primary} />
+            <Ionicons name="qr-code-outline" size={18} color={COLORS.primary} />
             <Text style={styles.actionText}>Ficha</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionButton} onPress={() => handleImprimirHistorico(item)}>
@@ -483,17 +485,12 @@ Toast.show({ type: 'error', text1: 'Falha ao enviar documento', text2: uploadRes
                   </TouchableOpacity>
                 </View>
                 
-                {(() => {
-                  const regex = /\[SENHA\]:?\s*([^\s\n]+)/;
-                  const senha = selectedPaciente?.temp_password || formData.observacoes_gerais?.match(regex)?.[1];
-                  if (!senha) return null;
-                  return (
-                    <View style={[styles.tempPassBox, { marginTop: 15, paddingHorizontal: 12, paddingVertical: 6 }]}>
-                      <Ionicons name="key" size={16} color={COLORS.secondary} />
-                      <Text style={[styles.tempPassText, { fontSize: 16 }]}>Senha Temporária: {senha}</Text>
-                    </View>
-                  );
-                })()}
+                {!!selectedPaciente?.temp_password && (
+                  <View style={[styles.tempPassBox, { marginTop: 15, paddingHorizontal: 12, paddingVertical: 6 }]}>
+                    <Ionicons name="key" size={16} color={COLORS.secondary} />
+                    <Text style={[styles.tempPassText, { fontSize: 16 }]}>Senha Temporária: {selectedPaciente.temp_password}</Text>
+                  </View>
+                )}
               </View>
 
               <Text style={styles.sectionTitle}>Dados essenciais</Text>
@@ -618,11 +615,11 @@ const styles = StyleSheet.create({
     paddingVertical: SIZES.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    ...SHADOWS.sm,
+    ...safeShadow,
   },
   searchInput: { flex: 1, marginLeft: SIZES.sm, color: COLORS.text, fontSize: SIZES.fontMd },
   listContent: { paddingHorizontal: SIZES.md, paddingBottom: SIZES.xxl },
-  card: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusLg, padding: SIZES.md, marginBottom: SIZES.md, ...SHADOWS.sm },
+  card: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusLg, padding: SIZES.md, marginBottom: SIZES.md, ...safeShadow },
   cardHeader: { flexDirection: 'row', alignItems: 'center' },
   avatar: {
     width: 44,

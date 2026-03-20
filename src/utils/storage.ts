@@ -2,6 +2,25 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logger } from './logger';
 
+const memoryStorage = new Map<string, string>();
+
+const isAsyncStorageUnavailable = (error: unknown): boolean => {
+  const message = String((error as any)?.message || error || '').toLowerCase();
+  return (
+    message.includes('native module is null') ||
+    message.includes('legacy storage') ||
+    message.includes('asyncstorage is null')
+  );
+};
+
+const getMemoryItem = (key: string): string | null => memoryStorage.get(key) ?? null;
+const setMemoryItem = (key: string, value: string): void => {
+  memoryStorage.set(key, value);
+};
+const removeMemoryItem = (key: string): void => {
+  memoryStorage.delete(key);
+};
+
 /**
  * Utilitário de armazenamento universal (Web e Mobile)
  * Resolve erro de "Native module is null" no Web
@@ -17,6 +36,9 @@ export const universalStorage = {
       }
       return await AsyncStorage.getItem(key);
     } catch (error) {
+      if (isAsyncStorageUnavailable(error)) {
+        return getMemoryItem(key);
+      }
       logger.warn(`Erro ao ler storage [${key}]:`, error);
       return null;
     }
@@ -32,6 +54,10 @@ export const universalStorage = {
       }
       await AsyncStorage.setItem(key, value);
     } catch (error) {
+      if (isAsyncStorageUnavailable(error)) {
+        setMemoryItem(key, value);
+        return;
+      }
       logger.warn(`Erro ao escrever no storage [${key}]:`, error);
     }
   },
@@ -46,6 +72,10 @@ export const universalStorage = {
       }
       await AsyncStorage.removeItem(key);
     } catch (error) {
+      if (isAsyncStorageUnavailable(error)) {
+        removeMemoryItem(key);
+        return;
+      }
       logger.warn(`Erro ao remover do storage [${key}]:`, error);
     }
   }

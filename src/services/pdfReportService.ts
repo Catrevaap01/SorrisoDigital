@@ -220,6 +220,35 @@ const buildHistoricoPacienteHtml = (
   </body></html>`;
 };
 
+// ─── Helpers para obter credenciais de admin ──────────────────
+
+const getAdminCredentials = async (): Promise<{ url: string; key: string } | null> => {
+  try {
+    if (Platform.OS !== 'web') {
+      // Em mobile/expo, usa expo-constants
+      const Constants = (await import('expo-constants')).default;
+      const extra = Constants.expoConfig?.extra
+        || (Constants as any).manifest2?.extra
+        || (Constants as any).manifest?.extra;
+      const url = extra?.SUPABASE_URL;
+      const key = extra?.SUPABASE_SERVICE_ROLE_KEY;
+      if (url && key) return { url, key };
+    }
+
+    // Em web (ou fallback), usa process.env
+    const url = (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_SUPABASE_URL)
+      || (typeof process !== 'undefined' && process.env?.SUPABASE_URL)
+      || '';
+    const key = (typeof process !== 'undefined' && process.env?.SUPABASE_SERVICE_ROLE_KEY)
+      || '';
+    if (url && key) return { url, key };
+
+    return null;
+  } catch {
+    return null;
+  }
+};
+
 // ─── Public API ──────────────────────────────────────────────────
 
 export const exportarRelatorioGeralPdf = async (): Promise<PdfResult> => {
@@ -265,17 +294,41 @@ export const exportarHistoricoPacientePdf = async (
         .limit(50),
     ]);
 
-    if (pacienteRes.error || !pacienteRes.data) {
+    let pacienteData = pacienteRes.data;
+    let triagensData = triagensRes.data;
+    let agendamentosData = agendamentosRes.data;
+
+    // Fallback com admin client se dados ausentes (tenta obter credenciais de forma segura)
+    if (!pacienteData || pacienteRes.error) {
+      const creds = await getAdminCredentials();
+      if (creds) {
+        const { createClient } = await import('@supabase/supabase-js');
+        const admin = createClient(creds.url, creds.key, { auth: { persistSession: false } });
+        const [pAdmin, tAdmin, aAdmin] = await Promise.all([
+          admin.from('profiles').select('id, nome, email, telefone, data_nascimento, genero, provincia, provincia_id, historico_medico, alergias, medicamentos_atuais, provincias(nome)').eq('id', pacienteId).single(),
+          admin.from('triagens').select('*, dentista:dentista_id(nome)').eq('paciente_id', pacienteId).order('created_at', { ascending: false }).limit(50),
+          admin.from('agendamentos').select('*, dentista:dentista_id(nome)').eq('paciente_id', pacienteId).order('data_agendamento', { ascending: false }).limit(50),
+        ]);
+
+        if (pAdmin.data) {
+          pacienteData = pAdmin.data;
+          triagensData = tAdmin.data || [];
+          agendamentosData = aAdmin.data || [];
+        }
+      }
+    }
+
+    if (!pacienteData) {
       return { success: false, error: 'Paciente não encontrado' };
     }
 
     const paciente = {
-      ...pacienteRes.data,
-      provincia: pacienteRes.data.provincia || (pacienteRes.data as any).provincias?.nome || '-',
+      ...pacienteData,
+      provincia: pacienteData.provincia || (pacienteData as any).provincias?.nome || '-',
     };
 
-    const triagens = triagensRes.data || [];
-    const agendamentos = (agendamentosRes.data || []).map((a: any) => ({
+    const triagens = triagensData || [];
+    const agendamentos = (agendamentosData || []).map((a: any) => ({
       ...a,
       dentista: a.dentista || undefined,
     }));

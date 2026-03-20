@@ -59,12 +59,9 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
 
   const carregarAgendamentos = async () => {
     if (!profile?.id) return;
-    
+
     const result = await buscarAgendamentosPaciente(profile.id);
     if (result.success) {
-      // Carrega todos os agendamentos (pendente, agendado, confirmado)
-      // Quando o dentista confirmar, aparece como confirmado
-      // Se cancelar, volta para pendente
       setAgendamentos(result.data || []);
     }
   };
@@ -95,11 +92,10 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
   const triagensFiltradas =
     filtroAtivo === 'todos'
       ? triagens
-      : triagens.filter((t) => {
+      : triagens.filter((t: any) => {
           if (filtroAtivo === 'respondido') {
             return t.status === 'respondido' || (t.respostas && t.respostas.length > 0);
           }
-
           if (filtroAtivo === 'urgente') {
             return (
               t.status === 'urgente' ||
@@ -107,46 +103,45 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
               Number(t.intensidade_dor || 0) >= 8
             );
           }
-
           return t.status === filtroAtivo;
         });
 
-  // Filtra agendamentos por status
   const agendamentosFiltrados =
     filtroAtivo === 'todos'
       ? agendamentos
-      : agendamentos.filter((a) => {
-          // Para "confirmado", mostra tanto "confirmado" quanto "agendado" (legado)
+      : agendamentos.filter((a: any) => {
           if (filtroAtivo === 'confirmado') {
             return a.status === 'confirmado' || a.status === 'agendado';
           }
-          // Para agendamentos, filtra por status
           return a.status === filtroAtivo;
         });
 
-  // Combina triagens e agendamentos para exibir na lista
   const dadosCombinados = [
-    ...triagensFiltradas.map((t) => ({ ...t, tipo: 'triagem' })),
-    ...agendamentosFiltrados.map((a) => ({ ...a, tipo: 'agendamento' })),
-  ].sort((a, b) => {
+    ...triagensFiltradas.map((t: any) => ({ ...t, tipo: 'triagem' })),
+    ...agendamentosFiltrados.map((a: any) => ({ ...a, tipo: 'agendamento' })),
+  ].sort((a: any, b: any) => {
     const dataA = a.tipo === 'triagem' ? a.created_at : a.data_agendamento;
     const dataB = b.tipo === 'triagem' ? b.created_at : b.data_agendamento;
     return new Date(dataB).getTime() - new Date(dataA).getTime();
   });
 
-  const abrirDetalhes = (triagem) => {
+  const abrirDetalhes = (triagem: any) => {
     setTriagemSelecionada(triagem);
     setModalVisible(true);
   };
 
-  const abrirDetalhesAgendamento = (agendamento) => {
+  const abrirDetalhesAgendamento = (agendamento: any) => {
     setAgendamentoSelecionado(agendamento);
     setModalAgendamentoVisible(true);
   };
 
-  const renderTriagem = ({ item }) => {
+  const renderTriagem = ({ item }: { item: any }) => {
     const temResposta = item.respostas && item.respostas.length > 0;
-    const effectiveStatus = temResposta ? 'respondido' : (item.status === 'urgente' || item.prioridade === 'urgente' || Number(item.intensidade_dor || 0) >= 8 ? 'urgente' : (item.status || 'pendente'));
+    const effectiveStatus = temResposta
+      ? 'respondido'
+      : item.status === 'urgente' || item.prioridade === 'urgente' || Number(item.intensidade_dor || 0) >= 8
+        ? 'urgente'
+        : item.status || 'pendente';
     const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
 
     return (
@@ -205,13 +200,13 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
                 Dr(a). {item.respostas[0].dentista?.nome || 'Dentista'}
               </Text>
             </View>
-            
+
             {item.respostas[0].recomendacao && (
               <Text style={styles.recomendacaoDestaque}>
                 ⭐ {item.respostas[0].recomendacao}
               </Text>
             )}
-            
+
             <Text style={styles.respostaTexto} numberOfLines={2}>
               {item.respostas[0].orientacao}
             </Text>
@@ -221,7 +216,7 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     );
   };
 
-  const renderAgendamento = ({ item }) => {
+  const renderAgendamento = ({ item }: { item: any }) => {
     const statusInfo = STATUS_AGENDAMENTO[item.status] || STATUS_AGENDAMENTO.pendente;
     const tipoConsulta = TIPOS_CONSULTA[item.tipo] || TIPOS_CONSULTA.consulta;
 
@@ -291,7 +286,7 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     );
   };
 
-  const renderItem = ({ item }) => {
+  const renderItem = ({ item }: { item: any }) => {
     if (item.tipo === 'agendamento') {
       return renderAgendamento({ item });
     }
@@ -303,8 +298,8 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
 
     const statusInfo = STATUS_TRIAGEM[triagemSelecionada.status] || STATUS_TRIAGEM.pendente;
     const resposta = triagemSelecionada.respostas?.[0];
-    const recomendacaoInfo = resposta?.recomendacao 
-      ? RECOMENDACAO[resposta.recomendacao] 
+    const recomendacaoInfo = resposta?.recomendacao
+      ? RECOMENDACAO[resposta.recomendacao]
       : null;
 
     return (
@@ -380,7 +375,7 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
                       Avaliação do Dentista
                     </Text>
                   </View>
-                  
+
                   <View style={styles.dentistaInfoBox}>
                     <Ionicons name="person-circle" size={40} color={COLORS.secondary} />
                     <View style={{ marginLeft: 12 }}>
@@ -414,7 +409,7 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
                 <View style={styles.modalSection}>
                   <Text style={styles.modalLabel}>Fotos Enviadas</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {triagemSelecionada.imagens.map((uri, index) => (
+                    {triagemSelecionada.imagens.map((uri: string, index: number) => (
                       <Image
                         key={index}
                         source={{ uri }}
@@ -464,7 +459,7 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
               <View style={styles.modalAviso}>
                 <Ionicons name="information-circle" size={16} color={COLORS.accent} />
                 <Text style={styles.modalAvisoText}>
-                  Esta orientação não substitui avaliação presencial. 
+                  Esta orientação não substitui avaliação presencial.
                   Em caso de dúvidas ou piora dos sintomas, procure atendimento.
                 </Text>
               </View>
@@ -577,7 +572,6 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     );
   };
 
-  // Main return statement - renderiza a tela de histórico
   if (loading) {
     return (
       <View style={styles.centerContainer}>
@@ -630,11 +624,11 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
       ) : (
         <FlatList
           data={dadosCombinados}
-          keyExtractor={(item, index) => `${item.tipo}-${item.id}-${index}`}
+          keyExtractor={(item: any, index: number) => `${item.tipo}-${item.id}-${index}`}
           renderItem={renderItem}
           contentContainerStyle={[
             styles.lista,
-            Platform.OS === 'web' && styles.webLista
+            Platform.OS === 'web' && styles.webLista,
           ]}
           refreshControl={
             <RefreshControl
@@ -657,23 +651,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-  },
-  header: {
-    backgroundColor: COLORS.primary,
-    paddingTop: SIZES.xl + SIZES.md,
-    paddingBottom: SIZES.lg,
-    paddingHorizontal: SIZES.md,
-  },
-  headerTitle: {
-    fontSize: SIZES.fontXl,
-    fontWeight: 'bold',
-    color: COLORS.textInverse,
-  },
-  headerSubtitle: {
-    fontSize: SIZES.fontSm,
-    color: COLORS.textInverse,
-    opacity: 0.8,
-    marginTop: SIZES.xs,
   },
   filtrosContainer: {
     backgroundColor: COLORS.surface,
@@ -715,10 +692,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: SIZES.xl,
   },
-  loadingText: {
-    color: COLORS.textSecondary,
-    marginTop: SIZES.md,
-  },
   emptyTitle: {
     fontSize: SIZES.fontLg,
     fontWeight: 'bold',
@@ -738,41 +711,8 @@ const styles = StyleSheet.create({
     maxWidth: 900,
     width: '100%',
     alignSelf: 'center',
-    paddingVertical: SIZES.lg,
-  },
-  listaLinhas: {
-    paddingHorizontal: SIZES.md,
-    paddingVertical: SIZES.sm,
-  },
-  rowItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusMd,
-    paddingHorizontal: SIZES.md,
-    paddingVertical: SIZES.sm,
-  },
-  rowStatusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: SIZES.sm,
-  },
-  rowMain: {
-    flex: 1,
-  },
-  rowTitulo: {
-    fontSize: SIZES.fontMd,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  rowSubtitulo: {
-    marginTop: 2,
-    fontSize: SIZES.fontSm,
-    color: COLORS.textSecondary,
-  },
-  rowSeparator: {
-    height: SIZES.sm,
+    paddingTop: SIZES.lg,
+    paddingBottom: 100,
   },
   card: {
     backgroundColor: COLORS.surface,
@@ -1118,5 +1058,3 @@ const styles = StyleSheet.create({
 });
 
 export default HistoricoScreen;
-
-

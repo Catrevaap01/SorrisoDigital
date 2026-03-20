@@ -88,18 +88,22 @@ export const handleError = (error: unknown, context: string = ''): HandledError 
       };
     }
 
-    if (message.includes('invalid') || message.includes('validation')) {
+    if (
+      message.includes('invalid login credentials') ||
+      message.includes('invalid password') ||
+      message.includes('unauthorized')
+    ) {
       return {
-        type: ErrorType.VALIDATION,
-        message: ERROR_MESSAGES[ErrorType.VALIDATION],
+        type: ErrorType.AUTH,
+        message: ERROR_MESSAGES[ErrorType.AUTH],
         originalError: errorObj,
       };
     }
 
-    if (message.includes('unauthorized') || message.includes('invalid password')) {
+    if (message.includes('invalid') || message.includes('validation')) {
       return {
-        type: ErrorType.AUTH,
-        message: ERROR_MESSAGES[ErrorType.AUTH],
+        type: ErrorType.VALIDATION,
+        message: ERROR_MESSAGES[ErrorType.VALIDATION],
         originalError: errorObj,
       };
     }

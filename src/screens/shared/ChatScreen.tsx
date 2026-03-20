@@ -113,7 +113,11 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
         scrollParaFinal();
         // Marcar como lida imediatamente
         if (user.id !== novaMsg.sender_id) {
-          marcarMensagensComoLidas(conversationId, user.id);
+          marcarMensagensComoLidas(conversationId, user.id).then(() => {
+            import('../../navigation/AppNavigator').then((mod) => {
+              mod.triggerUnreadRefresh();
+            });
+          });
         }
       },
       (mensagemAtualizada) => {
@@ -127,6 +131,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
 
     return () => {
       subscription.unsubscribe();
+      // sincroniza ao sair
+      import('../../navigation/AppNavigator').then(m => m.triggerUnreadRefresh());
     };
   }, [conversationId, user?.id]);
 
@@ -224,7 +230,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'web' ? undefined : 'height'}
       style={styles.container}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
     >
@@ -311,6 +317,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+    paddingBottom: Platform.OS === 'web' ? 70 : 0,
   },
   header: {
     backgroundColor: COLORS.surface,
@@ -422,11 +429,11 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.border,
     backgroundColor: COLORS.surface,
     padding: SPACING.md,
-    paddingBottom: Math.max(SPACING.md, 20),
+    paddingBottom: Platform.OS === 'web' ? SPACING.md : Math.max(SPACING.md, 20),
   },
   inputBox: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'flex-end', // Reverted to match mobile
     gap: SPACING.sm,
     backgroundColor: COLORS.background,
     borderRadius: 24,
