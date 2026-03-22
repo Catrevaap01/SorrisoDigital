@@ -28,7 +28,6 @@ import {
   atualizarPaciente,
   buscarPaciente,
   deletarPaciente,
-  parsePacienteProfile,
   gerarCodigoPaciente,
   listarPacientes,
   resetarSenhaPaciente,
@@ -136,8 +135,7 @@ Toast.show({ type: 'error', text1: 'Não foi possível abrir paciente', text2: r
       return;
     }
 
-    const parsedResult = parsePacienteProfile(result.data);
-    const paciente = parsedResult.parsed;
+    const paciente = result.data;
     setSelectedPaciente(paciente);
     setFormData({
       nome: paciente.nome || '',
@@ -146,12 +144,12 @@ Toast.show({ type: 'error', text1: 'Não foi possível abrir paciente', text2: r
       data_nascimento: paciente.data_nascimento || '',
       genero: paciente.genero || '',
       provincia: paciente.provincia || '',
-      endereco: paciente.endereco || '',
+              endereco: (paciente as PacienteProfile).endereco || '',
       historico_medico: paciente.historico_medico || '',
       alergias: paciente.alergias || '',
       medicamentos_atuais: paciente.medicamentos_atuais || '',
-      observacoes_gerais: parsedResult.clean_obs || '', // ✅ Clean obs (no tags)
-      documentos_urls: Array.isArray(paciente.documentos_urls) ? paciente.documentos_urls : [],
+      observacoes_gerais: (paciente as PacienteProfile).observacoes_gerais || '',
+      documentos_urls: Array.isArray((paciente as PacienteProfile).documentos_urls) ? (paciente as PacienteProfile).documentos_urls : [],
     });
     setModalVisible(true);
   };

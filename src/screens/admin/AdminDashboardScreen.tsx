@@ -35,7 +35,7 @@ import {
   CriarDentistaResult,
 } from '../../services/dentistaService';
 import { validators } from '../../utils/validators';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS, SIZES } from '../../styles/theme';
 
 const ESPECIALIDADES_DENTISTA = [
   'Ortodontia',
@@ -631,6 +631,14 @@ const AdminDashboardScreen: React.FC = () => {
           stickySectionHeadersEnabled={false}
         />
       )}
+
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: COLORS.primary }]}
+        onPress={handleOpenCreateModal}
+      >
+        <Ionicons name="person-add" size={20} color={COLORS.textInverse} />
+        <Text style={styles.fabText}>Novo Dentista</Text>
+      </TouchableOpacity>
 
       {/* Modal - Criar dentista */}
       <Modal
@@ -1562,6 +1570,23 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
     borderRadius: 8,
     marginHorizontal: SPACING.md,
+  },
+  fab: {
+    position: 'absolute',
+    right: SPACING.lg,
+    bottom: Platform.OS === 'web' ? 80 : SPACING.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    borderRadius: SIZES.radiusFull,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 14,
+    ...SHADOWS.lg,
+  },
+  fabText: {
+    color: COLORS.textInverse,
+    fontSize: SIZES.fontMd,
+    fontWeight: '700',
   },
   sectionTitle: {
     flex: 1,

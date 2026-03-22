@@ -591,6 +591,17 @@ const AppNavigator: React.FC = () => {
           {() => <PacienteStack unreadCount={unreadCount} role={currentRole} />}
         </Stack.Screen>
       )}
+
+      <Stack.Screen
+        name="CadastrarPaciente"
+        component={NovoPacienteScreen}
+        options={{
+          headerShown: true,
+          title: 'Cadastrar Paciente',
+          headerStyle: { backgroundColor: COLORS.secondary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
     </Stack.Navigator>
   );
 };

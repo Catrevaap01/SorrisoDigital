@@ -81,6 +81,10 @@ export default function LoginScreen({
         userError = 'Senha temporaria expirou. Peca nova ficha ao dentista.';
       } else if (lowerMsg.includes('email not confirmed')) {
         userError = 'Email precisa confirmacao. Verifique a caixa de entrada.';
+      } else if (lowerMsg.includes('no input text')) {
+        userError = 'Informe email e senha para entrar.';
+      } else if (lowerMsg.includes('text strings must be rendered within a <text> component') || lowerMsg.includes('text strings must be rendered within a text component')) {
+        userError = 'Erro interno do app. Reinicie e tente novamente.';
       }
 
       setError(userError);

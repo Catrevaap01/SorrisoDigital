@@ -279,9 +279,15 @@ const NovoPacienteScreen: React.FC<Props> = ({ navigation: propNavigation }) => 
               <Text style={styles.qrTitle}>📲 QR - Instalar o App</Text>
               <Text style={styles.qrSubtitle}>Escaneie com a câmera do celular</Text>
               <View style={styles.qrWrapper}>
-                <QRCode value={qrCodeValue} size={200} backgroundColor="white" />
+                {qrCodeValue ? (
+                  <QRCode value={qrCodeValue} size={200} backgroundColor="white" />
+                ) : (
+                  <View style={styles.qrEmpty}>
+                    <Text style={styles.qrEmptyText}>QR não disponível</Text>
+                  </View>
+                )}
               </View>
-              <Text style={styles.qrUrl}>{qrCodeValue}</Text>
+              <Text style={styles.qrUrl}>{qrCodeValue || 'URL do QR pendente'}</Text>
               <View style={styles.qrInstructionsBox}>
                 <Text style={styles.qrInstructionsText}>1. Escaneie o QR Code com a câmera do celular</Text>
                 <Text style={styles.qrInstructionsText}>2. No navegador, toque em "Instalar" ou "Adicionar à tela inicial"</Text>
@@ -400,6 +406,21 @@ const styles = StyleSheet.create({
   credValue: { fontSize: 22, fontWeight: '700', color: '#000', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', letterSpacing: 1 },
   qrInstructionsBox: { marginTop: 15, width: '100%', padding: 10, backgroundColor: '#f9f9f9', borderRadius: 8 },
   qrInstructionsText: { fontSize: 12, color: COLORS.textSecondary, marginBottom: 4, lineHeight: 16 },
+  qrEmpty: {
+    width: 200,
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: 12,
+  },
+  qrEmptyText: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    textAlign: 'center',
+  },
 
   qrSection: {
     alignItems: 'center',

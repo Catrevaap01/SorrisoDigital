@@ -82,5 +82,6 @@ export type RootStackParamList = {
   DentistaMain: undefined;
   PacienteMain: undefined;
   AdminMain: undefined;
+  CadastrarPaciente: undefined;
   CompleteProfile: { forceEdit?: boolean } | undefined;
 };

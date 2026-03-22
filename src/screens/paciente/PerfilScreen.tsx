@@ -28,8 +28,6 @@ import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { PROVINCIAS_ANGOLA } from '../../utils/constants';
 import { getInitials, formatDate } from '../../utils/helpers';
 import { exportHtmlAsPdf } from '../../utils/pdfExportUtils';
-import QRCode from 'react-native-qrcode-svg';
-import { gerarQrUrls } from '../../utils/qrUtils';
 import { gerarFichaHistorico } from '../dentista/gerarFichaHistorico';
 
 const ESPECIALIDADES_DENTISTA = [
@@ -76,22 +74,11 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
   const [genero, setGenero] = useState<string>(profile?.genero || '');
   const [processandoLogout, setProcessandoLogout] = useState(false);
   const [showGeneros, setShowGeneros] = useState<boolean>(false);
-  const [showQrModal, setShowQrModal] = useState(false);
   const [perfilCarregado, setPerfilCarregado] = useState<any>(null);
   const isDentista = profile?.tipo === 'dentista' || profile?.tipo === 'medico';
-  const perfilPacienteRaw = useMemo(
-    () => (!isDentista && (perfilCarregado || profile) ? { ...(perfilCarregado || profile) } : profile),
-    [isDentista, perfilCarregado, profile]
-  );
   const perfilPaciente = useMemo(
-    () => {
-      if (isDentista) return perfilPacienteRaw;
-      const parsed = parsePacienteProfile(perfilPacienteRaw);
-      const cleanProfile = parsed.parsed;
-      cleanProfile.observacoes_gerais = parsed.clean_obs;
-      return cleanProfile;
-    },
-    [isDentista, perfilPacienteRaw]
+    () => (!isDentista && (perfilCarregado || profile) ? parsePacienteProfile({ ...(perfilCarregado || profile) }) : profile),
+    [isDentista, perfilCarregado, profile]
   );
   const idadePaciente = useMemo(() => {
     if (isDentista) return null;
@@ -105,12 +92,6 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
     }
     return null;
   }, [isDentista, perfilPaciente]);
-
-  const qrUrl = useMemo(() => {
-    if (!profile?.id) return '';
-    const urls = gerarQrUrls(profile.id, profile.email);
-    return urls.historico || urls.generica || '';
-  }, [profile]);
 
   useEffect(() => {
     const carregarPerfilCompleto = async () => {
@@ -349,12 +330,10 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
           )}
         </View>
 
-        {!isDentista && (
-          <View style={styles.campo}>
-            <Text style={styles.campoLabel}>Email</Text>
-            <Text style={styles.campoValor}>{profile?.email || '-'}</Text>
-          </View>
-        )}
+        <View style={styles.campo}>
+          <Text style={styles.campoLabel}>Email</Text>
+          <Text style={styles.campoValor}>{profile?.email || '-'}</Text>
+        </View>
 
         <View style={styles.campo}>
           <Text style={styles.campoLabel}>Telefone</Text>
@@ -427,18 +406,6 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
           </View>
         )}
       </View>
-
-      {!isDentista && !forceEdit && (
-        <View style={styles.section}>
-          <TouchableOpacity 
-            style={styles.qrButton} 
-            onPress={() => setShowQrModal(true)}
-          >
-            <Ionicons name="qr-code-outline" size={24} color={COLORS.primary} />
-            <Text style={styles.qrButtonText}>📱 Meu QR App</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       {isDentista && (
         <View style={styles.section}>
@@ -611,34 +578,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
         </TouchableOpacity>
       )}
 
-        <Text style={styles.versao}>Odontologia Angola v1.0.0</Text>
-
-      {/* QR Modal */}
-      <Modal visible={showQrModal} transparent animationType="fade">
-        <View style={styles.qrOverlay}>
-          <View style={styles.qrModal}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>📱 Meu QR App</Text>
-              <TouchableOpacity onPress={() => setShowQrModal(false)}>
-                <Ionicons name="close" size={24} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.qrContainer}>
-              <QRCode
-                value={qrUrl}
-                size={250}
-                color="#000"
-                backgroundColor="#FFF"
-              />
-              <Text style={styles.qrUrlText}>{qrUrl}</Text>
-              <Text style={styles.qrSubtitle}>Escaneie para acessar seu histórico</Text>
-            </View>
-            <TouchableOpacity style={styles.qrCloseBtn} onPress={() => setShowQrModal(false)}>
-              <Text style={styles.qrCloseText}>Fechar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      <Text style={styles.versao}>Odontologia Angola v1.0.0</Text>
 
       <Modal
         visible={showProvincias}
@@ -788,75 +728,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: SIZES.xl,
     paddingHorizontal: SIZES.md,
-  },
-  qrButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.background,
-    borderWidth: 2,
-    borderColor: COLORS.primary,
-    borderRadius: SIZES.radiusLg,
-    padding: SIZES.md,
-    margin: SIZES.md,
-  },
-  qrButtonText: {
-    fontSize: SIZES.fontLg,
-    fontWeight: '700',
-    color: COLORS.primary,
-    marginLeft: SIZES.sm,
-  },
-  qrOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SIZES.lg,
-  },
-  qrModal: {
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusXl,
-    padding: SIZES.xl,
-    alignItems: 'center',
-    maxWidth: 350,
-    width: '90%',
-  },
-  qrContainer: {
-    backgroundColor: 'white',
-    borderRadius: SIZES.radiusLg,
-    padding: SIZES.lg,
-    alignItems: 'center',
-    marginVertical: SIZES.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  qrUrlText: {
-    fontSize: SIZES.fontSm,
-    color: COLORS.textSecondary,
-    marginTop: SIZES.sm,
-    fontFamily: 'monospace',
-    textAlign: 'center',
-  },
-  qrSubtitle: {
-    fontSize: SIZES.fontSm,
-    color: COLORS.textSecondary,
-    marginTop: SIZES.xs,
-    textAlign: 'center',
-  },
-  qrCloseBtn: {
-    backgroundColor: COLORS.primary,
-    borderRadius: SIZES.radiusMd,
-    paddingHorizontal: SIZES.lg,
-    paddingVertical: SIZES.md,
-    marginTop: SIZES.md,
-  },
-  qrCloseText: {
-    color: COLORS.textInverse,
-    fontWeight: '700',
-    fontSize: SIZES.fontMd,
   },
   headerDentista: { backgroundColor: COLORS.secondary },
   avatarContainer: {
