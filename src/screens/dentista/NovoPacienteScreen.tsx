@@ -211,7 +211,6 @@ const NovoPacienteScreen: React.FC<Props> = ({ navigation: propNavigation }) => 
             onPress={handleCreatePaciente}
             loading={loading}
             style={styles.btn}
-            icon="qr-code-outline"
           />
         </View>
       </ScrollView>
@@ -335,6 +334,14 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+    position: 'relative',
+  },
+  headerBackBtn: {
+    position: 'absolute',
+    left: 0,
+    top: 5,
+    padding: 8,
+    zIndex: 10,
   },
   headerIcon: {
     width: 64,

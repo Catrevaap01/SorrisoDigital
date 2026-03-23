@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import Toast from 'react-native-toast-message';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
@@ -88,6 +89,15 @@ export default function LoginScreen({
       }
 
       setError(userError);
+      
+      // Exibe em formato pop-up sempre, com ênfase no mobile
+      Toast.show({
+        type: 'error',
+        text1: 'Falha no Login',
+        text2: userError,
+        position: 'top',
+        visibilityTime: 4000,
+      });
     } finally {
       setLoading(false);
     }
@@ -113,11 +123,7 @@ export default function LoginScreen({
                 <View style={styles.logoCircle}>
                   <Ionicons name="medical" size={50} color={COLORS.primary} />
                 </View>
-                <ActivityIndicator
-                  size="large"
-                  color={COLORS.primary}
-                  style={{ marginTop: SPACING.lg }}
-                />
+                <Text style={{color: COLORS.primary}}>Carregando...</Text>
               </View>
             )}
 

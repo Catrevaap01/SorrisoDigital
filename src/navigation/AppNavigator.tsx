@@ -519,7 +519,7 @@ const AppNavigator: React.FC = () => {
   if (initializing) {
     return (
       <View style={[styles.center, { backgroundColor: '#EEF2F6' }]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{color: COLORS.primary}}>Carregando...</Text>
       </View>
     );
   }
@@ -530,7 +530,7 @@ const AppNavigator: React.FC = () => {
   if (user && !profile && loading) {
     return (
       <View style={[styles.center, { backgroundColor: '#EEF2F6' }]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{color: COLORS.primary}}>Carregando...</Text>
       </View>
     );
   }

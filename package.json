@@ -12,7 +12,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck"
+    "check": "npm run typecheck",
+    "pwa": "npm run build && vite preview --host"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

@@ -153,18 +153,8 @@
   </div>
 
   <script>
-    // Service Worker Registration
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('/service-worker.js')
-          .then(function(reg) {
-            console.log('✅ Service Worker registrado:', reg.scope);
-          })
-          .catch(function(err) {
-            console.warn('Service Worker falhou:', err);
-          });
-      });
-    }
+    // Service Worker Registration gerido pelo vite-plugin-pwa
+    // O código anterior foi removido porque o plugin já cuida disso automaticamente
 
     // PWA Install Prompt
     let deferredPrompt = null;

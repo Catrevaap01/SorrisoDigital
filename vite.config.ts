@@ -1,10 +1,14 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import reactNativeWeb from 'vite-plugin-react-native-web/dist/es/index.js';
 
 export default defineConfig({
   plugins: [
-    react(),
+    reactNativeWeb(),
+    react({
+      include: "**/*.{jsx,tsx,ts,js}",
+    }),
     VitePWA({
       // Atualiza automaticamente o SW para entregar nova versão em reload
       registerType: 'autoUpdate',
