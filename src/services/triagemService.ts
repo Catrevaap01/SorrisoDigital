@@ -11,6 +11,7 @@ import { withTimeout } from '../utils/withTimeout';
 import { logger } from '../utils/logger';
 import { handleError, HandledError } from '../utils/errorHandler';
 import { uploadMultipleImages } from './storageService';
+import { enqueueOfflineAction } from './offlineSyncService';
 import { obterOuCriarConversa, enviarMensagem } from './messagesService';
 
 const extra = Constants.expoConfig?.extra;
@@ -266,6 +267,25 @@ export const criarTriagem = async (
   pacienteId?: string
 ): Promise<ServiceResult<Triagem>> => {
   try {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      await enqueueOfflineAction({
+        type: 'criarTriagem',
+        payload: {
+          dados,
+          imageUris,
+          pacienteId,
+        },
+        endpoint: '/api/sync/criarTriagem',
+        method: 'POST',
+      });
+
+      return {
+        success: false,
+        error:
+          'Sem internet: triagem salva localmente e será sincronizada automaticamente quando online.',
+      };
+    }
+
     const payload = toTriagemDbPayload(dados, pacienteId);
 
     // fazer upload das imagens primeiro

@@ -874,11 +874,11 @@ const styles = StyleSheet.create({
   content: { padding: SPACING.lg, paddingBottom: 40 },
   webContent: {
     width: '100%',
-    maxWidth: 800,
+    maxWidth: 600,
     backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusLg,
+    borderRadius: Platform.OS === 'web' && typeof window !== 'undefined' && window.innerWidth > 600 ? SIZES.radiusLg : 0,
     ...SHADOWS.md,
-    marginVertical: SPACING.md,
+    marginVertical: Platform.OS === 'web' && typeof window !== 'undefined' && window.innerWidth > 600 ? SPACING.md : 0,
   },
   progressContainer: {
     flexDirection: 'row',

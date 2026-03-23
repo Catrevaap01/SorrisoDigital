@@ -498,7 +498,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
         )}
       </View>
 
-        {!forceEdit && (
+{!forceEdit && !isDentista && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Documentação</Text>
             <TouchableOpacity 

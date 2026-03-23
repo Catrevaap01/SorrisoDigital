@@ -12,6 +12,7 @@ import { supabase } from '../config/supabase';
 import { UserProfile } from '../contexts/AuthContext';
 import { withTimeout } from '../utils/withTimeout';
 import { deleteImage } from '../services/storageService';
+import { enqueueOfflineAction } from './offlineSyncService';
 
 const getAdminClient = (): SupabaseClient | null => {
   const extra = Constants.expoConfig?.extra || (Constants as any).manifest2?.extra || (Constants as any).manifest?.extra;
@@ -497,6 +498,28 @@ export const createPaciente = async (
 ): Promise<CriarPacienteResult> => {
   try {
     const normalizedEmail = data.email.trim().toLowerCase();
+
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      // 1) Fallback offline: armazena a ação na fila de sincronização
+      // 2) Evita perda de dados quando não há rede
+      await enqueueOfflineAction({
+        type: 'createPaciente',
+        payload: {
+          dentistaId,
+          data: {
+            ...data,
+            email: normalizedEmail,
+          },
+        },
+        endpoint: '/api/sync/createPaciente',
+        method: 'POST',
+      });
+
+      return {
+        success: true,
+        warning: 'Sem internet: paciente salvo localmente. Será sincronizado automaticamente quando online.',
+      };
+    }
 
     // Check existing email
     const { data: existing } = await supabase

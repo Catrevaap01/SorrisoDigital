@@ -123,19 +123,17 @@ const PacienteTabs: React.FC<TabsProps> = ({ unreadCount }) => (
       headerStyle: { backgroundColor: COLORS.primary },
       headerTintColor: COLORS.textInverse,
       headerTitleStyle: { fontWeight: 'bold' },
-      tabBarStyle: Platform.OS === 'web' ? {
-        maxWidth: 800,
-        width: '100%',
-        alignSelf: 'center',
+      tabBarStyle: {
+        height: 60,
         borderTopWidth: 1,
         borderTopColor: COLORS.divider,
         backgroundColor: COLORS.surface,
-        position: 'absolute',
-        bottom: 0,
-        left: '50%',
-        marginLeft: -400,
-        height: 60,
-      } : { height: 60 },
+        ...(Platform.OS === 'web' && {
+          maxWidth: 600,
+          width: '100%',
+          alignSelf: 'center',
+        })
+      },
     })}
   >
     <PacienteTab.Screen name="Início" component={HomeScreen} options={{ title: 'Odontologia Angola' }} />
@@ -192,19 +190,17 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
       headerStyle: { backgroundColor: COLORS.secondary },
       headerTintColor: COLORS.textInverse,
       headerTitleStyle: { fontWeight: 'bold' },
-      tabBarStyle: Platform.OS === 'web' ? {
-        maxWidth: 800,
-        width: '100%',
-        alignSelf: 'center',
+      tabBarStyle: {
+        height: 60,
         borderTopWidth: 1,
         borderTopColor: COLORS.divider,
         backgroundColor: COLORS.surface,
-        position: 'absolute',
-        bottom: 0,
-        left: '50%',
-        marginLeft: -400,
-        height: 60,
-      } : { height: 60 },
+        ...(Platform.OS === 'web' && {
+          maxWidth: 600,
+          width: '100%',
+          alignSelf: 'center',
+        })
+      },
     })}
   >
     <DentistaTab.Screen

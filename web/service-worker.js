@@ -30,36 +30,73 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event - network first, fallback to cache
+// Auto update when uma nova versão do SW é detectada
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+// Fetch event - network first for API, cache-first for static + fallback offline page
 self.addEventListener('fetch', (event) => {
-  // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
-  // Skip Supabase API calls (always need fresh data)
-  if (event.request.url.includes('supabase.co')) return;
+  const requestURL = new URL(event.request.url);
 
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Clone and cache successful responses
-        if (response.ok) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
-        }
-        return response;
-      })
-      .catch(() => {
-        // Fallback to cache when offline
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) return cachedResponse;
-          // For navigation requests, return the cached index.html
-          if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
+  // API requests: network first then cache
+  if (requestURL.pathname.startsWith('/api/') || event.request.url.includes('supabase.co')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse.ok) {
+            const networkClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, networkClone);
+            });
           }
-          return new Response('Offline', { status: 503 });
-        });
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
+        .then((cachedResponse) => cachedResponse || caches.match('/offline.html') || new Response('Offline', { status: 503 }))
+    );
+    return;
+  }
+
+  // Assets: Cache First strategy
+  if (event.request.destination === 'style' || event.request.destination === 'script' || event.request.destination === 'image' || event.request.destination === 'font') {
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        return fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse.ok) {
+              const clone = networkResponse.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            }
+            return networkResponse;
+          })
+          .catch(() => caches.match('/offline.html') || new Response('Offline', { status: 503 }));
       })
-  );
+    );
+    return;
+  }
+
+  // Page navigation fallback
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match('/offline.html') || caches.match('/index.html'))
+    );
+  }
 });
+

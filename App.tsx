@@ -1,36 +1,14 @@
 import React from 'react';
-import { LogBox, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast, { BaseToast, ErrorToast, ToastConfig } from 'react-native-toast-message';
-
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import { DentistProvider } from './src/contexts/DentistContext';
 import AppNavigator from './src/navigation/AppNavigator';
-import { SHADOWS } from './src/styles/theme';
-
-// Silenciar avisos de depreciação do React Native Web que vêm de bibliotecas externas
-if (Platform.OS === 'web') {
-  const warn = console.warn;
-  console.warn = (...args) => {
-    const msg = args[0];
-    if (typeof msg === 'string' && (
-      msg.includes('shadow* style props are deprecated') || 
-      msg.includes('props.pointerEvents is deprecated')
-    )) {
-      return;
-    }
-    warn(...args);
-  };
-  
-  // Também para LogBox se estiver ativo
-  LogBox.ignoreLogs([
-    'shadow* style props are deprecated',
-    'props.pointerEvents is deprecated'
-  ]);
-}
+import { NetworkSyncStatus } from './src/components/NetworkSyncStatus';
 
 const toastConfig: ToastConfig = {
   success: (props) => (
@@ -38,7 +16,10 @@ const toastConfig: ToastConfig = {
       {...props}
       style={[
         { borderLeftColor: '#43A047' },
-        Platform.OS === 'web' ? { boxShadow: '0px 2px 4px rgba(0,0,0,0.1)' } : {}
+        Platform.OS === 'web' && { 
+          // @ts-ignore - boxShadow is web-only
+          boxShadow: '0px 2px 4px rgba(0,0,0,0.1)' 
+        }
       ]}
       contentContainerStyle={{ paddingHorizontal: 15 }}
       text1Style={{ fontSize: 15, fontWeight: 'bold' }}
@@ -50,7 +31,10 @@ const toastConfig: ToastConfig = {
       {...props}
       style={[
         { borderLeftColor: '#E53935' },
-        Platform.OS === 'web' ? { boxShadow: '0px 2px 4px rgba(0,0,0,0.1)' } : {}
+        Platform.OS === 'web' && { 
+          // @ts-ignore - boxShadow is web-only
+          boxShadow: '0px 2px 4px rgba(0,0,0,0.1)' 
+        }
       ]}
       text1Style={{ fontSize: 15, fontWeight: 'bold' }}
       text2Style={{ fontSize: 13 }}
@@ -58,17 +42,16 @@ const toastConfig: ToastConfig = {
   )
 };
 
-export default function App(): React.JSX.Element {
+export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
           <DentistProvider>
-            <NavigationContainer>
-              <StatusBar style="light" />
-              <AppNavigator />
-              <Toast config={toastConfig} />
-            </NavigationContainer>
+            <NavigationContainer children={<AppNavigator />} />
+            <StatusBar style="light" />
+            <NetworkSyncStatus />
+            <Toast config={toastConfig} />
           </DentistProvider>
         </AuthProvider>
       </ThemeProvider>
