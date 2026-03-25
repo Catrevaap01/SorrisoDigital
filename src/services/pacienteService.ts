@@ -12,7 +12,6 @@ import { supabase } from '../config/supabase';
 import { UserProfile } from '../contexts/AuthContext';
 import { withTimeout } from '../utils/withTimeout';
 import { deleteImage } from '../services/storageService';
-import { enqueueOfflineAction } from './offlineSyncService';
 
 const getAdminClient = (): SupabaseClient | null => {
   const extra = Constants.expoConfig?.extra || (Constants as any).manifest2?.extra || (Constants as any).manifest?.extra;
@@ -110,16 +109,6 @@ const removeMissingSchemaColumns = <T extends Record<string, any>>(
   return fallbackPayload as T;
 };
 
-const stripObservacoesMeta = (obs: string): string => {
-  if (!obs) return '';
-  return obs
-    .replace(/\[DN\]:\s*[^\s\]]+/g, '')
-    .replace(/\[G\]:\s*[^\s\]]+/g, '')
-    .replace(/\[IDADE\]:\s*\d{1,3}/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-};
-
 /**
  * Tenta extrair dados das observacoes_gerais se os campos principais estiverem nulos
  */
@@ -145,10 +134,6 @@ export const parsePacienteProfile = (p: PacienteProfile): PacienteProfile => {
       p.idade = calcularIdade(p.data_nascimento) ?? undefined;
     }
   }
-
-  // remover metadados da observação que não devem aparecer na UI
-  const cleanedObs = stripObservacoesMeta(p.observacoes_gerais || '');
-  p.observacoes_gerais = cleanedObs || undefined;
   
   return p;
 };
@@ -301,10 +286,10 @@ export const atualizarPerfil = async (
       .replace(/\[IDADE\]: \d{1,3} /g, '')
       .trim();
 
-    const mergedObservacoes = cleanObs;
+    const mergedObservacoes = `[DN]: ${dnStr} [G]: ${gStr} [IDADE]: ${idadeAtual ?? '-'} ${cleanObs}`;
     let payload = sanitizePacienteUpdates({
       ...updates,
-      observacoes_gerais: mergedObservacoes.trim() ? mergedObservacoes.trim() : null
+      observacoes_gerais: mergedObservacoes.trim()
     });
     const adminClient = getAdminClient();
     let client: SupabaseClient = supabase;
@@ -499,28 +484,6 @@ export const createPaciente = async (
   try {
     const normalizedEmail = data.email.trim().toLowerCase();
 
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      // 1) Fallback offline: armazena a ação na fila de sincronização
-      // 2) Evita perda de dados quando não há rede
-      await enqueueOfflineAction({
-        type: 'createPaciente',
-        payload: {
-          dentistaId,
-          data: {
-            ...data,
-            email: normalizedEmail,
-          },
-        },
-        endpoint: '/api/sync/createPaciente',
-        method: 'POST',
-      });
-
-      return {
-        success: true,
-        warning: 'Sem internet: paciente salvo localmente. Será sincronizado automaticamente quando online.',
-      };
-    }
-
     // Check existing email
     const { data: existing } = await supabase
       .from('profiles')
@@ -596,8 +559,8 @@ export const createPaciente = async (
       provincia: data.provincia || null,
       idade: idadeCalculada,
       temp_password: tempPassword,
-      // observacoes_gerais deve conter só texto livre, sem metadados de DN/G/IDADE
-      observacoes_gerais: data.observacoes_gerais ? data.observacoes_gerais.trim() : null,
+      // Mantém apenas tags de dados clínicos sem expor a senha
+      observacoes_gerais: `[DN]: ${data.data_nascimento || '-'} [G]: ${data.genero || '-'} [IDADE]: ${idadeCalculada ?? '-'}${data.observacoes_gerais ? ' ' + data.observacoes_gerais : ''}`.trim(),
       updated_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
     };

@@ -33,6 +33,7 @@ const getDB = async () =>
   });
 
 export const enqueueOfflineAction = async (action: Omit<OfflineAction, 'id' | 'createdAt'>) => {
+  if (typeof window === 'undefined') return;
   const db = await getDB();
   const offAction = {
     ...action,
@@ -42,16 +43,19 @@ export const enqueueOfflineAction = async (action: Omit<OfflineAction, 'id' | 'c
 };
 
 export const getOfflineActions = async (): Promise<OfflineAction[]> => {
+  if (typeof window === 'undefined') return [];
   const db = await getDB();
   return db.getAllFromIndex('actions', 'by-createdAt');
 };
 
 export const removeOfflineAction = async (id: number) => {
+  if (typeof window === 'undefined') return;
   const db = await getDB();
   return db.delete('actions', id);
 };
 
 export const clearOfflineActions = async () => {
+  if (typeof window === 'undefined') return;
   const db = await getDB();
   return db.clear('actions');
 };
@@ -66,11 +70,11 @@ export const syncOfflineActions = async (): Promise<{ synced: number; failed: nu
 
   for (const action of actions) {
     try {
-      // Ajuste de header conforme API supabase ou REST padrão
       const res = await fetch(action.endpoint, {
         method: action.method,
         headers: {
           'Content-Type': 'application/json',
+'apikey': process.env.VITE_SUPABASE_ANON_KEY || '',
         },
         body: JSON.stringify(action.payload),
       });
@@ -83,10 +87,11 @@ export const syncOfflineActions = async (): Promise<{ synced: number; failed: nu
       await removeOfflineAction(action.id!);
       synced += 1;
     } catch (error) {
-      console.error('Offline sync falhou para ação', action, error);
+      console.error('Offline sync falhou:', action, error);
       failed += 1;
     }
   }
 
   return { synced, failed };
 };
+

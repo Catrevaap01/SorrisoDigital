@@ -123,17 +123,19 @@ const PacienteTabs: React.FC<TabsProps> = ({ unreadCount }) => (
       headerStyle: { backgroundColor: COLORS.primary },
       headerTintColor: COLORS.textInverse,
       headerTitleStyle: { fontWeight: 'bold' },
-      tabBarStyle: {
-        height: 60,
+      tabBarStyle: Platform.OS === 'web' ? {
+        maxWidth: 800,
+        width: '100%',
+        alignSelf: 'center',
         borderTopWidth: 1,
         borderTopColor: COLORS.divider,
         backgroundColor: COLORS.surface,
-        ...(Platform.OS === 'web' && {
-          maxWidth: 600,
-          width: '100%',
-          alignSelf: 'center',
-        })
-      },
+        position: 'absolute',
+        bottom: 0,
+        left: '50%',
+        marginLeft: -400,
+        height: 60,
+      } : { height: 60 },
     })}
   >
     <PacienteTab.Screen name="Início" component={HomeScreen} options={{ title: 'Odontologia Angola' }} />
@@ -190,17 +192,19 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
       headerStyle: { backgroundColor: COLORS.secondary },
       headerTintColor: COLORS.textInverse,
       headerTitleStyle: { fontWeight: 'bold' },
-      tabBarStyle: {
-        height: 60,
+      tabBarStyle: Platform.OS === 'web' ? {
+        maxWidth: 800,
+        width: '100%',
+        alignSelf: 'center',
         borderTopWidth: 1,
         borderTopColor: COLORS.divider,
         backgroundColor: COLORS.surface,
-        ...(Platform.OS === 'web' && {
-          maxWidth: 600,
-          width: '100%',
-          alignSelf: 'center',
-        })
-      },
+        position: 'absolute',
+        bottom: 0,
+        left: '50%',
+        marginLeft: -400,
+        height: 60,
+      } : { height: 60 },
     })}
   >
     <DentistaTab.Screen
@@ -519,7 +523,7 @@ const AppNavigator: React.FC = () => {
   if (initializing) {
     return (
       <View style={[styles.center, { backgroundColor: '#EEF2F6' }]}>
-        <Text style={{color: COLORS.primary}}>Carregando...</Text>
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
@@ -530,7 +534,7 @@ const AppNavigator: React.FC = () => {
   if (user && !profile && loading) {
     return (
       <View style={[styles.center, { backgroundColor: '#EEF2F6' }]}>
-        <Text style={{color: COLORS.primary}}>Carregando...</Text>
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
@@ -587,17 +591,6 @@ const AppNavigator: React.FC = () => {
           {() => <PacienteStack unreadCount={unreadCount} role={currentRole} />}
         </Stack.Screen>
       )}
-
-      <Stack.Screen
-        name="CadastrarPaciente"
-        component={NovoPacienteScreen}
-        options={{
-          headerShown: true,
-          title: 'Cadastrar Paciente',
-          headerStyle: { backgroundColor: COLORS.secondary },
-          headerTintColor: COLORS.textInverse,
-        }}
-      />
     </Stack.Navigator>
   );
 };

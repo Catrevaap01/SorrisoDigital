@@ -15,7 +15,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
+
 import * as Clipboard from 'expo-clipboard';
 import { exportHtmlAsPdf } from '../../utils/pdfExportUtils';
 import QRCode from 'react-native-qrcode-svg';
@@ -36,7 +36,7 @@ import {
 } from '../../services/pacienteService';
 import { gerarFichaHistorico } from './gerarFichaHistorico';
 import { gerarFichaCadastroHTML } from '../../services/fichaService';
-import { deleteImage, uploadImage } from '../../services/storageService';
+
 import { COLORS, SHADOWS, SIZES, SPACING, TYPOGRAPHY } from '../../styles/theme';
 import { formatBirthDateInput } from '../../utils/helpers';
 
@@ -56,7 +56,6 @@ type FormData = {
   alergias: string;
   medicamentos_atuais: string;
   observacoes_gerais: string;
-  documentos_urls: string[];
 };
 
 const EMPTY_FORM: FormData = {
@@ -71,8 +70,8 @@ const EMPTY_FORM: FormData = {
   alergias: '',
   medicamentos_atuais: '',
   observacoes_gerais: '',
-  documentos_urls: [],
 };
+
 
 const GerirPacientesScreen: React.FC<Props> = ({ navigation }) => {
   const { user } = useAuth();
@@ -83,7 +82,7 @@ const GerirPacientesScreen: React.FC<Props> = ({ navigation }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [qrVisible, setQrVisible] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
+
   const [selectedPaciente, setSelectedPaciente] = useState<PacienteProfile | null>(null);
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
 
@@ -149,8 +148,8 @@ Toast.show({ type: 'error', text1: 'Não foi possível abrir paciente', text2: r
       alergias: paciente.alergias || '',
       medicamentos_atuais: paciente.medicamentos_atuais || '',
       observacoes_gerais: (paciente as PacienteProfile).observacoes_gerais || '',
-      documentos_urls: Array.isArray((paciente as PacienteProfile).documentos_urls) ? (paciente as PacienteProfile).documentos_urls : [],
     });
+
     setModalVisible(true);
   };
 
@@ -180,8 +179,8 @@ if (!formData.nome.trim()) {
       alergias: formData.alergias.trim() || undefined,
       medicamentos_atuais: formData.medicamentos_atuais.trim() || undefined,
       observacoes_gerais: formData.observacoes_gerais.trim() || undefined,
-      documentos_urls: formData.documentos_urls,
     });
+
     setSaving(false);
 
     if (!result.success) {
@@ -306,42 +305,9 @@ if (!formData.nome.trim()) {
     }
   };
 
-  const handleAdicionarDocumento = async () => {
-    if (!selectedPaciente?.id || uploading) return;
-    const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permissao.status !== 'granted') {
-      Toast.show({ type: 'error', text1: 'Permissao negada para acessar imagens' });
-      return;
-    }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
-      allowsEditing: false,
-    });
 
-    if (result.canceled || !result.assets?.length) return;
 
-    setUploading(true);
-    const uploadResult = await uploadImage(result.assets[0].uri, selectedPaciente.id, 'triagens');
-    setUploading(false);
-
-    if (!uploadResult.success || !uploadResult.url) {
-Toast.show({ type: 'error', text1: 'Falha ao enviar documento', text2: uploadResult.error || 'Tente novamente' });
-      return;
-    }
-
-    setField('documentos_urls', [...formData.documentos_urls, uploadResult.url]);
-    Toast.show({ type: 'success', text1: 'Documento adicionado', text2: 'Salve a ficha para persistir a alteracao.' });
-  };
-
-  const handleRemoverDocumento = async (url: string) => {
-    const path = url.split('/').slice(-2).join('/');
-    setField('documentos_urls', formData.documentos_urls.filter((item) => item !== url));
-    if (path) {
-      await deleteImage(path, 'triagens');
-    }
-  };
 
   const copiarCodigoPaciente = async () => {
     if (!selectedPaciente?.id) return;
@@ -542,30 +508,8 @@ Toast.show({ type: 'error', text1: 'Falha ao enviar documento', text2: uploadRes
                   />
                 </View>
               ))}
-
-              <View style={styles.documentsHeader}>
-                <Text style={styles.sectionTitle}>Documentos e imagens</Text>
-                <TouchableOpacity style={styles.uploadButton} onPress={handleAdicionarDocumento} disabled={uploading}>
-                  <Ionicons name="cloud-upload-outline" size={18} color={COLORS.textInverse} />
-                  <Text style={styles.uploadButtonText}>{uploading ? 'Enviando' : 'Adicionar'}</Text>
-                </TouchableOpacity>
-              </View>
-
-              {!formData.documentos_urls.length ? (
-                <Text style={styles.emptyText}>Sem documentos anexados.</Text>
-              ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.docsRow}>
-                  {formData.documentos_urls.map((url) => (
-                    <View key={url} style={styles.docCard}>
-                      <Image source={{ uri: url }} style={styles.docImage} />
-                      <TouchableOpacity style={styles.removeDocButton} onPress={() => handleRemoverDocumento(url)}>
-                        <Ionicons name="close-circle" size={22} color={COLORS.danger} />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </ScrollView>
-              )}
             </ScrollView>
+
 
             <TouchableOpacity style={[styles.saveButton, saving && styles.saveButtonDisabled]} onPress={salvarPaciente} disabled={saving}>
               <Text style={styles.saveButtonText}>{saving ? 'Salvando...' : 'Salvar ficha do paciente'}</Text>
@@ -685,13 +629,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   fieldMultiline: { minHeight: 88, textAlignVertical: 'top' },
-  documentsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  uploadButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.secondary, borderRadius: SIZES.radiusMd, paddingHorizontal: SIZES.sm, paddingVertical: SIZES.sm },
-  uploadButtonText: { color: COLORS.textInverse, marginLeft: 6, fontWeight: '700', fontSize: SIZES.fontSm },
-  docsRow: { marginBottom: SIZES.md },
-  docCard: { width: 110, height: 110, marginRight: SIZES.sm, borderRadius: SIZES.radiusMd, overflow: 'hidden', backgroundColor: COLORS.backgroundSecondary },
-  docImage: { width: '100%', height: '100%' },
-  removeDocButton: { position: 'absolute', top: 4, right: 4, backgroundColor: COLORS.surface, borderRadius: SIZES.radiusFull },
+
   saveButton: { marginTop: SIZES.sm, backgroundColor: COLORS.secondary, borderRadius: SIZES.radiusMd, paddingVertical: SIZES.md, alignItems: 'center' },
   saveButtonDisabled: { opacity: 0.7 },
   saveButtonText: { color: COLORS.textInverse, fontWeight: '700', fontSize: SIZES.fontMd },

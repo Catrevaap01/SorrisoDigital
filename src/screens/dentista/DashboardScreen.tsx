@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: SIZES.lg,
-    bottom: Platform.OS === 'web' ? 40 : 10,
+    bottom: Platform.OS === 'web' ? 80 : SIZES.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: SIZES.sm,

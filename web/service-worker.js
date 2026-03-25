@@ -1,16 +1,25 @@
 // Service Worker for TeOdonto Angola PWA
-const CACHE_NAME = 'teodonto-v1';
+const CACHE_NAME = 'teodonto-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
+  // Expo RN Web essentials
+  '/static/js/main.*.js',
+  '/static/js/[0-9]*.*.chunk.js',
+  '/static/css/main.*.css',
+  '/assets/*.png',
+  '/assets/*.jpg',
+  '/assets/*.svg',
+  // Fallback offline page
+  '/offline.html'
 ];
 
-// Install event - cache static assets
+// Install - precache all critical assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS);
+      return cache.addAll(STATIC_ASSETS).catch(err => console.warn('SW precache fail:', err));
     })
   );
   self.skipWaiting();
@@ -30,73 +39,36 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Auto update when uma nova versão do SW é detectada
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-});
-
-// Fetch event - network first for API, cache-first for static + fallback offline page
+// Fetch event - network first, fallback to cache
 self.addEventListener('fetch', (event) => {
+  // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
-  const requestURL = new URL(event.request.url);
+  // Skip Supabase API calls (always need fresh data)
+  if (event.request.url.includes('supabase.co')) return;
 
-  // API requests: network first then cache
-  if (requestURL.pathname.startsWith('/api/') || event.request.url.includes('supabase.co')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse.ok) {
-            const networkClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkClone);
-            });
-          }
-          return networkResponse;
-        })
-        .catch(() => caches.match(event.request))
-        .then((cachedResponse) => cachedResponse || caches.match('/offline.html') || new Response('Offline', { status: 503 }))
-    );
-    return;
-  }
-
-  // Assets: Cache First strategy
-  if (event.request.destination === 'style' || event.request.destination === 'script' || event.request.destination === 'image' || event.request.destination === 'font') {
-    event.respondWith(
-      caches.match(event.request).then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        // Clone and cache successful responses
+        if (response.ok) {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
         }
-
-        return fetch(event.request)
-          .then((networkResponse) => {
-            if (networkResponse.ok) {
-              const clone = networkResponse.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-            }
-            return networkResponse;
-          })
-          .catch(() => caches.match('/offline.html') || new Response('Offline', { status: 503 }));
+        return response;
       })
-    );
-    return;
-  }
-
-  // Page navigation fallback
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+      .catch(() => {
+        // Fallback to cache when offline
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
+          // For navigation requests, return the cached index.html
+          if (event.request.mode === 'navigate') {
+            return caches.match('/index.html');
           }
-          return response;
-        })
-        .catch(() => caches.match('/offline.html') || caches.match('/index.html'))
-    );
-  }
+          return new Response('Offline', { status: 503 });
+        });
+      })
+  );
 });
-

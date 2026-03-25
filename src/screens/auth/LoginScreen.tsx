@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import Toast from 'react-native-toast-message';
 
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
@@ -82,22 +81,9 @@ export default function LoginScreen({
         userError = 'Senha temporaria expirou. Peca nova ficha ao dentista.';
       } else if (lowerMsg.includes('email not confirmed')) {
         userError = 'Email precisa confirmacao. Verifique a caixa de entrada.';
-      } else if (lowerMsg.includes('no input text')) {
-        userError = 'Informe email e senha para entrar.';
-      } else if (lowerMsg.includes('text strings must be rendered within a <text> component') || lowerMsg.includes('text strings must be rendered within a text component')) {
-        userError = 'Erro interno do app. Reinicie e tente novamente.';
       }
 
       setError(userError);
-      
-      // Exibe em formato pop-up sempre, com ênfase no mobile
-      Toast.show({
-        type: 'error',
-        text1: 'Falha no Login',
-        text2: userError,
-        position: 'top',
-        visibilityTime: 4000,
-      });
     } finally {
       setLoading(false);
     }
@@ -123,7 +109,11 @@ export default function LoginScreen({
                 <View style={styles.logoCircle}>
                   <Ionicons name="medical" size={50} color={COLORS.primary} />
                 </View>
-                <Text style={{color: COLORS.primary}}>Carregando...</Text>
+                <ActivityIndicator
+                  size="large"
+                  color={COLORS.primary}
+                  style={{ marginTop: SPACING.lg }}
+                />
               </View>
             )}
 
