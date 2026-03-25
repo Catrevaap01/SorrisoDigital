@@ -147,8 +147,9 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
         conversationId,
         user.id,
         profile.nome,
-        profile.foto_url || null,
+        profile?.foto_url ?? null,
         novaMensagem.trim()
+
       );
 
       if (resultado.success) {

@@ -5,18 +5,38 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "theme_color": "#1E88E5",
   "background_color": "#F5F5F5",
   "categories": ["medical", "health"],
   "lang": "pt-BR",
   "icons": [
-    {"src": "/assets/favicon.png", "sizes": "48x48", "type": "image/png", "purpose": "any"},
-    {"src": "/assets/icon.png", "sizes": "192x192 512x512 1024x1024", "type": "image/png", "purpose": "any maskable"}
+    {
+      "src": "/assets/favicon.png",
+      "sizes": "48x48",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon.png",
+      "sizes": "192x192 512x512 1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ],
   "screenshots": [
-    {"src": "https://via.placeholder.com/1280x720/1E88E5/FFFFFF?text=TeOdonto+Dashboard", "sizes": "1280x720", "type": "image/png", "form_factor": "wide"},
-    {"src": "https://via.placeholder.com/750x1334/42A5F5/FFFFFF?text=TeOdonto+Mobile", "sizes": "750x1334", "type": "image/png", "form_factor": "narrow"}
+    {
+      "src": "https://via.placeholder.com/1280x720/1E88E5/FFFFFF?text=TeOdonto+Dashboard",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "https://via.placeholder.com/750x1334/42A5F5/FFFFFF?text=TeOdonto+Mobile",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
   ],
   "prefer_related_applications": false
 }

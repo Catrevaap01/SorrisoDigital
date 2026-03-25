@@ -94,9 +94,11 @@ const MensagensScreen: React.FC = () => {
       dentista.id,
       profile.nome,
       dentista.nome || 'Dentista',
-      profile.foto_url || null,
-      dentista.foto_url || null
+      profile?.foto_url ?? undefined,
+      dentista?.foto_url ?? undefined
     );
+
+
 
     setCriandoConversaId(null);
 

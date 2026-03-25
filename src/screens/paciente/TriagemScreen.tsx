@@ -166,6 +166,14 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
     try {
       // Primeiro verifica permissões
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (!profile?.id) {
+        Toast.show({
+          type: 'error',
+          text1: 'Erro',
+          text2: 'Usuário não autenticado',
+        });
+        return;
+      }
       
       if (status !== 'granted') {
         if (Platform.OS === 'web') {
@@ -230,6 +238,14 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
     try {
       // Solicita permissão de acesso à galeria
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!profile?.id) {
+        Toast.show({
+          type: 'error',
+          text1: 'Erro',
+          text2: 'Usuário não autenticado',
+        });
+        return;
+      }
       
       if (status !== 'granted') {
         Alert.alert(
@@ -287,7 +303,7 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
     }
   };
 
-  const removerImagem = (index) => {
+const removerImagem = (index: number) => {
     const novas = [...imagens];
     novas.splice(index, 1);
     setImagens(novas);
@@ -295,6 +311,16 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
 
   // Enviar triagem
   const enviarTriagem = async () => {
+// FIX: Validar profile.id obrigatório
+    if (!profile || !profile.id) {
+      Toast.show({ 
+        type: 'error', 
+        text1: 'Erro de autenticação', 
+        text2: 'Faça login novamente para enviar triagem' 
+      });
+      return;
+    }
+
     if (!sintomaPrincipal) {
       Toast.show({ type: 'error', text1: 'Selecione o sintoma principal' });
       return;
@@ -326,7 +352,7 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
     setLoading(true);
 
     const triagemData: any = {
-      paciente_id: profile.id,
+        paciente_id: profile!.id,
       sintoma_principal: sintomaPrincipal,
       descricao,
       duracao,
@@ -338,7 +364,10 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
     if (dentistaSelecionado) {
       triagemData.dentista_id = dentistaSelecionado;
     }
-    const result = await criarTriagem(triagemData, imagens, profile.id);
+    
+    // FIX: Melhor error handling + log
+    const result = await criarTriagem(triagemData, imagens, profile!.id);
+    console.log('🔍 Triagem result:', result);
 
     setLoading(false);
 
@@ -361,10 +390,16 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
 
       navigation.navigate('Histórico');
     } else {
+      // FIX: Error específico do service
+      const errorMsg = typeof result.error === 'string' 
+        ? result.error 
+        : result.error instanceof Error 
+          ? result.error.message 
+          : (result.error as any)?.message || 'Erro desconhecido no servidor';
       Toast.show({
         type: 'error',
-        text1: 'Erro ao enviar',
-        text2: 'Tente novamente em alguns instantes',
+        text1: 'Erro ao enviar triagem',
+        text2: errorMsg.includes('storage') ? 'Falha no upload das fotos. Tente sem imagens ou verifique conexão.' : errorMsg,
       });
     }
   };

@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=5, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1.5, user-scalable=yes, viewport-fit=cover" />
+
 
   <!-- PWA Meta Tags -->
   <meta name="theme-color" content="#1E88E5" />
@@ -26,15 +27,16 @@
 
   <style>
     /* Splash/loading screen while JS loads */
-    html, body, #root {
+    #root {
       width: 100%;
       height: 100%;
       margin: 0;
       padding: 0;
-      overflow: hidden;
-      background-color: #1E88E5;
+      overflow: auto;
+      background-color: #F5F5F5;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
+
     #splash-loader {
       display: flex;
       flex-direction: column;

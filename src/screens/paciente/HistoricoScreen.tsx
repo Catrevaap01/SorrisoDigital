@@ -1,15 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
+  ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Image,
-  Modal,
-  ScrollView,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,629 +17,214 @@ import {
 } from '../../services/triagemService';
 import { buscarAgendamentosPaciente } from '../../services/agendamentoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
-import { STATUS_TRIAGEM, RECOMENDACAO, STATUS_AGENDAMENTO, TIPOS_CONSULTA } from '../../utils/constants';
-import { formatDateTime, formatRelativeTime } from '../../utils/helpers';
-import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { PacienteTabParamList } from '../../navigation/types';
-import Loading from '../../components/ui/Loading';
+import { FILTROS_HISTORICO, STATUS_TRIAGEM, STATUS_AGENDAMENTO } from '../../utils/constants';
+import { formatRelativeTime } from '../../utils/helpers';
 
-type HistoricoProps = BottomTabScreenProps<PacienteTabParamList, 'Histórico'>;
+interface HistoricoItem {
+  id: string;
+  tipo: 'triagem' | 'agendamento';
+  status?: string;
+  created_at?: string;
+  data_agendamento?: string;
+  sintoma_principal?: string;
+  descricao?: string;
+  respostas?: any[];
+  intensidade_dor?: string;
+  prioridade?: string;
+}
 
-const HistoricoScreen: React.FC<HistoricoProps> = () => {
+const HistoricoScreen = () => {
   const { profile } = useAuth();
-  const [triagens, setTriagens] = useState<any[]>([]);
-  const [agendamentos, setAgendamentos] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
-  const [filtroAtivo, setFiltroAtivo] = useState<string>('todos');
-  const [modalVisible, setModalVisible] = useState<boolean>(false);
-  const [triagemSelecionada, setTriagemSelecionada] = useState<any | null>(null);
-  const [modalAgendamentoVisible, setModalAgendamentoVisible] = useState<boolean>(false);
-  const [agendamentoSelecionado, setAgendamentoSelecionado] = useState<any | null>(null);
+  const [dados, setDados] = useState<HistoricoItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [categoriaAtiva, setCategoriaAtiva] = useState('todos');
 
-  const carregarTriagens = async () => {
-    if (!profile?.id) return;
+  const carregarDados = async (filtro: string | null) => {
+    setLoading(true);
+    setRefreshing(true);
+    try {
+      if (!profile?.id) {
+        setDados([]);
+        return;
+      }
 
-    const tipo = profile?.tipo;
-    const result =
-      tipo === 'dentista' || tipo === 'medico'
-        ? await buscarTriagensDentista(profile.id)
-        : tipo === 'admin'
-          ? await buscarTodasTriagens({ status: null })
-          : await buscarTriagensPaciente(profile.id);
+      let triagens: any[] = [];
+      let agendamentos: any[] = [];
 
-    if (result.success) {
-      setTriagens(result.data || []);
+      const tipo = profile.tipo;
+      if (tipo === 'dentista' || tipo === 'medico') {
+        const result = await buscarTriagensDentista(profile.id);
+        if (result.success) triagens = result.data || [];
+      } else if (tipo === 'admin') {
+        const result = await buscarTodasTriagens({ status: null });
+        if (result.success) triagens = result.data || [];
+      } else {
+        const result = await buscarTriagensPaciente(profile.id);
+        if (result.success) triagens = result.data || [];
+      }
+
+      const resultAg = await buscarAgendamentosPaciente(profile.id);
+      if (resultAg.success) agendamentos = resultAg.data || [];
+
+      let dadosCombinados: HistoricoItem[] = [
+        ...triagens.map((t: any) => ({ ...t, tipo: 'triagem' as const, descricao: t.sintoma_principal })),
+        ...agendamentos.map((a: any) => ({ ...a, tipo: 'agendamento' as const })),
+      ];
+
+      if (filtro && filtro !== 'todos') {
+        dadosCombinados = dadosCombinados.filter((item) => {
+          if (item.tipo === 'triagem') {
+            return item.status === filtro || (filtro === 'urgente' && (item.status === 'urgente' || Number(item.intensidade_dor || 0) >= 8));
+          }
+          return item.status === filtro;
+        });
+      }
+
+      setDados(dadosCombinados.sort((a, b) => {
+        const dataA = a.tipo === 'triagem' ? a.created_at : a.data_agendamento;
+        const dataB = b.tipo === 'triagem' ? b.created_at : b.data_agendamento;
+        return new Date(dataB || 0).getTime() - new Date(dataA || 0).getTime();
+      }));
+    } catch (error) {
+      console.error('Erro carregando dados:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    setLoading(false);
-  };
-
-  const carregarAgendamentos = async () => {
-    if (!profile?.id) return;
-
-    const result = await buscarAgendamentosPaciente(profile.id);
-    if (result.success) {
-      setAgendamentos(result.data || []);
-    }
-  };
-
-  const carregarDados = async () => {
-    await Promise.all([carregarTriagens(), carregarAgendamentos()]);
   };
 
   useEffect(() => {
-    carregarDados();
-  }, [profile]);
+    carregarDados(categoriaAtiva === 'todos' ? null : categoriaAtiva);
+  }, [categoriaAtiva, profile]);
 
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await carregarDados();
-    setRefreshing(false);
-  }, [profile]);
-
-  const filtros = [
-    { id: 'todos', label: 'Todos' },
-    { id: 'pendente', label: 'Pend.' },
-    { id: 'confirmado', label: 'Confirmado' },
-    { id: 'cancelado', label: 'Cancel.' },
-    { id: 'realizado', label: 'Realiz.' },
-    { id: 'urgente', label: 'Urg.' },
-  ];
-
-  const triagensFiltradas =
-    filtroAtivo === 'todos'
-      ? triagens
-      : triagens.filter((t: any) => {
-          if (filtroAtivo === 'respondido') {
-            return t.status === 'respondido' || (t.respostas && t.respostas.length > 0);
-          }
-          if (filtroAtivo === 'urgente') {
-            return (
-              t.status === 'urgente' ||
-              t.prioridade === 'urgente' ||
-              Number(t.intensidade_dor || 0) >= 8
-            );
-          }
-          return t.status === filtroAtivo;
-        });
-
-  const agendamentosFiltrados =
-    filtroAtivo === 'todos'
-      ? agendamentos
-      : agendamentos.filter((a: any) => {
-          if (filtroAtivo === 'confirmado') {
-            return a.status === 'confirmado' || a.status === 'agendado';
-          }
-          return a.status === filtroAtivo;
-        });
-
-  const dadosCombinados = [
-    ...triagensFiltradas.map((t: any) => ({ ...t, tipo: 'triagem' })),
-    ...agendamentosFiltrados.map((a: any) => ({ ...a, tipo: 'agendamento' })),
-  ].sort((a: any, b: any) => {
-    const dataA = a.tipo === 'triagem' ? a.created_at : a.data_agendamento;
-    const dataB = b.tipo === 'triagem' ? b.created_at : b.data_agendamento;
-    return new Date(dataB).getTime() - new Date(dataA).getTime();
-  });
-
-  const abrirDetalhes = (triagem: any) => {
-    setTriagemSelecionada(triagem);
-    setModalVisible(true);
+  const onRefresh = () => {
+    carregarDados(categoriaAtiva === 'todos' ? null : categoriaAtiva);
   };
 
-  const abrirDetalhesAgendamento = (agendamento: any) => {
-    setAgendamentoSelecionado(agendamento);
-    setModalAgendamentoVisible(true);
-  };
-
-  const renderTriagem = ({ item }: { item: any }) => {
-    const temResposta = item.respostas && item.respostas.length > 0;
-    const effectiveStatus = temResposta
-      ? 'respondido'
-      : item.status === 'urgente' || item.prioridade === 'urgente' || Number(item.intensidade_dor || 0) >= 8
-        ? 'urgente'
-        : item.status || 'pendente';
-    const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
-
-    return (
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => abrirDetalhes(item)}
-        activeOpacity={0.7}
-      >
-        {/* Header */}
-        <View style={styles.cardHeader}>
-          <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
-            <Ionicons name={statusInfo.icon as any} size={12} color="#fff" />
-            <Text style={styles.statusText}>{statusInfo.label}</Text>
-          </View>
-          <Text style={styles.cardData}>{formatRelativeTime(item.created_at)}</Text>
-        </View>
-
-        {/* Sintoma */}
-        <Text style={styles.cardSintoma}>{item.sintoma_principal}</Text>
-
-        {/* Descrição */}
-        {item.descricao && (
-          <Text style={styles.cardDescricao} numberOfLines={2}>
-            {item.descricao}
-          </Text>
-        )}
-
-        {/* Info Row */}
-        <View style={styles.cardInfoRow}>
-          <View style={styles.infoItem}>
-            <Ionicons name="fitness" size={14} color={COLORS.textSecondary} />
-            <Text style={styles.infoText}>Dor: {item.intensidade_dor}/10</Text>
-          </View>
-
-          {item.imagens && item.imagens.length > 0 && (
-            <View style={styles.infoItem}>
-              <Ionicons name="images" size={14} color={COLORS.textSecondary} />
-              <Text style={styles.infoText}>{item.imagens.length} foto(s)</Text>
-            </View>
-          )}
-
-          {item.duracao && (
-            <View style={styles.infoItem}>
-              <Ionicons name="time" size={14} color={COLORS.textSecondary} />
-              <Text style={styles.infoText}>{item.duracao}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Resposta Preview */}
-        {temResposta && (
-          <View style={styles.respostaPreview}>
-            <View style={styles.respostaHeader}>
-              <Ionicons name="person-circle-outline" size={16} color={COLORS.secondary} />
-              <Text style={styles.respostaHeaderText}>
-                Dr(a). {item.respostas[0].dentista?.nome || 'Dentista'}
-              </Text>
-            </View>
-
-            {item.respostas[0].recomendacao && (
-              <Text style={styles.recomendacaoDestaque}>
-                ⭐ {item.respostas[0].recomendacao}
-              </Text>
-            )}
-
-            <Text style={styles.respostaTexto} numberOfLines={2}>
-              {item.respostas[0].orientacao}
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  const renderAgendamento = ({ item }: { item: any }) => {
-    const statusInfo = STATUS_AGENDAMENTO[item.status] || STATUS_AGENDAMENTO.pendente;
-    const tipoConsulta = TIPOS_CONSULTA[item.tipo] || TIPOS_CONSULTA.consulta;
-
-    return (
-      <TouchableOpacity
-        style={[styles.card, styles.cardAgendamento]}
-        onPress={() => abrirDetalhesAgendamento(item)}
-        activeOpacity={0.7}
-      >
-        {/* Header */}
-        <View style={styles.cardHeader}>
-          <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
-            <Ionicons name={statusInfo.icon as any} size={12} color="#fff" />
-            <Text style={styles.statusText}>{statusInfo.label}</Text>
-          </View>
-          <Text style={styles.cardData}>{formatRelativeTime(item.data_agendamento)}</Text>
-        </View>
-
-        {/* Tipo de Consulta */}
-        <View style={styles.tipoConsultaRow}>
-          <Ionicons name={tipoConsulta.icon as any} size={20} color={tipoConsulta.color} />
-          <Text style={[styles.tipoConsultaText, { color: tipoConsulta.color }]}>
-            {tipoConsulta.label}
-          </Text>
-        </View>
-
-        {/* Informações do Dentista */}
-        {item.dentista && (
-          <View style={styles.dentistaInfoRow}>
-            <Ionicons name="person" size={14} color={COLORS.textSecondary} />
-            <Text style={styles.dentistaNomeText}>
-              Dr(a). {item.dentista.nome}
-            </Text>
-          </View>
-        )}
-
-        {/* Data e Hora */}
-        <View style={styles.cardInfoRow}>
-          <View style={styles.infoItem}>
-            <Ionicons name="calendar" size={14} color={COLORS.textSecondary} />
-            <Text style={styles.infoText}>
-              {new Date(item.data_agendamento).toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-              })}
-            </Text>
-          </View>
-          <View style={styles.infoItem}>
-            <Ionicons name="time" size={14} color={COLORS.textSecondary} />
-            <Text style={styles.infoText}>
-              {new Date(item.data_agendamento).toLocaleTimeString('pt-BR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </Text>
-          </View>
-        </View>
-
-        {/* Observações */}
-        {item.observacoes && (
-          <Text style={styles.cardDescricao} numberOfLines={2}>
-            {item.observacoes}
-          </Text>
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  const renderItem = ({ item }: { item: any }) => {
-    if (item.tipo === 'agendamento') {
-      return renderAgendamento({ item });
+  const getStatusInfo = (item: HistoricoItem) => {
+    if (item.tipo === 'triagem') {
+      const effectiveStatus = item.respostas && item.respostas.length > 0 ? 'respondido' : item.status || 'pendente';
+      return (STATUS_TRIAGEM as any)[effectiveStatus] || (STATUS_TRIAGEM as any).pendente;
     }
-    return renderTriagem({ item });
+    return (STATUS_AGENDAMENTO as any)[item.status || 'pendente'] || (STATUS_AGENDAMENTO as any).pendente;
   };
 
-  const renderModalDetalhes = () => {
-    if (!triagemSelecionada) return null;
-
-    const statusInfo = STATUS_TRIAGEM[triagemSelecionada.status] || STATUS_TRIAGEM.pendente;
-    const resposta = triagemSelecionada.respostas?.[0];
-    const recomendacaoInfo = resposta?.recomendacao
-      ? RECOMENDACAO[resposta.recomendacao]
-      : null;
-
-    return (
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Detalhes da Triagem</Text>
-              <TouchableOpacity
-                onPress={() => setModalVisible(false)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close" size={24} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Status */}
-              <View style={[styles.modalStatusBadge, { backgroundColor: statusInfo.color }]}>
-                <Ionicons name={statusInfo.icon as any} size={16} color="#fff" />
-                <Text style={styles.modalStatusText}>{statusInfo.label}</Text>
-              </View>
-
-              {/* Informações Básicas */}
-              <View style={styles.modalSection}>
-                <Text style={styles.modalLabel}>Sintoma Principal</Text>
-                <Text style={styles.modalValue}>{triagemSelecionada.sintoma_principal}</Text>
-              </View>
-
-              <View style={styles.modalRow}>
-                <View style={styles.modalColumn}>
-                  <Text style={styles.modalLabel}>Data</Text>
-                  <Text style={styles.modalValue}>
-                    {formatDateTime(triagemSelecionada.created_at)}
-                  </Text>
-                </View>
-                <View style={styles.modalColumn}>
-                  <Text style={styles.modalLabel}>Intensidade</Text>
-                  <Text style={[
-                    styles.modalValue,
-                    triagemSelecionada.intensidade_dor >= 7 && styles.dorAlta
-                  ]}>
-                    {triagemSelecionada.intensidade_dor}/10
-                  </Text>
-                </View>
-              </View>
-
-              {triagemSelecionada.duracao && (
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalLabel}>Duração</Text>
-                  <Text style={styles.modalValue}>{triagemSelecionada.duracao}</Text>
-                </View>
-              )}
-
-              {triagemSelecionada.localizacao && (
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalLabel}>Localização</Text>
-                  <Text style={styles.modalValue}>{triagemSelecionada.localizacao}</Text>
-                </View>
-              )}
-
-              {triagemSelecionada.respostas && triagemSelecionada.respostas.length > 0 && (
-                <View style={[styles.modalSection, styles.modalSectionResposta]}>
-                  <View style={styles.modalSectionHeader}>
-                    <Ionicons name="chatbubbles" size={20} color={COLORS.secondary} />
-                    <Text style={[styles.modalSectionTitle, { color: COLORS.secondary }]}>
-                      Avaliação do Dentista
-                    </Text>
-                  </View>
-
-                  <View style={styles.dentistaInfoBox}>
-                    <Ionicons name="person-circle" size={40} color={COLORS.secondary} />
-                    <View style={{ marginLeft: 12 }}>
-                      <Text style={styles.modalDentistaNome}>
-                        Dr(a). {triagemSelecionada.respostas[0].dentista?.nome || 'Dentista'}
-                      </Text>
-                      <Text style={styles.modalDentistaSub}>Profissional de Odontologia</Text>
-                    </View>
-                  </View>
-
-                  {triagemSelecionada.respostas[0].recomendacao && (
-                    <View style={styles.recomendacaoBox}>
-                      <Text style={styles.recomendacaoLabel}>Recomendação:</Text>
-                      <Text style={styles.recomendacaoValor}>
-                        {triagemSelecionada.respostas[0].recomendacao}
-                      </Text>
-                    </View>
-                  )}
-
-                  <View style={styles.orientacaoBox}>
-                    <Text style={styles.orientacaoLabel}>Orientação detalhada:</Text>
-                    <Text style={styles.orientacaoValor}>
-                      {triagemSelecionada.respostas[0].orientacao}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Imagens */}
-              {triagemSelecionada.imagens && triagemSelecionada.imagens.length > 0 && (
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalLabel}>Fotos Enviadas</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    {triagemSelecionada.imagens.map((uri: string, index: number) => (
-                      <Image
-                        key={index}
-                        source={{ uri }}
-                        style={styles.modalImage}
-                      />
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-
-              {/* Resposta do Dentista */}
-              {resposta && (
-                <View style={styles.respostaBox}>
-                  <View style={styles.respostaBoxHeader}>
-                    <Ionicons name="medical" size={20} color={COLORS.secondary} />
-                    <Text style={styles.respostaBoxTitle}>Resposta do Profissional</Text>
-                  </View>
-
-                  {resposta.dentista?.nome && (
-                    <Text style={styles.dentistaNome}>
-                      Dr(a). {resposta.dentista.nome}
-                      {resposta.dentista.especialidade && ` - ${resposta.dentista.especialidade}`}
-                    </Text>
-                  )}
-
-                  <Text style={styles.respostaBoxText}>{resposta.orientacao}</Text>
-
-                  {recomendacaoInfo && (
-                    <View style={[styles.recomendacaoBadge, { backgroundColor: recomendacaoInfo.color + '20' }]}>
-                      <Ionicons name={recomendacaoInfo.icon as any} size={18} color={recomendacaoInfo.color} />
-                      <Text style={[styles.recomendacaoText, { color: recomendacaoInfo.color }]}>
-                        {recomendacaoInfo.label}
-                      </Text>
-                    </View>
-                  )}
-
-                  {resposta.observacoes && (
-                    <View style={styles.observacoesBox}>
-                      <Text style={styles.observacoesLabel}>Observações:</Text>
-                      <Text style={styles.observacoesText}>{resposta.observacoes}</Text>
-                    </View>
-                  )}
-                </View>
-              )}
-
-              {/* Aviso */}
-              <View style={styles.modalAviso}>
-                <Ionicons name="information-circle" size={16} color={COLORS.accent} />
-                <Text style={styles.modalAvisoText}>
-                  Esta orientação não substitui avaliação presencial.
-                  Em caso de dúvidas ou piora dos sintomas, procure atendimento.
-                </Text>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-    );
+  const getIconeTipo = (tipo: string) => {
+    if (tipo === 'triagem') return 'help-circle-outline';
+    if (tipo === 'agendamento') return 'calendar-outline';
+    return 'document-text-outline';
   };
 
-  const renderModalDetalhesAgendamento = () => {
-    if (!agendamentoSelecionado) return null;
+  const getCorTipo = (tipo: string) => {
+    if (tipo === 'triagem') return '#FF9800';
+    if (tipo === 'agendamento') return '#4CAF50';
+    return COLORS.primary;
+  };
 
-    const statusInfo = STATUS_AGENDAMENTO[agendamentoSelecionado.status] || STATUS_AGENDAMENTO.pendente;
-    const tipoConsulta = TIPOS_CONSULTA[agendamentoSelecionado.tipo] || TIPOS_CONSULTA.consulta;
+  const renderHistoricoItem = (item: HistoricoItem) => {
+    const statusInfo = getStatusInfo(item);
+    const cor = getCorTipo(item.tipo);
+    const data = formatRelativeTime(item.tipo === 'triagem' ? (item.created_at || '') : (item.data_agendamento || ''));
 
+    
     return (
-      <Modal
-        visible={modalAgendamentoVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setModalAgendamentoVisible(false)}
+      <TouchableOpacity
+        key={item.id}
+        style={styles.card}
+        activeOpacity={0.7}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {/* Modal Header */}
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Detalhes do Agendamento</Text>
-              <TouchableOpacity
-                onPress={() => setModalAgendamentoVisible(false)}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close" size={24} color={COLORS.text} />
-              </TouchableOpacity>
+        <View style={[styles.cardIconContainer, { backgroundColor: cor + '20' }]}>
+          <Ionicons name={getIconeTipo(item.tipo) as any} size={28} color={cor} />
+        </View>
+        
+        <View style={styles.cardContent}>
+          <Text style={styles.cardTitulo} numberOfLines={2}>
+            {item.tipo === 'triagem' ? item.sintoma_principal : item.tipo || 'Consulta'}
+          </Text>
+          {item.descricao && (
+            <Text style={styles.cardDescricao} numberOfLines={2}>{item.descricao}</Text>
+          )}
+          
+          <View style={styles.cardFooter}>
+            <View style={[styles.categoriaBadge, { backgroundColor: cor + '20' }]}>
+              <Text style={[styles.categoriaText, { color: cor }]}>{statusInfo.label}</Text>
             </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Status */}
-              <View style={[styles.modalStatusBadge, { backgroundColor: statusInfo.color }]}>
-                <Ionicons name={statusInfo.icon as any} size={16} color="#fff" />
-                <Text style={styles.modalStatusText}>{statusInfo.label}</Text>
-              </View>
-
-              {/* Tipo de Consulta */}
-              <View style={styles.modalSection}>
-                <Text style={styles.modalLabel}>Tipo de Consulta</Text>
-                <View style={styles.tipoConsultaRow}>
-                  <Ionicons name={tipoConsulta.icon as any} size={24} color={tipoConsulta.color} />
-                  <Text style={[styles.tipoConsultaText, { color: tipoConsulta.color, marginLeft: SIZES.sm }]}>
-                    {tipoConsulta.label}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Informações do Dentista */}
-              {agendamentoSelecionado.dentista && (
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalLabel}>Dentista</Text>
-                  <Text style={styles.modalValue}>
-                    Dr(a). {agendamentoSelecionado.dentista.nome}
-                    {agendamentoSelecionado.dentista.especialidade && ` - ${agendamentoSelecionado.dentista.especialidade}`}
-                  </Text>
-                </View>
-              )}
-
-              {/* Data e Hora */}
-              <View style={styles.modalRow}>
-                <View style={styles.modalColumn}>
-                  <Text style={styles.modalLabel}>Data</Text>
-                  <Text style={styles.modalValue}>
-                    {new Date(agendamentoSelecionado.data_agendamento).toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                    })}
-                  </Text>
-                </View>
-                <View style={styles.modalColumn}>
-                  <Text style={styles.modalLabel}>Hora</Text>
-                  <Text style={styles.modalValue}>
-                    {new Date(agendamentoSelecionado.data_agendamento).toLocaleTimeString('pt-BR', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Observações */}
-              {agendamentoSelecionado.observacoes && (
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalLabel}>Observações</Text>
-                  <Text style={styles.modalValueMultiline}>
-                    {agendamentoSelecionado.observacoes}
-                  </Text>
-                </View>
-              )}
-
-              {/* Aviso */}
-              <View style={styles.modalAviso}>
-                <Ionicons name="information-circle" size={16} color={COLORS.accent} />
-                <Text style={styles.modalAvisoText}>
-                  Em caso de dúvidas ou necessidade de remarcar, entre em contato conosco.
-                </Text>
-              </View>
-            </ScrollView>
+            
+            <View style={styles.viewsContainer}>
+              <Ionicons name="time-outline" size={14} color={COLORS.textSecondary} />
+              <Text style={styles.viewsText}>{data}</Text>
+            </View>
           </View>
         </View>
-      </Modal>
+
+        <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+      </TouchableOpacity>
     );
   };
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
-        <Loading />
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Carregando histórico...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Filtros */}
-      <View style={styles.filtrosContainer}>
-        <FlatList
-          horizontal
-          data={filtros}
-          keyExtractor={(item) => item.id}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtrosList}
-          renderItem={({ item }) => (
+      <View style={styles.categoriasContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          {FILTROS_HISTORICO.map((cat) => (
             <TouchableOpacity
+              key={cat.id}
               style={[
-                styles.filtroButton,
-                filtroAtivo === item.id && styles.filtroButtonActive,
-                Platform.OS === 'web' && styles.webFiltroButton,
+                styles.categoriaButton,
+                categoriaAtiva === cat.id && styles.categoriaButtonActive,
               ]}
-              onPress={() => setFiltroAtivo(item.id)}
+              onPress={() => setCategoriaAtiva(cat.id)}
             >
+              <Ionicons
+                name={cat.icon as any}
+                size={18}
+                color={categoriaAtiva === cat.id ? COLORS.textInverse : COLORS.primary}
+              />
               <Text
                 style={[
-                  styles.filtroText,
-                  filtroAtivo === item.id && styles.filtroTextActive,
+                  styles.categoriaButtonText,
+                  categoriaAtiva === cat.id && styles.categoriaButtonTextActive,
                 ]}
               >
-                {item.label}
+                {cat.label}
               </Text>
             </TouchableOpacity>
-          )}
-        />
+          ))}
+        </ScrollView>
       </View>
 
-      {/* Lista de dados combinados (triagens + agendamentos) */}
-      {dadosCombinados.length === 0 ? (
-        <View style={styles.centerContainer}>
-          <Ionicons name="document-text-outline" size={64} color={COLORS.textSecondary} />
-          <Text style={styles.emptyTitle}>Nenhum registro encontrado</Text>
-          <Text style={styles.emptySubtitle}>
-            Seus agendamentos e triagens aparecerão aqui
-          </Text>
+      {dados.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="document-text-outline" size={64} color={COLORS.textLight} />
+          <Text style={styles.emptyText}>Nenhum registro encontrado</Text>
         </View>
       ) : (
-        <FlatList
-          data={dadosCombinados}
-          keyExtractor={(item: any, index: number) => `${item.tipo}-${item.id}-${index}`}
-          renderItem={renderItem}
-          contentContainerStyle={[
-            styles.lista,
-            Platform.OS === 'web' && styles.webLista,
-          ]}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[COLORS.primary]}
-            />
-          }
-        />
-      )}
+        <ScrollView
+          style={styles.listaContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.destaqueContainer}>
+            <Text style={styles.destaqueTitle}>📋 Seu Histórico</Text>
+            <Text style={styles.destaqueSubtitle}>
+              Agendamentos e triagens realizadas
+            </Text>
+          </View>
 
-      {/* Modais */}
-      {renderModalDetalhes()}
-      {renderModalDetalhesAgendamento()}
+          {dados.map(renderHistoricoItem)}
+
+          <View style={{ height: 20 }} />
+        </ScrollView>
+      )}
     </View>
   );
 };
@@ -652,409 +234,132 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  filtrosContainer: {
+  categoriasContainer: {
     backgroundColor: COLORS.surface,
     paddingVertical: SIZES.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
-    alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
+    paddingHorizontal: SIZES.sm,
+    ...SHADOWS.sm,
   },
-  filtrosList: {
+  scrollContent: {
     paddingHorizontal: SIZES.md,
-    alignSelf: Platform.OS === 'web' ? 'center' : 'auto',
   },
-  filtroButton: {
+  categoriaButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: SIZES.md,
     paddingVertical: SIZES.sm,
     borderRadius: SIZES.radiusFull,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#E3F2FD',
     marginRight: SIZES.sm,
   },
-  webFiltroButton: {
-    paddingHorizontal: SIZES.lg,
-    marginHorizontal: SIZES.xs,
-  },
-  filtroButtonActive: {
+  categoriaButtonActive: {
     backgroundColor: COLORS.primary,
   },
-  filtroText: {
-    fontSize: SIZES.fontSm,
-    color: COLORS.textSecondary,
+  categoriaButtonText: {
+    marginLeft: SIZES.xs,
+    color: COLORS.primary,
     fontWeight: '500',
   },
-  filtroTextActive: {
+  categoriaButtonTextActive: {
     color: COLORS.textInverse,
-    fontWeight: 'bold',
   },
-  centerContainer: {
+  loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SIZES.xl,
   },
-  emptyTitle: {
-    fontSize: SIZES.fontLg,
-    fontWeight: 'bold',
-    color: COLORS.text,
+  loadingText: {
     marginTop: SIZES.md,
-  },
-  emptySubtitle: {
-    fontSize: SIZES.fontMd,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginTop: SIZES.xs,
-  },
-  lista: {
-    padding: SIZES.md,
-  },
-  webLista: {
-    maxWidth: 900,
-    width: '100%',
-    alignSelf: 'center',
-    paddingTop: SIZES.lg,
-    paddingBottom: 100,
-  },
-  card: {
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusMd,
-    padding: SIZES.md,
-    marginBottom: SIZES.md,
-    ...SHADOWS.sm,
-  },
-  cardAgendamento: {
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.primary,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SIZES.sm,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SIZES.sm,
-    paddingVertical: 4,
-    borderRadius: SIZES.radiusFull,
-  },
-  statusText: {
-    color: COLORS.textInverse,
-    fontSize: SIZES.fontXs,
-    fontWeight: 'bold',
-    marginLeft: 4,
-  },
-  cardData: {
-    fontSize: SIZES.fontSm,
     color: COLORS.textSecondary,
   },
-  cardSintoma: {
-    fontSize: SIZES.fontLg,
-    fontWeight: 'bold',
-    color: COLORS.text,
-    marginBottom: SIZES.xs,
-  },
-  cardDescricao: {
-    fontSize: SIZES.fontMd,
-    color: COLORS.textSecondary,
-    marginBottom: SIZES.sm,
-  },
-  tipoConsultaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SIZES.sm,
-  },
-  tipoConsultaText: {
-    fontSize: SIZES.fontLg,
-    fontWeight: 'bold',
-    marginLeft: SIZES.sm,
-  },
-  dentistaInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SIZES.sm,
-  },
-  dentistaNomeText: {
-    fontSize: SIZES.fontMd,
-    color: COLORS.text,
-    marginLeft: SIZES.xs,
-  },
-  cardInfoRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
-    paddingTop: SIZES.sm,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: SIZES.md,
-    marginBottom: SIZES.xs,
-  },
-  infoText: {
-    fontSize: SIZES.fontSm,
-    color: COLORS.textSecondary,
-    marginLeft: 4,
-  },
-  respostaPreview: {
-    backgroundColor: '#F5FEF9',
-    padding: SIZES.md,
-    borderRadius: SIZES.radiusMd,
-    marginTop: SIZES.md,
-    borderLeftWidth: 3,
-    borderLeftColor: COLORS.secondary,
-  },
-  respostaHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  respostaHeaderText: {
-    fontSize: SIZES.fontSm,
-    fontWeight: 'bold',
-    color: COLORS.secondary,
-    marginLeft: 6,
-  },
-  recomendacaoDestaque: {
-    fontSize: SIZES.fontXs,
-    fontWeight: '600',
-    color: '#2E7D32',
-    marginBottom: 4,
-  },
-  respostaTexto: {
-    fontSize: SIZES.fontSm,
-    color: COLORS.textSecondary,
-    lineHeight: 18,
-  },
-  // Modal Styles
-  modalOverlay: {
+  emptyContainer: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
-    alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
-  },
-  modalContent: {
-    backgroundColor: COLORS.surface,
-    borderTopLeftRadius: SIZES.radiusXl,
-    borderTopRightRadius: SIZES.radiusXl,
-    borderBottomLeftRadius: Platform.OS === 'web' ? SIZES.radiusXl : 0,
-    borderBottomRightRadius: Platform.OS === 'web' ? SIZES.radiusXl : 0,
-    maxHeight: '90%',
-    width: Platform.OS === 'web' ? '100%' : undefined,
-    maxWidth: Platform.OS === 'web' ? 600 : undefined,
-    paddingBottom: SIZES.xl,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    padding: SIZES.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
   },
-  modalTitle: {
+  emptyText: {
+    marginTop: SIZES.md,
+    color: COLORS.textSecondary,
+    fontSize: SIZES.fontLg,
+  },
+  listaContainer: {
+    flex: 1,
+  },
+  destaqueContainer: {
+    backgroundColor: COLORS.primary,
+    margin: SIZES.md,
+    padding: SIZES.lg,
+    borderRadius: SIZES.radiusMd,
+  },
+  destaqueTitle: {
     fontSize: SIZES.fontXl,
     fontWeight: 'bold',
-    color: COLORS.text,
-  },
-  modalStatusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: SIZES.md,
-    paddingVertical: SIZES.xs,
-    borderRadius: SIZES.radiusFull,
-    marginHorizontal: SIZES.md,
-    marginTop: SIZES.md,
-  },
-  modalStatusText: {
     color: COLORS.textInverse,
-    fontWeight: 'bold',
-    marginLeft: SIZES.xs,
   },
-  modalSection: {
-    paddingHorizontal: SIZES.md,
-    marginTop: SIZES.md,
+  destaqueSubtitle: {
+    fontSize: SIZES.fontMd,
+    color: COLORS.textInverse,
+    opacity: 0.9,
+    marginTop: SIZES.xs,
   },
-  modalRow: {
+  card: {
     flexDirection: 'row',
-    paddingHorizontal: SIZES.md,
-    marginTop: SIZES.md,
-  },
-  modalColumn: {
-    flex: 1,
-  },
-  modalLabel: {
-    fontSize: SIZES.fontSm,
-    color: COLORS.textSecondary,
-    marginBottom: 4,
-  },
-  modalValue: {
-    fontSize: SIZES.fontMd,
-    color: COLORS.text,
-    fontWeight: '500',
-  },
-  modalValueMultiline: {
-    fontSize: SIZES.fontMd,
-    color: COLORS.text,
-    lineHeight: 22,
-  },
-  dorAlta: {
-    color: COLORS.danger,
-    fontWeight: 'bold',
-  },
-  modalImage: {
-    width: 120,
-    height: 120,
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    marginHorizontal: SIZES.md,
+    marginBottom: SIZES.sm,
+    padding: SIZES.md,
     borderRadius: SIZES.radiusMd,
+    ...SHADOWS.sm,
+  },
+  cardIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardContent: {
+    flex: 1,
+    marginLeft: SIZES.md,
     marginRight: SIZES.sm,
-    marginTop: SIZES.sm,
   },
-  respostaBox: {
-    backgroundColor: '#E8F5E9',
-    marginHorizontal: SIZES.md,
-    marginTop: SIZES.lg,
-    padding: SIZES.md,
-    borderRadius: SIZES.radiusMd,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.secondary,
-  },
-  respostaBoxHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SIZES.sm,
-  },
-  respostaBoxTitle: {
+  cardTitulo: {
     fontSize: SIZES.fontMd,
     fontWeight: 'bold',
-    color: COLORS.secondary,
-    marginLeft: SIZES.sm,
-  },
-  dentistaNome: {
-    fontSize: SIZES.fontSm,
-    color: COLORS.textSecondary,
-    marginBottom: SIZES.sm,
-  },
-  respostaBoxText: {
-    fontSize: SIZES.fontMd,
-    color: COLORS.text,
-    lineHeight: 22,
-  },
-  recomendacaoBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: SIZES.md,
-    paddingVertical: SIZES.sm,
-    borderRadius: SIZES.radiusMd,
-    marginTop: SIZES.md,
-  },
-  recomendacaoText: {
-    fontWeight: 'bold',
-    marginLeft: SIZES.sm,
-  },
-  observacoesBox: {
-    backgroundColor: 'rgba(255,255,255,0.5)',
-    padding: SIZES.sm,
-    borderRadius: SIZES.radiusSm,
-    marginTop: SIZES.md,
-  },
-  observacoesLabel: {
-    fontSize: SIZES.fontSm,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: 4,
-  },
-  observacoesText: {
-    fontSize: SIZES.fontMd,
     color: COLORS.text,
   },
-  modalAviso: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#FFF3E0',
-    marginHorizontal: SIZES.md,
-    marginTop: SIZES.lg,
-    padding: SIZES.md,
-    borderRadius: SIZES.radiusMd,
-  },
-  modalAvisoText: {
-    flex: 1,
-    marginLeft: SIZES.sm,
+  cardDescricao: {
     fontSize: SIZES.fontSm,
-    color: '#E65100',
+    color: COLORS.textSecondary,
+    marginTop: 2,
     lineHeight: 18,
   },
-  modalSectionResposta: {
-    backgroundColor: '#F0F9F4',
-    borderColor: '#C8E6C9',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 16,
-    marginHorizontal: 16,
-  },
-  modalSectionHeader: {
+  cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    marginTop: SIZES.sm,
   },
-  modalSectionTitle: {
-    fontSize: SIZES.fontMd,
-    fontWeight: 'bold',
-    marginLeft: 8,
+  categoriaBadge: {
+    paddingHorizontal: SIZES.sm,
+    paddingVertical: 2,
+    borderRadius: SIZES.radiusSm,
   },
-  dentistaInfoBox: {
+  categoriaText: {
+    fontSize: SIZES.fontXs,
+    fontWeight: '600',
+  },
+  viewsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
   },
-  modalDentistaNome: {
-    fontSize: SIZES.fontMd,
-    fontWeight: 'bold',
-    color: COLORS.text,
-  },
-  modalDentistaSub: {
+  viewsText: {
     fontSize: SIZES.fontXs,
     color: COLORS.textSecondary,
-  },
-  recomendacaoBox: {
-    backgroundColor: '#E8F5E9',
-    padding: 10,
-    borderRadius: 6,
-    marginBottom: 12,
-  },
-  recomendacaoLabel: {
-    fontSize: 10,
-    textTransform: 'uppercase',
-    color: '#2E7D32',
-    fontWeight: 'bold',
-    marginBottom: 2,
-  },
-  recomendacaoValor: {
-    fontSize: SIZES.fontMd,
-    fontWeight: 'bold',
-    color: COLORS.text,
-  },
-  orientacaoBox: {
-    padding: 4,
-  },
-  orientacaoLabel: {
-    fontSize: 10,
-    textTransform: 'uppercase',
-    color: COLORS.textSecondary,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  orientacaoValor: {
-    fontSize: SIZES.fontSm,
-    color: COLORS.text,
-    lineHeight: 20,
+    marginLeft: 4,
   },
 });
 
 export default HistoricoScreen;
+
