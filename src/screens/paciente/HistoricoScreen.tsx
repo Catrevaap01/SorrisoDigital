@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   buscarTriagensPaciente,
@@ -28,12 +29,19 @@ interface HistoricoItem {
   data_agendamento?: string;
   sintoma_principal?: string;
   descricao?: string;
-  respostas?: any[];
+  respostas?: unknown[];
   intensidade_dor?: string;
   prioridade?: string;
 }
 
+interface StatusInfo {
+  label: string;
+  color: string;
+  icon: string;
+}
+
 const HistoricoScreen = () => {
+  const navigation = useNavigation<any>();
   const { profile } = useAuth();
   const [dados, setDados] = useState<HistoricoItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -102,15 +110,16 @@ const HistoricoScreen = () => {
     carregarDados(categoriaAtiva === 'todos' ? null : categoriaAtiva);
   };
 
-  const getStatusInfo = (item: HistoricoItem) => {
+  const getStatusInfo = (item: HistoricoItem): StatusInfo => {
     if (item.tipo === 'triagem') {
-      const effectiveStatus = item.respostas && item.respostas.length > 0 ? 'respondido' : item.status || 'pendente';
-      return (STATUS_TRIAGEM as any)[effectiveStatus] || (STATUS_TRIAGEM as any).pendente;
+      const hasRespostas = Array.isArray((item as any).respostas) && (item as any).respostas.length > 0;
+      const effectiveStatus = hasRespostas ? 'respondido' : item.status || 'pendente';
+      return (STATUS_TRIAGEM as Record<string, StatusInfo>)[effectiveStatus] || STATUS_TRIAGEM.pendente;
     }
-    return (STATUS_AGENDAMENTO as any)[item.status || 'pendente'] || (STATUS_AGENDAMENTO as any).pendente;
+    return (STATUS_AGENDAMENTO as Record<string, StatusInfo>)[item.status || 'pendente'] || STATUS_AGENDAMENTO.pendente;
   };
 
-  const getIconeTipo = (tipo: string) => {
+  const getIconeTipo = (tipo: 'triagem' | 'agendamento'): string => {
     if (tipo === 'triagem') return 'help-circle-outline';
     if (tipo === 'agendamento') return 'calendar-outline';
     return 'document-text-outline';
@@ -133,6 +142,12 @@ const HistoricoScreen = () => {
         key={item.id}
         style={styles.card}
         activeOpacity={0.7}
+        onPress={() => {
+          // Patient view: no detail navigation (CasoDetalhe is dentista-only)
+          // if (profile?.tipo === 'dentista') {
+          //   (navigation as any).navigate('CasoDetalhe', { triagemId: item.id });
+          // }
+        }}
       >
         <View style={[styles.cardIconContainer, { backgroundColor: cor + '20' }]}>
           <Ionicons name={getIconeTipo(item.tipo) as any} size={28} color={cor} />
