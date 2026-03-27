@@ -211,7 +211,7 @@ const NovoPacienteScreen: React.FC<Props> = ({ navigation: propNavigation }) => 
             onPress={handleCreatePaciente}
             loading={loading}
             style={styles.btn}
-            icon="qr-code-outline"
+
           />
         </View>
       </ScrollView>
