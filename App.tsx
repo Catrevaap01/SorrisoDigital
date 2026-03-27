@@ -12,7 +12,14 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { NetworkSyncStatus } from './src/components/NetworkSyncStatus';
 import { SHADOWS } from './src/styles/theme';
 
-// Silenciar avisos de depreciação do React Native Web que vêm de bibliotecas externas
+// PWA Service Worker basic support - no TS errors
+if (Platform.OS === 'web' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.ready.then(registration => {
+    console.log('PWA Service Worker ready');
+  }).catch(() => {});
+}
+
+// Silenciar avisos de depreciação do React Native Web
 if (Platform.OS === 'web') {
   const warn = console.warn;
   console.warn = (...args) => {
@@ -26,7 +33,6 @@ if (Platform.OS === 'web') {
     warn(...args);
   };
   
-  // Também para LogBox se estiver ativo
   LogBox.ignoreLogs([
     'shadow* style props are deprecated',
     'props.pointerEvents is deprecated'
@@ -67,10 +73,9 @@ export default function App(): React.JSX.Element {
           <DentistProvider>
             <NavigationContainer>
               <StatusBar style="light" />
-  <AppNavigator />
-  <NetworkSyncStatus />
-  <Toast config={toastConfig} />
-
+              <AppNavigator />
+              <NetworkSyncStatus />
+              <Toast config={toastConfig} />
             </NavigationContainer>
           </DentistProvider>
         </AuthProvider>

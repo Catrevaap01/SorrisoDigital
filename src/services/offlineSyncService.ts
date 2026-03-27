@@ -74,7 +74,7 @@ export const syncOfflineActions = async (): Promise<{ synced: number; failed: nu
         method: action.method,
         headers: {
           'Content-Type': 'application/json',
-'apikey': process.env.VITE_SUPABASE_ANON_KEY || '',
+          'apikey': process.env.VITE_SUPABASE_ANON_KEY || '',
         },
         body: JSON.stringify(action.payload),
       });
@@ -87,7 +87,7 @@ export const syncOfflineActions = async (): Promise<{ synced: number; failed: nu
       await removeOfflineAction(action.id!);
       synced += 1;
     } catch (error) {
-      console.error('Offline sync falhou:', action, error);
+      console.error('Offline sync failed:', action, error);
       failed += 1;
     }
   }
@@ -95,3 +95,21 @@ export const syncOfflineActions = async (): Promise<{ synced: number; failed: nu
   return { synced, failed };
 };
 
+// PWA compatibility globals (safe casting)
+declare global {
+  interface Window {
+    syncOfflineActions: typeof syncOfflineActions;
+    hasOfflineActions: typeof hasPendingActions;
+  }
+}
+
+export const hasPendingActions = async () => {
+  if (typeof window === 'undefined') return false;
+  const db = await getDB();
+  return (await db.count('actions')) > 0;
+};
+
+if (typeof window !== 'undefined') {
+  (window as any).syncOfflineActions = syncOfflineActions;
+  (window as any).hasOfflineActions = hasPendingActions;
+}

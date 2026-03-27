@@ -5,6 +5,7 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["fullscreen", "standalone", "minimal-ui", "browser"],
   "orientation": "any",
   "theme_color": "#1E88E5",
   "background_color": "#F5F5F5",
@@ -26,16 +27,39 @@
   ],
   "screenshots": [
     {
-      "src": "https://via.placeholder.com/1280x720/1E88E5/FFFFFF?text=TeOdonto+Dashboard",
+      "src": "/assets/screenshots/dashboard.png",
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide"
     },
     {
-      "src": "https://via.placeholder.com/750x1334/42A5F5/FFFFFF?text=TeOdonto+Mobile",
+      "src": "/assets/screenshots/mobile.png",
       "sizes": "750x1334",
       "type": "image/png",
       "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Novo Paciente",
+      "short_name": "Paciente",
+      "description": "Criar novo paciente",
+      "url": "/gerir-pacientes?new=true",
+      "icons": [{"src": "/assets/icon.png", "sizes": "96x96"}]
+    },
+    {
+      "name": "Agenda",
+      "short_name": "Agenda",
+      "description": "Ver agendamentos",
+      "url": "/agenda",
+      "icons": [{"src": "/assets/icon.png", "sizes": "96x96"}]
+    },
+    {
+      "name": "Triagem Rápida",
+      "short_name": "Triagem",
+      "description": "Iniciar triagem",
+      "url": "/triagem",
+      "icons": [{"src": "/assets/icon.png", "sizes": "96x96"}]
     }
   ],
   "prefer_related_applications": false

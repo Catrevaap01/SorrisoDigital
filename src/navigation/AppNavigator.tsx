@@ -329,6 +329,15 @@ const PacienteStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
           headerTintColor: COLORS.textInverse,
         }}
       />
+      <PacienteStackNav.Screen
+        name="TriagemDetalhe"
+        component={require('../screens/paciente/TriagemDetalheScreen').default}
+        options={{
+          title: 'Detalhes',
+          headerStyle: { backgroundColor: COLORS.primary },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
     </PacienteStackNav.Navigator>
   );
 };

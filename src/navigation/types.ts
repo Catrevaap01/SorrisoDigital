@@ -52,6 +52,7 @@ export type PacienteStackParamList = {
   Privacidade: undefined;
   TermosUso: undefined;
   Ajuda: undefined;
+  TriagemDetalhe: { item: { id: string; tipo: 'triagem' | 'agendamento' } };
 };
 
 export type DentistaStackParamList = {

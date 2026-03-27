@@ -142,12 +142,7 @@ const HistoricoScreen = () => {
         key={item.id}
         style={styles.card}
         activeOpacity={0.7}
-        onPress={() => {
-          // Patient view: no detail navigation (CasoDetalhe is dentista-only)
-          // if (profile?.tipo === 'dentista') {
-          //   (navigation as any).navigate('CasoDetalhe', { triagemId: item.id });
-          // }
-        }}
+        onPress={() => navigation.navigate('TriagemDetalhe', { item })}
       >
         <View style={[styles.cardIconContainer, { backgroundColor: cor + '20' }]}>
           <Ionicons name={getIconeTipo(item.tipo) as any} size={28} color={cor} />
