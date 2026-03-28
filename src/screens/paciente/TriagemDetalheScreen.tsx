@@ -79,13 +79,7 @@ const TriagemDetalheScreen = () => {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
-        </TouchableOpacity>
-        <Text style={styles.title}>{item.tipo === 'triagem' ? 'Detalhes da Triagem' : 'Detalhes do Agendamento'}</Text>
-      </View>
-
+    
       <View style={styles.statusCard}>
         <View style={[styles.statusBadge, { backgroundColor: statusInfo.color + '20' }]}>
           <Ionicons name={statusInfo.icon as any} size={20} color={statusInfo.color} />
