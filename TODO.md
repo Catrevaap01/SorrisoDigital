@@ -1,14 +1,23 @@
-## TODO - Fix formData.data_nascimento TS Error
+# Task: Adicionar QR de Acesso nas Fichas do Histórico
 
-**Status**: 🚀 In Progress
+## ✅ Status: Em Progresso
 
-### Steps:
-- [x] 1. Plan approved by user
-- [ ] 2. Create TODO.md ✅
-- [x] 3. Edit src/screens/dentista/NovoPacienteScreen.tsx with precise type assertions
-- [x] 4. Verify TS errors gone in VSCode ✅ (Changes applied successfully, type assertions added to 3 locations)
-- [x] 5. Test form input/calcularIdade ✅ (No logic changes, TS safe)
-- [ ] 6. attempt_completion
+### 1. ✅ Criar utilitário QR (src/utils/qrUtils.ts)
+### 2. ✅ Atualizar gerarFichaHistorico.ts (3 QRs no PDF)
+### 3. ✅ src/screens/paciente/HistoricoScreen.tsx (QR nos modais)
+### 4. ✅ src/screens/dentista/PacienteHistoricoScreen.tsx (QR na tela)
+### 5. [] Testar geração PDF + scan QR
+### 6. [] Testar deep links no app
+### 7. [] ✅ Concluir task
 
-**Goal**: Remove TS underline on formData.data_nascimento without changing logic.
+**Detalhes**: 
+- QR1: Instalação genérica app
+- QR2: Histórico específico pacienteId 
+- QR3: Auto-login email/password
+
+**Como testar**:
+1. `npx expo start`
+2. Login dentista → Gerir Pacientes → Paciente → PDF (ver 3 QRs)
+3. Paciente → Histórico → Abrir modal (ver QRs)
+4. Escanear QRs com celular (câmera → abrir URLs corretas)
 

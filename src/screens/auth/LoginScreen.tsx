@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { supabase } from '../../config/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
@@ -65,10 +64,7 @@ export default function LoginScreen({
         `Attempting login for: [${cleanEmail}] (Pass length: ${String(cleanPass).length})`
       );
 
-      await supabase.auth.signOut();
-
       const result = await login(cleanEmail, cleanPass);
-
       if (!result.success) {
         throw result.error || new Error('Erro ao fazer login');
       }
@@ -154,9 +150,8 @@ export default function LoginScreen({
               <Button
                 title={loading ? 'Entrando...' : 'Entrar'}
                 onPress={() => {
-                  handleLogin();
+                  void handleLogin();
                 }}
-
                 disabled={loading || !email || !password}
                 loading={loading}
               />

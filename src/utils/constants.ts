@@ -293,12 +293,3 @@ export const TIPOS_CONSULTA: Record<string, { label: string; icon: string; color
     color: '#795548',
   },
 };
-
-export const FILTROS_HISTORICO = [
-  { id: 'todos', label: 'Todos', icon: 'help-circle-outline' },
-  { id: 'pendente', label: 'Pendente', icon: 'time-outline' },
-  { id: 'confirmado', label: 'Confirmado', icon: 'checkmark-circle-outline' },
-  { id: 'cancelado', label: 'Cancelado', icon: 'close-circle-outline' },
-  { id: 'realizado', label: 'Realizado', icon: 'checkmark-done-outline' },
-  { id: 'urgente', label: 'Urgente', icon: 'warning-outline' },
-];

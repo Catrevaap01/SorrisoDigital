@@ -9,52 +9,37 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
-import { buscarConteudos, Conteudo } from '../../services/conteudoService';
+import { buscarConteudos } from '../../services/conteudoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { CATEGORIAS_CONTEUDO } from '../../utils/constants';
 
 const EducacaoScreen: React.FC = () => {
-  const [conteudos, setConteudos] = useState<Conteudo[]>([]);
+  const [conteudos, setConteudos] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [categoriaAtiva, setCategoriaAtiva] = useState<'todos' | string>('todos');
-  const [conteudoSelecionado, setConteudoSelecionado] = useState<Conteudo | null>(null);
+  const [categoriaAtiva, setCategoriaAtiva] = useState<string>('todos');
+  const [conteudoSelecionado, setConteudoSelecionado] = useState<any | null>(null);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
 
-  const carregarConteudos = async (categoria: string | null = null) => {
+  const carregarConteudos = async (categoria = null) => {
     setLoading(true);
-    try {
-      const result = await buscarConteudos(categoria);
-      if (result.success && result.data) {
-        setConteudos(result.data);
-      } else if (result.error) {
-        throw new Error(result.error);
-      }
-    } catch (error: any) {
-      console.error('Erro ao carregar conteúdos:', error);
-      Toast.show({
-        type: 'error',
-        text1: 'Erro ao carregar conteúdos',
-        text2: error.message || 'Verifique sua conexão',
-      });
-    } finally {
-      setLoading(false);
+    const result = await buscarConteudos(categoria);
+    if (result.success) {
+      setConteudos(result.data);
     }
+    setLoading(false);
   };
 
   useEffect(() => {
     carregarConteudos(categoriaAtiva === 'todos' ? null : categoriaAtiva);
   }, [categoriaAtiva]);
 
-  const getIconeCategoria = (categoria?: string): React.ComponentProps<typeof Ionicons>['name'] => {
-    if (!categoria || categoria === 'todos') return 'document-text-outline' as const;
+  const getIconeCategoria = (categoria) => {
     const cat = CATEGORIAS_CONTEUDO.find(c => c.id === categoria);
-    return (cat?.icon || 'document-text-outline') as React.ComponentProps<typeof Ionicons>['name'];
+    return cat?.icon || 'document-text';
   };
 
-  const getCorCategoria = (categoria?: string): string => {
-    if (!categoria || categoria === 'todos') return COLORS.primary;
-    const cores: Record<string, string> = {
+  const getCorCategoria = (categoria) => {
+    const cores = {
       prevencao: '#4CAF50',
       higiene: '#2196F3',
       doencas: '#FF9800',
@@ -65,41 +50,39 @@ const EducacaoScreen: React.FC = () => {
     return cores[categoria] || COLORS.primary;
   };
 
-  const abrirConteudo = (conteudo: Conteudo) => {
+  const abrirConteudo = (conteudo) => {
     setConteudoSelecionado(conteudo);
     setModalVisible(true);
   };
 
-  const renderConteudo = (conteudo: Conteudo) => {
-    const categoria = conteudo.categoria || 'todos';
-    const cor = getCorCategoria(categoria);
-    
-    const categoriaLabel = CATEGORIAS_CONTEUDO.find((c) => c.id === categoria)?.label || categoria || 'Geral';
+  const renderConteudo = (item) => {
+    const cor = getCorCategoria(item.categoria);
     
     return (
       <TouchableOpacity
+        key={item.id}
         style={styles.card}
-        onPress={() => abrirConteudo(conteudo)}
+        onPress={() => abrirConteudo(item)}
         activeOpacity={0.7}
       >
-        <View style={[styles.cardIconContainer, { backgroundColor: `${cor}20` }]}>
-          <Ionicons name={getIconeCategoria(categoria)} size={28} color={cor} />
+        <View style={[styles.cardIconContainer, { backgroundColor: cor + '20' }]}>
+          <Ionicons name={getIconeCategoria(item.categoria) as any} size={28} color={cor} />
         </View>
         
         <View style={styles.cardContent}>
-          <Text style={styles.cardTitulo} numberOfLines={2}>{conteudo.titulo}</Text>
-          <Text style={styles.cardDescricao} numberOfLines={2}>{conteudo.descricao}</Text>
+          <Text style={styles.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
+          <Text style={styles.cardDescricao} numberOfLines={2}>{item.descricao}</Text>
           
           <View style={styles.cardFooter}>
-            <View style={[styles.categoriaBadge, { backgroundColor: `${cor}20` }]}>
+            <View style={[styles.categoriaBadge, { backgroundColor: cor + '20' }]}>
               <Text style={[styles.categoriaText, { color: cor }]}>
-                {categoriaLabel}
+                {CATEGORIAS_CONTEUDO.find(c => c.id === item.categoria)?.label || item.categoria}
               </Text>
             </View>
             
             <View style={styles.viewsContainer}>
               <Ionicons name="eye-outline" size={14} color={COLORS.textSecondary} />
-              <Text style={styles.viewsText}>{conteudo.visualizacoes || 0}</Text>
+              <Text style={styles.viewsText}>{item.visualizacoes || 0}</Text>
             </View>
           </View>
         </View>
@@ -112,8 +95,7 @@ const EducacaoScreen: React.FC = () => {
   const renderModal = () => {
     if (!conteudoSelecionado) return null;
 
-    const categoria = conteudoSelecionado.categoria || 'todos';
-    const cor = getCorCategoria(categoria);
+    const cor = getCorCategoria(conteudoSelecionado.categoria);
 
     return (
       <Modal
@@ -122,6 +104,7 @@ const EducacaoScreen: React.FC = () => {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalContainer}>
+          {/* Header */}
           <View style={[styles.modalHeader, { backgroundColor: cor }]}>
             <TouchableOpacity
               style={styles.modalBackButton}
@@ -132,7 +115,7 @@ const EducacaoScreen: React.FC = () => {
             <View style={styles.modalHeaderContent}>
               <View style={styles.modalIconContainer}>
                 <Ionicons 
-                  name={getIconeCategoria(categoria)} 
+                  name={getIconeCategoria(conteudoSelecionado.categoria) as any} 
                   size={32} 
                   color="#fff" 
                 />
@@ -141,6 +124,7 @@ const EducacaoScreen: React.FC = () => {
             </View>
           </View>
 
+          {/* Conteúdo */}
           <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
             {conteudoSelecionado.descricao && (
               <Text style={styles.modalDescricao}>{conteudoSelecionado.descricao}</Text>
@@ -152,10 +136,12 @@ const EducacaoScreen: React.FC = () => {
               </Text>
             </View>
 
+            {/* Aviso */}
             <View style={styles.modalAviso}>
               <Ionicons name="information-circle" size={18} color={COLORS.primary} />
               <Text style={styles.modalAvisoText}>
-                Este conteúdo é educativo e não substitui orientação profissional. Em caso de dúvidas, consulte um dentista.
+                Este conteúdo é educativo e não substitui orientação profissional. 
+                Em caso de dúvidas, consulte um dentista.
               </Text>
             </View>
 
@@ -168,6 +154,7 @@ const EducacaoScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      {/* Categorias */}
       <View style={styles.categoriasContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {CATEGORIAS_CONTEUDO.map((cat) => (
@@ -177,10 +164,10 @@ const EducacaoScreen: React.FC = () => {
                 styles.categoriaButton,
                 categoriaAtiva === cat.id && styles.categoriaButtonActive,
               ]}
-              onPress={() => setCategoriaAtiva(cat.id as 'todos' | string)}
+              onPress={() => setCategoriaAtiva(cat.id)}
             >
               <Ionicons
-                name={cat.icon as React.ComponentProps<typeof Ionicons>['name']}
+                name={cat.icon as any}
                 size={18}
                 color={categoriaAtiva === cat.id ? COLORS.textInverse : COLORS.primary}
               />
@@ -197,6 +184,7 @@ const EducacaoScreen: React.FC = () => {
         </ScrollView>
       </View>
 
+      {/* Lista de Conteúdos */}
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.primary} />
@@ -206,15 +194,13 @@ const EducacaoScreen: React.FC = () => {
         <View style={styles.emptyContainer}>
           <Ionicons name="book-outline" size={64} color={COLORS.textLight} />
           <Text style={styles.emptyText}>Nenhum conteúdo encontrado</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => carregarConteudos(categoriaAtiva === 'todos' ? null : categoriaAtiva)}>
-            <Text style={styles.retryText}>Tentar novamente</Text>
-          </TouchableOpacity>
         </View>
       ) : (
         <ScrollView
           style={styles.listaContainer}
           showsVerticalScrollIndicator={false}
         >
+          {/* Destaque */}
           <View style={styles.destaqueContainer}>
             <Text style={styles.destaqueTitle}>📚 Aprenda sobre Saúde Bucal</Text>
             <Text style={styles.destaqueSubtitle}>
@@ -222,12 +208,13 @@ const EducacaoScreen: React.FC = () => {
             </Text>
           </View>
 
-          {conteudos.map((conteudo) => renderConteudo(conteudo))}
+          {conteudos.map(renderConteudo)}
 
           <View style={{ height: 20 }} />
         </ScrollView>
       )}
 
+      {/* Modal */}
       {renderModal()}
     </View>
   );
@@ -282,17 +269,6 @@ const styles = StyleSheet.create({
     marginTop: SIZES.md,
     color: COLORS.textSecondary,
     fontSize: SIZES.fontLg,
-  },
-  retryButton: {
-    marginTop: SIZES.md,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: SIZES.lg,
-    paddingVertical: SIZES.sm,
-    borderRadius: SIZES.radiusMd,
-  },
-  retryText: {
-    color: COLORS.textInverse,
-    fontWeight: '600',
   },
   listaContainer: {
     flex: 1,
@@ -371,6 +347,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginLeft: 4,
   },
+  // Modal Styles
   modalContainer: {
     flex: 1,
     backgroundColor: COLORS.background,

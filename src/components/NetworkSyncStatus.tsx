@@ -1,47 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNetworkStatus, useOfflineSync } from '../hooks/useNetworkSync';
 import { SHADOWS } from '../styles/theme';
 
-declare global {
-  interface WindowEventMap {
-    message: MessageEvent;
-  }
-}
-
 export const NetworkSyncStatus = () => {
   const { isOnline } = useNetworkStatus();
   const { pendingCount, isSyncing, lastSync } = useOfflineSync();
   const insets = useSafeAreaInsets();
   const [visible, setVisible] = React.useState(false);
-  const [swStatus, setSwStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
   
   // Minimal top offset is 15. If safe area is larger (like Notch on iOS), use safe area + 5
   const topOffset = Math.max(insets.top + 5, Platform.OS === 'ios' ? 45 : 15);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-
-    const handleSWMessage = (event: MessageEvent) => {
-      if (event.source !== navigator.serviceWorker?.controller) return;
-      
-      const data = event.data;
-      if (data.type === 'SYNC_STATUS') {
-        setSwStatus(data.status as any);
-      } else if (data.type === 'SYNC_PROGRESS') {
-        console.log('SW Sync progress:', data);
-      } else if (data.type === 'SYNC_COMPLETE') {
-        console.log('SW Sync complete:', data);
-      } else if (data.type === 'TRIGGER_SYNC') {
-        // Trigger sync
-      }
-    };
-
-    navigator.serviceWorker?.addEventListener('message', handleSWMessage);
-    return () => navigator.serviceWorker?.removeEventListener('message', handleSWMessage);
-  }, []);
 
   React.useEffect(() => {
     setVisible(true);
@@ -50,7 +21,7 @@ export const NetworkSyncStatus = () => {
     }, 15000); // 15 segundos
 
     return () => clearTimeout(timer);
-  }, [isOnline, isSyncing, swStatus]);
+  }, [isOnline, isSyncing]);
 
   if (!visible) return null;
 
@@ -68,12 +39,8 @@ export const NetworkSyncStatus = () => {
           </Text>
         </View>
         <Text style={styles.subtext}>
-          {isSyncing || swStatus === 'syncing'
-            ? '🔄 Sincronizando com servidor...' 
-            : swStatus === 'synced'
-            ? '✅ Sync concluída'
-            : swStatus === 'error'
-            ? '❌ Erro na sincronização'
+          {isSyncing 
+            ? 'Sincronizando...' 
             : lastSync 
               ? `Última sync: ${new Date(lastSync).toLocaleTimeString()}` 
               : 'Aguardando sincronização'}

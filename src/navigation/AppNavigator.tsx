@@ -117,33 +117,25 @@ const PacienteTabs: React.FC<TabsProps> = ({ unreadCount }) => (
             : unreadCount
           : undefined;
       })(),
-        tabBarActiveTintColor: COLORS.primary,
+      tabBarActiveTintColor: COLORS.primary,
       tabBarInactiveTintColor: COLORS.textSecondary,
       tabBarHideOnKeyboard: true,
       headerStyle: { backgroundColor: COLORS.primary },
       headerTintColor: COLORS.textInverse,
       headerTitleStyle: { fontWeight: 'bold' },
-      tabBarStyle: Platform.select({
-        web: {
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 60,
-          maxWidth: 800,
-          width: '100%',
-          marginHorizontal: 'auto',
-          borderTopWidth: 1,
-          borderTopColor: COLORS.divider,
-          backgroundColor: COLORS.surface,
-        },
-        default: {
-          height: 60,
-          borderTopWidth: 1,
-          borderTopColor: COLORS.divider,
-          backgroundColor: COLORS.surface,
-        },
-      }),
+      tabBarStyle: Platform.OS === 'web' ? {
+        maxWidth: 800,
+        width: '100%',
+        alignSelf: 'center',
+        borderTopWidth: 1,
+        borderTopColor: COLORS.divider,
+        backgroundColor: COLORS.surface,
+        position: 'absolute',
+        bottom: 0,
+        left: '50%',
+        marginLeft: -400,
+        height: 60,
+      } : { height: 60 },
     })}
   >
     <PacienteTab.Screen name="Início" component={HomeScreen} options={{ title: 'Odontologia Angola' }} />
@@ -194,33 +186,25 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
             : unreadCount
           : undefined;
       })(),
-        tabBarActiveTintColor: COLORS.secondary,
+      tabBarActiveTintColor: COLORS.secondary,
       tabBarInactiveTintColor: COLORS.textSecondary,
       tabBarHideOnKeyboard: true,
       headerStyle: { backgroundColor: COLORS.secondary },
       headerTintColor: COLORS.textInverse,
       headerTitleStyle: { fontWeight: 'bold' },
-      tabBarStyle: Platform.select({
-        web: {
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: 60,
-          maxWidth: 800,
-          width: '100%',
-          marginHorizontal: 'auto',
-          borderTopWidth: 1,
-          borderTopColor: COLORS.divider,
-          backgroundColor: COLORS.surface,
-        },
-        default: {
-          height: 60,
-          borderTopWidth: 1,
-          borderTopColor: COLORS.divider,
-          backgroundColor: COLORS.surface,
-        },
-      }),
+      tabBarStyle: Platform.OS === 'web' ? {
+        maxWidth: 800,
+        width: '100%',
+        alignSelf: 'center',
+        borderTopWidth: 1,
+        borderTopColor: COLORS.divider,
+        backgroundColor: COLORS.surface,
+        position: 'absolute',
+        bottom: 0,
+        left: '50%',
+        marginLeft: -400,
+        height: 60,
+      } : { height: 60 },
     })}
   >
     <DentistaTab.Screen
@@ -325,15 +309,6 @@ const PacienteStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
         component={require('../screens/paciente/AjudaScreen').default}
         options={{
           title: 'Ajuda',
-          headerStyle: { backgroundColor: COLORS.primary },
-          headerTintColor: COLORS.textInverse,
-        }}
-      />
-      <PacienteStackNav.Screen
-        name="TriagemDetalhe"
-        component={require('../screens/paciente/TriagemDetalheScreen').default}
-        options={{
-          title: 'Detalhes',
           headerStyle: { backgroundColor: COLORS.primary },
           headerTintColor: COLORS.textInverse,
         }}
