@@ -500,27 +500,6 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
 
         {!forceEdit && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Documentação</Text>
-            <TouchableOpacity 
-              style={styles.opcaoItem} 
-              onPress={handleGerarPDF}
-              disabled={baixandoPdf}
-            >
-              <Ionicons name="document-outline" size={22} color={COLORS.primary} />
-              <Text style={[styles.opcaoText, { color: COLORS.primary, fontWeight: 'bold' }]}>
-                {baixandoPdf ? 'Gerando Ficha...' : 'Baixar Ficha (PDF)'}
-              </Text>
-              {baixandoPdf ? (
-                <ActivityIndicator size="small" color={COLORS.primary} />
-              ) : (
-                <Ionicons name="download-outline" size={20} color={COLORS.primary} />
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {!forceEdit && (
-          <View style={styles.section}>
             <Text style={styles.sectionTitle}>Configurações</Text>
 
           <TouchableOpacity
