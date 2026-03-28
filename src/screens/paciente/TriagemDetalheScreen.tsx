@@ -79,7 +79,10 @@ const TriagemDetalheScreen = () => {
 
   return (
     <ScrollView style={styles.container}>
-    
+      <View style={styles.header}>
+        <Text style={styles.title}>{item.tipo === 'triagem' ? 'Detalhes da Triagem' : 'Detalhes do Agendamento'}</Text>
+      </View>
+
       <View style={styles.statusCard}>
         <View style={[styles.statusBadge, { backgroundColor: statusInfo.color + '20' }]}>
           <Ionicons name={statusInfo.icon as any} size={20} color={statusInfo.color} />
