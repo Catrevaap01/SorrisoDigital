@@ -74,7 +74,7 @@ export const syncOfflineActions = async (): Promise<{ synced: number; failed: nu
         method: action.method,
         headers: {
           'Content-Type': 'application/json',
-'apikey': process.env.VITE_SUPABASE_ANON_KEY || '',
+          'apikey': process.env.VITE_SUPABASE_ANON_KEY || '',
         },
         body: JSON.stringify(action.payload),
       });

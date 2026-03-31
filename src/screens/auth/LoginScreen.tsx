@@ -72,18 +72,7 @@ export default function LoginScreen({
       console.log('Login successful from LoginScreen');
     } catch (err: any) {
       console.error('Login failed from LoginScreen:', err);
-      let userError = err?.message || 'Erro ao fazer login';
-
-      const lowerMsg = userError.toLowerCase();
-      if (lowerMsg.includes('invalid login') || lowerMsg.includes('senha')) {
-        userError = 'Credenciais invalidas. Verifique email e senha da ficha.';
-      } else if (lowerMsg.includes('must be changed') || lowerMsg.includes('force')) {
-        userError = 'Senha temporaria expirou. Peca nova ficha ao dentista.';
-      } else if (lowerMsg.includes('email not confirmed')) {
-        userError = 'Email precisa confirmacao. Verifique a caixa de entrada.';
-      }
-
-      setError(userError);
+      // Erros são mostrados via Toast pelo AuthContext
     } finally {
       setLoading(false);
     }
@@ -145,7 +134,7 @@ export default function LoginScreen({
                 editable={!loading}
               />
 
-              {error ? <Text style={styles.error}>{error}</Text> : null}
+              {/* Sem mensagem de erro visível — feedback via Toast */}
 
               <Button
                 title={loading ? 'Entrando...' : 'Entrar'}

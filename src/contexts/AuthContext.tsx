@@ -3,8 +3,8 @@
  * Gerencia o estado de autenticação global da aplicação
  */
 
-import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import { Platform } from 'react-native';
+import React, { createContext, useState, useContext, useEffect, useRef, useCallback, ReactNode } from 'react';
+import { Platform, AppState } from 'react-native';
 import Constants from 'expo-constants';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { User } from '@supabase/supabase-js';
@@ -17,6 +17,7 @@ import { handleError, HandledError } from '../utils/errorHandler';
 
 const AUTH_BOOT_TIMEOUT_MS = 10000;
 const AUTH_NETWORK_TIMEOUT_MS = 5000;
+const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutos de inactividade
 
 export interface UserProfile {
   id: string;
@@ -583,6 +584,91 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
     };
   }, [user?.id]);
 
+  // ═══════════════════════════════════════════════════════════
+  // INACTIVITY TIMEOUT (5 MINUTOS)
+  // Auto-logout após 5 minutos sem actividade (dentistas)
+  // ═══════════════════════════════════════════════════════════
+  const inactivityTimer = useRef<any>(null);
+  const backgroundTimestamp = useRef<number | null>(null);
+
+  const isDentista = profile?.tipo === 'dentista' || profile?.tipo === 'medico';
+
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimer.current) {
+      clearTimeout(inactivityTimer.current);
+    }
+    if (!user || !isDentista) return;
+
+    inactivityTimer.current = setTimeout(async () => {
+      console.warn('⏰ Inactividade: 5 minutos sem actividade. Logout automático.');
+      
+      Toast.show({
+        type: 'info',
+        text1: 'Sessão Expirada',
+        text2: 'Logout automático por inactividade (5 min).',
+        visibilityTime: 5000,
+      });
+
+      try {
+        await signOut();
+      } catch (e) {
+        setUser(null);
+        setProfile(null);
+      }
+    }, INACTIVITY_TIMEOUT_MS);
+  }, [user, isDentista]);
+
+  useEffect(() => {
+    if (!user || !isDentista) {
+      if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+      return;
+    }
+
+    // Iniciar timer
+    resetInactivityTimer();
+
+    if (Platform.OS === 'web') {
+      // Web/PWA: escutar eventos de actividade
+      const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
+      const handler = () => resetInactivityTimer();
+      events.forEach(e => window.addEventListener(e, handler, { passive: true }));
+
+      return () => {
+        events.forEach(e => window.removeEventListener(e, handler));
+        if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+      };
+    } else {
+      // Mobile: usar AppState para detectar background
+      const subscription = AppState.addEventListener('change', (nextState) => {
+        if (nextState === 'background' || nextState === 'inactive') {
+          backgroundTimestamp.current = Date.now();
+        } else if (nextState === 'active') {
+          if (backgroundTimestamp.current) {
+            const elapsed = Date.now() - backgroundTimestamp.current;
+            if (elapsed >= INACTIVITY_TIMEOUT_MS) {
+              // Esteve em background por 5+ minutos
+              console.warn('⏰ Mobile: App em background por 5+ min. Logout automático.');
+              Toast.show({
+                type: 'info',
+                text1: 'Sessão Expirada',
+                text2: 'Logout automático por inactividade.',
+                visibilityTime: 5000,
+              });
+              signOut().catch(() => { setUser(null); setProfile(null); });
+            }
+            backgroundTimestamp.current = null;
+          }
+          resetInactivityTimer();
+        }
+      });
+
+      return () => {
+        subscription.remove();
+        if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+      };
+    }
+  }, [user, isDentista, resetInactivityTimer]);
+
   /**
    * FunÃ§Ã£o de login
    */
@@ -668,35 +754,12 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       let handledError = handleError(error, 'AuthProvider.signIn');
 
       const rawMessage = String((error as any)?.message || '').toLowerCase();
-      if (rawMessage.includes('invalid login credentials') && typeof email === 'string') {
-        try {
-          const profileValidation = await validarPerfilPorEmail(email);
-
-          if (!profileValidation.exists) {
-            handledError = {
-              ...handledError,
-              type: 'NOT_FOUND_ERROR' as any,
-              message:
-                'Paciente nao encontrado com este email. Peca ao dentista para confirmar o cadastro ou gerar nova ficha.',
-            };
-          } else if (profileValidation.tipo !== 'paciente') {
-            handledError = {
-              ...handledError,
-              type: 'AUTH_ERROR' as any,
-              message:
-                `Este email pertence a uma conta do tipo ${profileValidation.tipo || 'desconhecido'}, nao a um paciente.`,
-            };
-          } else {
-            handledError = {
-              ...handledError,
-              type: 'AUTH_ERROR' as any,
-              message:
-                'Senha incorreta ou ficha antiga. Use a senha mais recente gerada pelo dentista ou redefina a senha.',
-            };
-          }
-        } catch (validationError) {
-          console.warn('Login: falha ao validar perfil por email.', validationError);
-        }
+      if (rawMessage.includes('invalid login credentials')) {
+        handledError = {
+          ...handledError,
+          type: 'AUTH_ERROR' as any,
+          message: 'Email ou senha incorretos. Verifique os dados e tente novamente.',
+        };
       }
 
       Toast.show({

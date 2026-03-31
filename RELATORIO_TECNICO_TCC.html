@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relatório Técnico — TeOdonto Angola</title>
+<style>
+  @page { size: A4; margin: 2cm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.7; color: #212121; max-width: 900px; margin: 0 auto; padding: 2cm; background: #fff; }
+  h1 { text-align: center; font-size: 28px; color: #1565C0; border-bottom: 3px solid #1E88E5; padding-bottom: 12px; margin-bottom: 8px; }
+  h2 { font-size: 22px; color: #1E88E5; border-bottom: 2px solid #E3F2FD; padding-bottom: 6px; margin-top: 36px; page-break-after: avoid; }
+  h3 { font-size: 17px; color: #2E7D32; margin-top: 24px; page-break-after: avoid; }
+  h4 { font-size: 14px; color: #424242; margin-top: 16px; margin-bottom: 4px; }
+  .capa { text-align: center; page-break-after: always; padding-top: 120px; }
+  .capa h1 { font-size: 36px; border: none; }
+  .capa .subtitulo { font-size: 20px; color: #424242; margin-top: 16px; }
+  .capa .autor { font-size: 16px; color: #757575; margin-top: 60px; }
+  .capa .data { font-size: 14px; color: #9E9E9E; margin-top: 8px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 20px 0; font-size: 13px; }
+  th { background: #1E88E5; color: white; padding: 10px 12px; text-align: left; font-weight: 600; }
+  td { padding: 8px 12px; border-bottom: 1px solid #E0E0E0; vertical-align: top; }
+  tr:nth-child(even) { background: #FAFAFA; }
+  code { background: #F5F5F5; padding: 2px 6px; border-radius: 4px; font-family: 'Consolas', 'Courier New', monospace; font-size: 12px; color: #D32F2F; }
+  pre { background: #263238; color: #ECEFF1; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 12px; line-height: 1.5; }
+  pre code { background: none; color: inherit; padding: 0; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; color: white; }
+  .badge-blue { background: #1E88E5; }
+  .badge-green { background: #43A047; }
+  .badge-orange { background: #FF9800; }
+  .badge-red { background: #E53935; }
+  .toc { page-break-after: always; }
+  .toc a { text-decoration: none; color: #1E88E5; }
+  .toc li { margin: 6px 0; }
+  .nota { background: #E3F2FD; border-left: 4px solid #1E88E5; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; font-size: 13px; }
+  .secao-seguranca { background: #FFF3E0; border-left: 4px solid #FF9800; padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 12px 0; }
+  @media print { body { padding: 0; } .capa { padding-top: 200px; } }
+</style>
+</head>
+<body>
+
+<!-- CAPA -->
+<div class="capa">
+  <h1>RELATÓRIO TÉCNICO</h1>
+  <div class="subtitulo">TeOdonto Angola — Aplicação Multiplataforma de Telemedicina Dentária</div>
+  <p style="margin-top:40px;font-size:18px;">Trabalho de Conclusão de Curso — Licenciatura</p>
+  <div class="autor">
+    <p><strong>Projecto:</strong> Sorriso Digital</p>
+    <p><strong>Data:</strong> Março de 2026</p>
+  </div>
+</div>
+
+<!-- ÍNDICE -->
+<div class="toc">
+<h2>Índice</h2>
+<ol style="font-size:15px;">
+  <li><a href="#sec1">Introdução e Objectivos</a></li>
+  <li><a href="#sec2">Stack Tecnológico</a></li>
+  <li><a href="#sec3">Arquitectura do Projecto</a></li>
+  <li><a href="#sec4">Ficheiros da Raiz</a></li>
+  <li><a href="#sec5">Configurações (<code>src/config/</code>)</a></li>
+  <li><a href="#sec6">Gestão de Estado (<code>src/contexts/</code>)</a></li>
+  <li><a href="#sec7">Sistema de Navegação (<code>src/navigation/</code>)</a></li>
+  <li><a href="#sec8">Telas de Autenticação (<code>src/screens/auth/</code>)</a></li>
+  <li><a href="#sec9">Telas do Paciente (<code>src/screens/paciente/</code>)</a></li>
+  <li><a href="#sec10">Telas do Dentista (<code>src/screens/dentista/</code>)</a></li>
+  <li><a href="#sec11">Telas do Administrador (<code>src/screens/admin/</code>)</a></li>
+  <li><a href="#sec12">Telas Partilhadas (<code>src/screens/shared/</code>)</a></li>
+  <li><a href="#sec13">Camada de Serviços (<code>src/services/</code>)</a></li>
+  <li><a href="#sec14">Componentes Reutilizáveis (<code>src/components/</code>)</a></li>
+  <li><a href="#sec15">Custom Hooks (<code>src/hooks/</code>)</a></li>
+  <li><a href="#sec16">Sistema de Tema (<code>src/styles/</code>)</a></li>
+  <li><a href="#sec17">Interfaces TypeScript (<code>src/types/</code>)</a></li>
+  <li><a href="#sec18">Funções Utilitárias (<code>src/utils/</code>)</a></li>
+  <li><a href="#sec19">Segurança e Sessão Única</a></li>
+  <li><a href="#sec20">Responsividade e Cross-Platform</a></li>
+  <li><a href="#sec21">Diagrama de Arquitectura</a></li>
+  <li><a href="#sec22">Como Executar</a></li>
+</ol>
+</div>
+
+<!-- 1 INTRODUÇÃO -->
+<h2 id="sec1">1. Introdução e Objectivos</h2>
+<p>O <strong>TeOdonto Angola</strong> é uma aplicação multiplataforma de telemedicina dentária desenvolvida para facilitar o acesso a serviços odontológicos em Angola. A aplicação funciona em <span class="badge badge-blue">Web</span> <span class="badge badge-green">PWA</span> <span class="badge badge-orange">Mobile (Android/iOS)</span> com um único código-fonte.</p>
+
+<h4>Objectivos Principais:</h4>
+<ul>
+  <li><strong>Triagem Remota:</strong> Pacientes podem enviar fotos e descrever sintomas para avaliação à distância.</li>
+  <li><strong>Gestão de Consultas:</strong> Agendamento, confirmação e acompanhamento de consultas.</li>
+  <li><strong>Comunicação em Tempo Real:</strong> Chat directo entre paciente e dentista.</li>
+  <li><strong>Educação em Saúde:</strong> Conteúdos educativos de saúde bucal por categoria.</li>
+  <li><strong>Gestão do Consultório:</strong> Dashboard completo para dentistas com métricas e relatórios.</li>
+  <li><strong>Segurança:</strong> Sessão única por utilizador, autenticação robusta, dados protegidos.</li>
+</ul>
+
+<!-- 2 STACK -->
+<h2 id="sec2">2. Stack Tecnológico</h2>
+<table>
+  <tr><th>Camada</th><th>Tecnologia</th><th>Versão</th><th>Propósito</th></tr>
+  <tr><td>Framework</td><td>React Native + Expo</td><td>0.81 / SDK 54</td><td>Código único para iOS, Android e Web</td></tr>
+  <tr><td>Linguagem</td><td>TypeScript</td><td>5.9</td><td>Tipagem estática para segurança</td></tr>
+  <tr><td>Navegação</td><td>React Navigation</td><td>7.0</td><td>Bottom tabs + stack navigation</td></tr>
+  <tr><td>Backend</td><td>Supabase (PostgreSQL)</td><td>2.97</td><td>Auth, Database, Storage, Realtime</td></tr>
+  <tr><td>Estado</td><td>React Context API</td><td>-</td><td>Gestão global (Auth, Dentist)</td></tr>
+  <tr><td>Estilização</td><td>StyleSheet (RN)</td><td>-</td><td>Tema centralizado (COLORS, SIZES)</td></tr>
+  <tr><td>Ícones</td><td>Expo Vector Icons (Ionicons)</td><td>15.0</td><td>Iconografia consistente</td></tr>
+  <tr><td>Notificações</td><td>react-native-toast-message</td><td>2.3</td><td>Feedback visual ao utilizador</td></tr>
+  <tr><td>PDF</td><td>expo-print + expo-sharing</td><td>15.0 / 14.0</td><td>Geração e partilha de fichas PDF</td></tr>
+  <tr><td>Imagens</td><td>expo-image-picker</td><td>17.0</td><td>Captura de fotos para triagem</td></tr>
+  <tr><td>QR Code</td><td>react-native-qrcode-svg</td><td>6.3</td><td>QR codes nas fichas</td></tr>
+</table>
+
+<!-- 3 ARQUITECTURA -->
+<h2 id="sec3">3. Arquitectura do Projecto</h2>
+<p>O projecto segue o padrão <strong>Service Layer + Context</strong>, separando a lógica de negócio (serviços) da interface (telas) e do estado global (contexts).</p>
+<pre><code>src/
+├── components/      → Componentes de UI reutilizáveis (Button, Input, Loading, Card)
+├── config/          → Configuração do Supabase e especialidades médicas
+├── contexts/        → Estado global: AuthContext, DentistContext, ThemeContext
+├── hooks/           → Custom hooks (useTriagens, useAgendamentos, useRealTimeMessages)
+├── navigation/      → Navegação por papel: Paciente, Dentista, Admin
+├── screens/         → Telas organizadas por tipo de utilizador
+│   ├── auth/        → Login, Registo, Recuperação de Senha, Mudança de Senha
+│   ├── dentista/    → Dashboard, Casos, Agenda, Pacientes, Relatórios
+│   ├── paciente/    → Home, Triagem, Histórico, Educação, Agendamento, Chat
+│   ├── admin/       → Painel administrativo, Relatórios
+│   └── shared/      → Chat, Lista de Conversas, Notificações
+├── services/        → 17 serviços de comunicação com o Supabase
+├── styles/          → Tema global (cores, tamanhos, sombras, tipografia)
+├── types/           → Interfaces TypeScript (Triagem, Resposta)
+└── utils/           → 11 utilitários (timeout, logger, validação, storage, PDF, QR)</code></pre>
+
+<!-- 4 RAIZ -->
+<h2 id="sec4">4. Ficheiros da Raiz</h2>
+<table>
+  <tr><th>Ficheiro</th><th>Explicação Detalhada</th></tr>
+  <tr><td><code>App.tsx</code></td><td><strong>Ponto de entrada da aplicação.</strong> Inicializa a hierarquia de providers: <code>SafeAreaProvider</code> (margens seguras), <code>ThemeProvider</code> (tema visual), <code>AuthProvider</code> (autenticação e sessão), <code>DentistProvider</code> (selecção de dentista). Envolve tudo com <code>NavigationContainer</code> e configura o sistema de Toast para feedback visual. Também silencia avisos de depreciação do React Native Web que vêm de bibliotecas externas.</td></tr>
+  <tr><td><code>index.tsx</code></td><td>Registo da aplicação no Expo. Importa e regista o componente <code>App</code> como raiz.</td></tr>
+  <tr><td><code>app.json</code></td><td>Configuração do Expo: nome (<em>TeOdonto Angola</em>), versão, ícones, splash screen, orientação, e variáveis de ambiente do Supabase (URL e chaves).</td></tr>
+  <tr><td><code>package.json</code></td><td>Lista de dependências e scripts. Define 28 dependências de produção e 4 de desenvolvimento. Scripts: <code>start</code>, <code>web</code>, <code>android</code>, <code>ios</code>, <code>typecheck</code>.</td></tr>
+  <tr><td><code>tsconfig.json</code></td><td>Configuração do compilador TypeScript para garantir tipagem estrita.</td></tr>
+  <tr><td><code>vite.config.ts</code></td><td>Configuração do bundler Vite para otimização do build Web.</td></tr>
+  <tr><td><code>eas.json</code></td><td>Configuração do EAS Build para gerar binários Android/iOS na nuvem Expo.</td></tr>
+  <tr><td><code>.env</code></td><td>Variáveis de ambiente sensíveis (chaves do Supabase). <strong>Nunca deve ser publicado.</strong></td></tr>
+</table>
+
+<!-- 5 CONFIG -->
+<h2 id="sec5">5. Configurações — <code>src/config/</code></h2>
+<table>
+  <tr><th>Ficheiro</th><th>Explicação Detalhada</th></tr>
+  <tr><td><code>supabase.ts</code></td><td><strong>Cria e exporta o cliente Supabase.</strong> Configura: persistência de sessão via <code>universalStorage</code> (funciona em Web e mobile), refresh automático de token, detecção de URL para callback de autenticação no Web. Define <code>PROFILE_SCHEMA_FEATURES</code>: flags que indicam se o schema do banco tem coluna <code>provincia</code> (texto) ou <code>provincia_id</code> (FK para tabela províncias), permitindo compatibilidade com diferentes versões do schema.</td></tr>
+  <tr><td><code>specialtyConfig.ts</code></td><td><strong>Configuração dinâmica por especialidade.</strong> Cada especialidade (Ortodontia, Cirurgia, etc.) define: ícone, cor, descrição, ações rápidas no dashboard. Permite que o dashboard do dentista seja personalizado conforme a sua área de actuação.</td></tr>
+</table>
+
+<!-- 6 CONTEXTS -->
+<h2 id="sec6">6. Gestão de Estado Global — <code>src/contexts/</code></h2>
+
+<h3>6.1 AuthContext.tsx — O Coração da Aplicação</h3>
+<p>O <code>AuthContext</code> é o contexto mais complexo do sistema. Gere todo o ciclo de vida da autenticação:</p>
+<table>
+  <tr><th>Funcionalidade</th><th>Detalhes</th></tr>
+  <tr><td><strong>Login</strong> (<code>signIn</code>)</td><td>Autentica via <code>supabase.auth.signInWithPassword</code>. Verifica se o servidor está acessível antes de tentar. Gera um <code>session_token</code> único e grava no banco e no storage local. Invalida sessões anteriores com <code>signOut({ scope: 'others' })</code>. Se as credenciais forem inválidas, verifica se o email existe e retorna mensagem contextual.</td></tr>
+  <tr><td><strong>Sessão Única</strong></td><td>Ao fazer login, grava <code>last_session_id</code> no perfil do utilizador. Um listener Realtime do Supabase monitora alterações neste campo. Se outro dispositivo fizer login (alterando o token), o dispositivo actual é <strong>desconectado instantaneamente</strong> com a mensagem "A sua conta foi acedida noutro dispositivo".</td></tr>
+  <tr><td><strong>Logout</strong> (<code>signOut</code>)</td><td>Limpa estado local imediatamente. Remove <code>last_session_id</code> do banco. Chama <code>signOut({ scope: 'global' })</code> para invalidar todas as sessões em todos os dispositivos.</td></tr>
+  <tr><td><strong>Registo</strong> (<code>signUp</code>)</td><td>Cria conta via <code>supabase.auth.signUp</code>. Resolve <code>provincia_id</code> (tentativa exacta, case-insensitive, ou cliente-side). Regista sessão inicial.</td></tr>
+  <tr><td><strong>Perfil</strong> (<code>fetchProfile</code>)</td><td>Busca dados do utilizador com tratamento de RLS (Row Level Security). Se RLS bloquear, usa um admin client como fallback. Verifica conflito de sessão no carregamento. Se o perfil não existir, cria um registro mínimo automaticamente.</td></tr>
+  <tr><td><strong>Bootstrap</strong></td><td>No arranque da app, tenta recuperar a sessão com timeout de 10s. Se o Supabase não estiver acessível, libera a interface sem sessão. Previne travamentos em conexões lentas.</td></tr>
+</table>
+
+<h3>6.2 DentistContext.tsx</h3>
+<p>Permite ao paciente seleccionar o dentista com quem deseja interagir. O estado <code>selectedDentist</code> é partilhado entre todas as telas do paciente. Inclui lógica de auto-abertura (<code>requestAutoOpenChooseDentist</code>) para forçar a selecção após completar o perfil.</p>
+
+<h3>6.3 ThemeContext.tsx</h3>
+<p>Contexto preparado para modo claro/escuro. Actualmente fornece o tema pré-definido.</p>
+
+<!-- 7 NAVIGATION -->
+<h2 id="sec7">7. Sistema de Navegação — <code>src/navigation/</code></h2>
+<table>
+  <tr><th>Ficheiro</th><th>Explicação Detalhada</th></tr>
+  <tr><td><code>AppNavigator.tsx</code></td><td><strong>Navegador principal (605 linhas).</strong> Decide qual stack mostrar com base no estado: não autenticado → telas de auth; autenticado sem perfil completo → forçar edição de perfil; autenticado → tabs por papel. Implementa: badge vermelho de mensagens não lidas calculado por polling (30s) + Realtime; tab bar centrada no Web (maxWidth: 800px); esconde tab bar em telas de detalhe; responsividade total para todas as plataformas.</td></tr>
+  <tr><td><code>types.ts</code></td><td>Definição TypeScript de todos os parâmetros de navegação: <code>AuthStackParamList</code>, <code>PacienteTabParamList</code>, <code>DentistaTabParamList</code>, <code>AdminTabParamList</code>.</td></tr>
+  <tr><td><code>AdminNavigator.tsx</code></td><td>Stack de navegação para administradores com tabs: Dashboard, Relatórios, Perfil.</td></tr>
+  <tr><td><code>DentistaStackNavigator.tsx</code></td><td>Stack auxiliar para dentistas.</td></tr>
+</table>
+
+<!-- 8 AUTH SCREENS -->
+<h2 id="sec8">8. Telas de Autenticação — <code>src/screens/auth/</code></h2>
+<table>
+  <tr><th>Tela</th><th>Explicação</th></tr>
+  <tr><td><code>LoginScreen.tsx</code></td><td>Formulário de email/senha com validação. Exibe mensagens contextuais: "Paciente não encontrado", "Senha incorreta", "Email pertence a outro tipo de conta". Redirecciona automaticamente após login bem-sucedido.</td></tr>
+  <tr><td><code>RegisterScreen.tsx</code></td><td>Registo de novo utilizador com campos: nome, email, senha, telefone, província (selecção modal). Validação de campos obrigatórios.</td></tr>
+  <tr><td><code>ForgotPasswordScreen.tsx</code></td><td>Recuperação de senha via email do Supabase Auth.</td></tr>
+  <tr><td><code>ChangePasswordScreen.tsx</code></td><td>Tela obrigatória exibida quando <code>force_password_change</code> é verdadeiro (ex: após criação de ficha pelo dentista). O utilizador deve definir uma nova senha antes de usar a app.</td></tr>
+</table>
+
+<!-- 9 PACIENTE SCREENS -->
+<h2 id="sec9">9. Telas do Paciente — <code>src/screens/paciente/</code></h2>
+<table>
+  <tr><th>Tela</th><th>Explicação Detalhada</th></tr>
+  <tr><td><code>HomeScreen.tsx</code></td><td><strong>Tela inicial do paciente.</strong> Saudação personalizada por nome e hora do dia. Ações rápidas: Nova Triagem, Educação, Agendar Consulta. Dica do dia sobre saúde bucal. Lista de triagens recentes com respostas do dentista. <strong>Redirecionamento automático</strong> para selecção de dentista se nenhum estiver seleccionado.</td></tr>
+  <tr><td><code>TriagemScreen.tsx</code></td><td><strong>Formulário de triagem remota.</strong> Captura de até 3 fotos (câmara ou galeria) com upload assíncrono para Supabase Storage. Campos: sintoma principal, intensidade da dor (escala 0-10), localização da dor, há quanto tempo, medicação em uso. A prioridade é calculada automaticamente com base na intensidade (≥7 = alta; ≥4 = média).</td></tr>
+  <tr><td><code>TriagemDetalheScreen.tsx</code></td><td>Detalhes completos de uma triagem: dados submetidos, fotos em galeria horizontal com zoom, resposta do dentista (recomendação, orientação, observações), status actual.</td></tr>
+  <tr><td><code>HistoricoScreen.tsx</code></td><td><strong>Histórico combinado.</strong> Combina triagens e agendamentos numa lista unificada. Barra de filtros horizontal scrollável (estilo Educação) com ícones: Todos, Pendente, Urgente, Confirmado, Realizados, Cancelado. Modais imersivos em tela cheia para detalhes. Pull-to-refresh para actualização.</td></tr>
+  <tr><td><code>EducacaoScreen.tsx</code></td><td>Conteúdos educativos organizados por categorias: prevenção, higiene, doenças, crianças, emergências, nutrição. Cartões com ícones circulares coloridos. Modal imersivo para leitura do conteúdo completo. Contador de visualizações.</td></tr>
+  <tr><td><code>AgendamentoScreen.tsx</code></td><td>Formulário de agendamento: tipo de consulta (avaliação, retorno, urgência, etc.), data/hora, observações. Selecção do dentista vinculado.</td></tr>
+  <tr><td><code>ChooseDentistaScreen.tsx</code></td><td>Lista de dentistas disponíveis com nome, especialidade e localização. O paciente <strong>deve</strong> seleccionar um antes de usar qualquer funcionalidade.</td></tr>
+  <tr><td><code>MensagensScreen.tsx</code></td><td>Chat em tempo real com o dentista via Supabase Realtime. Bolhas de mensagem estilo WhatsApp. Indicador de digitação. Scroll automático para última mensagem.</td></tr>
+  <tr><td><code>PerfilScreen.tsx</code></td><td>Visualização e edição do perfil. Avatar com iniciais. Campos: nome, email (só leitura), telefone, idade, género, província. Modo de edição forçado para completar dados obrigatórios após primeiro login. Secção de configurações: Notificações, Privacidade, Ajuda, Termos de Uso. Botão de logout com confirmação.</td></tr>
+  <tr><td><code>SettingsScreen.tsx</code></td><td>Configurações gerais da aplicação.</td></tr>
+  <tr><td><code>NotificacoesScreen.tsx</code></td><td>Lista de notificações recebidas.</td></tr>
+  <tr><td><code>NotificacoesDetalheScreen.tsx</code></td><td>Detalhe de uma notificação individual.</td></tr>
+  <tr><td><code>PrivacidadeScreen.tsx</code></td><td>Página de política de privacidade.</td></tr>
+  <tr><td><code>TermosUsoScreen.tsx</code></td><td>Termos de uso da aplicação.</td></tr>
+  <tr><td><code>AjudaScreen.tsx</code></td><td>Perguntas frequentes e contacto de suporte.</td></tr>
+</table>
+
+<!-- 10 DENTISTA SCREENS -->
+<h2 id="sec10">10. Telas do Dentista — <code>src/screens/dentista/</code></h2>
+<table>
+  <tr><th>Tela</th><th>Explicação Detalhada</th></tr>
+  <tr><td><code>DashboardScreen.tsx</code></td><td><strong>Painel principal do dentista (734 linhas).</strong> Header personalizado por especialidade. Ações rápidas configuráveis. Métricas em grid: agenda do dia, atrasados, urgentes, respondidos, realizados. Secção financeira: receita diária/semanal, pacientes atendidos, taxa de faltas. Filtros scrolláveis: Todos, Pendente, Urgente, Respondido, Realizados. Cartões de caso com badge de status colorida. <strong>Casos urgentes sempre mostram badge vermelha</strong> (prioridade sobre respondido).</td></tr>
+  <tr><td><code>CasoDetalheScreen.tsx</code></td><td><strong>Detalhes de um caso de triagem.</strong> Exibe sintomas, fotos do paciente (galeria com zoom), escala de dor com indicador visual, histórico de respostas anteriores. Acções: responder ao caso (recomendação + orientação), marcar como urgente (<code>window.confirm</code> no Web, <code>Alert</code> no mobile), abrir chat directo com o paciente.</td></tr>
+  <tr><td><code>AgendaDentistaScreen.tsx</code></td><td>Visualização diária da agenda. Lista de consultas do dia com status. Acções: confirmar, realizar ou cancelar consultas.</td></tr>
+  <tr><td><code>GerirPacientesScreen.tsx</code></td><td>Lista de pacientes vinculados ao dentista. Campo de busca por nome. Acesso rápido ao histórico de cada paciente.</td></tr>
+  <tr><td><code>NovoPacienteScreen.tsx</code></td><td>Cadastro de novo paciente pelo dentista. Gera ficha com email/senha temporária que o paciente usará para fazer login. Inclui QR code funcional na ficha.</td></tr>
+  <tr><td><code>PacienteHistoricoScreen.tsx</code></td><td>Histórico completo de um paciente específico: todas as triagens + agendamentos, com detalhes expandíveis.</td></tr>
+  <tr><td><code>DentistaRelatorioScreen.tsx</code></td><td>Relatórios do dentista: estatísticas de atendimento, tendências, procedimentos mais realizados.</td></tr>
+  <tr><td><code>DentistaMensagensScreen.tsx</code></td><td>Lista de conversas activas com pacientes. Badge de mensagens não lidas.</td></tr>
+  <tr><td><code>gerarFichaHistorico.ts</code></td><td>Função utilitária que gera HTML formatado da ficha do paciente para exportação em PDF (A4).</td></tr>
+</table>
+
+<!-- 11 ADMIN -->
+<h2 id="sec11">11. Telas do Administrador — <code>src/screens/admin/</code></h2>
+<table>
+  <tr><th>Tela</th><th>Explicação</th></tr>
+  <tr><td><code>AdminDashboardScreen.tsx</code></td><td>Painel administrativo com métricas globais: total de utilizadores, dentistas activos, triagens no sistema, agendamentos.</td></tr>
+  <tr><td><code>AdminReportsScreen.tsx</code></td><td>Relatórios administrativos detalhados com filtros por período.</td></tr>
+  <tr><td><code>AdminProfileScreen.tsx</code></td><td>Gestão do perfil do administrador.</td></tr>
+  <tr><td><code>AdminPasswordRecoveryScreen.tsx</code></td><td>Ferramenta para recuperação/reset de senhas de utilizadores do sistema.</td></tr>
+  <tr><td><code>RelatorioScreen.tsx</code></td><td>Geração de relatórios detalhados com exportação.</td></tr>
+</table>
+
+<!-- 12 SHARED -->
+<h2 id="sec12">12. Telas Partilhadas — <code>src/screens/shared/</code></h2>
+<table>
+  <tr><th>Tela</th><th>Explicação</th></tr>
+  <tr><td><code>ChatScreen.tsx</code></td><td>Tela de chat individual em tempo real. Mensagens organizadas por data. Indicadores de leitura. Implementado com Supabase Realtime Channels.</td></tr>
+  <tr><td><code>ConversationsListScreen.tsx</code></td><td>Lista de todas as conversas do utilizador, com preview da última mensagem e badge de não lidas.</td></tr>
+  <tr><td><code>NotificacoesScreen.tsx</code></td><td>Tela de notificações partilhada entre todos os papéis de utilizador.</td></tr>
+</table>
+
+<!-- 13 SERVICES -->
+<h2 id="sec13">13. Camada de Serviços — <code>src/services/</code></h2>
+<p>Cada serviço segue o padrão consistente:</p>
+<pre><code>export const buscarDados = async (id: string): Promise&lt;ServiceResult&lt;T&gt;&gt; => {
+  try {
+    const { data, error } = await withTimeout(
+      supabase.from('tabela').select('*').eq('id', id),
+      10000 // timeout de 10 segundos
+    );
+    if (error) throw error;
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+};</code></pre>
+<table>
+  <tr><th>Serviço</th><th>Tabela(s)</th><th>Operações</th></tr>
+  <tr><td><code>triagemService.ts</code></td><td><code>triagens</code>, <code>respostas_triagem</code></td><td>CRUD de triagens. Upload de imagens. Buscar por paciente/dentista. Responder triagem. Atualizar prioridade/status. Contadores (pendente, urgente, respondido, total).</td></tr>
+  <tr><td><code>agendamentoService.ts</code></td><td><code>agendamentos</code></td><td>Criar, listar, confirmar, realizar, cancelar. Enriquecer com dados paciente/dentista. Filtros por período. <code>withTimeout</code> em todas as queries.</td></tr>
+  <tr><td><code>messagesService.ts</code></td><td><code>messages</code>, <code>conversations</code></td><td>Enviar, buscar, marcar como lidas. Contar não lidas. Criar/buscar conversas.</td></tr>
+  <tr><td><code>conteudoService.ts</code></td><td><code>conteudos</code></td><td>Buscar por categoria. Incrementar visualizações.</td></tr>
+  <tr><td><code>pacienteService.ts</code></td><td><code>profiles</code></td><td>CRUD de pacientes. Parse de campos embutidos (idade, género). Buscar por dentista.</td></tr>
+  <tr><td><code>dentistaService.ts</code></td><td><code>profiles</code></td><td>Listar dentistas disponíveis. Buscar por ID.</td></tr>
+  <tr><td><code>fichaService.ts</code></td><td><code>profiles</code></td><td>Gerar ficha completa do paciente (HTML → PDF A4) com QR code e credenciais.</td></tr>
+  <tr><td><code>storageService.ts</code></td><td>Supabase Storage</td><td>Upload de ficheiros (fotos). Obter URL pública.</td></tr>
+  <tr><td><code>relatorioService.ts</code></td><td>Múltiplas</td><td>Dados para relatórios e estatísticas.</td></tr>
+  <tr><td><code>notificacoesService.ts</code></td><td><code>notificacoes</code></td><td>CRUD de notificações.</td></tr>
+  <tr><td><code>emailService.ts</code></td><td>API externa</td><td>Envio de emails (fichas, recuperação).</td></tr>
+  <tr><td><code>authService.ts</code></td><td>Supabase Auth</td><td>Funções auxiliares de autenticação.</td></tr>
+  <tr><td><code>baseService.ts</code></td><td>-</td><td>Classe base/utilitária para serviços.</td></tr>
+  <tr><td><code>localNotificationService.ts</code></td><td>-</td><td>Notificações locais do dispositivo.</td></tr>
+  <tr><td><code>offlineSyncService.ts</code></td><td>-</td><td>Sincronização offline (preparado para futuro).</td></tr>
+  <tr><td><code>passwordRecoveryService.ts</code></td><td>Supabase Auth</td><td>Recuperação de senha.</td></tr>
+  <tr><td><code>pdfReportService.ts</code></td><td>-</td><td>Geração de relatórios em PDF.</td></tr>
+</table>
+
+<!-- 14 COMPONENTS -->
+<h2 id="sec14">14. Componentes Reutilizáveis — <code>src/components/</code></h2>
+<table>
+  <tr><th>Componente</th><th>Explicação</th></tr>
+  <tr><td><code>Card.tsx</code></td><td>Componente de cartão genérico com sombra, bordas arredondadas e padding configurável. Usado em listas e dashboards.</td></tr>
+  <tr><td><code>NetworkSyncStatus.tsx</code></td><td>Indicador visual que mostra o estado da conectividade e sincronização de dados.</td></tr>
+  <tr><td><code>ProfileEditModal.tsx</code></td><td>Modal reutilizável para edição de campos do perfil.</td></tr>
+  <tr><td><code>ui/Button.tsx</code></td><td>Botão estilizado com variantes (primário, secundário, outline, danger). Suporta estado de loading com ActivityIndicator.</td></tr>
+  <tr><td><code>ui/Input.tsx</code></td><td>Campo de input com label superior, ícone à esquerda, validação visual (borda vermelha em erro) e mensagem de erro.</td></tr>
+  <tr><td><code>ui/Loading.tsx</code></td><td>Indicador de carregamento animado centrado na tela com mensagem opcional.</td></tr>
+</table>
+
+<!-- 15 HOOKS -->
+<h2 id="sec15">15. Custom Hooks — <code>src/hooks/</code></h2>
+<table>
+  <tr><th>Hook</th><th>Explicação</th></tr>
+  <tr><td><code>useTriagens.ts</code></td><td>Abstrai a busca e filtro de triagens. Retorna: dados, loading, erro, refresh. Chama <code>triagemService</code> internamente.</td></tr>
+  <tr><td><code>useAgendamentos.ts</code></td><td>Gestão de agendamentos com cache local. Suporta filtros por data e status.</td></tr>
+  <tr><td><code>useConteudos.ts</code></td><td>Busca conteúdos educativos por categoria com cache.</td></tr>
+  <tr><td><code>useDentistas.ts</code></td><td>Lista dentistas disponíveis para selecção pelo paciente.</td></tr>
+  <tr><td><code>useNetworkSync.ts</code></td><td>Monitoriza estado de rede e estado de sincronização de dados offline.</td></tr>
+  <tr><td><code>useRealTimeMessages.ts</code></td><td>Subscrição Realtime do Supabase para mensagens. Actualiza a lista de mensagens automaticamente quando chega uma nova.</td></tr>
+</table>
+
+<!-- 16 STYLES -->
+<h2 id="sec16">16. Sistema de Tema — <code>src/styles/</code></h2>
+<h3>16.1 theme.ts — Tema Centralizado</h3>
+<p>Define todas as constantes visuais da aplicação:</p>
+<table>
+  <tr><th>Constante</th><th>Conteúdo</th></tr>
+  <tr><td><code>COLORS</code></td><td>22 cores: primary (#1E88E5 azul), secondary (#43A047 verde), danger (#E53935 vermelho), warning (#FFC107), success, background, surface, text, border, etc.</td></tr>
+  <tr><td><code>SIZES</code></td><td>Espaçamento (xs=4 a xxl=48), border radius (8 a 999 para pills), tamanhos de fonte (10 a 32).</td></tr>
+  <tr><td><code>SHADOWS</code></td><td>3 níveis de sombra (sm, md, lg) com implementação separada por plataforma: <code>boxShadow</code> no Web, <code>shadowOffset/elevation</code> no mobile.</td></tr>
+  <tr><td><code>FONTS</code></td><td>Pesos tipográficos: regular (400), medium (500), semiBold (600), bold (700).</td></tr>
+  <tr><td><code>TYPOGRAPHY</code></td><td>Sistema tipográfico: h1=32, h2=24, body=16, small=12, etc.</td></tr>
+</table>
+
+<h3>16.2 themeColors.ts</h3>
+<p>Paleta de cores alternativa preparada para implementação futura de modo escuro.</p>
+
+<!-- 17 TYPES -->
+<h2 id="sec17">17. Interfaces TypeScript — <code>src/types/</code></h2>
+<h3>triagem.ts</h3>
+<p>Define as interfaces de dados:</p>
+<ul>
+  <li><code>TriagemData</code> — Dados de entrada: sintomas, intensidade, localização, duração, medicação, imagens.</li>
+  <li><code>Triagem</code> — Triagem completa: id, paciente_id, dentista_id, status, prioridade, respostas, dados do paciente, timestamps.</li>
+  <li><code>RespostaTriagem</code> — Resposta do dentista: recomendação, orientação, observações, dados do dentista.</li>
+</ul>
+
+<!-- 18 UTILS -->
+<h2 id="sec18">18. Funções Utilitárias — <code>src/utils/</code></h2>
+<table>
+  <tr><th>Ficheiro</th><th>Explicação Detalhada</th></tr>
+  <tr><td><code>withTimeout.ts</code></td><td><strong>Wrapper de timeout.</strong> Envolve qualquer Promise do Supabase com um limite de tempo (padrão: 10s). Se a query não responder, lança erro controlado. <strong>Previne que a interface trave</strong> em conexões lentas ou indisponíveis, especialmente crítico no Web/PWA.</td></tr>
+  <tr><td><code>errorHandler.ts</code></td><td>Normalização de erros. Classifica por tipo (AUTH_ERROR, NETWORK_ERROR, VALIDATION_ERROR, NOT_FOUND_ERROR, TIMEOUT_ERROR). Gera mensagem amigável em português para o utilizador.</td></tr>
+  <tr><td><code>logger.ts</code></td><td>Logger centralizado: <code>logger.info()</code>, <code>logger.warn()</code>, <code>logger.error()</code>. Prefixos com emojis (ℹ️, ⚠️, ❌) para fácil identificação no console.</td></tr>
+  <tr><td><code>storage.ts</code></td><td><strong>Abstracção de armazenamento.</strong> <code>universalStorage</code> funciona em todas as plataformas: <code>localStorage</code> no Web, <code>AsyncStorage</code> no mobile, <code>SecureStore</code> quando disponível. Métodos: <code>getItem</code>, <code>setItem</code>, <code>removeItem</code>.</td></tr>
+  <tr><td><code>constants.ts</code></td><td>Constantes globais com label, cor e ícone: <code>STATUS_TRIAGEM</code> (pendente/urgente/respondido), <code>STATUS_AGENDAMENTO</code>, <code>PRIORIDADE</code>, <code>TIPOS_CONSULTA</code>, <code>CATEGORIAS_CONTEUDO</code>, <code>RECOMENDACAO</code>, <code>PROVINCIAS_ANGOLA</code>.</td></tr>
+  <tr><td><code>helpers.ts</code></td><td>Funções de formatação: <code>formatDateTime</code> (data legível), <code>formatRelativeTime</code> ("há 2 horas"), <code>formatDate</code> ("Março 2026"), <code>getInitials</code> ("JD" para "João Da Silva").</td></tr>
+  <tr><td><code>validators.ts</code></td><td>Validação de: email (regex), telefone angolano (9 dígitos), senha (mínimo 6 caracteres), campos obrigatórios.</td></tr>
+  <tr><td><code>senhaUtils.ts</code></td><td>Geração de senhas seguras para fichas de pacientes. Combina palavras memoráveis com números aleatórios.</td></tr>
+  <tr><td><code>qrUtils.ts</code></td><td>Geração de QR codes com dados de acesso do paciente para fichas PDF.</td></tr>
+  <tr><td><code>pdfExportUtils.ts</code></td><td>Utilitários para exportação HTML → PDF. Formatação A4, margens, estilos de impressão. Usa <code>expo-print</code> no mobile e <code>window.print()</code> no Web.</td></tr>
+  <tr><td><code>navigationConstants.ts</code></td><td>Nomes de rotas de navegação como constantes para evitar strings soltas no código.</td></tr>
+</table>
+
+<!-- 19 SEGURANÇA -->
+<h2 id="sec19">19. Segurança e Sessão Única</h2>
+<div class="secao-seguranca">
+<p><strong>⚠️ O sistema implementa múltiplas camadas de segurança:</strong></p>
+</div>
+<table>
+  <tr><th>Mecanismo</th><th>Implementação</th><th>Ficheiro</th></tr>
+  <tr><td><strong>Autenticação</strong></td><td>Supabase Auth com email/password. Tokens JWT com refresh automático.</td><td><code>AuthContext.tsx</code>, <code>supabase.ts</code></td></tr>
+  <tr><td><strong>Sessão Única</strong></td><td>Token gerado no login → gravado no banco + storage local → Realtime listener detecta alteração → logout imediato no dispositivo anterior.</td><td><code>AuthContext.tsx</code></td></tr>
+  <tr><td><strong>RLS</strong></td><td>Políticas Row Level Security no PostgreSQL que restringem cada utilizador a ver apenas os seus dados. Fallback com admin client para operações privilegiadas.</td><td><code>AuthContext.tsx</code>, serviços</td></tr>
+  <tr><td><strong>Timeout</strong></td><td><code>withTimeout()</code> em todas as queries (10s). Previne travamentos.</td><td><code>withTimeout.ts</code></td></tr>
+  <tr><td><strong>Logout Global</strong></td><td><code>signOut({ scope: 'global' })</code> invalida todas as sessões em todos os dispositivos.</td><td><code>AuthContext.tsx</code></td></tr>
+  <tr><td><strong>Senha Forçada</strong></td><td>Pacientes criados por ficha devem alterar a senha no primeiro acesso.</td><td><code>ChangePasswordScreen.tsx</code></td></tr>
+  <tr><td><strong>Validação</strong></td><td>Email, telefone, senha e campos obrigatórios validados antes de enviar ao servidor.</td><td><code>validators.ts</code></td></tr>
+</table>
+
+<!-- 20 CROSS PLATFORM -->
+<h2 id="sec20">20. Responsividade e Cross-Platform</h2>
+<table>
+  <tr><th>Aspecto</th><th>Web / PWA</th><th>Mobile (Android/iOS)</th></tr>
+  <tr><td>Tab Bar</td><td>Centrada com <code>maxWidth: 800px</code></td><td>Nativa, respeitando Safe Area</td></tr>
+  <tr><td>Modais</td><td>Full-screen imersivos</td><td>Full-screen com gesture dismiss</td></tr>
+  <tr><td>Confirmações</td><td><code>window.confirm()</code></td><td><code>Alert.alert()</code></td></tr>
+  <tr><td>Filtros</td><td>ScrollView horizontal</td><td>ScrollView horizontal com inertia</td></tr>
+  <tr><td>Storage</td><td><code>localStorage</code></td><td><code>AsyncStorage</code> / <code>SecureStore</code></td></tr>
+  <tr><td>PDF</td><td><code>window.print()</code></td><td><code>expo-print</code> + <code>expo-sharing</code></td></tr>
+  <tr><td>Sombras</td><td><code>boxShadow</code> CSS</td><td><code>shadowOffset</code> + <code>elevation</code></td></tr>
+  <tr><td>Imagens</td><td>Input file</td><td>Câmara + Galeria</td></tr>
+</table>
+
+<!-- 21 DIAGRAMA -->
+<h2 id="sec21">21. Diagrama de Arquitectura</h2>
+<pre><code>┌─────────────────────────────────────────────────────────┐
+│                    INTERFACE (React Native)               │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐ │
+│  │ Paciente │  │ Dentista │  │  Admin   │  │   Auth   │ │
+│  │  Screens │  │  Screens │  │ Screens  │  │ Screens  │ │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘ │
+│       │              │              │              │       │
+│  ┌────┴──────────────┴──────────────┴──────────────┴───┐  │
+│  │              CONTEXTS (Estado Global)                │  │
+│  │   AuthContext · DentistContext · ThemeContext         │  │
+│  └──────────────────────┬──────────────────────────────┘  │
+│                         │                                  │
+│  ┌──────────────────────┴──────────────────────────────┐  │
+│  │              SERVICES (Camada de Serviços)           │  │
+│  │  triagemService · agendamentoService · messages...   │  │
+│  └──────────────────────┬──────────────────────────────┘  │
+└─────────────────────────┼─────────────────────────────────┘
+                          │
+              ┌───────────┴───────────┐
+              │    SUPABASE (Cloud)    │
+              │  ┌─────┐ ┌─────────┐  │
+              │  │ Auth│ │Database │  │
+              │  └─────┘ │(Postgres)│  │
+              │  ┌─────┐ └─────────┘  │
+              │  │Store│ ┌─────────┐  │
+              │  │ age │ │Realtime │  │
+              │  └─────┘ └─────────┘  │
+              └───────────────────────┘</code></pre>
+
+<!-- 22 COMO EXECUTAR -->
+<h2 id="sec22">22. Como Executar</h2>
+<pre><code># Instalar dependências
+npm install
+
+# Desenvolvimento (Web)
+npx expo start --web
+
+# Desenvolvimento (Mobile)
+npx expo start
+
+# Gerar build para PWA
+npx expo export
+
+# Servir PWA localmente
+cd dist && npx serve -s -p 3000
+
+# Build para Android (EAS)
+eas build --platform android
+
+# Verificação de tipos
+npm run typecheck</code></pre>
+
+<div style="text-align:center; margin-top:40px; padding:20px; border-top: 2px solid #E0E0E0;">
+  <p style="font-size:14px; color:#757575;">Relatório Técnico — TeOdonto Angola</p>
+  <p style="font-size:12px; color:#9E9E9E;">Sorriso Digital · Licenciatura · Março 2026</p>
+  <p style="font-size:11px; color:#BDBDBD;">Para gerar PDF: abra este ficheiro no navegador → Ctrl+P → Guardar como PDF</p>
+</div>
+
+</body>
+</html>
