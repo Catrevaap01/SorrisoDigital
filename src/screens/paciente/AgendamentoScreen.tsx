@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -73,7 +73,14 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
   ];
 
-  const formatarData = (data) => {
+  // Horários indisponíveis — calculados UMA VEZ para evitar re-randomizar no render
+  const horariosIndisponiveis = useMemo(() => {
+    return new Set(
+      horarios.filter(() => Math.random() < 0.2)
+    );
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const formatarData = (data: Date) => {
     const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
     
@@ -137,14 +144,23 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
       return;
     }
 
-    Alert.alert(
-      'Confirmar Agendamento',
-      `Deseja agendar para ${formatarData(dataSelecionada).dia}/${formatarData(dataSelecionada).mes} às ${horarioSelecionado}?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Confirmar', onPress: processarAgendamento },
-      ]
-    );
+    const { dia, mes } = formatarData(dataSelecionada);
+    const msg = `Deseja agendar para ${dia}/${mes} às ${horarioSelecionado}?`;
+
+    if (Platform.OS === 'web') {
+      // Web/PWA: usar confirm nativo do browser
+      const ok = window.confirm(msg);
+      if (ok) await processarAgendamento();
+    } else {
+      Alert.alert(
+        'Confirmar Agendamento',
+        msg,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Confirmar', onPress: processarAgendamento },
+        ]
+      );
+    }
   };
 
   const processarAgendamento = async () => {
@@ -299,7 +315,7 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
           {horarios.map((horario) => {
             const isSelected = horarioSelecionado === horario;
             // Simulação: alguns horários indisponíveis
-            const indisponivel = Math.random() < 0.2;
+            const indisponivel = horariosIndisponiveis.has(horario);
             
             return (
               <TouchableOpacity
