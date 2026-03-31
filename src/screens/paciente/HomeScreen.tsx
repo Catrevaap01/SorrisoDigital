@@ -10,7 +10,6 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Alert,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,25 +46,18 @@ const HomeScreen: React.FC<HomeProps> = ({ navigation }) => {
     carregarDados();
   }, [profile]);
 
-  // apos completar perfil forcado, abrir escolha de dentista automaticamente
+  // Redirecionar imediatamente para escolha de dentista se necessário
   useEffect(() => {
-    if (!selectedDentist && consumeAutoOpenChooseDentist()) {
-      navigation.getParent()?.navigate('ChooseDentista' as any);
-      return;
-    }
-
-    // if no dentist has been chosen yet, prompt/redirect
     if (!selectedDentist) {
-      if (Platform.OS === 'web') {
-        // On web, direct redirect is more reliable than Alert.alert bootstrap
+      // Consume auto-open flag if set
+      consumeAutoOpenChooseDentist();
+      // Redirecionar imediatamente sem Alert
+      const timer = setTimeout(() => {
         navigation.getParent()?.navigate('ChooseDentista' as any);
-      } else {
-        Alert.alert('Selecione um dentista', 'Antes de continuar, por favor escolha um dentista.', [
-          { text: 'OK', onPress: () => navigation.getParent()?.navigate('ChooseDentista' as any) },
-        ], { cancelable: false });
-      }
+      }, 300); // Pequeno delay para garantir que a navegação está pronta
+      return () => clearTimeout(timer);
     }
-  }, [selectedDentist, consumeAutoOpenChooseDentist, navigation]);
+  }, [selectedDentist, navigation]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

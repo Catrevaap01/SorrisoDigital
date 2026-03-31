@@ -131,11 +131,11 @@ const TriagemDetalheScreen = () => {
             )}
           </View>
         )}
-        {data.imagens && data.imagens.length > 0 && (
+        {data.imagens && (Array.isArray(data.imagens) ? data.imagens.length > 0 : typeof data.imagens === 'string') && (
           <View style={styles.imagensSection}>
-            <Text style={styles.sectionTitle}>Imagens</Text>
-            <ScrollView horizontal>
-              {data.imagens.map((img: string, idx: number) => (
+            <Text style={styles.sectionTitle}>Imagens ({Array.isArray(data.imagens) ? data.imagens.length : 1})</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {(Array.isArray(data.imagens) ? data.imagens : [data.imagens]).map((img: string, idx: number) => (
                 <Image key={idx} source={{ uri: img }} style={styles.imagem} />
               ))}
             </ScrollView>

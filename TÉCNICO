@@ -1,0 +1,228 @@
+# RELATÓRIO TÉCNICO — TeOdonto Angola
+
+Relatório completo da estrutura e funcionamento de cada pasta e ficheiro do projecto.
+
+---
+
+## 1. RAIZ DO PROJECTO
+
+| Ficheiro | Função |
+|---|---|
+| [App.tsx](file:///e:/SorrisoDigital/TeOdontoAngola/App.tsx) | Ponto de entrada da aplicação. Inicializa os providers (Auth, Dentist, Theme) e o sistema de navegação. |
+| [index.tsx](file:///e:/SorrisoDigital/TeOdontoAngola/index.tsx) | Registo da aplicação para o Expo. |
+| [app.json](file:///e:/SorrisoDigital/TeOdontoAngola/app.json) | Configuração do Expo: nome da app, versão, ícones, splash screen, e variáveis de ambiente (Supabase URL/keys). |
+| [package.json](file:///e:/SorrisoDigital/TeOdontoAngola/package.json) | Dependências do projecto (React Native, Expo, Supabase, React Navigation, etc). |
+| [tsconfig.json](file:///e:/SorrisoDigital/TeOdontoAngola/tsconfig.json) | Configuração do TypeScript. |
+| [vite.config.ts](file:///e:/SorrisoDigital/TeOdontoAngola/vite.config.ts) | Configuração do bundler Vite para build web. |
+| [eas.json](file:///e:/SorrisoDigital/TeOdontoAngola/eas.json) | Configuração do EAS Build (builds Android/iOS na nuvem). |
+| [.env](file:///e:/SorrisoDigital/TeOdontoAngola/.env) | Variáveis de ambiente (chaves do Supabase). Nunca deve ir para o repositório. |
+
+---
+
+## 2. PASTA `src/` — CÓDIGO FONTE
+
+### 2.1 `src/config/` — Configurações
+
+| Ficheiro | Função |
+|---|---|
+| `supabase.ts` | Cria e exporta o cliente Supabase. Configura persistência de sessão, refresh automático de token, e detecção de URL para autenticação Web. Define flags do schema (`PROFILE_SCHEMA_FEATURES`). |
+| `specialtyConfig.ts` | Configuração dinâmica por especialidade do dentista (ícones, cores, ações rápidas do dashboard). Permite personalizar a interface conforme a especialidade (ortodontia, cirurgia, etc). |
+
+---
+
+### 2.2 `src/contexts/` — Gestão de Estado Global
+
+| Ficheiro | Função |
+|---|---|
+| `AuthContext.tsx` | **Contexto de autenticação.** Gere login, registo, logout, perfil do utilizador. Implementa: sessão única (gera `session_token` no login, listener Realtime detecta override de outro dispositivo e faz logout automático), validação de email contra perfil, resolução de província por ID, timeout em queries, fallback com admin client para erros de RLS. |
+| `DentistContext.tsx` | **Contexto de seleção de dentista.** Permite ao paciente escolher o dentista com quem quer interagir. Estado global partilhado entre todas as telas do paciente. |
+| `ThemeContext.tsx` | Contexto de tema visual (preparado para modo claro/escuro). |
+
+---
+
+### 2.3 `src/navigation/` — Sistema de Navegação
+
+| Ficheiro | Função |
+|---|---|
+| `AppNavigator.tsx` | **Navegador principal.** Decide qual stack mostrar com base no papel (paciente/dentista/admin) e estado de autenticação. Implementa: badge de mensagens não lidas com polling + Realtime, tabs inferiores por papel, redirecionamento para mudança de senha obrigatória, e responsividade da tab bar para Web (centrada, `maxWidth: 800`). |
+| `AdminNavigator.tsx` | Stack de navegação exclusivo para administradores. |
+| `DentistaStackNavigator.tsx` | Stack auxiliar para dentistas (fallback). |
+| `types.ts` | Definição TypeScript de todos os parâmetros de navegação (`AuthStackParamList`, `PacienteTabParamList`, `DentistaTabParamList`, etc). |
+
+---
+
+### 2.4 `src/screens/auth/` — Telas de Autenticação
+
+| Ficheiro | Função |
+|---|---|
+| `LoginScreen.tsx` | Tela de login com email e senha. Exibe erros contextuais (conta não encontrada, senha incorreta, tipo errado). |
+| `RegisterScreen.tsx` | Tela de registo de novo utilizador. Campos: nome, email, senha, telefone, província. |
+| `ForgotPasswordScreen.tsx` | Recuperação de senha por email. |
+| `ChangePasswordScreen.tsx` | Tela obrigatória de alteração de senha (exibida quando `force_password_change` está ativo, ex: após criação de ficha pelo dentista). |
+
+---
+
+### 2.5 `src/screens/paciente/` — Telas do Paciente
+
+| Ficheiro | Função |
+|---|---|
+| `HomeScreen.tsx` | **Tela inicial.** Saudação personalizada, ações rápidas (Triagem, Educação, Agendar), dica do dia, triagens recentes com respostas do dentista. Redireciona automaticamente para escolha de dentista se nenhum estiver selecionado. |
+| `TriagemScreen.tsx` | **Formulário de triagem.** Captura de fotos (câmara/galeria), descrição de sintomas, escala de dor, localização. Upload de imagens para Supabase Storage. Prioridade automática baseada na intensidade. |
+| `TriagemDetalheScreen.tsx` | Detalhes de uma triagem específica: status, informações, imagens, resposta do dentista. |
+| `HistoricoScreen.tsx` | **Histórico combinado** de triagens e agendamentos. Barra de filtros horizontal com scroll (estilo Educação): Todos, Pendente, Urgente, Confirmado, Realizados, Cancelado. Modais imersivos em tela cheia para detalhes. |
+| `EducacaoScreen.tsx` | Conteúdos educativos de saúde bucal por categoria (prevenção, higiene, doenças, crianças, emergências, nutrição). Modal imersivo para leitura. |
+| `AgendamentoScreen.tsx` | Formulário para agendar consulta: tipo, data/hora, observações, dentista. |
+| `ChooseDentistaScreen.tsx` | Lista de dentistas disponíveis. O paciente **deve** selecionar um antes de usar a app. |
+| `MensagensScreen.tsx` | Chat em tempo real com o dentista. Envio/recepção de mensagens via Supabase Realtime. |
+| `PerfilScreen.tsx` | Visualização e edição do perfil (nome, telefone, província, foto). Modo de edição forçado para completar dados obrigatórios. |
+| `SettingsScreen.tsx` | Configurações da app (notificações, tema, etc). |
+| `NotificacoesScreen.tsx` | Lista de notificações do paciente. |
+| `NotificacoesDetalheScreen.tsx` | Detalhe de uma notificação. |
+| `PrivacidadeScreen.tsx` | Política de privacidade. |
+| `TermosUsoScreen.tsx` | Termos de uso da aplicação. |
+| `AjudaScreen.tsx` | Tela de ajuda e perguntas frequentes. |
+
+---
+
+### 2.6 `src/screens/dentista/` — Telas do Dentista
+
+| Ficheiro | Função |
+|---|---|
+| `DashboardScreen.tsx` | **Painel principal do dentista.** Métricas: agenda do dia, urgentes, respondidos, realizados. Receita diária/semanal estimada. Casos pendentes prioritários em destaque. Filtros inteligentes (todos, pendente, urgente, respondido, realizados). Ações rápidas configuráveis por especialidade. |
+| `CasoDetalheScreen.tsx` | **Detalhes de um caso de triagem.** Exibe: sintomas, fotos do paciente (com zoom), escala de dor, histórico de respostas. Ações: responder ao caso, marcar como urgente (`window.confirm` no Web, `Alert` no mobile), abrir chat com paciente. |
+| `AgendaDentistaScreen.tsx` | Agenda do dentista: visualização diária dos agendamentos. Ações: confirmar, realizar, cancelar consultas. |
+| `GerirPacientesScreen.tsx` | Lista de pacientes do dentista com busca. Acompanhamento dos pacientes. |
+| `NovoPacienteScreen.tsx` | Cadastro de novo paciente: gera ficha com email/senha temporária e QR code. |
+| `PacienteHistoricoScreen.tsx` | Histórico completo de um paciente específico (triagens + agendamentos). |
+| `DentistaRelatorioScreen.tsx` | Relatórios do dentista: estatísticas, tendências, procedimentos. |
+| `DentistaMensagensScreen.tsx` | Lista de conversas ativas com pacientes. |
+| `gerarFichaHistorico.ts` | Função utilitária para gerar PDF da ficha do paciente. |
+
+---
+
+### 2.7 `src/screens/admin/` — Telas do Administrador
+
+| Ficheiro | Função |
+|---|---|
+| `AdminDashboardScreen.tsx` | Painel administrativo com métricas globais do sistema. |
+| `AdminReportsScreen.tsx` | Relatórios administrativos. |
+| `AdminProfileScreen.tsx` | Gestão do perfil do administrador. |
+| `AdminPasswordRecoveryScreen.tsx` | Ferramenta para recuperação de senhas de utilizadores. |
+| `RelatorioScreen.tsx` | Geração de relatórios detalhados. |
+
+---
+
+### 2.8 `src/screens/shared/` — Telas Partilhadas
+
+| Ficheiro | Função |
+|---|---|
+| `ChatScreen.tsx` | Tela de chat individual entre dois utilizadores. Envia e recebe mensagens em tempo real. |
+| `ConversationsListScreen.tsx` | Lista de conversas do utilizador. |
+| `NotificacoesScreen.tsx` | Tela de notificações partilhada entre papéis. |
+
+---
+
+### 2.9 `src/services/` — Camada de Serviços (Backend)
+
+Cada serviço segue o padrão: `async function → try/catch → withTimeout → ServiceResult<T>`.
+
+| Ficheiro | Função |
+|---|---|
+| `triagemService.ts` | CRUD completo de triagens. Upload de imagens para Storage. Buscar por paciente, por dentista, ou todas. Atualizar status e prioridade. Buscar contadores (pendente, urgente, respondido, total). Responder a triagem. |
+| `agendamentoService.ts` | Criar, buscar, confirmar, realizar e cancelar agendamentos. Enriquecer com dados do paciente/dentista. Filtros por período, por dentista, por paciente. Timeout de 10s em todas as queries. |
+| `messagesService.ts` | Enviar e buscar mensagens. Contar não-lidas. Marcar como lidas. Criar/buscar conversas. |
+| `conteudoService.ts` | Buscar conteúdos educativos por categoria. Incrementar visualizações. |
+| `pacienteService.ts` | CRUD de pacientes. Buscar por ID, listar por dentista. |
+| `dentistaService.ts` | Operações de busca de dentistas. Listar disponíveis. |
+| `fichaService.ts` | Gerar ficha do paciente (PDF A4) com QR code, dados do paciente e senha. |
+| `storageService.ts` | Upload de ficheiros para Supabase Storage. Obter URL pública. |
+| `relatorioService.ts` | Buscar dados para relatórios e estatísticas. |
+| `notificacoesService.ts` | CRUD de notificações. |
+| `emailService.ts` | Envio de emails (ex: fichas, recuperação). |
+| `authService.ts` | Funções auxiliares de autenticação. |
+| `baseService.ts` | Classe base/utilitária para os serviços. |
+| `localNotificationService.ts` | Notificações locais do dispositivo (push simulado). |
+| `offlineSyncService.ts` | Sincronização offline (preparado para uso futuro). |
+| `passwordRecoveryService.ts` | Lógica de recuperação de senha. |
+| `pdfReportService.ts` | Geração de relatórios em PDF. |
+
+---
+
+### 2.10 `src/components/` — Componentes Reutilizáveis
+
+| Ficheiro | Função |
+|---|---|
+| `Card.tsx` | Componente de cartão genérico com sombra e bordas arredondadas. |
+| `NetworkSyncStatus.tsx` | Indicador visual de estado de rede/sincronização. |
+| `ProfileEditModal.tsx` | Modal de edição de perfil reutilizável. |
+| `ui/Button.tsx` | Botão estilizado com variantes (primário, secundário, outline). |
+| `ui/Input.tsx` | Campo de input estilizado com label, ícone e validação visual. |
+| `ui/Loading.tsx` | Indicador de carregamento animado. |
+
+---
+
+### 2.11 `src/hooks/` — Custom Hooks
+
+| Ficheiro | Função |
+|---|---|
+| `useAgendamentos.ts` | Hook para buscar e gerir agendamentos. Abstrai chamadas ao `agendamentoService`. |
+| `useConteudos.ts` | Hook para buscar conteúdos educativos com cache. |
+| `useDentistas.ts` | Hook para listar dentistas disponíveis. |
+| `useNetworkSync.ts` | Hook para monitorar estado de rede e sincronização. |
+| `useRealTimeMessages.ts` | Hook para subscrição Realtime de mensagens (Supabase channels). |
+| `useTriagens.ts` | Hook para buscar e filtrar triagens. |
+
+---
+
+### 2.12 `src/styles/` — Sistema de Tema
+
+| Ficheiro | Função |
+|---|---|
+| `theme.ts` | **Tema centralizado.** Define: `COLORS` (primary, secondary, accent, danger, etc), `SIZES` (padding, margin, fonts, border radius), `SHADOWS` (sm, md, lg). Todas as telas usam estas constantes. |
+| `themeColors.ts` | Paleta de cores alternativa (preparada para modo escuro). |
+
+---
+
+### 2.13 `src/types/` — Interfaces TypeScript
+
+| Ficheiro | Função |
+|---|---|
+| `triagem.ts` | Define as interfaces `TriagemData`, `Triagem` e `RespostaTriagem`. Tipagem dos dados de triagem: sintomas, imagens, prioridade, status, respostas do dentista. |
+
+---
+
+### 2.14 `src/utils/` — Funções Utilitárias
+
+| Ficheiro | Função |
+|---|---|
+| `constants.ts` | Constantes globais: `STATUS_TRIAGEM` (pendente, urgente, respondido), `STATUS_AGENDAMENTO`, `PRIORIDADE`, `TIPOS_CONSULTA`, `CATEGORIAS_CONTEUDO`, `RECOMENDACAO`. Cada uma com label, cor e ícone. |
+| `helpers.ts` | Funções auxiliares: `formatDateTime` (formata datas), `formatRelativeTime` (ex: "há 2 horas"), `getInitials` (iniciais do nome para avatar). |
+| `errorHandler.ts` | Normalização de erros: classifica tipo (AUTH_ERROR, NETWORK_ERROR, VALIDATION_ERROR, etc) e gera mensagem amigável para o utilizador. |
+| `withTimeout.ts` | **Wrapper de timeout.** Envolve qualquer Promise do Supabase com um limite de tempo. Previne que queries travem a interface no Web/PWA. |
+| `logger.ts` | Logger centralizado: `logger.info()`, `logger.warn()`, `logger.error()`. Prefixos com emojis para fácil identificação no console. |
+| `storage.ts` | Abstração de armazenamento local: `universalStorage.getItem()`, `.setItem()`, `.removeItem()`. Funciona no Web (localStorage) e mobile (AsyncStorage). |
+| `validators.ts` | Funções de validação: email, telefone, senha, campos obrigatórios. |
+| `senhaUtils.ts` | Geração de senhas seguras para fichas de pacientes. |
+| `qrUtils.ts` | Geração de QR codes para fichas de pacientes. |
+| `pdfExportUtils.ts` | Utilitários para exportação em PDF (formatação, layout A4). |
+| `navigationConstants.ts` | Constantes de nomes de rotas de navegação. |
+
+---
+
+## 3. SEGURANÇA
+
+| Mecanismo | Como funciona |
+|---|---|
+| **Sessão Única** | Token gerado no login, salvo no banco. Listener Realtime deteta alteração → logout imediato. |
+| **RLS (Row Level Security)** | Políticas no PostgreSQL que restringem acesso por utilizador. Fallback com admin client. |
+| **Timeout** | `withTimeout()` em todas as queries (10s padrão). Evita travamentos no Web. |
+| **Logout Global** | `signOut({ scope: 'global' })` invalida sessões em todos os dispositivos. |
+| **Validação de Email** | Login verifica existência do perfil e tipo antes de retornar erro genérico. |
+
+## 4. CROSS-PLATFORM
+
+| Plataforma | Adaptação |
+|---|---|
+| **Web/PWA** | Tab bar centrada (800px), `window.confirm` em vez de `Alert.alert`, scroll horizontal. |
+| **Mobile** | Navegação nativa, câmara para triagem, notificações locais. |
+| **Ambas** | Mesmo código, diferenciado por `Platform.OS`. Build único via Expo. |

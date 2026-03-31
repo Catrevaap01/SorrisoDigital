@@ -132,8 +132,9 @@ const PacienteTabs: React.FC<TabsProps> = ({ unreadCount }) => (
         backgroundColor: COLORS.surface,
         position: 'absolute',
         bottom: 0,
-        left: '50%',
-        marginLeft: -400,
+        left: 0,
+        right: 0,
+        marginHorizontal: 'auto',
         height: 60,
       } : { height: 60 },
     })}
@@ -201,8 +202,9 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
         backgroundColor: COLORS.surface,
         position: 'absolute',
         bottom: 0,
-        left: '50%',
-        marginLeft: -400,
+        left: 0,
+        right: 0,
+        marginHorizontal: 'auto',
         height: 60,
       } : { height: 60 },
     })}

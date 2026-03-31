@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS } from '../styles/theme';
@@ -61,7 +61,25 @@ const AdminNavigator: React.FC = () => {
           return <Ionicons name={iconName as any} size={size} color={color} />;
         },
         tabBarShowLabel: true,
-        tabBarStyle: {
+        tabBarStyle: Platform.OS === 'web' ? {
+          width: '100%',
+          maxWidth: 800,
+          alignSelf: 'center',
+          backgroundColor: COLORS.surface,
+          borderTopWidth: 0,
+          height: 72,
+          paddingTop: 8,
+          paddingBottom: 10,
+          paddingHorizontal: 10,
+          borderTopLeftRadius: 18,
+          borderTopRightRadius: 18,
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          marginHorizontal: 'auto',
+          ...SHADOWS.lg,
+        } : {
           backgroundColor: COLORS.surface,
           borderTopWidth: 0,
           height: 72,

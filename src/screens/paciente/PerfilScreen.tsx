@@ -498,6 +498,8 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
         )}
       </View>
 
+
+
         {!forceEdit && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Configurações</Text>

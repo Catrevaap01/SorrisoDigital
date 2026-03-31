@@ -519,6 +519,70 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
     };
   }, []);
 
+  // ═══════════════════════════════════════════════════════════
+  // SINGLE-SESSION REALTIME LISTENER
+  // Detects when another device logs in and overrides the session
+  // ═══════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const userId = user.id;
+    let sessionChannel: any = null;
+
+    const setupSessionListener = async () => {
+      const localSessionId = await universalStorage.getItem(`last_session_id_${userId}`);
+      if (!localSessionId) return;
+
+      sessionChannel = supabase
+        .channel(`session-guard-${userId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'profiles',
+            filter: `id=eq.${userId}`,
+          },
+          async (payload: any) => {
+            const newSessionId = payload.new?.last_session_id;
+            const currentLocal = await universalStorage.getItem(`last_session_id_${userId}`);
+
+            if (newSessionId && currentLocal && newSessionId !== currentLocal) {
+              console.warn(`🚨 Realtime: Session override detected! DB: ${newSessionId}, Local: ${currentLocal}`);
+              
+              setUser(null);
+              setProfile(null);
+              await universalStorage.removeItem(`last_session_id_${userId}`);
+              
+              try {
+                await supabase.auth.signOut({ scope: 'local' });
+              } catch (e) {
+                console.warn('SignOut local error (ignorado):', e);
+              }
+
+              Toast.show({
+                type: 'info',
+                text1: 'Sessão Encerrada',
+                text2: 'A sua conta foi acedida noutro dispositivo.',
+                visibilityTime: 6000,
+              });
+            }
+          }
+        )
+        .subscribe((status: string) => {
+          console.log(`📡 Session guard channel status: ${status}`);
+        });
+    };
+
+    setupSessionListener();
+
+    return () => {
+      if (sessionChannel) {
+        supabase.removeChannel(sessionChannel);
+      }
+    };
+  }, [user?.id]);
+
   /**
    * FunÃ§Ã£o de login
    */

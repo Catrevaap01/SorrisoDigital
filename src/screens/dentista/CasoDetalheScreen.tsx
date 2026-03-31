@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import type { Triagem } from '../../types/triagem';
 import {
   View,
   Text,
@@ -31,7 +32,7 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
   const { triagemId } = route.params;
   const { profile } = useAuth();
   
-  const [triagem, setTriagem] = useState<any | null>(null);
+  const [triagem, setTriagem] = useState<Triagem | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [enviando, setEnviando] = useState<boolean>(false);
   const [imagemModal, setImagemModal] = useState<string | null>(null);
@@ -41,7 +42,7 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
   const [recomendacao, setRecomendacao] = useState<string>('');
   const [observacoes, setObservacoes] = useState<string>('');
 
-  const carregarTriagem = async () => {
+const carregarTriagem = async () => {
     const result = await buscarTriagemPorId(triagemId);
     if (result.success) {
       let tri = result.data;
@@ -58,14 +59,14 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
         }
       }
 
-      setTriagem(tri);
+      setTriagem(tri as any);
       
       // Se já tem resposta, preencher campos
       if (tri.respostas && tri.respostas.length > 0) {
         const resposta = tri.respostas[0];
         setOrientacao(resposta.orientacao || '');
         setRecomendacao(resposta.recomendacao || '');
-        setObservacoes(resposta.observacoes || '');
+      setObservacoes(resposta.observacoes || '');
       }
     }
     setLoading(false);
@@ -73,6 +74,23 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
 
   useEffect(() => {
     carregarTriagem();
+
+    // Realtime subscription for triage changes
+    const channel = supabase
+      .channel(`triagem-${triagemId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'triagens', filter: `id=eq.${triagemId}` },
+        () => {
+          console.log('🔄 Triagem alterada, recarregando...');
+          carregarTriagem();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [triagemId]);
 
   const handleEnviarResposta = async () => {
@@ -125,7 +143,7 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
         recomendacao,
         observacoes: observacoes.trim(),
       }, {
-        pacienteId: triagem.paciente_id!,
+        pacienteId: triagem!.paciente_id!,
         dentistaNome: profile.nome || 'Dentista',
         dentistaAvatar: profile.foto_url || null
       });
@@ -161,6 +179,14 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
   };
 
   const handleMarcarUrgente = () => {
+    if (Platform.OS === 'web') {
+      const confirmou = window.confirm('Deseja marcar este caso como URGENTE? Isso indicará que o paciente precisa de atendimento presencial imediato.');
+      if (confirmou) {
+        processarUrgente();
+      }
+      return;
+    }
+
     Alert.alert(
       'Marcar como Urgente',
       'Isso indicará que o paciente precisa de atendimento presencial urgente.',
@@ -169,16 +195,22 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
         {
           text: 'Confirmar',
           style: 'destructive',
-          onPress: async () => {
-            const result = await atualizarStatusTriagem(triagemId, 'urgente', 'urgente');
-            if (result.success) {
-              Toast.show({ type: 'success', text1: 'Marcado como urgente' });
-              await carregarTriagem();
-            }
-          },
+          onPress: processarUrgente,
         },
       ]
     );
+  };
+
+  const processarUrgente = async () => {
+    setLoading(true);
+    const result = await atualizarStatusTriagem(triagemId, 'urgente', 'urgente');
+    if (result.success) {
+      Toast.show({ type: 'success', text1: 'Marcado como urgente' });
+      await carregarTriagem();
+    } else {
+      Toast.show({ type: 'error', text1: 'Erro ao marcar urgente' });
+    }
+    setLoading(false);
   };
 
   const handleAbrirChatPaciente = async () => {
@@ -303,7 +335,7 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
 
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Sintoma Principal</Text>
-          <Text style={styles.infoValor}>{triagem.sintoma_principal}</Text>
+          <Text style={styles.infoValor}>{triagem.sintoma_principal ?? 'Não informado'}</Text>
         </View>
 
         <View style={styles.infoRowDupla}>
@@ -311,9 +343,9 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
             <Text style={styles.infoLabel}>Intensidade da Dor</Text>
             <Text style={[
               styles.infoValor,
-              triagem.intensidade_dor >= 7 && styles.valorUrgente
+              Number(triagem.intensidade_dor || 0) >= 7 && styles.valorUrgente
             ]}>
-              {triagem.intensidade_dor}/10
+{Number(triagem.intensidade_dor || 0)}/10
             </Text>
           </View>
           <View style={styles.infoColuna}>
@@ -335,11 +367,13 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
           </View>
         ) : null}
       </View>
-      {triagem.imagens && triagem.imagens.length > 0 ? (
+      {triagem.imagens && (Array.isArray(triagem.imagens) ? triagem.imagens.length > 0 : typeof triagem.imagens === 'string') ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Fotos Enviadas ({triagem.imagens.length})</Text>
+          <Text style={styles.sectionTitle}>
+            Fotos Enviadas ({Array.isArray(triagem.imagens) ? triagem.imagens.length : 1})
+          </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {triagem.imagens.map((uri, index) => (
+            {(Array.isArray(triagem.imagens) ? triagem.imagens : [triagem.imagens]).map((uri, index) => (
               <TouchableOpacity
                 key={index}
                 onPress={() => setImagemModal(uri)}

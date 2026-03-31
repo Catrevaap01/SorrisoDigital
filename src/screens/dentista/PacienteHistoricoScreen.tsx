@@ -9,7 +9,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { buscarTriagensPaciente } from '../../services/triagemService';
+import { buscarTriagensPaciente, Triagem } from '../../services/triagemService';
 import { buscarPaciente, PacienteProfile, calcularIdade } from '../../services/pacienteService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { STATUS_TRIAGEM } from '../../utils/constants';
@@ -29,7 +29,7 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
   navigation,
 }) => {
   const { pacienteId, pacienteNome } = route.params;
-  const [triagens, setTriagens] = useState<any[]>([]);
+  const [triagens, setTriagens] = useState<Triagem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [paciente, setPaciente] = useState<PacienteProfile | null>(null);
@@ -62,7 +62,7 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
     setRefreshing(false);
   }, [pacienteId]);
 
-  const renderTriagemLinha = ({ item }: { item: any }) => {
+  const renderTriagemLinha = ({ item }: { item: Triagem }) => {
     const temResposta = item.respostas && item.respostas.length > 0;
     const effectiveStatus = temResposta
       ? 'respondido'

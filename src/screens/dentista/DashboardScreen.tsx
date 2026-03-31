@@ -121,40 +121,64 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   }, [agendaHoje, agendamentos]);
 
   const dadosFiltrados: ListaItem[] = useMemo(() => {
-    const respondidosIds = new Set(triagens.filter(t => (t.respostas && t.respostas.length > 0) || (t.status || '').toLowerCase() === 'respondido').map(t => t.paciente_id));
-    const urgentesIds = new Set(triagens.filter(t => !respondidosIds.has(t.paciente_id) && ((t.status || '').toLowerCase() === 'urgente' || (t.prioridade || '').toLowerCase() === 'urgente' || (t.prioridade || '').toLowerCase() === 'alta')).map(t => t.paciente_id));
-
     if (filtroAtivo === 'todos') {
       const filteredAgendamentos = agendamentos.filter(a => {
         const s = (a.status || '').toLowerCase();
-        return ['agendado', 'confirmado', 'realizado', 'pendente'].includes(s);
+        return ['agendado', 'confirmado', 'realizado', 'pendente', 'urgente'].includes(s);
       });
-      return [...triagens, ...filteredAgendamentos].sort(
-        (a, b) => new Date(b.created_at || (b as any).data_agendamento).getTime() - 
-                  new Date(a.created_at || (a as any).data_agendamento).getTime()
-      );
+      return [...triagens, ...filteredAgendamentos].sort((a, b) => {
+        const aStatus = (a.status || '').toLowerCase();
+        const bStatus = (b.status || '').toLowerCase();
+        const aPrio = (a.prioridade || '').toLowerCase();
+        const bPrio = (b.prioridade || '').toLowerCase();
+        
+        const aIsUrgente = aStatus === 'urgente' || aPrio === 'urgente' || aPrio === 'alta';
+        const bIsUrgente = bStatus === 'urgente' || bPrio === 'urgente' || bPrio === 'alta';
+
+        if (aIsUrgente && !bIsUrgente) return -1;
+        if (!aIsUrgente && bIsUrgente) return 1;
+
+        return new Date(b.created_at || (b as any).data_agendamento).getTime() - 
+               new Date(a.created_at || (a as any).data_agendamento).getTime();
+      });
     }
 
     if (filtroAtivo === 'respondido') {
-      const tResp = triagens.filter(t => respondidosIds.has(t.paciente_id));
-      const aResp = agendamentos.filter(a => respondidosIds.has(a.paciente_id) && (a.status || '').toLowerCase() !== 'realizado');
-      return [...tResp, ...aResp];
+      const tResp = triagens.filter(t => (t.respostas && t.respostas.length > 0) || (t.status || '').toLowerCase() === 'respondido');
+      const aResp = agendamentos.filter(a => (a.status || '').toLowerCase() === 'realizado');
+      return [...tResp, ...aResp].sort((a, b) => new Date(b.created_at || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).data_agendamento || 0).getTime());
     }
 
     if (filtroAtivo === 'urgente') {
-      const tUrg = triagens.filter(t => urgentesIds.has(t.paciente_id));
-      const aUrg = agendamentos.filter(a => urgentesIds.has(a.paciente_id) && (a.status || '').toLowerCase() !== 'realizado');
-      return [...tUrg, ...aUrg];
+      const tUrg = triagens.filter(t => !((t.respostas && t.respostas.length > 0) || (t.status || '').toLowerCase() === 'respondido') && ((t.status || '').toLowerCase() === 'urgente' || (t.prioridade || '').toLowerCase() === 'urgente' || (t.prioridade || '').toLowerCase() === 'alta'));
+      const aUrg = agendamentos.filter(a => (a.status || '').toLowerCase() === 'urgente' || (a.prioridade || '').toLowerCase() === 'urgente' || (a.prioridade || '').toLowerCase() === 'alta');
+      return [...tUrg, ...aUrg].sort((a, b) => new Date(b.created_at || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).data_agendamento || 0).getTime());
     }
 
     if (filtroAtivo === 'pendente') {
-      const tPend = triagens.filter(t => !respondidosIds.has(t.paciente_id) && !urgentesIds.has(t.paciente_id) && (t.status || '').toLowerCase() === 'pendente');
-      const aPend = agendamentos.filter(a => !respondidosIds.has(a.paciente_id) && !urgentesIds.has(a.paciente_id) && (a.status || '').toLowerCase() === 'pendente');
-      return [...tPend, ...aPend];
+      const tPend = triagens.filter(t => !((t.respostas && t.respostas.length > 0) || (t.status || '').toLowerCase() === 'respondido') && (t.status || '').toLowerCase() === 'pendente' && (t.prioridade || '').toLowerCase() !== 'urgente' && (t.prioridade || '').toLowerCase() !== 'alta');
+      const aPend = agendamentos.filter(a => (a.status || '').toLowerCase() === 'pendente');
+      return [...tPend, ...aPend].sort((a, b) => new Date(b.created_at || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).data_agendamento || 0).getTime());
     }
 
     return agendamentos.filter((item) => (item.status || '').toLowerCase() === 'realizado');
   }, [triagens, agendamentos, filtroAtivo]);
+
+  const casosPendentes = useMemo(() => {
+    return triagens
+      .filter(t => {
+        const status = (t.status || 'pendente').toLowerCase();
+        const prio = (t.prioridade || 'normal').toLowerCase();
+        const respondido = (t.respostas && t.respostas.length > 0) || status === 'respondido';
+        // Apenas casos urgentes ou de alta prioridade que NÃO foram respondidos
+        const isUrgente = status === 'urgente' || prio === 'urgente' || prio === 'alta';
+        return !respondido && isUrgente;
+      })
+      .sort((a, b) => {
+        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      })
+      .slice(0, 5);
+  }, [triagens]);
 
   const abrirCaso = (triagem: Triagem) => navigation.getParent<any>()?.navigate('CasoDetalhe', { triagemId: triagem.id });
   const abrirPaciente = (agendamento: Agendamento) => {
@@ -176,6 +200,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     if ('data_agendamento' in item) {
       const agendamento = item as Agendamento;
       const statusLower = (agendamento.status || 'pendente').toLowerCase();
+      const prioLower = ((agendamento as any).prioridade || 'normal').toLowerCase();
       
       // Check if patient has any responded triage
       const isRespondido = triagens.some(t => 
@@ -183,11 +208,17 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         ((t.respostas && t.respostas.length > 0) || (t.status || '').toLowerCase() === 'respondido')
       );
 
-      const effectiveStatus = (isRespondido && (statusLower === 'pendente' || statusLower === 'agendado'))
-        ? 'respondido'
-        : statusLower;
+      // Check if this case is urgent (by status or prioridade)
+      const isUrgente = statusLower === 'urgente' || prioLower === 'urgente' || prioLower === 'alta';
 
-      const statusInfo = (effectiveStatus === 'respondido' ? STATUS_TRIAGEM.respondido : (STATUS_AGENDAMENTO[effectiveStatus] || STATUS_AGENDAMENTO.pendente));
+      // Urgente tem prioridade máxima na badge
+      const effectiveStatus = isUrgente 
+        ? 'urgente'
+        : isRespondido 
+          ? 'respondido'
+          : statusLower;
+
+      const statusInfo = (effectiveStatus === 'urgente' ? STATUS_TRIAGEM.urgente : effectiveStatus === 'respondido' ? STATUS_TRIAGEM.respondido : (STATUS_AGENDAMENTO[effectiveStatus] || STATUS_AGENDAMENTO.pendente));
       return (
         <TouchableOpacity style={styles.card} onPress={() => abrirPaciente(item as Agendamento)}>
           <View style={styles.cardRow}>
@@ -212,11 +243,14 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     // Se tem respostas OU o status é explicitamente respondido/completo
     const isRespondido = temRespostas || statusLower === 'respondido' || statusLower === 'completo';
 
-    const effectiveStatus = isRespondido 
-      ? 'respondido' 
-      : (statusLower === 'urgente' || prioLower === 'urgente' || prioLower === 'alta' 
-          ? 'urgente' 
-          : (STATUS_TRIAGEM[statusLower] ? statusLower : 'pendente'));
+    // Urgente tem prioridade máxima
+    const isUrgente = statusLower === 'urgente' || prioLower === 'urgente' || prioLower === 'alta';
+
+    const effectiveStatus = isUrgente 
+      ? 'urgente' 
+      : isRespondido 
+        ? 'respondido' 
+        : (STATUS_TRIAGEM[statusLower] ? statusLower : 'pendente');
 
     const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
     const prioridade = PRIORIDADE[prioLower] || PRIORIDADE.normal;
@@ -318,6 +352,8 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.metricLabel}>Realizados</Text>
         </View>
       </View>
+
+
 
       {/* Próximos atendimentos */}
       <View style={styles.block}>

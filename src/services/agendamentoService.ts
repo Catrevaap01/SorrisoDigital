@@ -168,16 +168,16 @@ export const buscarTodosAgendamentosDentista = async (
 ): Promise<ServiceResult<Agendamento[]>> => {
   try {
     const [agendaRes, bloqueadosRes] = await Promise.all([
-      supabase
+      withTimeout(supabase
         .from('agendamentos')
         .select('*')
         .eq('dentista_id', dentistaId)
-        .order('data_agendamento', { ascending: false }),
-      supabase
+        .order('data_agendamento', { ascending: false }), 10000),
+      withTimeout(supabase
         .from('agendamentos')
         .select('paciente_id')
         .in('status', ['pendente', 'agendado', 'confirmado'])
-        .neq('dentista_id', dentistaId)
+        .neq('dentista_id', dentistaId), 8000)
     ]);
 
     if (agendaRes.error) throw agendaRes.error;
@@ -210,13 +210,13 @@ export const buscarAgendamentosDentistaPorPeriodo = async (
   dataFim: Date
 ): Promise<ServiceResult<Agendamento[]>> => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await withTimeout(supabase
       .from('agendamentos')
       .select('*')
       .eq('dentista_id', dentistaId)
       .gte('data_agendamento', dataInicio.toISOString())
       .lt('data_agendamento', dataFim.toISOString())
-      .order('data_agendamento', { ascending: false });
+      .order('data_agendamento', { ascending: false }), 10000);
 
     if (error) throw error;
 
@@ -353,11 +353,11 @@ export const buscarAgendamentosPaciente = async (
 ): Promise<ServiceResult<Agendamento[]>> => {
   try {
     // Busca agendamentos do paciente
-    const { data, error } = await supabase
+    const { data, error } = await withTimeout(supabase
       .from('agendamentos')
       .select('*')
       .eq('paciente_id', pacienteId)
-      .order('data_agendamento', { ascending: false });
+      .order('data_agendamento', { ascending: false }), 10000);
 
     if (error) throw error;
 
