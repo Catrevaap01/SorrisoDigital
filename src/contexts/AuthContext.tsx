@@ -87,8 +87,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLastLoginTimeState(val);
   };
 
-  // SESSAO UNICA: Identificador da Instancia Atual (Aba/App)
-  const currentInstanceSessionId = useRef<string | null>(null);
+  // ═══════════════════════════════════════════════════════════
+  // TAB/INSTANCE SESSION IDENTIFIER
+  // Unique per tab on Web (sessionStorage), persistent per app on Mobile.
+  // ═══════════════════════════════════════════════════════════
+  const [tabInstanceId, setTabInstanceId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const initTabId = async () => {
+      let id: string | null = null;
+      if (Platform.OS === 'web') {
+        id = window.sessionStorage.getItem('teodonto_tab_id');
+        if (!id) {
+          id = `tab-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+          window.sessionStorage.setItem('teodonto_tab_id', id);
+        }
+      } else {
+        // No Mobile, usamos um ID persistente (um único app por dispositivo)
+        id = await universalStorage.getItem('teodonto_instance_id');
+        if (!id) {
+          id = `app-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+          await universalStorage.setItem('teodonto_instance_id', id);
+        }
+      }
+      setTabInstanceId(id);
+      console.log(`[SESS-INIT] Tab/Instance ID: ${id}`);
+    };
+    initTabId();
+  }, []);
 
 
 
@@ -117,6 +143,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (!id || id < 1 || id > PROVINCIAS_STATIC_ORDER.length) return undefined;
     return PROVINCIAS_STATIC_ORDER[id - 1];
   };
+
+  const LATEST_SESSION_KEY = 'teodonto_active_instance_id';
 
   // Helper from pacienteService (copied for RLS fallback)
   const getAdminClient = (): SupabaseClient | null => {
@@ -410,6 +438,9 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       if (error) throw error;
 
       if (!data) {
+        // perfil ausente; pode ocorrer se o usuário foi criado fora do fluxo
+        // normal (e.g. script de admin). tentamos criar uma linha mínima para
+        // evitar erros subsequentes e respeitar o contrato da aplicação.
         logger.warn(`Perfil não encontrado para ${userId}, criando entrada vazia`);
         try {
           const { data: userRes } = await supabase.auth.getUser();
@@ -431,35 +462,31 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
         }
       }
 
-      const normalizedProfile = normalizeProfile(data);
-      
-      // LOGICA SINGLE DEVICE: Verificar se a sessao local coincide com a do banco
-      // Sincronizar o ID da instancia se estiver vazio (primeiro carregamento)
-      if (!currentInstanceSessionId.current) {
-        const storedId = await universalStorage.getItem(`last_session_id_${userId}`);
-        currentInstanceSessionId.current = storedId;
+      // Diagnostic check for missing columns
+      if (data && !('last_session_id' in data)) {
+        console.error(`[DIAGNOSTIC] Column 'last_session_id' missing in profiles table for user ${userId}`);
       }
 
-      const localSessionId = currentInstanceSessionId.current;
-      const delta = Date.now() - lastLoginTimeRef.current;
-      const isRecentlyLoggedIn = delta < 3000; 
+      const normalizedProfile = normalizeProfile(data);
       
-      if (!isSigningInRef.current && !isRecentlyLoggedIn && data.last_session_id && localSessionId && data.last_session_id !== localSessionId) {
-        console.warn(`🚨 Login: Session Mismatch for ${userId}. DB: ${data.last_session_id}, Instance: ${localSessionId}`);
-        
-        // Se houver conflito, damos uma segunda chance rápida
-        await new Promise(r => setTimeout(r, 1000));
-        const { data: retryData } = await supabase.from('profiles').select('last_session_id').eq('id', userId).maybeSingle();
-        
-        if (retryData?.last_session_id && retryData.last_session_id !== localSessionId) {
-          logger.warn(`Sessao conflitante confirmada para ${userId}. Instance: ${localSessionId}, DB: ${retryData.last_session_id}. Expulsando.`);
-          await handleForceLogout(userId, 'Esta conta foi ligada noutro dispositivo.');
+      // LOGICA SINGLE DEVICE/TAB: Verificar se a sessao local coincide com a do banco
+      const delta = Date.now() - lastLoginTimeRef.current;
+      const isRecentlyLoggedIn = delta < 5000; // 5 segundos de carência
+      
+      console.log(`[SESS-CHECK] LocalTab=${tabInstanceId}, DB=${data.last_session_id}, Recent=${isRecentlyLoggedIn}`);
+
+      if (data.last_session_id && tabInstanceId && data.last_session_id !== tabInstanceId) {
+        if (isRecentlyLoggedIn) {
+          console.log('[SESS-SAFE] Diferença ignorada por ser login recente neste dispositivo/tab.');
+        } else {
+          console.warn(`[SESS-FAIL] Discordancia de Sessao: DB=${data.last_session_id}, LocalTab=${tabInstanceId}. Expulsando.`);
+          await handleForceLogout(userId, 'Sessão Encerrada: A sua conta foi aberta noutro local ou separador.');
           return null;
         }
       }
 
       setProfile(normalizedProfile);
-      logger.info('Perfil do usuÃ¡rio carregado com sucesso');
+      logger.info('Perfil do usuário carregado com sucesso');
       return normalizedProfile;
     } catch (error) {
       const handledError = handleError(error, 'AuthProvider.fetchProfile');
@@ -470,7 +497,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
   };
 
   /**
-   * Escutar mudanÃ§as de autenticaÃ§Ã£o
+   * Escutar mudanças de autenticação
    */
   useEffect(() => {
     let bootstrapReleased = false;
@@ -488,7 +515,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       setLoading(false);
     };
 
-    // Verificar sessÃ£o atual e FORÃAR LOGOUT SE ENCONTRAR (Logout on Reload)
+    // Verificar sessão atual e FORÇAR LOGOUT SE ENCONTRAR (Logout on Reload)
     void checkSupabaseReachable().then((reachable) => {
       if (!reachable) {
         logger.warn('Bootstrap: Supabase indisponivel, seguindo sem sessao inicial.');
@@ -514,7 +541,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
         setLoading(false);
       });
 
-    // Escutar mudanÃ§as de estado de autenticaÃ§Ã£o
+    // Escutar mudanças de estado de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setUser(session?.user ?? null);
@@ -536,12 +563,29 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
   }, []);
 
   // ═══════════════════════════════════════════════════════════
+  // INSTANT TAB-TO-TAB EXPULSION (< 1s)
+  // ═══════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !user?.id || !tabInstanceId) return;
+    const userId = user.id;
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === LATEST_SESSION_KEY && e.newValue && e.newValue !== tabInstanceId) {
+        console.warn(`🚨 Storage Event: New session in another tab detected [${e.newValue}]. Logging out this tab [${tabInstanceId}]...`);
+        handleForceLogout(userId, 'Sessão Encerrada: Novo login detetado em outro separador.');
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [user?.id, tabInstanceId]);
+
+  // ═══════════════════════════════════════════════════════════
   // SINGLE-SESSION REALTIME LISTENER
   // Detects when another device logs in and overrides the session
   // ═══════════════════════════════════════════════════════════
   useEffect(() => {
     if (!user?.id) return;
-
     const userId = user.id;
     let sessionChannel: any = null;
 
@@ -574,11 +618,10 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       // 2. Escutar Broadcast (Imediato) - Ultra rápido para dispositivos online
       sessionChannel.on('broadcast', { event: 'SESSION_CHANGE' }, async (payload: any) => {
         const receivedSessionId = payload.payload?.sessionId;
-        const currentLocalId = await universalStorage.getItem(`last_session_id_${userId}`);
-
-        if (receivedSessionId && currentLocalId && receivedSessionId !== currentLocalId) {
-          console.warn(`🚨 Broadcast: New session detected! New: ${receivedSessionId}, current: ${currentLocalId}. Expulsando.`);
-          handleForceLogout(userId, 'Sessão Encerrada: Novo login detetado em outro dispositivo.');
+        
+        if (receivedSessionId && tabInstanceId && receivedSessionId !== tabInstanceId) {
+          console.warn(`🚨 Realtime: New session elsewhere! Received: ${receivedSessionId}, currentTab: ${tabInstanceId}. Expulsando.`);
+          handleForceLogout(userId, 'Sessão Encerrada: Novo login detetado em outro dispositivo ou separador.');
         }
       });
 
@@ -607,37 +650,38 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
 
     const verifySessionIntegrity = async () => {
       try {
-        const localSessionId = currentInstanceSessionId.current;
-        if (!localSessionId) {
-          // Fallback se o ref estiver vazio (e.g. apos recarregar aba mas storage ainda tem)
-          const storedId = await universalStorage.getItem(`last_session_id_${userId}`);
-          if (!storedId) return;
-          currentInstanceSessionId.current = storedId;
-          return;
-        }
+        const localSessionId = await universalStorage.getItem(`last_session_id_${userId}`);
+        if (!localSessionId) return;
 
+        // Consulta leve apenas do campo necessário
         const { data, error } = await supabase
           .from('profiles')
           .select('last_session_id')
           .eq('id', userId)
           .maybeSingle();
 
-        if (error) return;
+        if (error) {
+          console.warn('📡 Heartbeat: Falha ao verificar integridade da sessao (ignorado):', error.message);
+          return;
+        }
 
-        if (data?.last_session_id && data.last_session_id !== localSessionId) {
-          console.warn(`🚨 Heartbeat Discordancia: DB=${data.last_session_id}, Local=${localSessionId}`);
-          await handleForceLogout(userId, 'Sessão Encerrada: A sua conta foi aberta em outro local.');
+        if (data?.last_session_id && tabInstanceId && data.last_session_id !== tabInstanceId) {
+          console.warn(`🚨 Heartbeat Discordancia: DB=${data.last_session_id}, LocalTab=${tabInstanceId}. Expulsando.`);
+          await handleForceLogout(userId, 'Sessão Encerrada: A sua conta foi aberta noutro local ou separador.');
         }
       } catch (err) {
-        // Heartbeat failure is usually network related, ignore
+        console.error('❌ Heartbeat Crash:', err);
       }
     };
 
-    // Executar a cada 3 segundos para garantir a regra de "no maximo 5s"
+    // Executar a cada 5 segundos
     const interval = setInterval(() => {
-      // REMOVIDO: verificamos mesmo em background/hidden para forçar logout
+      // Apenas se a aba estiver ativa (opcional, mas bom para performance)
+      if (Platform.OS === 'web' && document.hidden) return;
+      if (Platform.OS !== 'web' && AppState.currentState !== 'active') return;
+      
       verifySessionIntegrity();
-    }, 3000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [user?.id]);
@@ -784,54 +828,77 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
           console.warn('⚠️ Login: signOut(others) failed (ignoring):', err);
         });
         
-        // Registrar nova sessao para esta instancia
-        const newSessionId = generateSessionId();
-        const userId = data.user.id;
-        currentInstanceSessionId.current = newSessionId; // Vincular esta aba ao novo ID
-        lastLoginTimeRef.current = Date.now();
-        
-        console.log(`📡 Login: New Instance Session ID: ${newSessionId}`);
-        await universalStorage.setItem(`last_session_id_${userId}`, newSessionId);
+        // Registrar nova sessao baseada na ID desta tab/instancia
+        const newSessionId = tabInstanceId || generateSessionId();
+        console.log(`📡 Login: Using Session ID: ${newSessionId}`);
         
         const runSessionUpdate = async () => {
-          console.log('📡 Login: Upserting session ID to DB...');
           try {
-            // Tentamos upsert para garantir que o registro existe e tem o ID
-            const { error: upsertError } = await supabase
-              .from('profiles')
-              .upsert({ 
-                id: userId, 
-                last_session_id: newSessionId,
-                updated_at: new Date().toISOString()
-              }, { onConflict: 'id' });
+            let res = await withTimeout(
+              supabase
+                .from('profiles')
+                .update({ last_session_id: newSessionId })
+                .eq('id', data.user.id),
+              10000 // 10s timeout for profile update
+            );
             
-            if (upsertError) throw upsertError;
-            return { error: null };
-          } catch (err) {
-            console.error('❌ Login: Failed to upsert session ID:', err);
-            return { error: err };
+            if (res.error && isRowLevelSecurityError(res.error)) {
+              console.warn('⚠️ Login: RLS error on session update, trying admin fallback...');
+              const admin = getAdminClient(); // Use common helper
+              if (admin) {
+                res = await withTimeout(
+                  admin
+                    .from('profiles')
+                    .update({ last_session_id: newSessionId })
+                    .eq('id', data.user.id),
+                  10000
+                );
+              }
+            }
+            return res;
+          } catch (updateErr) {
+            console.error('❌ Login: Session update timed out or crashed:', updateErr);
+            return { error: updateErr };
           }
         };
 
-        const updateResult = await runSessionUpdate();
+        const updateResult = (await runSessionUpdate()) as any;
         if (updateResult.error) {
-          console.error('❌ Login: Falha crítica ao atualizar last_session_id:', updateResult.error);
+          // CHECK IF COLUMN MISSING
+          if (updateResult.error.code === 'PGRST204' || String(updateResult.error.message).includes('column "last_session_id" does not exist')) {
+            console.error('❌ [SESS-ERROR] A coluna "last_session_id" não existe na tabela "profiles". ERRO CRÍTICO!');
+            console.error('👉 Por favor, execute o script em docs/SUPABASE_ADD_SESSION_TRACKING.sql no painel do Supabase.');
+          } else {
+            console.error('❌ [SESS-ERROR] Erro ao atualizar sessão no DB:', updateResult.error);
+          }
         } else {
-          console.log('✅ Login: Session ID updated in DB successfully.');
+          console.log(`✅ [SESS-1] Session ID [${tabInstanceId}] updated in DB.`);
           
+          // IMEDIATO PARA ABAS DO MESMO NAVEGADOR (< 50ms)
+          if (Platform.OS === 'web' && tabInstanceId) {
+            localStorage.setItem(LATEST_SESSION_KEY, tabInstanceId);
+            console.log('✅ [SESS-LOCAL] Triggered storage event for other tabs.');
+          }
+
           // BROADCAST IMEDIATO para outros dispositivos encerrarem sessao
-          console.log('📡 Login: Broadcasting session change to others...');
-          const channel = supabase.channel(`session-guard-${userId}`);
+          console.log(`📡 [SESS-2] Broadcasting shift from ${tabInstanceId}...`);
+          const channel = supabase.channel(`session-guard-${data.user.id}`, {
+            config: { broadcast: { self: false } }
+          });
+          
           channel.subscribe(async (status) => {
             if (status === 'SUBSCRIBED') {
-              await channel.send({
-                type: 'broadcast',
-                event: 'SESSION_CHANGE',
-                payload: { sessionId: newSessionId },
-              });
-              console.log('✅ Login: Broadcast sent.');
-              // Remover canal temporário de login
-              setTimeout(() => supabase.removeChannel(channel), 2000);
+              // Mínimo delay para garantir recepção em outros dispositivos
+              setTimeout(async () => {
+                await channel.send({
+                  type: 'broadcast',
+                  event: 'SESSION_CHANGE',
+                  payload: { sessionId: tabInstanceId },
+                });
+                console.log('✅ [SESS-3] Broadcast sent to peers.');
+                // Liberar canal após envio (o listener useEffect manterá outro canal ativo)
+                setTimeout(() => supabase.removeChannel(channel), 1000);
+              }, 50);
             }
           });
         }
