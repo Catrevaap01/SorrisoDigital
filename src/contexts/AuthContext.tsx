@@ -591,6 +591,53 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
   }, [user?.id]);
 
   // ═══════════════════════════════════════════════════════════
+  // 5-SECOND SESSION HEARTBEAT (FAIL-SAFE)
+  // Re-verifies session integrity every 5 seconds as a fallback
+  // for Realtime failures (e.g. poor connection)
+  // ═══════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (!user?.id) return;
+    const userId = user.id;
+
+    const verifySessionIntegrity = async () => {
+      try {
+        const localSessionId = await universalStorage.getItem(`last_session_id_${userId}`);
+        if (!localSessionId) return;
+
+        // Consulta leve apenas do campo necessário
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('last_session_id')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (error) {
+          console.warn('📡 Heartbeat: Falha ao verificar integridade da sessao (ignorado):', error.message);
+          return;
+        }
+
+        if (data?.last_session_id && data.last_session_id !== localSessionId) {
+          console.warn(`🚨 Heartbeat Discordancia: DB=${data.last_session_id}, Local=${localSessionId}. Expulsando.`);
+          await handleForceLogout(userId, 'Sessão Encerrada: A sua conta foi aberta em outro local (detetado via heartbeat).');
+        }
+      } catch (err) {
+        console.error('❌ Heartbeat Crash:', err);
+      }
+    };
+
+    // Executar a cada 5 segundos
+    const interval = setInterval(() => {
+      // Apenas se a aba estiver ativa (opcional, mas bom para performance)
+      if (Platform.OS === 'web' && document.hidden) return;
+      if (Platform.OS !== 'web' && AppState.currentState !== 'active') return;
+      
+      verifySessionIntegrity();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [user?.id]);
+
+  // ═══════════════════════════════════════════════════════════
   // SESSION VERIFICATION ON FOCUS
   // Re-verify session ID when user returns to app
   // ═══════════════════════════════════════════════════════════
