@@ -211,12 +211,14 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       // Check if this case is urgent (by status or prioridade)
       const isUrgente = statusLower === 'urgente' || prioLower === 'urgente' || prioLower === 'alta';
 
-      // Urgente tem prioridade máxima na badge
+      // Urgente tem prioridade máxima na badge, seguido por Realizado
       const effectiveStatus = isUrgente 
         ? 'urgente'
-        : isRespondido 
-          ? 'respondido'
-          : statusLower;
+        : statusLower === 'realizado'
+          ? 'realizado'
+          : isRespondido 
+            ? 'respondido'
+            : statusLower;
 
       const statusInfo = (effectiveStatus === 'urgente' ? STATUS_TRIAGEM.urgente : effectiveStatus === 'respondido' ? STATUS_TRIAGEM.respondido : (STATUS_AGENDAMENTO[effectiveStatus] || STATUS_AGENDAMENTO.pendente));
       return (
