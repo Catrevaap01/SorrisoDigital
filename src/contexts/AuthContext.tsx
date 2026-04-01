@@ -417,17 +417,17 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       // LOGICA SINGLE DEVICE: Verificar se a sessao local coincide com a do banco
       const localSessionId = await universalStorage.getItem(`last_session_id_${userId}`);
       const delta = Date.now() - lastLoginTimeRef.current;
-      const isRecentlyLoggedIn = delta < 45000; // 45 segundos de carência (aumentado para evitar race conditions)
+      const isRecentlyLoggedIn = delta < 3000; // REDUCIDO: 3 segundos de carência para evitar falsos positivos de rede
       
       if (!isSigningInRef.current && !isRecentlyLoggedIn && data.last_session_id && localSessionId && data.last_session_id !== localSessionId) {
-        console.warn(`🚨 Login: Session Mismatch for ${userId}. DB: ${data.last_session_id}, Local: ${localSessionId}, Delta: ${delta}ms`);
-        // Se houver conflito, damos uma segunda chance com delay maior
-        logger.warn(`Possível conflito de sessão para ${userId}. Aguardando 3s para re-verificação...`);
-        await new Promise(r => setTimeout(r, 3000));
+        console.warn(`🚨 Login: Session Mismatch for ${userId}. DB: ${data.last_session_id}, Local: ${localSessionId}`);
+        
+        // Se houver conflito, damos uma segunda chance rápida
+        await new Promise(r => setTimeout(r, 1000));
         const { data: retryData } = await supabase.from('profiles').select('last_session_id').eq('id', userId).maybeSingle();
         
         if (retryData?.last_session_id && retryData.last_session_id !== localSessionId) {
-          logger.warn(`Sessao conflitante CONFIRMADA para ${userId}. Local: ${localSessionId}, DB: ${retryData.last_session_id}. Forçando logout.`);
+          logger.warn(`Sessao conflitante confirmada para ${userId}. Local: ${localSessionId}, DB: ${retryData.last_session_id}. Expulsando.`);
           // Nao chamamos signOut direto para evitar loop, limpamos e avisamos
         setUser(null);
         setProfile(null);
@@ -585,19 +585,40 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
   }, [user?.id]);
 
   // ═══════════════════════════════════════════════════════════
+  // SESSION VERIFICATION ON FOCUS
+  // Re-verify session ID when user returns to app
+  // ═══════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const handleFocus = () => {
+      console.log('📡 Focus: Re-verifying session ID...');
+      fetchProfile(user.id);
+    };
+
+    if (Platform.OS === 'web') {
+      window.addEventListener('focus', handleFocus);
+      return () => window.removeEventListener('focus', handleFocus);
+    } else {
+      const sub = AppState.addEventListener('change', (state) => {
+        if (state === 'active') handleFocus();
+      });
+      return () => sub.remove();
+    }
+  }, [user?.id]);
+
+  // ═══════════════════════════════════════════════════════════
   // INACTIVITY TIMEOUT (5 MINUTOS)
-  // Auto-logout após 5 minutos sem actividade (dentistas)
+  // Auto-logout após 5 minutos sem actividade (Todos os usuários)
   // ═══════════════════════════════════════════════════════════
   const inactivityTimer = useRef<any>(null);
   const backgroundTimestamp = useRef<number | null>(null);
-
-  const isDentista = profile?.tipo === 'dentista' || profile?.tipo === 'medico';
 
   const resetInactivityTimer = useCallback(() => {
     if (inactivityTimer.current) {
       clearTimeout(inactivityTimer.current);
     }
-    if (!user || !isDentista) return;
+    if (!user) return; // Aplica a todos os usuários logados
 
     inactivityTimer.current = setTimeout(async () => {
       console.warn('⏰ Inactividade: 5 minutos sem actividade. Logout automático.');
@@ -616,10 +637,10 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
         setProfile(null);
       }
     }, INACTIVITY_TIMEOUT_MS);
-  }, [user, isDentista]);
+  }, [user]);
 
   useEffect(() => {
-    if (!user || !isDentista) {
+    if (!user) {
       if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
       return;
     }
@@ -667,7 +688,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
         if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
       };
     }
-  }, [user, isDentista, resetInactivityTimer]);
+  }, [user, resetInactivityTimer]);
 
   /**
    * FunÃ§Ã£o de login

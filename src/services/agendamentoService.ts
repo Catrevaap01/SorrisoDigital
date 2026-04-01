@@ -9,6 +9,8 @@ import Constants from 'expo-constants';
 import { withTimeout } from '../utils/withTimeout';
 import { HandledError, handleError } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
+import NetInfo from '@react-native-community/netinfo';
+import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
 
 const extra = Constants.expoConfig?.extra;
 const SUPABASE_URL = extra?.SUPABASE_URL as string | undefined;
@@ -99,11 +101,32 @@ export const criarAgendamento = async (
     logger.info('Agendamento criado', data);
     return { success: true, data: data as Agendamento };
   } catch (err: any) {
+    // OFFLINE HANDLING
+    const state = await NetInfo.fetch();
+    if (!state.isConnected || !state.isInternetReachable) {
+      console.log('📡 Offline: Enfileirando criação de agendamento...');
+      await enqueueOfflineAction('criarAgendamento', { dados });
+      return {
+        success: true,
+        data: {
+          id: 'temp-' + Date.now(),
+          ...dados,
+          created_at: new Date().toISOString(),
+          isPendingSync: true,
+        } as any
+      };
+    }
+
     const mapped = _handleTableMissing(err);
     const message = mapped || err.message || 'Erro desconhecido';
     return { success: false, error: message };
   }
 };
+
+// Registrar o handler para sincronização offline
+registerSyncHandler('criarAgendamento', async (payload: { dados: any }) => {
+  return criarAgendamento(payload.dados);
+});
 
 export const buscarAgendaDentista = async (
   dentistaId: string,
@@ -253,11 +276,24 @@ export const agendarAgendamento = async (
 
     return { success: true, data: data as Agendamento };
   } catch (err: any) {
+    // OFFLINE HANDLING
+    const state = await NetInfo.fetch();
+    if (!state.isConnected || !state.isInternetReachable) {
+      console.log('📡 Offline: Enfileirando agendamento (confirmado)...');
+      await enqueueOfflineAction('agendarAgendamento', { agendamentoId, dentistaId });
+      return { success: true };
+    }
+
     const mapped = _handleTableMissing(err);
     const message = mapped || err.message || 'Erro desconhecido';
     return { success: false, error: message };
   }
 };
+
+// Registrar o handler para sincronização offline
+registerSyncHandler('agendarAgendamento', async (payload: any) => {
+  return agendarAgendamento(payload.agendamentoId, payload.dentistaId);
+});
 
 /**
  * Marca um agendamento como confirmado definitivamente.
@@ -279,11 +315,24 @@ export const confirmarAgendamento = async (
 
     return { success: true, data: data as Agendamento };
   } catch (err: any) {
+    // OFFLINE HANDLING
+    const state = await NetInfo.fetch();
+    if (!state.isConnected || !state.isInternetReachable) {
+      console.log('📡 Offline: Enfileirando confirmação de agendamento...');
+      await enqueueOfflineAction('confirmarAgendamento', { agendamentoId, dentistaId });
+      return { success: true };
+    }
+
     const mapped = _handleTableMissing(err);
     const message = mapped || err.message || 'Erro desconhecido';
     return { success: false, error: message };
   }
 };
+
+// Registrar o handler para sincronização offline
+registerSyncHandler('confirmarAgendamento', async (payload: any) => {
+  return confirmarAgendamento(payload.agendamentoId, payload.dentistaId);
+});
 
 /**
  * Marca um agendamento como realizado (concluído).
@@ -305,11 +354,24 @@ export const realizarAgendamento = async (
     logger.info('Agendamento marcado como realizado', data);
     return { success: true, data: data as Agendamento };
   } catch (err: any) {
+    // OFFLINE HANDLING
+    const state = await NetInfo.fetch();
+    if (!state.isConnected || !state.isInternetReachable) {
+      console.log('📡 Offline: Enfileirando realização de agendamento...');
+      await enqueueOfflineAction('realizarAgendamento', { agendamentoId });
+      return { success: true };
+    }
+
     const mapped = _handleTableMissing(err);
     const message = mapped || err.message || 'Erro desconhecido';
     return { success: false, error: message };
   }
 };
+
+// Registrar o handler para sincronização offline
+registerSyncHandler('realizarAgendamento', async (payload: any) => {
+  return realizarAgendamento(payload.agendamentoId);
+});
 
 /**
  * Cancela um agendamento e o devolve ao pool geral.
@@ -338,11 +400,24 @@ export const cancelarAgendamento = async (
     const row = Array.isArray(data) ? data[0] : data;
     return { success: true, data: row as Agendamento };
   } catch (err: any) {
+    // OFFLINE HANDLING
+    const state = await NetInfo.fetch();
+    if (!state.isConnected || !state.isInternetReachable) {
+      console.log('📡 Offline: Enfileirando cancelamento de agendamento...');
+      await enqueueOfflineAction('cancelarAgendamento', { agendamentoId });
+      return { success: true };
+    }
+
     const mapped = _handleTableMissing(err);
     const message = mapped || err.message || 'Erro desconhecido';
     return { success: false, error: message };
   }
 };
+
+// Registrar o handler para sincronização offline
+registerSyncHandler('cancelarAgendamento', async (payload: any) => {
+  return cancelarAgendamento(payload.agendamentoId);
+});
 
 /**
  * Busca agendamentos de um paciente específico.

@@ -6,6 +6,8 @@
 import { supabase } from '../config/supabase';
 import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
+import NetInfo from '@react-native-community/netinfo';
+import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
 
 const extra = Constants.expoConfig?.extra;
 const SUPABASE_URL = extra?.SUPABASE_URL as string | undefined;
@@ -200,6 +202,24 @@ export const enviarMensagem = async (
 
     return { success: true, data: data as Message };
   } catch (error: any) {
+    // OFFLINE HANDLING
+    const state = await NetInfo.fetch();
+    if (!state.isConnected || !state.isInternetReachable) {
+      console.log('📡 Offline: Enfileirando envio de mensagem...');
+      await enqueueOfflineAction('enviarMensagem', { conversaId, senderId, senderName, senderAvatar, content });
+      return {
+        success: true,
+        data: {
+          id: 'temp-' + Date.now(),
+          conversation_id: conversaId,
+          sender_id: senderId,
+          content,
+          created_at: new Date().toISOString(),
+          isPendingSync: true,
+        } as any
+      };
+    }
+
     const msg = _handleTableMissing(error);
     return {
       success: false,
@@ -207,6 +227,11 @@ export const enviarMensagem = async (
     };
   }
 };
+
+// Registrar o handler para sincronização offline
+registerSyncHandler('enviarMensagem', async (payload: any) => {
+  return enviarMensagem(payload.conversaId, payload.senderId, payload.senderName, payload.senderAvatar, payload.content);
+});
 
 /**
  * Listar mensagens de uma conversa

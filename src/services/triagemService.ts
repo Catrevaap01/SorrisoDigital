@@ -12,6 +12,8 @@ import { logger } from '../utils/logger';
 import { handleError, HandledError } from '../utils/errorHandler';
 import { uploadMultipleImages } from './storageService';
 import { obterOuCriarConversa, enviarMensagem } from './messagesService';
+import NetInfo from '@react-native-community/netinfo';
+import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
 
 const extra = Constants.expoConfig?.extra;
 const SUPABASE_URL = extra?.SUPABASE_URL as string | undefined;
@@ -344,10 +346,32 @@ export const criarTriagem = async (
 
     return { success: true, data: normalizeTriagemRecord(data) };
   } catch (err) {
+    // OFFLINE HANDLING
+    const state = await NetInfo.fetch();
+    if (!state.isConnected || !state.isInternetReachable) {
+      console.log('📡 Offline: Enfileirando criação de triagem...');
+      await enqueueOfflineAction('criarTriagem', { dados, imageUris, pacienteId });
+      return {
+        success: true,
+        data: {
+          id: 'temp-' + Date.now(),
+          ...dados,
+          paciente_id: pacienteId,
+          created_at: new Date().toISOString(),
+          isPendingSync: true,
+        } as any
+      };
+    }
+
     const handled = handleError(err, 'triagemService.criarTriagem');
     return { success: false, error: handled };
   }
 };
+
+// Handler for Sync
+registerSyncHandler('criarTriagem', async (payload: { dados: any; imageUris: string[]; pacienteId: string }) => {
+  return criarTriagem(payload.dados, payload.imageUris, payload.pacienteId);
+});
 
 export const buscarTriagensPaciente = async (
   pacienteId: string
@@ -419,17 +443,22 @@ export const buscarContadoresDentista = async (
       statusById[t.id] = t.status;
       priorityById[t.id] = t.prioridade;
       
-      const isRespondido = t.status === 'respondido' || t.status === 'completo';
-      if (isRespondido) {
-        cont.respondido += 1;
-        respondedIdsInContadores.add(t.id);
+      const sLower = (t.status || '').toLowerCase();
+      if (sLower === 'realizado') {
+        cont.realizados += 1;
       } else {
-        const isUrgente = t.status === 'urgente' || t.prioridade === 'urgente' || t.prioridade === 'alta';
-        if (isUrgente) {
-          cont.urgente += 1;
-        }
-        if (t.status === 'pendente') {
-          cont.pendente += 1;
+        const isRespondido = sLower === 'respondido' || sLower === 'completo';
+        if (isRespondido) {
+          cont.respondido += 1;
+          respondedIdsInContadores.add(t.id);
+        } else {
+          const isUrgente = sLower === 'urgente' || t.prioridade === 'urgente' || t.prioridade === 'alta';
+          if (isUrgente) {
+            cont.urgente += 1;
+          }
+          if (sLower === 'pendente') {
+            cont.pendente += 1;
+          }
         }
       }
     });
@@ -438,10 +467,11 @@ export const buscarContadoresDentista = async (
       const respondedViaReplies = new Set<string>((repliesRes.data || []).map((r: any) => r.triagem_id));
       respondedViaReplies.forEach((id) => {
         // Se ainda não contamos como respondido pelo status, mas tem resposta, contamos agora
+        // APENAS se não estiver realizado
         if (!respondedIdsInContadores.has(id)) {
           const status = statusById[id];
-          const prio = priorityById[id];
-          if (status) {
+          if (status && status.toLowerCase() !== 'realizado') {
+            const prio = priorityById[id];
             // Se era pendente ou urgente, decrementamos o contador original
             if (status === 'pendente') {
               cont.pendente = Math.max(0, cont.pendente - 1);
@@ -458,7 +488,7 @@ export const buscarContadoresDentista = async (
     }
 
     if (!agendamentosRes.error && agendamentosRes.data) {
-      cont.realizados = agendamentosRes.data.length;
+      cont.realizados += agendamentosRes.data.length;
     }
 
     // Nota: O contador no frontend agora engloba triagens e agendamentos.
@@ -666,10 +696,23 @@ export const responderTriagem = async (
 
     return { success: true };
   } catch (err) {
+    // OFFLINE HANDLING
+    const state = await NetInfo.fetch();
+    if (!state.isConnected || !state.isInternetReachable) {
+      console.log('📡 Offline: Enfileirando resposta de triagem...');
+      await enqueueOfflineAction('responderTriagem', { triagemId, dentistaId, resposta, extras });
+      return { success: true };
+    }
+
     const handled = handleError(err, 'triagemService.responderTriagem');
     return { success: false, error: handled };
   }
 };
+
+// Handler for Sync
+registerSyncHandler('responderTriagem', async (payload: any) => {
+  return responderTriagem(payload.triagemId, payload.dentistaId, payload.resposta, payload.extras);
+});
 
 export const atualizarStatusTriagem = async (
   triagemId: string,

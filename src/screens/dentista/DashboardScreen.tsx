@@ -144,24 +144,59 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     if (filtroAtivo === 'respondido') {
-      const tResp = triagens.filter(t => (t.respostas && t.respostas.length > 0) || (t.status || '').toLowerCase() === 'respondido');
-      const aResp = agendamentos.filter(a => (a.status || '').toLowerCase() === 'realizado');
-      return [...tResp, ...aResp].sort((a, b) => new Date(b.created_at || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).data_agendamento || 0).getTime());
+      const tResp = triagens.filter(t => {
+        const s = (t.status || '').toLowerCase();
+        const as = ((t as any).agendamento_status || '').toLowerCase();
+        const hasResp = (t.respostas && t.respostas.length > 0) || s === 'respondido';
+        const isReal = s === 'realizado' || as === 'realizado';
+        return hasResp && !isReal;
+      });
+      return tResp.sort((a, b) => new Date(b.created_at || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).data_agendamento || 0).getTime());
     }
 
     if (filtroAtivo === 'urgente') {
-      const tUrg = triagens.filter(t => !((t.respostas && t.respostas.length > 0) || (t.status || '').toLowerCase() === 'respondido') && ((t.status || '').toLowerCase() === 'urgente' || (t.prioridade || '').toLowerCase() === 'urgente' || (t.prioridade || '').toLowerCase() === 'alta'));
-      const aUrg = agendamentos.filter(a => (a.status || '').toLowerCase() === 'urgente' || (a.prioridade || '').toLowerCase() === 'urgente' || (a.prioridade || '').toLowerCase() === 'alta');
+      const tUrg = triagens.filter(t => {
+        const s = (t.status || '').toLowerCase();
+        const p = (t.prioridade || '').toLowerCase();
+        const hasResp = (t.respostas && t.respostas.length > 0) || s === 'respondido';
+        const isUrg = s === 'urgente' || p === 'urgente' || p === 'alta';
+        return !hasResp && isUrg && s !== 'realizado';
+      });
+      const aUrg = agendamentos.filter(a => {
+        const s = (a.status || '').toLowerCase();
+        const as = ((a as any).agendamento_status || '').toLowerCase();
+        const p = (a.prioridade || '').toLowerCase();
+        const isUrg = s === 'urgente' || p === 'urgente' || p === 'alta';
+        const isReal = s === 'realizado' || as === 'realizado';
+        return isUrg && !isReal;
+      });
       return [...tUrg, ...aUrg].sort((a, b) => new Date(b.created_at || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).data_agendamento || 0).getTime());
     }
 
     if (filtroAtivo === 'pendente') {
-      const tPend = triagens.filter(t => !((t.respostas && t.respostas.length > 0) || (t.status || '').toLowerCase() === 'respondido') && (t.status || '').toLowerCase() === 'pendente' && (t.prioridade || '').toLowerCase() !== 'urgente' && (t.prioridade || '').toLowerCase() !== 'alta');
+      const tPend = triagens.filter(t => {
+        const s = (t.status || '').toLowerCase();
+        const p = (t.prioridade || '').toLowerCase();
+        const hasResp = (t.respostas && t.respostas.length > 0) || s === 'respondido';
+        const isUrg = s === 'urgente' || p === 'urgente' || p === 'alta';
+        return !hasResp && !isUrg && s === 'pendente';
+      });
       const aPend = agendamentos.filter(a => (a.status || '').toLowerCase() === 'pendente');
       return [...tPend, ...aPend].sort((a, b) => new Date(b.created_at || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).data_agendamento || 0).getTime());
     }
 
-    return agendamentos.filter((item) => (item.status || '').toLowerCase() === 'realizado');
+    // filtroAtivo === 'realizados'
+    const tReal = triagens.filter(t => {
+      const s = (t.status || '').toLowerCase();
+      const as = ((t as any).agendamento_status || '').toLowerCase();
+      return s === 'realizado' || as === 'realizado';
+    });
+    const aReal = agendamentos.filter(a => {
+      const s = (a.status || '').toLowerCase();
+      const as = ((a as any).agendamento_status || '').toLowerCase();
+      return s === 'realizado' || as === 'realizado';
+    });
+    return [...tReal, ...aReal].sort((a, b) => new Date(b.created_at || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).data_agendamento || 0).getTime());
   }, [triagens, agendamentos, filtroAtivo]);
 
   const casosPendentes = useMemo(() => {
@@ -212,9 +247,10 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       const isUrgente = statusLower === 'urgente' || prioLower === 'urgente' || prioLower === 'alta';
 
       // Urgente tem prioridade máxima na badge, seguido por Realizado
+      const statusAg = ((item as any).agendamento_status || '').toLowerCase();
       const effectiveStatus = isUrgente 
         ? 'urgente'
-        : statusLower === 'realizado'
+        : (statusLower === 'realizado' || statusAg === 'realizado')
           ? 'realizado'
           : isRespondido 
             ? 'respondido'

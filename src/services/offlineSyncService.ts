@@ -1,97 +1,95 @@
-import { DBSchema, openDB } from 'idb';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../config/supabase';
+import { logger } from '../utils/logger';
 
 export interface OfflineAction {
-  id?: number;
-  type: 'createPaciente' | 'criarTriagem' | 'updatePaciente' | string;
+  id: string;
+  type: string;
   payload: any;
-  endpoint: string;
-  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   createdAt: string;
 }
 
-interface OfflineSyncTheDatabase extends DBSchema {
-  actions: {
-    key: number;
-    value: OfflineAction;
-    indexes: { 'by-createdAt': string; 'by-type': string };
-  };
-}
+const OFFLINE_QUEUE_KEY = '@teodonto_offline_queue';
 
-const DB_NAME = 'teodonto-offline-sync';
-const DB_VERSION = 1;
+// Registro de handlers para sincronização
+const syncHandlers: Record<string, (payload: any) => Promise<{ success: boolean; error?: any }>> = {};
 
-const getDB = async () =>
-  openDB<OfflineSyncTheDatabase>(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      const store = db.createObjectStore('actions', {
-        keyPath: 'id',
-        autoIncrement: true,
-      });
-      store.createIndex('by-createdAt', 'createdAt');
-      store.createIndex('by-type', 'type');
-    },
-  });
-
-export const enqueueOfflineAction = async (action: Omit<OfflineAction, 'id' | 'createdAt'>) => {
-  if (typeof window === 'undefined') return;
-  const db = await getDB();
-  const offAction = {
-    ...action,
-    createdAt: new Date().toISOString(),
-  };
-  return db.add('actions', offAction);
+export const registerSyncHandler = (type: string, handler: (payload: any) => Promise<{ success: boolean; error?: any }>) => {
+  syncHandlers[type] = handler;
 };
 
-export const getOfflineActions = async (): Promise<OfflineAction[]> => {
-  if (typeof window === 'undefined') return [];
-  const db = await getDB();
-  return db.getAllFromIndex('actions', 'by-createdAt');
+export const enqueueOfflineAction = async (type: string, payload: any) => {
+  try {
+    const queueJson = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
+    const queue: OfflineAction[] = queueJson ? JSON.parse(queueJson) : [];
+    
+    const newAction: OfflineAction = {
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      type,
+      payload,
+      createdAt: new Date().toISOString(),
+    };
+    
+    queue.push(newAction);
+    await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+    logger.info(`Ação offline enfileirada: ${type}`);
+    return newAction;
+  } catch (error) {
+    logger.error('Erro ao enfileirar ação offline:', error);
+    return null;
+  }
 };
 
-export const removeOfflineAction = async (id: number) => {
-  if (typeof window === 'undefined') return;
-  const db = await getDB();
-  return db.delete('actions', id);
+export const getOfflineQueue = async (): Promise<OfflineAction[]> => {
+  try {
+    const queueJson = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);
+    return queueJson ? JSON.parse(queueJson) : [];
+  } catch (error) {
+    return [];
+  }
 };
 
-export const clearOfflineActions = async () => {
-  if (typeof window === 'undefined') return;
-  const db = await getDB();
-  return db.clear('actions');
+export const removeOfflineAction = async (id: string) => {
+  try {
+    const queue = await getOfflineQueue();
+    const updatedQueue = queue.filter(a => a.id !== id);
+    await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(updatedQueue));
+  } catch (error) {
+    logger.error('Erro ao remover ação offline:', error);
+  }
 };
 
-export const syncOfflineActions = async (): Promise<{ synced: number; failed: number }> => {
-  if (typeof window === 'undefined') return { synced: 0, failed: 0 };
-  if (!navigator.onLine) return { synced: 0, failed: 0 };
+export const processOfflineQueue = async (): Promise<{ synced: number; failed: number }> => {
+  const queue = await getOfflineQueue();
+  if (queue.length === 0) return { synced: 0, failed: 0 };
 
-  const actions = await getOfflineActions();
+  logger.info(`Iniciando processamento de fila offline (${queue.length} itens)...`);
   let synced = 0;
   let failed = 0;
 
-  for (const action of actions) {
+  for (const action of queue) {
+    const handler = syncHandlers[action.type];
+    
+    if (!handler) {
+      logger.warn(`Nenhum handler registrado para o tipo: ${action.type}. Ignorando.`);
+      continue;
+    }
+
     try {
-      const res = await fetch(action.endpoint, {
-        method: action.method,
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': process.env.VITE_SUPABASE_ANON_KEY || '',
-        },
-        body: JSON.stringify(action.payload),
-      });
-
-      if (!res.ok) {
-        failed += 1;
-        continue;
+      const result = await handler(action.payload);
+      if (result.success) {
+        await removeOfflineAction(action.id);
+        synced++;
+        logger.info(`Ação offline sincronizada com sucesso: ${action.type}`);
+      } else {
+        failed++;
+        logger.error(`Falha ao sincronizar ação offline: ${action.type}`, result.error);
       }
-
-      await removeOfflineAction(action.id!);
-      synced += 1;
     } catch (error) {
-      console.error('Offline sync falhou:', action, error);
-      failed += 1;
+      failed++;
+      logger.error(`Erro crítico ao processar ação offline: ${action.type}`, error);
     }
   }
 
   return { synced, failed };
 };
-

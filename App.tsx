@@ -8,6 +8,8 @@ import Toast, { BaseToast, ErrorToast, ToastConfig } from 'react-native-toast-me
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import { DentistProvider } from './src/contexts/DentistContext';
+import { NetworkProvider, useNetwork } from './src/contexts/NetworkContext';
+import { processOfflineQueue } from './src/services/offlineSyncService';
 import AppNavigator from './src/navigation/AppNavigator';
 import { SHADOWS } from './src/styles/theme';
 
@@ -58,20 +60,56 @@ const toastConfig: ToastConfig = {
   )
 };
 
+const AppContent = () => {
+  const { isOnline } = useNetwork();
+  const [syncing, setSyncing] = React.useState(false);
+
+  React.useEffect(() => {
+    if (isOnline && !syncing) {
+      setSyncing(true);
+      processOfflineQueue().then(({ synced, failed }) => {
+        if (synced > 0) {
+          Toast.show({
+            type: 'success',
+            text1: 'Sincronização Concluída',
+            text2: `${synced} ações sincronizadas com sucesso.`,
+          });
+        }
+        if (failed > 0) {
+          Toast.show({
+            type: 'error',
+            text1: 'Erro na Sincronização',
+            text2: `${failed} ações falharam ao sincronizar.`,
+          });
+        }
+        setSyncing(false);
+      }).catch(() => setSyncing(false));
+    }
+  }, [isOnline]);
+
+  return (
+    <>
+      <StatusBar style="light" />
+      <AppNavigator />
+      <Toast config={toastConfig} />
+    </>
+  );
+};
+
 export default function App(): React.JSX.Element {
   return (
     <SafeAreaProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <DentistProvider>
-            <NavigationContainer>
-              <StatusBar style="light" />
-              <AppNavigator />
-              <Toast config={toastConfig} />
-            </NavigationContainer>
-          </DentistProvider>
-        </AuthProvider>
-      </ThemeProvider>
+      <NetworkProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <DentistProvider>
+              <NavigationContainer>
+                <AppContent />
+              </NavigationContainer>
+            </DentistProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </NetworkProvider>
     </SafeAreaProvider>
   );
 }

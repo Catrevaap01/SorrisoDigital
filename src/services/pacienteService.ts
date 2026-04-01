@@ -12,6 +12,8 @@ import { supabase } from '../config/supabase';
 import { UserProfile } from '../contexts/AuthContext';
 import { withTimeout } from '../utils/withTimeout';
 import { deleteImage } from '../services/storageService';
+import NetInfo from '@react-native-community/netinfo';
+import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
 
 const getAdminClient = (): SupabaseClient | null => {
   const extra = Constants.expoConfig?.extra || (Constants as any).manifest2?.extra || (Constants as any).manifest?.extra;
@@ -600,12 +602,29 @@ console.log('✅ Patient created - Ficha ready. Skipping auth test to preserve d
       emailSent: emailResult.success,
     };
   } catch (error: any) {
+    // OFFLINE HANDLING
+    const state = await NetInfo.fetch();
+    if (!state.isConnected || !state.isInternetReachable) {
+      console.log('📡 Offline: Enfileirando criação de paciente...');
+      await enqueueOfflineAction('createPaciente', { dentistaId, data });
+      return {
+        success: true,
+        warning: 'Você está offline. O paciente será criado assim que a conexão retornar.',
+        data: { nome: data.nome, email: data.email, tipo: 'paciente' } as any
+      } as any;
+    }
+
     return {
       success: false,
       error: error.message || 'Erro ao criar paciente',
     };
   }
 };
+
+// Registrar o handler para sincronização offline
+registerSyncHandler('createPaciente', async (payload: { dentistaId: string; data: CriarPacienteData }) => {
+  return createPaciente(payload.dentistaId, payload.data);
+});
 
 export const deletarPaciente = async (
   pacienteId: string
