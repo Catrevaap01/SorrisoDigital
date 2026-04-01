@@ -155,7 +155,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const extra = Constants.expoConfig?.extra || (Constants as any).manifest2?.extra || (Constants as any).manifest?.extra;
     const url = extra?.SUPABASE_URL;
     const key = extra?.SUPABASE_SERVICE_ROLE_KEY;
-    
+
     if (!url || !key) {
       console.warn('⚠️ getAdminClient: Admin keys missing in Constants.extra');
       return null;
@@ -377,7 +377,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (staticId) {
         return staticId;
       }
-logger.warn('Província não encontrada para nome informado:', provinciaNome);
+      logger.warn('Província não encontrada para nome informado:', provinciaNome);
     }
 
     return matched?.id;
@@ -389,7 +389,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
     setUser(null);
     setProfile(null);
     await universalStorage.removeItem(`last_session_id_${userId}`);
-    
+
     try {
       await supabase.auth.signOut({ scope: 'local' });
     } catch (e) {
@@ -472,11 +472,11 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       }
 
       const normalizedProfile = normalizeProfile(data);
-      
+
       // LOGICA SINGLE DEVICE/TAB: Verificar se a sessao local coincide com a do banco
       const delta = Date.now() - lastLoginTimeRef.current;
       const isRecentlyLoggedIn = delta < 5000; // 5 segundos de carência
-      
+
       console.log(`[SESS-CHECK] LocalID=${tabInstanceId}, DB=${data.last_session_id}, Recent=${isRecentlyLoggedIn}`);
 
       if (data.last_session_id && tabInstanceId && data.last_session_id !== tabInstanceId) {
@@ -622,7 +622,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       // 2. Escutar Broadcast (Imediato) - Ultra rápido para dispositivos online
       sessionChannel.on('broadcast', { event: 'SESSION_CHANGE' }, async (payload: any) => {
         const receivedSessionId = payload.payload?.sessionId;
-        
+
         if (receivedSessionId && tabInstanceId && receivedSessionId !== tabInstanceId) {
           console.warn(`🚨 Realtime: New session elsewhere! Received: ${receivedSessionId}, currentTab: ${tabInstanceId}. Expulsando.`);
           handleForceLogout(userId, 'Sessão Encerrada: Novo login detetado em outro dispositivo ou separador.');
@@ -683,7 +683,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       // Apenas se a aba estiver ativa (opcional, mas bom para performance)
       if (Platform.OS === 'web' && document.hidden) return;
       if (Platform.OS !== 'web' && AppState.currentState !== 'active') return;
-      
+
       verifySessionIntegrity();
     }, 5000);
 
@@ -728,7 +728,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
 
     inactivityTimer.current = setTimeout(async () => {
       console.warn('⏰ Inactividade: 5 minutos sem actividade. Logout automático.');
-      
+
       Toast.show({
         type: 'info',
         text1: 'Sessão Expirada',
@@ -825,7 +825,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
 
       if (data.user) {
         console.log(`🔐 Login: Authenticated ${data.user.email} (${data.user.id})`);
-        
+
         // Registrar nova sessao baseada na ID desta tab/instancia
         const newSessionId = tabInstanceId || generateSessionId();
         console.log(`📡 Login: Using Session ID: ${newSessionId}`);
@@ -835,7 +835,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
           localStorage.setItem(LATEST_SESSION_KEY, newSessionId);
           console.log('✅ [SESS-10MS] Local storage updated for instant tab expulsion.');
         }
-        
+
         // Encerra outras sessoes no Supabase Auth (Não bloqueante)
         console.log('📡 Login: Invaliding other sessions (non-blocking)...');
         void supabase.auth.signOut({ scope: 'others' }).catch(err => {
@@ -843,7 +843,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
         });
         // Já registramos newSessionId acima para otimização 10ms
         console.log(`📡 Login: Proceeding with update for session: ${newSessionId}`);
-        
+
         const runSessionUpdate = async () => {
           try {
             let res = await withTimeout(
@@ -853,7 +853,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
                 .eq('id', data.user.id),
               10000 // 10s timeout for profile update
             );
-            
+
             if (res.error && isRowLevelSecurityError(res.error)) {
               console.warn('⚠️ Login: RLS error on session update, trying admin fallback...');
               const admin = getAdminClient(); // Use common helper
@@ -885,13 +885,13 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
           }
         } else {
           console.log(`✅ [SESS-ASYNC] Session ID [${tabInstanceId}] synchronized with DB.`);
-          
+
           // BROADCAST IMEDIATO para outros dispositivos (Mobile/Crosbrowse)
           console.log(`📡 [SESS-SYNC] Broadcasting shift across devices...`);
           const channel = supabase.channel(`session-guard-${data.user.id}`, {
             config: { broadcast: { self: false } }
           });
-          
+
           channel.subscribe(async (status) => {
             if (status === 'SUBSCRIBED') {
               // Mínimo delay para garantir recepção em outros dispositivos
@@ -1033,7 +1033,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       if (userId) {
         console.log(`🚪 SignOut: Initiating global signout for ${userId}`);
         await universalStorage.removeItem(`last_session_id_${userId}`);
-        
+
         // Tenta limpar ID de sessao no banco (admin fallback se necessario)
         const runSessionCleanup = async () => {
           let res = await supabase.from('profiles').update({ last_session_id: null }).eq('id', userId);
@@ -1175,10 +1175,10 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
 
       const normalizedProfile = shouldSkipSelect
         ? ({
-            ...(profile || {}),
-            ...updates,
-            updated_at: currentPayload.updated_at,
-          } as UserProfile)
+          ...(profile || {}),
+          ...updates,
+          updated_at: currentPayload.updated_at,
+        } as UserProfile)
         : normalizeProfile(data);
       setProfile(normalizedProfile);
 
