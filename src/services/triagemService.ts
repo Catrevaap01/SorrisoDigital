@@ -96,11 +96,13 @@ const toTriagemDbPayload = (
 
 const normalizeTriagemRecord = (row: any): Triagem => {
   if (!row) return row as Triagem;
+  const imagens = row.imagens ?? row.fotos ?? [];
   return {
     ...row,
     sintoma_principal: row.sintoma_principal ?? row.sintomaPrincipal,
     intensidade_dor: row.intensidade_dor ?? row.intensidadeDor,
     data_agendamento: row.data_agendamento ?? row.dataAgendamento,
+    imagens: Array.isArray(imagens) ? imagens : (imagens ? [imagens] : []),
   } as Triagem;
 };
 
@@ -709,7 +711,11 @@ export const responderTriagem = async (
   }
 };
 
-// Handler for Sync
+// Handlers for Sync
+registerSyncHandler('criarTriagem', async (payload: any) => {
+  return criarTriagem(payload.dados, payload.imageUris, payload.pacienteId);
+});
+
 registerSyncHandler('responderTriagem', async (payload: any) => {
   return responderTriagem(payload.triagemId, payload.dentistaId, payload.resposta, payload.extras);
 });

@@ -25,6 +25,11 @@ export const STATUS_TRIAGEM: Record<string, { label: string; color: string; icon
     color: '#42A5F5',
     icon: 'checkmark-done-outline',
   },
+  realizado: {
+    label: 'Realizado',
+    color: '#9C27B0',
+    icon: 'checkmark-done-outline',
+  },
 };
 
 // Status de Agendamento

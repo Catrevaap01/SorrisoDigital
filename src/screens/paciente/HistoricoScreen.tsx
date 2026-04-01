@@ -93,15 +93,18 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     filtroAtivo === 'todos'
       ? triagens
       : triagens.filter((t: any) => {
+          const isRealizado = t.status === 'realizado' || t.agendamento_status === 'realizado' || (t.agendamentos && t.agendamentos.some((a: any) => a.status === 'realizado'));
+          if (filtroAtivo === 'realizado') return isRealizado;
           if (filtroAtivo === 'respondido') {
-            return t.status === 'respondido' || (t.respostas && t.respostas.length > 0);
+            return (t.status === 'respondido' || (t.respostas && t.respostas.length > 0)) && !isRealizado;
           }
           if (filtroAtivo === 'urgente') {
             return (
-              t.status === 'urgente' ||
-              t.prioridade === 'urgente' ||
-              Number(t.intensidade_dor || 0) >= 8
+              (t.status === 'urgente' || t.prioridade === 'urgente' || Number(t.intensidade_dor || 0) >= 8) && !isRealizado
             );
+          }
+          if (filtroAtivo === 'pendente') {
+            return t.status === 'pendente' && !isRealizado;
           }
           return t.status === filtroAtivo;
         });
@@ -137,11 +140,16 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
 
   const renderTriagem = ({ item }: { item: any }) => {
     const temResposta = item.respostas && item.respostas.length > 0;
-    const effectiveStatus = temResposta
-      ? 'respondido'
-      : item.status === 'urgente' || item.prioridade === 'urgente' || Number(item.intensidade_dor || 0) >= 8
-        ? 'urgente'
-        : item.status || 'pendente';
+    const isRealizado = item.status === 'realizado' || item.agendamento_status === 'realizado' || (item.agendamentos && item.agendamentos.some((a: any) => a.status === 'realizado'));
+    
+    const effectiveStatus = isRealizado
+      ? 'realizado'
+      : temResposta
+        ? 'respondido'
+        : item.status === 'urgente' || item.prioridade === 'urgente' || Number(item.intensidade_dor || 0) >= 8
+          ? 'urgente'
+          : item.status || 'pendente';
+          
     const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
 
     return (

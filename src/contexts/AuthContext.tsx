@@ -350,6 +350,25 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
 
   const generateSessionId = () => `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
+  const handleForceLogout = async (userId: string, message: string) => {
+    setUser(null);
+    setProfile(null);
+    await universalStorage.removeItem(`last_session_id_${userId}`);
+    
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (e) {
+      console.warn('SignOut local error (ignorado):', e);
+    }
+
+    Toast.show({
+      type: 'info',
+      text1: 'Sessão Encerrada',
+      text2: message,
+      visibilityTime: 7000,
+    });
+  };
+
   /**
    * Buscar perfil do usuÃ¡rio
    */
@@ -428,17 +447,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
         
         if (retryData?.last_session_id && retryData.last_session_id !== localSessionId) {
           logger.warn(`Sessao conflitante confirmada para ${userId}. Local: ${localSessionId}, DB: ${retryData.last_session_id}. Expulsando.`);
-          // Nao chamamos signOut direto para evitar loop, limpamos e avisamos
-        setUser(null);
-        setProfile(null);
-        await universalStorage.removeItem(`last_session_id_${userId}`);
-        await supabase.auth.signOut();
-        Toast.show({
-          type: 'info',
-          text1: 'SessÃ£o Encerrada',
-          text2: 'Esta conta foi ligada noutro dispositivo.',
-          visibilityTime: 6000,
-        });
+          await handleForceLogout(userId, 'Esta conta foi ligada noutro dispositivo.');
           return null;
         }
       }
@@ -534,45 +543,42 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       const localSessionId = await universalStorage.getItem(`last_session_id_${userId}`);
       if (!localSessionId) return;
 
-      sessionChannel = supabase
-        .channel(`session-guard-${userId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'profiles',
-            filter: `id=eq.${userId}`,
-          },
-          async (payload: any) => {
-            const newSessionId = payload.new?.last_session_id;
-            const currentLocal = await universalStorage.getItem(`last_session_id_${userId}`);
+      sessionChannel = supabase.channel(`session-guard-${userId}`);
 
-            if (newSessionId && currentLocal && newSessionId !== currentLocal) {
-              console.warn(`🚨 Realtime: Session override detected! DB: ${newSessionId}, Local: ${currentLocal}`);
-              
-              setUser(null);
-              setProfile(null);
-              await universalStorage.removeItem(`last_session_id_${userId}`);
-              
-              try {
-                await supabase.auth.signOut({ scope: 'local' });
-              } catch (e) {
-                console.warn('SignOut local error (ignorado):', e);
-              }
+      // 1. Escutar alterações no banco (Postgres Changes) - Fallback lento mas persistente
+      sessionChannel.on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${userId}`,
+        },
+        async (payload: any) => {
+          const newSessionIdInDB = payload.new?.last_session_id;
+          const currentLocalId = await universalStorage.getItem(`last_session_id_${userId}`);
 
-              Toast.show({
-                type: 'info',
-                text1: 'Sessão Encerrada',
-                text2: 'A sua conta foi acedida noutro dispositivo.',
-                visibilityTime: 6000,
-              });
-            }
+          if (newSessionIdInDB && currentLocalId && newSessionIdInDB !== currentLocalId) {
+            console.warn(`🚨 Realtime DB: Session mismatch! DB: ${newSessionIdInDB}, Local: ${currentLocalId}. Expulsando.`);
+            handleForceLogout(userId, 'Sessão Encerrada: A sua conta foi acedida noutro dispositivo.');
           }
-        )
-        .subscribe((status: string) => {
-          console.log(`📡 Session guard channel status: ${status}`);
-        });
+        }
+      );
+
+      // 2. Escutar Broadcast (Imediato) - Ultra rápido para dispositivos online
+      sessionChannel.on('broadcast', { event: 'SESSION_CHANGE' }, async (payload: any) => {
+        const receivedSessionId = payload.payload?.sessionId;
+        const currentLocalId = await universalStorage.getItem(`last_session_id_${userId}`);
+
+        if (receivedSessionId && currentLocalId && receivedSessionId !== currentLocalId) {
+          console.warn(`🚨 Broadcast: New session detected! New: ${receivedSessionId}, current: ${currentLocalId}. Expulsando.`);
+          handleForceLogout(userId, 'Sessão Encerrada: Novo login detetado em outro dispositivo.');
+        }
+      });
+
+      sessionChannel.subscribe((status: string) => {
+        console.log(`📡 Session guard channel status [${userId}]: ${status}`);
+      });
     };
 
     setupSessionListener();
@@ -766,6 +772,22 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
           console.error('❌ Login: Failed to update last_session_id in DB:', updateResult.error);
         } else {
           console.log('✅ Login: Session ID updated in DB successfully.');
+          
+          // BROADCAST IMEDIATO para outros dispositivos encerrarem sessao
+          console.log('📡 Login: Broadcasting session change to others...');
+          const channel = supabase.channel(`session-guard-${data.user.id}`);
+          channel.subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+              await channel.send({
+                type: 'broadcast',
+                event: 'SESSION_CHANGE',
+                payload: { sessionId: newSessionId },
+              });
+              console.log('✅ Login: Broadcast sent.');
+              // Opcional: remover o canal após enviar no login (o useEffect criará um novo para ouvir)
+              setTimeout(() => supabase.removeChannel(channel), 2000);
+            }
+          });
         }
       }
 

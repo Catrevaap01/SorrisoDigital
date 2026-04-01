@@ -307,18 +307,6 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
       return;
     }
 
-    if (imagens.length === 0) {
-      Alert.alert(
-        'Sem imagens',
-        'Fotos ajudam muito na avaliação. Deseja continuar sem fotos?',
-        [
-          { text: 'Voltar', style: 'cancel' },
-          { text: 'Continuar', onPress: () => processarEnvio() },
-        ]
-      );
-      return;
-    }
-
     await processarEnvio();
   };
 
@@ -729,9 +717,9 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
         <Text style={styles.backLinkText}>Voltar</Text>
       </TouchableOpacity>
 
-      <Text style={styles.etapaTitle}>Adicione fotos</Text>
+      <Text style={styles.etapaTitle}>Adicione fotos (opcional)</Text>
       <Text style={styles.etapaSubtitle}>
-        Fotos claras da região afetada ajudam muito na avaliação
+        Fotos da região afetada ajudam muito na avaliação, mas não são obrigatórias.
       </Text>
 
       {/* Botões de adicionar foto */}

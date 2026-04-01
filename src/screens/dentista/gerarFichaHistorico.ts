@@ -44,10 +44,12 @@ export const gerarFichaHistorico = async (pacienteId: string): Promise<string> =
     const triagemRows =
       triagens
         .map((t: any) => {
+          const isRealizado = t.status === 'realizado' || t.agendamento_status === 'realizado' || (t.agendamentos && t.agendamentos.some((ag: any) => ag.status === 'realizado'));
           const statusLabel =
+            isRealizado ? 'Realizado' :
+            t.status === 'urgente' || t.prioridade === 'urgente' || Number(t.intensidade_dor || 0) >= 8 ? 'Urgente' :
+            t.status === 'respondido' || (t.respostas && t.respostas.length > 0) ? 'Respondido' :
             t.status === 'pendente' ? 'Pendente' :
-            t.status === 'em_analise' ? 'Em Análise' :
-            t.status === 'concluida' ? 'Concluída' :
             t.status;
           return `
           <tr>

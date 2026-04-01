@@ -179,8 +179,17 @@ const HomeScreen: React.FC<HomeProps> = ({ navigation }) => {
       ) : (
         triagensRecentes.map((triagem) => {
           const temResposta = triagem.respostas && triagem.respostas.length > 0;
-    const effectiveStatus = temResposta ? 'respondido' : (triagem.status === 'urgente' || triagem.prioridade === 'urgente' || Number(triagem.intensidade_dor || 0) >= 8 ? 'urgente' : (triagem.status || 'pendente'));
-    const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
+          const isRealizado = triagem.status === 'realizado' || triagem.agendamento_status === 'realizado' || (triagem.agendamentos && triagem.agendamentos.some((a: any) => a.status === 'realizado'));
+          
+          const effectiveStatus = isRealizado
+            ? 'realizado'
+            : temResposta
+              ? 'respondido'
+              : triagem.status === 'urgente' || triagem.prioridade === 'urgente' || Number(triagem.intensidade_dor || 0) >= 8
+                ? 'urgente'
+                : triagem.status || 'pendente';
+                
+          const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
 
           return (
             <TouchableOpacity
