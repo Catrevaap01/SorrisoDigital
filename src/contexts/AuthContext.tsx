@@ -87,6 +87,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLastLoginTimeState(val);
   };
 
+  // SESSAO UNICA: Identificador da Instancia Atual (Aba/App)
+  const currentInstanceSessionId = useRef<string | null>(null);
+
 
 
   const PROVINCIAS_STATIC_ORDER = [
@@ -407,9 +410,6 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       if (error) throw error;
 
       if (!data) {
-        // perfil ausente; pode ocorrer se o usuário foi criado fora do fluxo
-        // normal (e.g. script de admin). tentamos criar uma linha mínima para
-        // evitar erros subsequentes e respeitar o contrato da aplicação.
         logger.warn(`Perfil não encontrado para ${userId}, criando entrada vazia`);
         try {
           const { data: userRes } = await supabase.auth.getUser();
@@ -434,19 +434,25 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       const normalizedProfile = normalizeProfile(data);
       
       // LOGICA SINGLE DEVICE: Verificar se a sessao local coincide com a do banco
-      const localSessionId = await universalStorage.getItem(`last_session_id_${userId}`);
+      // Sincronizar o ID da instancia se estiver vazio (primeiro carregamento)
+      if (!currentInstanceSessionId.current) {
+        const storedId = await universalStorage.getItem(`last_session_id_${userId}`);
+        currentInstanceSessionId.current = storedId;
+      }
+
+      const localSessionId = currentInstanceSessionId.current;
       const delta = Date.now() - lastLoginTimeRef.current;
-      const isRecentlyLoggedIn = delta < 3000; // REDUCIDO: 3 segundos de carência para evitar falsos positivos de rede
+      const isRecentlyLoggedIn = delta < 3000; 
       
       if (!isSigningInRef.current && !isRecentlyLoggedIn && data.last_session_id && localSessionId && data.last_session_id !== localSessionId) {
-        console.warn(`🚨 Login: Session Mismatch for ${userId}. DB: ${data.last_session_id}, Local: ${localSessionId}`);
+        console.warn(`🚨 Login: Session Mismatch for ${userId}. DB: ${data.last_session_id}, Instance: ${localSessionId}`);
         
         // Se houver conflito, damos uma segunda chance rápida
         await new Promise(r => setTimeout(r, 1000));
         const { data: retryData } = await supabase.from('profiles').select('last_session_id').eq('id', userId).maybeSingle();
         
         if (retryData?.last_session_id && retryData.last_session_id !== localSessionId) {
-          logger.warn(`Sessao conflitante confirmada para ${userId}. Local: ${localSessionId}, DB: ${retryData.last_session_id}. Expulsando.`);
+          logger.warn(`Sessao conflitante confirmada para ${userId}. Instance: ${localSessionId}, DB: ${retryData.last_session_id}. Expulsando.`);
           await handleForceLogout(userId, 'Esta conta foi ligada noutro dispositivo.');
           return null;
         }
