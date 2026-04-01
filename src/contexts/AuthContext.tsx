@@ -17,7 +17,7 @@ import { handleError, HandledError } from '../utils/errorHandler';
 
 const AUTH_BOOT_TIMEOUT_MS = 10000;
 const AUTH_NETWORK_TIMEOUT_MS = 5000;
-const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutos de inactividade
+const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000; // Alterado para 2 minutos conforme (2,M?)
 
 export interface UserProfile {
   id: string;
@@ -144,6 +144,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return PROVINCIAS_STATIC_ORDER[id - 1];
   };
 
+  /**
+   * CHAVE DE SEGURANÇA (SINGLE SESSION)
+   * Usada para detetar novos logins em outros separadores ou dispositivos.
+   */
   const LATEST_SESSION_KEY = 'teodonto_active_instance_id';
 
   // Helper from pacienteService (copied for RLS fallback)
@@ -473,13 +477,13 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       const delta = Date.now() - lastLoginTimeRef.current;
       const isRecentlyLoggedIn = delta < 5000; // 5 segundos de carência
       
-      console.log(`[SESS-CHECK] LocalTab=${tabInstanceId}, DB=${data.last_session_id}, Recent=${isRecentlyLoggedIn}`);
+      console.log(`[SESS-CHECK] LocalID=${tabInstanceId}, DB=${data.last_session_id}, Recent=${isRecentlyLoggedIn}`);
 
       if (data.last_session_id && tabInstanceId && data.last_session_id !== tabInstanceId) {
         if (isRecentlyLoggedIn) {
-          console.log('[SESS-SAFE] Diferença ignorada por ser login recente neste dispositivo/tab.');
+          console.log('[SESS-SAFE] Diferença ignorada por ser login recente neste dispositivo.');
         } else {
-          console.warn(`[SESS-FAIL] Discordancia de Sessao: DB=${data.last_session_id}, LocalTab=${tabInstanceId}. Expulsando.`);
+          console.warn(`[SESS-FAIL] Discordancia de Sessao: DB=${data.last_session_id}, LocalID=${tabInstanceId}. Expulsando.`);
           await handleForceLogout(userId, 'Sessão Encerrada: A sua conta foi aberta noutro local ou separador.');
           return null;
         }
@@ -666,7 +670,7 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
         }
 
         if (data?.last_session_id && tabInstanceId && data.last_session_id !== tabInstanceId) {
-          console.warn(`🚨 Heartbeat Discordancia: DB=${data.last_session_id}, LocalTab=${tabInstanceId}. Expulsando.`);
+          console.warn(`🚨 Heartbeat Discordancia: DB=${data.last_session_id}, LocalID=${tabInstanceId}. Expulsando.`);
           await handleForceLogout(userId, 'Sessão Encerrada: A sua conta foi aberta noutro local ou separador.');
         }
       } catch (err) {
@@ -822,15 +826,23 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
       if (data.user) {
         console.log(`🔐 Login: Authenticated ${data.user.email} (${data.user.id})`);
         
+        // Registrar nova sessao baseada na ID desta tab/instancia
+        const newSessionId = tabInstanceId || generateSessionId();
+        console.log(`📡 Login: Using Session ID: ${newSessionId}`);
+
+        // OTIMIZAÇÃO 10MS: Notificar outras abas IMEDIATAMENTE (antes do DB)
+        if (Platform.OS === 'web' && newSessionId) {
+          localStorage.setItem(LATEST_SESSION_KEY, newSessionId);
+          console.log('✅ [SESS-10MS] Local storage updated for instant tab expulsion.');
+        }
+        
         // Encerra outras sessoes no Supabase Auth (Não bloqueante)
         console.log('📡 Login: Invaliding other sessions (non-blocking)...');
         void supabase.auth.signOut({ scope: 'others' }).catch(err => {
           console.warn('⚠️ Login: signOut(others) failed (ignoring):', err);
         });
-        
-        // Registrar nova sessao baseada na ID desta tab/instancia
-        const newSessionId = tabInstanceId || generateSessionId();
-        console.log(`📡 Login: Using Session ID: ${newSessionId}`);
+        // Já registramos newSessionId acima para otimização 10ms
+        console.log(`📡 Login: Proceeding with update for session: ${newSessionId}`);
         
         const runSessionUpdate = async () => {
           try {
@@ -872,16 +884,10 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
             console.error('❌ [SESS-ERROR] Erro ao atualizar sessão no DB:', updateResult.error);
           }
         } else {
-          console.log(`✅ [SESS-1] Session ID [${tabInstanceId}] updated in DB.`);
+          console.log(`✅ [SESS-ASYNC] Session ID [${tabInstanceId}] synchronized with DB.`);
           
-          // IMEDIATO PARA ABAS DO MESMO NAVEGADOR (< 50ms)
-          if (Platform.OS === 'web' && tabInstanceId) {
-            localStorage.setItem(LATEST_SESSION_KEY, tabInstanceId);
-            console.log('✅ [SESS-LOCAL] Triggered storage event for other tabs.');
-          }
-
-          // BROADCAST IMEDIATO para outros dispositivos encerrarem sessao
-          console.log(`📡 [SESS-2] Broadcasting shift from ${tabInstanceId}...`);
+          // BROADCAST IMEDIATO para outros dispositivos (Mobile/Crosbrowse)
+          console.log(`📡 [SESS-SYNC] Broadcasting shift across devices...`);
           const channel = supabase.channel(`session-guard-${data.user.id}`, {
             config: { broadcast: { self: false } }
           });
@@ -893,9 +899,9 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
                 await channel.send({
                   type: 'broadcast',
                   event: 'SESSION_CHANGE',
-                  payload: { sessionId: tabInstanceId },
+                  payload: { sessionId: newSessionId },
                 });
-                console.log('✅ [SESS-3] Broadcast sent to peers.');
+                console.log('✅ [SESS-3] Cross-device broadcast sent.');
                 // Liberar canal após envio (o listener useEffect manterá outro canal ativo)
                 setTimeout(() => supabase.removeChannel(channel), 1000);
               }, 50);
@@ -966,15 +972,15 @@ logger.warn('Província não encontrada para nome informado:', provinciaNome);
         const provinciaId = await resolveProvinciaId(userData.provincia);
 
         // Registrar sessao inicial
-        const newSessionId = generateSessionId();
-        await universalStorage.setItem(`last_session_id_${data.user.id}`, newSessionId);
+        const signUpSessionId = generateSessionId();
+        await universalStorage.setItem(`last_session_id_${data.user.id}`, signUpSessionId);
 
         const profileUpdates = Object.fromEntries(
           Object.entries({
             telefone: userData.telefone,
             provincia: PROFILE_SCHEMA_FEATURES.hasProvincia ? userData.provincia : undefined,
             provincia_id: PROFILE_SCHEMA_FEATURES.usesProvinciaId ? provinciaId : undefined,
-            last_session_id: newSessionId,
+            last_session_id: signUpSessionId,
           }).filter(([, value]) => value !== undefined)
         );
 
