@@ -644,8 +644,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [user?.id]);
 
   // ═══════════════════════════════════════════════════════════
-  // 5-SECOND SESSION HEARTBEAT (FAIL-SAFE)
-  // Re-verifies session integrity every 5 seconds as a fallback
+  // 1.5-SECOND SESSION HEARTBEAT (FAIL-SAFE)
+  // Re-verifies session integrity every 1.5 seconds as a fallback
   // for Realtime failures (e.g. poor connection)
   // ═══════════════════════════════════════════════════════════
   useEffect(() => {
@@ -678,14 +678,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     };
 
-    // Executar a cada 5 segundos
+    // Executar a cada 1.5 segundos para garantir logout imediato
     const interval = setInterval(() => {
       // Apenas se a aba estiver ativa (opcional, mas bom para performance)
       if (Platform.OS === 'web' && document.hidden) return;
       if (Platform.OS !== 'web' && AppState.currentState !== 'active') return;
 
       verifySessionIntegrity();
-    }, 5000);
+    }, 1500);
 
     return () => clearInterval(interval);
   }, [user?.id]);
