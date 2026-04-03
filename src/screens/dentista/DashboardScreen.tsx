@@ -48,8 +48,8 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     const fimSemana = new Date();
     const inicioSemana = new Date();
     inicioSemana.setHours(0, 0, 0, 0);
-    inicioSemana.setDate(inicioSemana.getDate() - 6);
-    fimSemana.setDate(fimSemana.getDate() + 1);
+    inicioSemana.setDate(inicioSemana.getDate() - 30); // Últimos 30 dias
+    fimSemana.setDate(fimSemana.getDate() + 60); // Próximos 60 dias
 
     const [contResult, triResult, agResult, hojeResult] = await Promise.all([
       buscarContadoresDentista(profile.id).catch(e => ({ success: false, data: CONTADORES_DEFAULT, error: e.message })),
@@ -131,15 +131,15 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         const bStatus = (b.status || '').toLowerCase();
         const aPrio = (a.prioridade || '').toLowerCase();
         const bPrio = (b.prioridade || '').toLowerCase();
-        
+
         const aIsUrgente = aStatus === 'urgente' || aPrio === 'urgente' || aPrio === 'alta';
         const bIsUrgente = bStatus === 'urgente' || bPrio === 'urgente' || bPrio === 'alta';
 
         if (aIsUrgente && !bIsUrgente) return -1;
         if (!aIsUrgente && bIsUrgente) return 1;
 
-        return new Date(b.created_at || (b as any).data_agendamento).getTime() - 
-               new Date(a.created_at || (a as any).data_agendamento).getTime();
+        return new Date(b.created_at || (b as any).data_agendamento).getTime() -
+          new Date(a.created_at || (a as any).data_agendamento).getTime();
       });
     }
 
@@ -158,9 +158,9 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       const tUrg = triagens.filter(t => {
         const s = (t.status || '').toLowerCase();
         const p = (t.prioridade || '').toLowerCase();
-        const hasResp = (t.respostas && t.respostas.length > 0) || s === 'respondido';
-        const isUrg = s === 'urgente' || p === 'urgente' || p === 'alta';
-        return !hasResp && isUrg && s !== 'realizado';
+        const hasResp = (t.respostas && t.respostas.length > 0) || s === 'respondido' || s === 'completo';
+        const isUrg = s === 'urgente' || p === 'urgente' || p === 'alta' || Number((t as any).intensidade_dor || 0) > 6;
+        return isUrg && !hasResp && s !== 'realizado';
       });
       const aUrg = agendamentos.filter(a => {
         const s = (a.status || '').toLowerCase();
@@ -178,7 +178,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         const s = (t.status || '').toLowerCase();
         const p = (t.prioridade || '').toLowerCase();
         const hasResp = (t.respostas && t.respostas.length > 0) || s === 'respondido';
-        const isUrg = s === 'urgente' || p === 'urgente' || p === 'alta';
+        const isUrg = s === 'urgente' || p === 'urgente' || p === 'alta' || Number((t as any).intensidade_dor || 0) > 6;
         return !hasResp && !isUrg && s === 'pendente';
       });
       const aPend = agendamentos.filter(a => (a.status || '').toLowerCase() === 'pendente');
@@ -186,17 +186,12 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     // filtroAtivo === 'realizados'
-    const tReal = triagens.filter(t => {
-      const s = (t.status || '').toLowerCase();
-      const as = ((t as any).agendamento_status || '').toLowerCase();
-      return s === 'realizado' || as === 'realizado';
-    });
     const aReal = agendamentos.filter(a => {
       const s = (a.status || '').toLowerCase();
       const as = ((a as any).agendamento_status || '').toLowerCase();
       return s === 'realizado' || as === 'realizado';
     });
-    return [...tReal, ...aReal].sort((a, b) => new Date(b.created_at || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).data_agendamento || 0).getTime());
+    return aReal.sort((a, b) => new Date((b as any).data_agendamento || 0).getTime() - new Date((a as any).data_agendamento || 0).getTime());
   }, [triagens, agendamentos, filtroAtivo]);
 
   const casosPendentes = useMemo(() => {
@@ -206,7 +201,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         const prio = (t.prioridade || 'normal').toLowerCase();
         const respondido = (t.respostas && t.respostas.length > 0) || status === 'respondido';
         // Apenas casos urgentes ou de alta prioridade que NÃO foram respondidos
-        const isUrgente = status === 'urgente' || prio === 'urgente' || prio === 'alta';
+        const isUrgente = status === 'urgente' || prio === 'urgente' || prio === 'alta' || Number((t as any).intensidade_dor || 0) > 6;
         return !respondido && isUrgente;
       })
       .sort((a, b) => {
@@ -232,31 +227,22 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const renderListItem = ({ item }: { item: ListaItem }) => {
-    if ('data_agendamento' in item) {
+    // Garantir que não confundimos uma Triagem (que pode ter data_agendamento preenchida) com um Agendamento
+    if ('data_agendamento' in item && !('sintoma_principal' in item)) {
       const agendamento = item as Agendamento;
       const statusLower = (agendamento.status || 'pendente').toLowerCase();
       const prioLower = ((agendamento as any).prioridade || 'normal').toLowerCase();
-      
-      // Check if patient has any responded triage
-      const isRespondido = triagens.some(t => 
-        t.paciente_id === agendamento.paciente_id && 
-        ((t.respostas && t.respostas.length > 0) || (t.status || '').toLowerCase() === 'respondido')
-      );
 
-      // Check if this case is urgent (by status or prioridade)
       const isUrgente = statusLower === 'urgente' || prioLower === 'urgente' || prioLower === 'alta';
-
-      // Urgente tem prioridade máxima na badge, seguido por Realizado
       const statusAg = ((item as any).agendamento_status || '').toLowerCase();
-      const effectiveStatus = isUrgente 
+
+      const effectiveStatus = isUrgente
         ? 'urgente'
         : (statusLower === 'realizado' || statusAg === 'realizado')
           ? 'realizado'
-          : isRespondido 
-            ? 'respondido'
-            : statusLower;
+          : statusLower;
 
-      const statusInfo = (effectiveStatus === 'urgente' ? STATUS_TRIAGEM.urgente : effectiveStatus === 'respondido' ? STATUS_TRIAGEM.respondido : (STATUS_AGENDAMENTO[effectiveStatus] || STATUS_AGENDAMENTO.pendente));
+      const statusInfo = (effectiveStatus === 'urgente' ? STATUS_TRIAGEM.urgente : (STATUS_AGENDAMENTO[effectiveStatus] || STATUS_AGENDAMENTO.pendente));
       return (
         <TouchableOpacity style={styles.card} onPress={() => abrirPaciente(item as Agendamento)}>
           <View style={styles.cardRow}>
@@ -282,17 +268,17 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     const isRespondido = temRespostas || statusLower === 'respondido' || statusLower === 'completo';
 
     // Urgente tem prioridade máxima
-    const isUrgente = statusLower === 'urgente' || prioLower === 'urgente' || prioLower === 'alta';
+    const isUrgente = statusLower === 'urgente' || prioLower === 'urgente' || prioLower === 'alta' || Number((triagem as any).intensidade_dor || 0) > 6;
 
-    const effectiveStatus = isUrgente 
-      ? 'urgente' 
-      : isRespondido 
-        ? 'respondido' 
-        : (STATUS_TRIAGEM[statusLower] ? statusLower : 'pendente');
+    const effectiveStatus = isRespondido
+      ? 'respondido'
+      : isUrgente
+        ? 'urgente'
+        : 'pendente';
 
     const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
     const prioridade = PRIORIDADE[prioLower] || PRIORIDADE.normal;
-    
+
     return (
       <TouchableOpacity style={styles.card} onPress={() => abrirCaso(triagem)}>
         <View style={styles.cardRow}>
@@ -303,7 +289,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           </View>
         </View>
         <Text style={styles.meta}>{triagem.sintoma_principal || 'Sem sintoma'} · {formatRelativeTime(triagem.created_at)}</Text>
-        
+
         {temRespostas && ultimaResposta && (
           <View style={styles.responseSummary}>
             <View style={styles.responseHeader}>
@@ -323,7 +309,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             </View>
           </View>
         )}
-        
+
         {!temRespostas && (
           <Text style={[styles.priority, { color: prioridade.color }]}>{prioridade.label}</Text>
         )}
@@ -376,8 +362,24 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.metricLabel}>Em atraso</Text>
         </View>
         <View style={styles.metric}>
-          <Text style={[styles.metricValue, { color: contadores.urgente > 0 ? COLORS.danger : COLORS.primary }]}>
-            {contadores.urgente}
+          <Text style={[styles.metricValue, { color: triagens.filter(t => {
+            const s = (t.status || '').toLowerCase();
+            const p = (t.prioridade || '').toLowerCase();
+            return s === 'urgente' || p === 'urgente' || p === 'alta' || Number((t as any).intensidade_dor || 0) > 6;
+          }).length + agendamentos.filter(a => {
+            const s = (a.status || '').toLowerCase();
+            const p = (a.prioridade || '').toLowerCase();
+            return s === 'urgente' || p === 'urgente' || p === 'alta';
+          }).length > 0 ? COLORS.danger : COLORS.primary }]}>
+            {triagens.filter(t => {
+              const s = (t.status || '').toLowerCase();
+              const p = (t.prioridade || '').toLowerCase();
+              return s === 'urgente' || p === 'urgente' || p === 'alta' || Number((t as any).intensidade_dor || 0) > 6;
+            }).length + agendamentos.filter(a => {
+              const s = (a.status || '').toLowerCase();
+              const p = (a.prioridade || '').toLowerCase();
+              return s === 'urgente' || p === 'urgente' || p === 'alta';
+            }).length}
           </Text>
           <Text style={styles.metricLabel}>Urgentes</Text>
         </View>
@@ -465,7 +467,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       {/* Filtros */}
       <View style={[styles.filters, Platform.OS === 'web' && styles.filtersWeb]}>
         {([
-          ['todos', 'Todos', contadores.total],
+          ['todos', 'Todos'],
           ['pendente', Platform.OS === 'web' ? 'Pendente' : 'Pend.', contadores.pendente],
           ['urgente', Platform.OS === 'web' ? 'Urgente' : 'Urg.', contadores.urgente],
           ['respondido', Platform.OS === 'web' ? 'Respondido' : 'Resp.', contadores.respondido],
@@ -569,7 +571,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  quickActionLabel: { fontSize: SIZES.fontXs+1, fontWeight: '600', color: COLORS.text, textAlign: 'center' },
+  quickActionLabel: { fontSize: SIZES.fontXs + 1, fontWeight: '600', color: COLORS.text, textAlign: 'center' },
 
   // Grid
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: SIZES.md, paddingHorizontal: SIZES.md },
@@ -616,7 +618,7 @@ const styles = StyleSheet.create({
   // Financeiro
   finRow: { flexDirection: 'row', gap: SIZES.sm, marginBottom: SIZES.sm },
   finItem: { flex: 1 },
-  finLabel: { fontSize: SIZES.fontXs+1, color: COLORS.textSecondary, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  finLabel: { fontSize: SIZES.fontXs + 1, color: COLORS.textSecondary, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   finValue: { fontSize: SIZES.fontLg, fontWeight: '700', marginTop: 2 },
   finDetail: { fontSize: SIZES.fontSm, color: COLORS.text, marginTop: 2 },
   procSection: { marginTop: SIZES.sm, paddingTop: SIZES.sm, borderTopWidth: 1, borderTopColor: COLORS.divider },
@@ -661,19 +663,19 @@ const styles = StyleSheet.create({
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: SIZES.sm },
   cardTitle: { flex: 1, fontSize: SIZES.fontMd, fontWeight: '700', color: COLORS.text },
   meta: { marginTop: 6, fontSize: SIZES.fontSm, color: COLORS.textSecondary },
-  badgeContainer: { 
+  badgeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 12, 
-    paddingVertical: 6, 
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: SIZES.radiusFull,
     overflow: 'hidden',
   },
-  badgeText: { 
-    color: COLORS.textInverse, 
-    fontSize: Platform.OS === 'web' ? SIZES.fontSm : SIZES.fontXs, 
-    fontWeight: '700', 
+  badgeText: {
+    color: COLORS.textInverse,
+    fontSize: Platform.OS === 'web' ? SIZES.fontSm : SIZES.fontXs,
+    fontWeight: '700',
   },
   priority: { marginTop: 6, fontSize: SIZES.fontSm, fontWeight: '700' },
 

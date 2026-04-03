@@ -405,7 +405,7 @@ export const buscarTriagensDentista = async (
     const { data, error } = await withTimeout(supabase
       .from('triagens')
       .select('*')
-      .limit(50)
+      .limit(200)
       .eq('dentista_id', dentistaId)
       .order('created_at', { ascending: false }) as any, 6000);
 
@@ -428,9 +428,9 @@ export const buscarContadoresDentista = async (
   try {
     // Executa as 3 consultas principais em paralelo para máxima velocidade
     const [triagensRes, repliesRes, agendamentosRes] = await Promise.all([
-      supabase.from('triagens').select('id, status, prioridade').eq('dentista_id', dentistaId),
+      supabase.from('triagens').select('id, status, prioridade, intensidade_dor').eq('dentista_id', dentistaId),
       supabase.from('respostas_triagem').select('triagem_id').eq('dentista_id', dentistaId),
-      supabase.from('agendamentos').select('id, status').eq('dentista_id', dentistaId).eq('status', 'realizado')
+      supabase.from('agendamentos').select('id, status, prioridade').eq('dentista_id', dentistaId)
     ]);
 
     if (triagensRes.error) throw triagensRes.error;
@@ -438,12 +438,15 @@ export const buscarContadoresDentista = async (
     const cont: Contadores = { pendente: 0, urgente: 0, respondido: 0, total: 0, realizados: 0 };
     const statusById: Record<string, string> = {};
     const priorityById: Record<string, string> = {};
+    const dorById: Record<string, number> = {};
     const respondedIdsInContadores = new Set<string>();
 
     (triagensRes.data || []).forEach((t: any) => {
       cont.total += 1;
       statusById[t.id] = t.status;
       priorityById[t.id] = t.prioridade;
+      const dor = Number(t.intensidade_dor || 0);
+      dorById[t.id] = dor;
       
       const sLower = (t.status || '').toLowerCase();
       if (sLower === 'realizado') {
@@ -454,7 +457,7 @@ export const buscarContadoresDentista = async (
           cont.respondido += 1;
           respondedIdsInContadores.add(t.id);
         } else {
-          const isUrgente = sLower === 'urgente' || t.prioridade === 'urgente' || t.prioridade === 'alta';
+          const isUrgente = sLower === 'urgente' || t.prioridade === 'urgente' || t.prioridade === 'alta' || dor > 6;
           if (isUrgente) {
             cont.urgente += 1;
           }
@@ -478,7 +481,8 @@ export const buscarContadoresDentista = async (
             if (status === 'pendente') {
               cont.pendente = Math.max(0, cont.pendente - 1);
             }
-            const isUrgente = status === 'urgente' || prio === 'urgente' || prio === 'alta';
+            const dor = dorById[id] || 0;
+            const isUrgente = status === 'urgente' || prio === 'urgente' || prio === 'alta' || dor > 6;
             if (isUrgente) {
               cont.urgente = Math.max(0, cont.urgente - 1);
             }
@@ -490,7 +494,22 @@ export const buscarContadoresDentista = async (
     }
 
     if (!agendamentosRes.error && agendamentosRes.data) {
-      cont.realizados += agendamentosRes.data.length;
+      (agendamentosRes.data || []).forEach((a: any) => {
+        cont.total += 1;
+        const sLower = (a.status || '').toLowerCase();
+        const pLower = (a.prioridade || '').toLowerCase();
+        
+        if (sLower === 'realizado') {
+          cont.realizados += 1;
+        } else {
+          const isUrgente = sLower === 'urgente' || pLower === 'urgente' || pLower === 'alta';
+          if (isUrgente) {
+            cont.urgente += 1;
+          } else if (sLower === 'pendente') {
+            cont.pendente += 1;
+          }
+        }
+      });
     }
 
     // Nota: O contador no frontend agora engloba triagens e agendamentos.

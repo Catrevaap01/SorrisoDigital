@@ -64,13 +64,14 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
 
   const renderTriagemLinha = ({ item }: { item: Triagem }) => {
     const temResposta = item.respostas && item.respostas.length > 0;
-    const isRealizado = item.status === 'realizado' || item.agendamento_status === 'realizado' || (item.agendamentos && item.agendamentos.some((a: any) => a.status === 'realizado'));
+    const isRealizado = item.status === 'realizado' || item.agendamento_status === 'realizado';
+    const isUrg = item.status === 'urgente' || item.prioridade === 'urgente' || item.prioridade === 'alta' || Number(item.intensidade_dor || 0) > 6;
     
     const effectiveStatus = isRealizado
       ? 'realizado'
       : temResposta
         ? 'respondido'
-        : item.status === 'urgente' || item.prioridade === 'urgente' || Number(item.intensidade_dor || 0) >= 8
+        : isUrg
           ? 'urgente'
           : item.status || 'pendente';
           

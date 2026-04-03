@@ -93,18 +93,22 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     filtroAtivo === 'todos'
       ? triagens
       : triagens.filter((t: any) => {
-          const isRealizado = t.status === 'realizado' || t.agendamento_status === 'realizado' || (t.agendamentos && t.agendamentos.some((a: any) => a.status === 'realizado'));
-          if (filtroAtivo === 'realizado') return isRealizado;
+          const s = (t.status || '').toLowerCase();
+          const p = (t.prioridade || '').toLowerCase();
+          const isUrgente = s === 'urgente' || p === 'urgente' || p === 'alta' || Number(t.intensidade_dor || 0) > 6;
+          const temResposta = s === 'respondido' || s === 'completo' || (t.respostas && t.respostas.length > 0);
+
           if (filtroAtivo === 'respondido') {
-            return (t.status === 'respondido' || (t.respostas && t.respostas.length > 0)) && !isRealizado;
+            return temResposta;
+          }
+          if (filtroAtivo === 'realizado') {
+            return false;
           }
           if (filtroAtivo === 'urgente') {
-            return (
-              (t.status === 'urgente' || t.prioridade === 'urgente' || Number(t.intensidade_dor || 0) >= 8) && !isRealizado
-            );
+            return isUrgente;
           }
           if (filtroAtivo === 'pendente') {
-            return t.status === 'pendente' && !isRealizado;
+            return !isUrgente && !temResposta && s !== 'realizado' && s !== 'cancelado';
           }
           return t.status === filtroAtivo;
         });
@@ -139,16 +143,16 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
   };
 
   const renderTriagem = ({ item }: { item: any }) => {
-    const temResposta = item.respostas && item.respostas.length > 0;
-    const isRealizado = item.status === 'realizado' || item.agendamento_status === 'realizado' || (item.agendamentos && item.agendamentos.some((a: any) => a.status === 'realizado'));
+    const s = (item.status || '').toLowerCase();
+    const p = (item.prioridade || '').toLowerCase();
+    const isUrg = s === 'urgente' || p === 'urgente' || p === 'alta' || Number(item.intensidade_dor || 0) > 6;
+    const temResposta = s === 'respondido' || s === 'completo' || (item.respostas && item.respostas.length > 0);
     
-    const effectiveStatus = isRealizado
-      ? 'realizado'
+    const effectiveStatus = isUrg
+      ? 'urgente'
       : temResposta
         ? 'respondido'
-        : item.status === 'urgente' || item.prioridade === 'urgente' || Number(item.intensidade_dor || 0) >= 8
-          ? 'urgente'
-          : item.status || 'pendente';
+        : 'pendente';
           
     const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
 

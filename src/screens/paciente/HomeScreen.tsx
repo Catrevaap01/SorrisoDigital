@@ -178,16 +178,16 @@ const HomeScreen: React.FC<HomeProps> = ({ navigation }) => {
         </View>
       ) : (
         triagensRecentes.map((triagem) => {
-          const temResposta = triagem.respostas && triagem.respostas.length > 0;
-          const isRealizado = triagem.status === 'realizado' || triagem.agendamento_status === 'realizado' || (triagem.agendamentos && triagem.agendamentos.some((a: any) => a.status === 'realizado'));
+          const s = (triagem.status || '').toLowerCase();
+          const p = (triagem.prioridade || '').toLowerCase();
+          const isUrg = s === 'urgente' || p === 'urgente' || p === 'alta' || Number(triagem.intensidade_dor || 0) > 6;
+          const temResposta = s === 'respondido' || s === 'completo' || (triagem.respostas && triagem.respostas.length > 0);
           
-          const effectiveStatus = isRealizado
-            ? 'realizado'
-            : temResposta
-              ? 'respondido'
-              : triagem.status === 'urgente' || triagem.prioridade === 'urgente' || Number(triagem.intensidade_dor || 0) >= 8
-                ? 'urgente'
-                : triagem.status || 'pendente';
+          const effectiveStatus = temResposta
+            ? 'respondido'
+            : isUrg
+              ? 'urgente'
+              : 'pendente';
                 
           const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
 
