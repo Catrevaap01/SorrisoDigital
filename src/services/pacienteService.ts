@@ -63,13 +63,13 @@ const setCache = async (key: string, data: PacienteProfile) => {
       data,
       timestamp: Date.now()
     }));
-  } catch {}
+  } catch { }
 };
 
 const clearCache = async (key: string) => {
   try {
     await AsyncStorage.removeItem(key);
-  } catch {}
+  } catch { }
 };
 
 export interface PacienteProfile extends UserProfile {
@@ -117,12 +117,12 @@ const removeMissingSchemaColumns = <T extends Record<string, any>>(
 export const parsePacienteProfile = (p: PacienteProfile): PacienteProfile => {
   if (!p) return p;
   const obs = p.observacoes_gerais || '';
-  
+
   if (!p.data_nascimento || p.data_nascimento === '-') {
     const dnMatch = obs.match(/\[DN\]: ([^ [\]\n]+)/);
     if (dnMatch && dnMatch[1] !== '-') p.data_nascimento = dnMatch[1];
   }
-  
+
   if (!p.genero || (p.genero as string) === '-') {
     const gMatch = obs.match(/\[G\]: ([^ [\]\n]+)/);
     if (gMatch && gMatch[1] !== '-') p.genero = gMatch[1] as any;
@@ -136,7 +136,7 @@ export const parsePacienteProfile = (p: PacienteProfile): PacienteProfile => {
       p.idade = calcularIdade(p.data_nascimento) ?? undefined;
     }
   }
-  
+
   return p;
 };
 
@@ -279,8 +279,8 @@ export const atualizarPerfil = async (
         : typeof profile?.idade === 'number'
           ? profile.idade
           : (profile?.data_nascimento && validarData(profile.data_nascimento)
-              ? calcularIdade(profile.data_nascimento)
-              : undefined);
+            ? calcularIdade(profile.data_nascimento)
+            : undefined);
     // Clean existing tags from obs before merging new ones to avoid stacking
     let cleanObs = (updates.observacoes_gerais || profile?.observacoes_gerais || '')
       .replace(/\[DN\]: [^ [\]]+ /g, '')
@@ -375,7 +375,7 @@ export const validarData = (data: string): boolean => {
   return (
     date.getFullYear() === ano &&
     date.getMonth() === mes - 1 &&
-date.getDate() === dia &&
+    date.getDate() === dia &&
     date < new Date() // Data não pode ser no futuro
   );
 };
@@ -416,7 +416,7 @@ export const listarPacientes = async (
   try {
     const adminClient = getAdminClient();
     const client = adminClient || supabase;
-    
+
     let query = client
       .from('profiles')
       .select('*')
@@ -524,7 +524,7 @@ export const createPaciente = async (
       return { success: false, error: 'Service role não configurado' };
     }
 
-      const { data: authData, error: authError } = await adminClientForCreate.auth.admin.createUser({
+    const { data: authData, error: authError } = await adminClientForCreate.auth.admin.createUser({
       email: normalizedEmail,
       password: tempPassword,
       email_confirm: true, // ✅ Bypass email confirmation for dentist-created patients
@@ -592,10 +592,10 @@ export const createPaciente = async (
     );
 
     // Log for debugging patient creation
-    console.log(`Paciente criado com sucesso - ID: ${authData?.user?.id}, Email: ${normalizedEmail}, TempPass: ${tempPassword.slice(0,3)}***`);
+    console.log(`Paciente criado com sucesso - ID: ${authData?.user?.id}, Email: ${normalizedEmail}, TempPass: ${tempPassword.slice(0, 3)}***`);
 
-// ✅ Skip auth test - avoid dentist logout interference
-console.log('✅ Patient created - Ficha ready. Skipping auth test to preserve dentist session.');
+    // ✅ Skip auth test - avoid dentist logout interference
+    console.log('✅ Patient created - Ficha ready. Skipping auth test to preserve dentist session.');
 
     return {
       success: true,
@@ -664,7 +664,7 @@ export const deletarPaciente = async (
       if (triagem.imagem_path) {
         const pathParts = triagem.imagem_path.split('/');
         const filename = pathParts.slice(-2).join('/');
-        deletePromises.push(deleteImage(filename, 'triagens').catch(() => {}));
+        deletePromises.push(deleteImage(filename, 'triagens').catch(() => { }));
       }
     }
 
@@ -712,10 +712,10 @@ export const resetarSenhaPaciente = async (
     console.log(`🔐 Admin: Updating password for patient ${pacienteId} (${profile?.email})`);
     const { data: authUpdate, error: authError } = await adminClient.auth.admin.updateUserById(
       pacienteId,
-      { 
+      {
         password: newPassword,
-        user_metadata: { 
-          force_password_change: true 
+        user_metadata: {
+          force_password_change: true
         }
       }
     );
