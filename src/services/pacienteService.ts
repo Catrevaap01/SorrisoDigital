@@ -414,12 +414,15 @@ export const listarPacientes = async (
   }
 ): Promise<{ success: boolean; data?: PacienteProfile[]; error?: string }> => {
   try {
-    let query = supabase
+    const adminClient = getAdminClient();
+    const client = adminClient || supabase;
+    
+    let query = client
       .from('profiles')
       .select('*')
       .eq('tipo', 'paciente')
       .order('nome', { ascending: true })
-      .limit(filtro?.limit || 100); // ✅ LIMIT PADRÃO 100
+      .limit(filtro?.limit || 100);
 
     if (filtro?.nome) {
       query = query.ilike('nome', `%${filtro.nome}%`);
@@ -429,7 +432,7 @@ export const listarPacientes = async (
       query = query.eq('provincia', filtro.provincia);
     }
 
-    const timeout = 2000; // User requested 2s back
+    const timeout = 2000;
     const { data, error } = await withTimeout(query, timeout);
 
     if (error) {

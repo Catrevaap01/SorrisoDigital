@@ -26,6 +26,7 @@ interface PacienteListItem {
   nome: string;
   data_nascimento?: string;
   genero?: string;
+  created_at?: string;
 }
 
 const DentistaRelatorioScreen: React.FC = () => {
@@ -69,9 +70,10 @@ const DentistaRelatorioScreen: React.FC = () => {
           id: p.id,
           nome: p.nome || 'Paciente sem nome',
           data_nascimento: p.data_nascimento,
-          genero: p.genero
+          genero: p.genero,
+          created_at: (p as any).created_at || new Date().toISOString()
         }));
-        setPacientesList(list.sort((a, b) => a.nome.localeCompare(b.nome)));
+        setPacientesList(list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
       }
     } catch (error: any) {
       const errMsg = 'Erro de conexão - Verifique sua internet';
@@ -337,40 +339,73 @@ const DentistaRelatorioScreen: React.FC = () => {
                 <Ionicons name="close-circle" size={28} color={COLORS.textSecondary} />
               </TouchableOpacity>
             </View>
-            <FlatList
-              data={pacientesList}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity 
-                  style={styles.pacienteItem}
-                  onPress={() => gerarFichaPaciente(item.id)}
-                  activeOpacity={0.7}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.pacienteNome}>{item.nome}</Text>
-                    {(!!item.data_nascimento || !!item.genero) && (
-                      <View style={styles.pacienteDetails}>
-                        {!!item.data_nascimento && (
-                          <View style={styles.detailItem}>
-                            <Ionicons name="calendar-outline" size={10} color={COLORS.textSecondary} />
-                            <Text style={styles.detailText}>DT: {item.data_nascimento}</Text>
+            <ScrollView style={styles.pacientesList} showsVerticalScrollIndicator={false}>
+              {(() => {
+                const hoje = new Date();
+                hoje.setHours(0,0,0,0);
+                const inicioSemana = new Date(hoje);
+                inicioSemana.setDate(hoje.getDate() - hoje.getDay());
+                const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+                const inicioAno = new Date(hoje.getFullYear(), 0, 1);
+
+                const grupos: Record<string, typeof pacientesList> = {
+                  'Hoje': [],
+                  'Esta Semana': [],
+                  'Este Mês': [],
+                  'Este Ano': [],
+                  'Anteriores': []
+                };
+
+                pacientesList.forEach(p => {
+                  const d = new Date(p.created_at || Date.now());
+                  if (d >= hoje) grupos['Hoje'].push(p);
+                  else if (d >= inicioSemana) grupos['Esta Semana'].push(p);
+                  else if (d >= inicioMes) grupos['Este Mês'].push(p);
+                  else if (d >= inicioAno) grupos['Este Ano'].push(p);
+                  else grupos['Anteriores'].push(p);
+                });
+
+                return Object.entries(grupos).map(([titulo, lista]) => {
+                  if (lista.length === 0) return null;
+                  return (
+                    <View key={titulo}>
+                      <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.textSecondary, marginTop: 16, marginBottom: 8, paddingHorizontal: 4, textTransform: 'uppercase' }}>
+                        {titulo}
+                      </Text>
+                      {lista.map(item => (
+                        <TouchableOpacity 
+                          key={item.id}
+                          style={styles.pacienteItem}
+                          onPress={() => gerarFichaPaciente(item.id)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.pacienteNome}>{item.nome}</Text>
+                            {(!!item.data_nascimento || !!item.genero) && (
+                              <View style={styles.pacienteDetails}>
+                                {!!item.data_nascimento && (
+                                  <View style={styles.detailItem}>
+                                    <Ionicons name="calendar-outline" size={10} color={COLORS.textSecondary} />
+                                    <Text style={styles.detailText}>DT: {item.data_nascimento}</Text>
+                                  </View>
+                                )}
+                                {!!item.genero && (
+                                  <View style={styles.detailItem}>
+                                    <Ionicons name="person-outline" size={10} color={COLORS.textSecondary} />
+                                    <Text style={styles.detailText}>S: {item.genero}</Text>
+                                  </View>
+                                )}
+                              </View>
+                            )}
                           </View>
-                        )}
-                        {!!item.genero && (
-                          <View style={styles.detailItem}>
-                            <Ionicons name="person-outline" size={10} color={COLORS.textSecondary} />
-                            <Text style={styles.detailText}>S: {item.genero}</Text>
-                          </View>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
-                </TouchableOpacity>
-              )}
-              style={styles.pacientesList}
-              showsVerticalScrollIndicator={false}
-            />
+                          <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  );
+                });
+              })()}
+            </ScrollView>
             {pacientesList.length === 0 && (
               <View style={styles.emptyModal}>
             <Ionicons name="person-outline" size={48} color={COLORS.textSecondary} />
