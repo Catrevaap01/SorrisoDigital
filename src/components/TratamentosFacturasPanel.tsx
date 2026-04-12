@@ -28,6 +28,15 @@ type Props = {
 
 type FiltroFinanceiro = 'todos' | 'aguardando_factura' | 'pendente' | 'pago' | 'parcial';
 
+type GrupoFacturaUnificada = {
+  paciente_id?: string;
+  paciente_nome: string;
+  paciente_telefone?: string;
+  items: TratamentoFinanceiroItem[];
+  dentistas: string[];
+  total: number;
+};
+
 const FILTROS: Array<{ key: FiltroFinanceiro; label: string }> = [
   { key: 'todos', label: 'Todos' },
   { key: 'aguardando_factura', label: 'Aguardando factura' },
@@ -68,9 +77,41 @@ const buildHtml = (item: TratamentoFinanceiroItem, numero?: string) => `
   </div>
 `;
 
+const buildUnifiedHtml = (grupo: GrupoFacturaUnificada, numero?: string) => `
+  <div style="max-width:820px;margin:0 auto;padding:24px;font-family:Arial,sans-serif;color:#0f172a;">
+    <h1 style="color:#1d4ed8;">Factura Unificada de Tratamento</h1>
+    <p><strong>Factura:</strong> ${numero || grupo.items[0]?.numero_factura || 'Sem numero'}</p>
+    <p><strong>Paciente:</strong> ${grupo.paciente_nome}</p>
+    <p><strong>Dentistas:</strong> ${grupo.dentistas.join(', ')}</p>
+    <p><strong>Total de servicos:</strong> ${grupo.items.length}</p>
+    <p><strong>Valor total:</strong> ${money(grupo.total)}</p>
+    <table style="width:100%;border-collapse:collapse;margin-top:20px;">
+      <thead>
+        <tr>
+          <th style="text-align:left;padding:10px;border-bottom:1px solid #cbd5e1;">Procedimento</th>
+          <th style="text-align:left;padding:10px;border-bottom:1px solid #cbd5e1;">Dentista</th>
+          <th style="text-align:left;padding:10px;border-bottom:1px solid #cbd5e1;">Data</th>
+          <th style="text-align:right;padding:10px;border-bottom:1px solid #cbd5e1;">Valor</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${grupo.items.map((item) => `
+          <tr>
+            <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${item.procedimento}</td>
+            <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${item.dentista_nome}</td>
+            <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${formatDateTime(item.data_hora)}</td>
+            <td style="padding:10px;border-bottom:1px solid #e2e8f0;text-align:right;">${money(item.valor)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
+`;
+
 const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }) => {
   const [filtro, setFiltro] = useState<FiltroFinanceiro>('todos');
   const [selected, setSelected] = useState<TratamentoFinanceiroItem | null>(null);
+  const [grupoSelecionado, setGrupoSelecionado] = useState<GrupoFacturaUnificada | null>(null);
   const [numeroFactura, setNumeroFactura] = useState('');
 
   const resumo = useMemo(() => {
@@ -89,6 +130,37 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
 
   const historico = useMemo(() => items.filter((item) => item.numero_factura || item.pago_em).slice(0, 8), [items]);
 
+  const gruposUnificaveis = useMemo(() => {
+    const grupos = new Map<string, GrupoFacturaUnificada>();
+
+    items.forEach((item) => {
+      const chave = item.paciente_id || item.paciente_nome;
+      const existente = grupos.get(chave);
+
+      if (existente) {
+        existente.items.push(item);
+        existente.total += Number(item.valor || 0);
+        if (item.dentista_nome && !existente.dentistas.includes(item.dentista_nome)) {
+          existente.dentistas.push(item.dentista_nome);
+        }
+        return;
+      }
+
+      grupos.set(chave, {
+        paciente_id: item.paciente_id,
+        paciente_nome: item.paciente_nome,
+        paciente_telefone: item.paciente_telefone,
+        items: [item],
+        dentistas: item.dentista_nome ? [item.dentista_nome] : [],
+        total: Number(item.valor || 0),
+      });
+    });
+
+    return Array.from(grupos.values())
+      .filter((grupo) => grupo.items.length > 1 && grupo.dentistas.length > 1)
+      .sort((a, b) => b.total - a.total);
+  }, [items]);
+
   const emitirFactura = async (status: 'pendente' | 'parcial' | 'pago') => {
     if (!selected) return;
     const result = await atualizarFinanceiroProcedimento(selected.id, {
@@ -103,6 +175,37 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
     }
     Toast.show({ type: 'success', text1: 'Factura atualizada' });
     setSelected(null);
+    setNumeroFactura('');
+    onRefresh();
+  };
+
+  const unificarFacturas = async (status: 'pendente' | 'parcial' | 'pago') => {
+    if (!grupoSelecionado) return;
+
+    const numero = numeroFactura.trim() || `FT-${Date.now().toString().slice(-6)}`;
+    const agora = new Date().toISOString();
+
+    for (const item of grupoSelecionado.items) {
+      const result = await atualizarFinanceiroProcedimento(item.id, {
+        numero_factura: numero,
+        status_financeiro: status,
+        factura_emitida_em: agora,
+        pago_em: status === 'pago' ? agora : null,
+      });
+
+      if (!result.success) {
+        Toast.show({ type: 'error', text1: 'Erro ao unificar facturas', text2: result.error || 'Tente novamente' });
+        return;
+      }
+    }
+
+    Toast.show({
+      type: 'success',
+      text1: 'Factura unificada emitida',
+      text2: `${grupoSelecionado.paciente_nome} • ${money(grupoSelecionado.total)}`,
+    });
+    setGrupoSelecionado(null);
+    setNumeroFactura('');
     onRefresh();
   };
 
@@ -155,6 +258,25 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
                 </TouchableOpacity>
               ))}
             </ScrollView>
+
+            {gruposUnificaveis.length > 0 && (
+              <View style={styles.unifiedCard}>
+                <Text style={styles.unifiedTitle}>Facturas unificadas por paciente</Text>
+                <Text style={styles.unifiedSubtitle}>Pacientes atendidos por dois ou mais dentistas podem receber uma unica factura com o valor total somado.</Text>
+                {gruposUnificaveis.map((grupo) => (
+                  <View key={grupo.paciente_id || grupo.paciente_nome} style={styles.unifiedRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.unifiedPatient}>{grupo.paciente_nome}</Text>
+                      <Text style={styles.unifiedMeta}>{grupo.dentistas.join(' • ')}</Text>
+                      <Text style={styles.unifiedMeta}>{grupo.items.length} servicos • {money(grupo.total)}</Text>
+                    </View>
+                    <TouchableOpacity style={styles.unifyBtn} onPress={() => { setNumeroFactura(''); setGrupoSelecionado(grupo); }}>
+                      <Text style={styles.unifyBtnText}>Unificar facturas</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         }
         renderItem={({ item }) => {
@@ -171,7 +293,7 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
                 <View style={[styles.statusChip, { backgroundColor: financial.bg }]}><Text style={[styles.statusText, { color: financial.text }]}>Financeiro: {financial.label}</Text></View>
               </View>
               <View style={styles.actionsRow}>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => setSelected(item)}><Text style={styles.actionText}>Emitir factura</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => { setNumeroFactura(''); setSelected(item); }}><Text style={styles.actionText}>Emitir factura</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => exportHtmlAsPdf(buildHtml(item), `factura-${item.id}.pdf`)}><Text style={styles.actionText}>Gerar PDF</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => exportHtmlAsPdf(buildHtml(item), `factura-${item.id}.pdf`)}><Text style={styles.actionText}>Imprimir</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => void marcarPago(item)}><Text style={styles.actionText}>Marcar pago</Text></TouchableOpacity>
@@ -210,6 +332,31 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
           </View>
         </View>
       </Modal>
+
+      <Modal visible={!!grupoSelecionado} transparent animationType="fade" onRequestClose={() => setGrupoSelecionado(null)}>
+        <View style={styles.overlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Unificar facturas</Text>
+            <Text style={styles.unifiedSubtitle}>
+              {grupoSelecionado ? `${grupoSelecionado.paciente_nome} • ${grupoSelecionado.items.length} servicos • ${money(grupoSelecionado.total)}` : ''}
+            </Text>
+            <TextInput style={styles.input} value={numeroFactura} onChangeText={setNumeroFactura} placeholder="Numero da factura unificada" placeholderTextColor={COLORS.textSecondary} />
+            <View style={styles.actionsRow}>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => void unificarFacturas('pendente')}><Text style={styles.actionText}>Pendente</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => void unificarFacturas('parcial')}><Text style={styles.actionText}>Parcial</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => void unificarFacturas('pago')}><Text style={styles.actionText}>Pago</Text></TouchableOpacity>
+            </View>
+            {grupoSelecionado && (
+              <TouchableOpacity
+                style={styles.unifiedPdfBtn}
+                onPress={() => exportHtmlAsPdf(buildUnifiedHtml(grupoSelecionado, numeroFactura.trim() || undefined), `factura-unificada-${grupoSelecionado.paciente_id || grupoSelecionado.paciente_nome}.pdf`)}
+              >
+                <Text style={styles.unifiedPdfText}>Gerar PDF unificado</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
     </>
   );
 };
@@ -221,6 +368,14 @@ const styles = StyleSheet.create({
   metricValue: { fontSize: 28, fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.text },
   metricLabel: { marginTop: 4, fontSize: TYPOGRAPHY.sizes.small, color: COLORS.textSecondary },
   filtersRow: { gap: SPACING.sm, paddingBottom: SPACING.md },
+  unifiedCard: { backgroundColor: COLORS.surface, borderRadius: 20, padding: SPACING.md, marginBottom: SPACING.md, borderWidth: 1, borderColor: '#E5E7EB', ...SHADOWS.sm },
+  unifiedTitle: { fontSize: TYPOGRAPHY.sizes.h4, fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.text },
+  unifiedSubtitle: { marginTop: 6, fontSize: TYPOGRAPHY.sizes.small, color: COLORS.textSecondary, lineHeight: 18 },
+  unifiedRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingTop: SPACING.md, marginTop: SPACING.md, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+  unifiedPatient: { fontSize: TYPOGRAPHY.sizes.body, fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.text },
+  unifiedMeta: { marginTop: 4, fontSize: TYPOGRAPHY.sizes.small, color: COLORS.textSecondary },
+  unifyBtn: { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
+  unifyBtnText: { color: '#047857', fontSize: TYPOGRAPHY.sizes.small, fontWeight: TYPOGRAPHY.weights.semiBold },
   filterChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: '#E5E7EB' },
   filterChipActive: { backgroundColor: '#6D28D9', borderColor: '#6D28D9' },
   filterText: { color: COLORS.text, fontWeight: TYPOGRAPHY.weights.semiBold },
@@ -246,6 +401,8 @@ const styles = StyleSheet.create({
   modalCard: { backgroundColor: COLORS.surface, borderRadius: 24, padding: SPACING.md, ...SHADOWS.md },
   modalTitle: { fontSize: TYPOGRAPHY.sizes.h4, fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.text, marginBottom: SPACING.md },
   input: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, color: COLORS.text },
+  unifiedPdfBtn: { marginTop: SPACING.sm, backgroundColor: '#EEF2FF', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, alignItems: 'center' },
+  unifiedPdfText: { color: '#3730A3', fontSize: TYPOGRAPHY.sizes.small, fontWeight: TYPOGRAPHY.weights.semiBold },
 });
 
 export default TratamentosFacturasPanel;

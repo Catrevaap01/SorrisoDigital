@@ -63,7 +63,7 @@ const PlanoTratamentoScreen: React.FC<Props> = ({ route, navigation }) => {
     if (pacienteData?.nome) {
       setNomePacienteAtual(pacienteData.nome);
     }
-    // Buscar ou criar um único plano por paciente
+    // Carregar todos os planos do paciente e usar o mais recente para novos registos.
     let { data: planos } = await supabase
       .from('planos_tratamento')
       .select('id, created_at')
@@ -185,7 +185,7 @@ const PlanoTratamentoScreen: React.FC<Props> = ({ route, navigation }) => {
       {/* Resumo */}
       <View style={s.resumo}>
         <Text style={s.resumoEyebrow}>Paciente selecionado</Text>
-        <Text style={s.resumoSubTitle}>Todos os procedimentos deste paciente ficam no mesmo plano e o valor total vai sendo somado automaticamente.</Text>
+        <Text style={s.resumoSubTitle}>Aqui aparecem todos os procedimentos do paciente, mesmo quando foram registados em planos diferentes, e o valor total vai sendo somado automaticamente.</Text>
         <Text style={s.resumoTitle}>Plano de Tratamento — {nomePacienteAtual}</Text>
         <View style={s.resumoRow}>
           <View style={s.resumoCard}>
