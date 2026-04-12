@@ -37,6 +37,16 @@ type GrupoFacturaUnificada = {
   total: number;
 };
 
+type HistoricoFinanceiroAgrupado = {
+  id: string;
+  paciente_nome: string;
+  numero_factura?: string | null;
+  data_referencia: string;
+  total: number;
+  quantidade_servicos: number;
+  procedimentos: string[];
+};
+
 const FILTROS: Array<{ key: FiltroFinanceiro; label: string }> = [
   { key: 'todos', label: 'Todos' },
   { key: 'aguardando_factura', label: 'Aguardando factura' },
@@ -128,7 +138,43 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
     filtro === 'todos' ? items : items.filter((item) => item.status_financeiro === filtro)
   ), [filtro, items]);
 
-  const historico = useMemo(() => items.filter((item) => item.numero_factura || item.pago_em).slice(0, 8), [items]);
+  const historico = useMemo<HistoricoFinanceiroAgrupado[]>(() => {
+    const grupos = new Map<string, HistoricoFinanceiroAgrupado>();
+
+    items
+      .filter((item) => item.numero_factura || item.pago_em)
+      .forEach((item) => {
+        const chave = item.numero_factura ? `factura:${item.numero_factura}` : `item:${item.id}`;
+        const dataReferencia = item.factura_emitida_em || item.pago_em || item.data_hora;
+        const existente = grupos.get(chave);
+
+        if (existente) {
+          existente.total += Number(item.valor || 0);
+          existente.quantidade_servicos += 1;
+          if (item.procedimento && !existente.procedimentos.includes(item.procedimento)) {
+            existente.procedimentos.push(item.procedimento);
+          }
+          if (new Date(dataReferencia).getTime() > new Date(existente.data_referencia).getTime()) {
+            existente.data_referencia = dataReferencia;
+          }
+          return;
+        }
+
+        grupos.set(chave, {
+          id: chave,
+          paciente_nome: item.paciente_nome,
+          numero_factura: item.numero_factura || null,
+          data_referencia: dataReferencia,
+          total: Number(item.valor || 0),
+          quantidade_servicos: 1,
+          procedimentos: item.procedimento ? [item.procedimento] : [],
+        });
+      });
+
+    return Array.from(grupos.values())
+      .sort((a, b) => new Date(b.data_referencia).getTime() - new Date(a.data_referencia).getTime())
+      .slice(0, 8);
+  }, [items]);
 
   const gruposUnificaveis = useMemo(() => {
     const grupos = new Map<string, GrupoFacturaUnificada>();
@@ -308,10 +354,17 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
             {historico.length === 0 ? <Text style={styles.empty}>Sem historico financeiro.</Text> : historico.map((item) => (
               <View key={`h-${item.id}`} style={styles.historyRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.historyTitle}>{item.paciente_nome} • {item.procedimento}</Text>
-                  <Text style={styles.historyMeta}>{item.numero_factura || 'Sem factura'} • {item.factura_emitida_em ? formatDateTime(item.factura_emitida_em) : formatDateTime(item.data_hora)}</Text>
+                  <Text style={styles.historyTitle}>
+                    {item.paciente_nome} • {item.quantidade_servicos > 1 ? `Factura unificada (${item.quantidade_servicos} servicos)` : item.procedimentos[0] || 'Procedimento'}
+                  </Text>
+                  <Text style={styles.historyMeta}>{item.numero_factura || 'Sem factura'} • {formatDateTime(item.data_referencia)}</Text>
+                  {item.quantidade_servicos > 1 && (
+                    <Text style={styles.historyMeta}>
+                      {item.procedimentos.slice(0, 3).join(' • ')}{item.procedimentos.length > 3 ? ' ...' : ''}
+                    </Text>
+                  )}
                 </View>
-                <Text style={styles.historyValue}>{money(item.valor)}</Text>
+                <Text style={styles.historyValue}>{money(item.total)}</Text>
               </View>
             ))}
           </View>
