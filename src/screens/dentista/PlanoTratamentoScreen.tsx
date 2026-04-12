@@ -64,29 +64,31 @@ const PlanoTratamentoScreen: React.FC<Props> = ({ route, navigation }) => {
       setNomePacienteAtual(pacienteData.nome);
     }
     // Buscar ou criar um único plano por paciente
-    let { data: plano } = await supabase
+    let { data: planos } = await supabase
       .from('planos_tratamento')
-      .select('id')
+      .select('id, created_at')
       .eq('paciente_id', pacienteId)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(50);
 
-    if (!plano) {
+    if (!planos || planos.length === 0) {
       const { data: novo } = await supabase
         .from('planos_tratamento')
         .insert({ paciente_id: pacienteId, dentista_id: profile?.id, triagem_id: triagemId })
-        .select('id')
+        .select('id, created_at')
         .single();
-      plano = novo;
+      planos = novo ? [novo] : [];
     }
 
-    if (plano?.id) {
-      setPlanoId(plano.id);
+    if (planos && planos.length > 0) {
+      const planoMaisRecente = planos[0];
+      const planoIds = planos.map((item: any) => item.id).filter(Boolean);
+
+      setPlanoId(planoMaisRecente.id);
       const { data: procs } = await supabase
         .from('procedimentos_tratamento')
         .select('*')
-        .eq('plano_id', plano.id)
+        .in('plano_id', planoIds)
         .order('created_at');
       setProcedimentos((procs || []).map((p: any) => ({ ...p, valor: String(p.valor || '') })));
     }
@@ -122,10 +124,14 @@ const PlanoTratamentoScreen: React.FC<Props> = ({ route, navigation }) => {
     } else {
       const insertRes = await supabase.from('procedimentos_tratamento').insert({
         ...payload,
-        sessao_numero: procedimentos.length + 1,
         status_financeiro: 'aguardando_factura',
       });
       error = insertRes.error;
+
+      if (error?.message?.toLowerCase().includes("status_financeiro")) {
+        const fallbackRes = await supabase.from('procedimentos_tratamento').insert(payload);
+        error = fallbackRes.error;
+      }
     }
 
     if (error) {

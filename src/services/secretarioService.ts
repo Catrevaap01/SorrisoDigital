@@ -195,6 +195,77 @@ export interface TratamentoFinanceiroItem {
   observacoes?: string | null;
 }
 
+const nomeOuFallback = (...values: Array<any>) => {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return 'Paciente';
+};
+
+const COLUNAS_BASE_PROCEDIMENTOS = [
+  'id',
+  'plano_id',
+  'descricao',
+  'status',
+  'valor',
+  'created_at',
+  'observacoes',
+];
+
+const COLUNAS_OPCIONAIS_PROCEDIMENTOS = [
+  'sessao_numero',
+  'status_financeiro',
+  'numero_factura',
+  'factura_emitida_em',
+  'pago_em',
+];
+
+const isMissingColumnError = (error: any) =>
+  typeof error?.message === 'string' &&
+  error.message.toLowerCase().includes('could not find') &&
+  error.message.toLowerCase().includes('column');
+
+const extractMissingColumn = (error: any): string | null => {
+  const message = String(error?.message || '');
+  const match = message.match(/'([^']+)'/);
+  return match?.[1] || null;
+};
+
+const carregarProcedimentosTratamento = async () => {
+  const colunas = [...COLUNAS_BASE_PROCEDIMENTOS, ...COLUNAS_OPCIONAIS_PROCEDIMENTOS];
+
+  while (colunas.length > 0) {
+    const res = await withTimeout(
+      supabase
+        .from('procedimentos_tratamento')
+        .select(colunas.join(', '))
+        .order('created_at', { ascending: false })
+        .limit(300) as any,
+      8000
+    );
+
+    if (!res.error) {
+      return { data: res.data || [], colunas };
+    }
+
+    if (!isMissingColumnError(res.error)) {
+      throw res.error;
+    }
+
+    const colunaAusente = extractMissingColumn(res.error);
+    if (!colunaAusente || !colunas.includes(colunaAusente)) {
+      throw res.error;
+    }
+
+    colunas.splice(colunas.indexOf(colunaAusente), 1);
+  }
+
+  return { data: [], colunas: [...COLUNAS_BASE_PROCEDIMENTOS] };
+};
+
 /**
  * Listar dentistas disponíveis, opcionalmente filtrados por especialidade
  */
@@ -524,17 +595,7 @@ export const buscarTratamentosFinanceirosSecretaria = async (): Promise<{
   error?: string;
 }> => {
   try {
-    const procedimentosRes = await withTimeout(
-      supabase
-        .from('procedimentos_tratamento')
-        .select('id, plano_id, descricao, status, valor, created_at, observacoes, sessao_numero, status_financeiro, numero_factura, factura_emitida_em, pago_em')
-        .order('created_at', { ascending: false })
-        .limit(300) as any,
-      8000
-    );
-
-    if (procedimentosRes.error) throw procedimentosRes.error;
-
+    const procedimentosRes = await carregarProcedimentosTratamento();
     const procedimentos = procedimentosRes.data || [];
     if (procedimentos.length === 0) {
       return { success: true, data: [] };
@@ -544,7 +605,7 @@ export const buscarTratamentosFinanceirosSecretaria = async (): Promise<{
     const planosRes = await withTimeout(
       supabase
         .from('planos_tratamento')
-        .select('id, paciente_id, dentista_id')
+        .select('id, paciente_id, dentista_id, triagem_id')
         .in('id', planoIds) as any,
       8000
     );
@@ -552,6 +613,7 @@ export const buscarTratamentosFinanceirosSecretaria = async (): Promise<{
     if (planosRes.error) throw planosRes.error;
 
     const planos = planosRes.data || [];
+    const triagemIds = [...new Set(planos.map((item: any) => item.triagem_id).filter(Boolean))];
     const profileIds = [...new Set(
       planos.flatMap((item: any) => [item.paciente_id, item.dentista_id]).filter(Boolean)
     )];
@@ -566,25 +628,48 @@ export const buscarTratamentosFinanceirosSecretaria = async (): Promise<{
 
     if (profilesRes.error) throw profilesRes.error;
 
+    const triagensRes = triagemIds.length > 0
+      ? await withTimeout(
+          supabase
+            .from('triagens')
+            .select('id, paciente_id, paciente:profiles!paciente_id(id, nome, telefone)')
+            .in('id', triagemIds) as any,
+          8000
+        )
+      : { data: [], error: null };
+
+    if (triagensRes.error) throw triagensRes.error;
+
     const planosById = Object.fromEntries(planos.map((item: any) => [item.id, item]));
     const profilesById = Object.fromEntries((profilesRes.data || []).map((item: any) => [item.id, item]));
+    const triagensById = Object.fromEntries((triagensRes.data || []).map((item: any) => [item.id, item]));
+
+    const sessoesPorPlano: Record<string, number> = {};
 
     const data: TratamentoFinanceiroItem[] = procedimentos.map((item: any) => {
       const plano = planosById[item.plano_id] || {};
       const paciente = profilesById[plano.paciente_id] || {};
       const dentista = profilesById[plano.dentista_id] || {};
+      const triagem = triagensById[plano.triagem_id] || {};
+      const pacienteTriagem = triagem.paciente || {};
+      const sessaoFallback = (sessoesPorPlano[item.plano_id] || 0) + 1;
+
+      sessoesPorPlano[item.plano_id] = sessaoFallback;
 
       return {
         id: item.id,
         plano_id: item.plano_id,
         paciente_id: plano.paciente_id,
-        paciente_nome: paciente.nome || 'Paciente',
-        paciente_telefone: paciente.telefone || '',
+        paciente_nome: nomeOuFallback(
+          paciente.nome,
+          pacienteTriagem.nome
+        ),
+        paciente_telefone: paciente.telefone || pacienteTriagem.telefone || '',
         dentista_id: plano.dentista_id,
         dentista_nome: dentista.nome || 'Dentista',
         especialidade: dentista.especialidade || 'Clínica Geral',
         procedimento: item.descricao || 'Procedimento',
-        sessao_numero: Number(item.sessao_numero || 1),
+        sessao_numero: Number(item.sessao_numero || sessaoFallback),
         valor: Number(item.valor || 0),
         data_hora: item.created_at,
         status_clinico: String(item.status || 'pendente'),
@@ -615,12 +700,31 @@ export const atualizarFinanceiroProcedimento = async (
   }>
 ): Promise<{ success: boolean; error?: string }> => {
   try {
-    const { error } = await supabase
-      .from('procedimentos_tratamento')
-      .update(payload)
-      .eq('id', procedimentoId);
+    let campos = Object.entries(payload).filter(([, value]) => value !== undefined);
 
-    if (error) throw error;
+    while (campos.length > 0) {
+      const updatePayload = Object.fromEntries(campos);
+      const { error } = await supabase
+        .from('procedimentos_tratamento')
+        .update(updatePayload)
+        .eq('id', procedimentoId);
+
+      if (!error) {
+        return { success: true };
+      }
+
+      if (!isMissingColumnError(error)) {
+        throw error;
+      }
+
+      const colunaAusente = extractMissingColumn(error);
+      if (!colunaAusente) {
+        throw error;
+      }
+
+      campos = campos.filter(([key]) => key !== colunaAusente);
+    }
+
     return { success: true };
   } catch (err: any) {
     return {
