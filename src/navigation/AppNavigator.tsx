@@ -24,6 +24,8 @@ import {
   DentistaTabParamList,
   PacienteStackParamList,
   PacienteTabParamList,
+  SecretarioStackParamList,
+  SecretarioTabParamList,
   RootStackParamList,
 } from './types';
 
@@ -37,7 +39,6 @@ import TriagemScreen from '../screens/paciente/TriagemScreen';
 import HistoricoScreen from '../screens/paciente/HistoricoScreen';
 import EducacaoScreen from '../screens/paciente/EducacaoScreen';
 import AgendamentoScreen from '../screens/paciente/AgendamentoScreen';
-import ChooseDentistaScreen from '../screens/paciente/ChooseDentistaScreen';
 import PerfilScreen from '../screens/paciente/PerfilScreen';
 import MensagensScreen from '../screens/paciente/MensagensScreen';
 
@@ -49,6 +50,13 @@ import DentistaMensagensScreen from '../screens/dentista/DentistaMensagensScreen
 import NovoPacienteScreen from '../screens/dentista/NovoPacienteScreen';
 import GerirPacientesScreen from '../screens/dentista/GerirPacientesScreen';
 import AdminNavigator from './AdminNavigator';
+import SecretarioDashboardScreen from '../screens/secretario/SecretarioDashboardScreen';
+import SecretarioAgendamentosScreen from '../screens/secretario/SecretarioAgendamentosScreen';
+import AtribuirDentistaScreen from '../screens/secretario/AtribuirDentistaScreen';
+import AtribuirDentistaAgendamentoScreen from '../screens/secretario/AtribuirDentistaAgendamentoScreen';
+import AnamneseScreen from '../screens/dentista/AnamneseScreen';
+import PlanoTratamentoScreen from '../screens/dentista/PlanoTratamentoScreen';
+import PrescricaoScreen from '../screens/dentista/PrescricaoScreen';
 
 let AgendaDentistaScreen: React.ComponentType<any>;
 try {
@@ -69,8 +77,10 @@ const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 
 const PacienteTab = createBottomTabNavigator<PacienteTabParamList>();
 const DentistaTab = createBottomTabNavigator<DentistaTabParamList>();
+const SecretarioTab = createBottomTabNavigator<SecretarioTabParamList>();
 const PacienteStackNav = createNativeStackNavigator<PacienteStackParamList>();
 const DentistaStackNav = createNativeStackNavigator<DentistaStackParamList>();
+const SecretarioStackNav = createNativeStackNavigator<SecretarioStackParamList>();
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 interface TabsProps {
@@ -236,6 +246,69 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
   </DentistaTab.Navigator>
 );
 
+const SecretarioTabs: React.FC<TabsProps> = ({ unreadCount }) => (
+  <SecretarioTab.Navigator
+    id="SecretarioTab"
+    screenOptions={({ route }) => ({
+      tabBarIcon: ({ focused, color, size }) => {
+        let iconName = 'ellipse';
+        switch (route.name) {
+          case 'SecretarioDashboard':
+            iconName = focused ? 'clipboard' : 'clipboard-outline';
+            break;
+          case 'Agendamentos':
+            iconName = focused ? 'calendar' : 'calendar-outline';
+            break;
+          case 'Mensagens':
+            iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
+            break;
+          case 'Perfil':
+            iconName = focused ? 'person' : 'person-outline';
+            break;
+        }
+        return <Ionicons name={iconName as any} size={size} color={color} />;
+      },
+      tabBarActiveTintColor: '#7C3AED',
+      tabBarInactiveTintColor: COLORS.textSecondary,
+      tabBarHideOnKeyboard: true,
+      headerStyle: { backgroundColor: '#7C3AED' },
+      headerTintColor: COLORS.textInverse,
+      headerTitleStyle: { fontWeight: 'bold' },
+      tabBarStyle: Platform.OS === 'web' ? {
+        maxWidth: 800,
+        width: '100%',
+        alignSelf: 'center',
+        borderTopWidth: 1,
+        borderTopColor: COLORS.divider,
+        backgroundColor: COLORS.surface,
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        marginHorizontal: 'auto',
+        height: 60,
+      } : { height: 60 },
+    })}
+  >
+    <SecretarioTab.Screen
+      name="SecretarioDashboard"
+      component={SecretarioDashboardScreen}
+      options={{ title: 'Painel' }}
+    />
+    <SecretarioTab.Screen
+      name="Agendamentos"
+      component={SecretarioAgendamentosScreen}
+      options={{ title: 'Agendamentos' }}
+    />
+    <SecretarioTab.Screen
+      name="Mensagens"
+      component={DentistaMensagensScreen}
+      options={{ title: 'Mensagens' }}
+    />
+    <SecretarioTab.Screen name="Perfil" component={PerfilScreen} />
+  </SecretarioTab.Navigator>
+);
+
 const PacienteStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
   if (role !== 'paciente') return null;
   return (
@@ -248,15 +321,6 @@ const PacienteStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
         component={AgendamentoScreen}
         options={{
           title: 'Agendar Consulta',
-          headerStyle: { backgroundColor: COLORS.primary },
-          headerTintColor: COLORS.textInverse,
-        }}
-      />
-      <PacienteStackNav.Screen
-        name="ChooseDentista"
-        component={ChooseDentistaScreen}
-        options={{
-          title: 'Escolher Dentista',
           headerStyle: { backgroundColor: COLORS.primary },
           headerTintColor: COLORS.textInverse,
         }}
@@ -410,7 +474,74 @@ const DentistaStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
           headerTintColor: COLORS.textInverse,
         }}
       />
+
+      {/* ── Módulo Clínico ── */}
+      <DentistaStackNav.Screen
+        name="Anamnese"
+        component={AnamneseScreen}
+        options={{
+          title: 'Anamnese',
+          headerStyle: { backgroundColor: '#7C3AED' },
+          headerTintColor: '#fff',
+        }}
+      />
+      <DentistaStackNav.Screen
+        name="PlanoTratamento"
+        component={PlanoTratamentoScreen}
+        options={{
+          title: 'Plano de Tratamento',
+          headerStyle: { backgroundColor: COLORS.primary },
+          headerTintColor: '#fff',
+        }}
+      />
+      <DentistaStackNav.Screen
+        name="Prescricao"
+        component={PrescricaoScreen}
+        options={{
+          title: 'Prescrição',
+          headerStyle: { backgroundColor: '#E91E63' },
+          headerTintColor: '#fff',
+        }}
+      />
     </DentistaStackNav.Navigator>
+  );
+};
+
+const SecretarioStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
+  if (role !== 'secretario') return null;
+  return (
+    <SecretarioStackNav.Navigator id="SecretarioStack">
+      <SecretarioStackNav.Screen name="SecretarioTabs" options={{ headerShown: false }}>
+        {() => <SecretarioTabs unreadCount={unreadCount} />}
+      </SecretarioStackNav.Screen>
+      <SecretarioStackNav.Screen
+        name="AtribuirDentista"
+        component={AtribuirDentistaScreen}
+        options={{
+          title: 'Atribuir Dentista',
+          headerStyle: { backgroundColor: '#7C3AED' },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+      <SecretarioStackNav.Screen
+        name="AtribuirAgendamento"
+        component={AtribuirDentistaAgendamentoScreen}
+        options={{
+          title: 'Pré-agendar Consulta',
+          headerStyle: { backgroundColor: '#7C3AED' },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+      <SecretarioStackNav.Screen
+        name="Settings"
+        component={require('../screens/paciente/SettingsScreen').default}
+        options={{
+          title: 'Configurações',
+          headerStyle: { backgroundColor: '#7C3AED' },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+    </SecretarioStackNav.Navigator>
   );
 };
 
@@ -541,10 +672,10 @@ const AppNavigator: React.FC = () => {
     );
   }
 
-  const currentRole =
+    const currentRole =
     (profile?.tipo ||
       (user?.user_metadata?.tipo as string | undefined) ||
-      'paciente') as 'admin' | 'dentista' | 'paciente';
+      'paciente') as 'admin' | 'dentista' | 'paciente' | 'secretario';
 
   const precisaMudarSenha =
     !!user &&
@@ -577,6 +708,10 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       ) : currentRole === 'admin' ? (
         <Stack.Screen name="AdminMain" component={AdminNavigator} />
+      ) : currentRole === 'secretario' ? (
+        <Stack.Screen name="SecretarioMain">
+          {() => <SecretarioStack unreadCount={unreadCount} role={currentRole} />}
+        </Stack.Screen>
       ) : currentRole === 'dentista' ? (
         <Stack.Screen name="DentistaMain">
           {() => <DentistaStack unreadCount={unreadCount} role={currentRole} />}

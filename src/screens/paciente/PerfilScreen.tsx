@@ -26,7 +26,7 @@ import { PROFILE_SCHEMA_FEATURES } from '../../config/supabase';
 import { buscarPaciente, parsePacienteProfile, validarData } from '../../services/pacienteService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { PROVINCIAS_ANGOLA } from '../../utils/constants';
-import { getInitials, formatDate } from '../../utils/helpers';
+import { getInitials, formatDate, formatBirthDateInput, calculateAgeFromBirthDate } from '../../utils/helpers';
 import { exportHtmlAsPdf } from '../../utils/pdfExportUtils';
 import { gerarFichaHistorico } from '../dentista/gerarFichaHistorico';
 
@@ -71,11 +71,14 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
   const [crm, setCrm] = useState<string>(profile?.crm || profile?.numero_registro || '');
   const [especialidade, setEspecialidade] = useState<string>(profile?.especialidade || '');
   const [idade, setIdade] = useState<string>('');
+  const [dataNascimento, setDataNascimento] = useState<string>(profile?.data_nascimento || '');
   const [genero, setGenero] = useState<string>(profile?.genero || '');
   const [processandoLogout, setProcessandoLogout] = useState(false);
   const [showGeneros, setShowGeneros] = useState<boolean>(false);
   const [perfilCarregado, setPerfilCarregado] = useState<any>(null);
   const isDentista = profile?.tipo === 'dentista' || profile?.tipo === 'medico';
+  const isSecretario = profile?.tipo === 'secretario';
+  const headerAccent = isSecretario ? '#6D28D9' : isDentista ? COLORS.secondary : COLORS.primary;
   const perfilPaciente = useMemo(
     () => (!isDentista && (perfilCarregado || profile) ? parsePacienteProfile({ ...(perfilCarregado || profile) }) : profile),
     [isDentista, perfilCarregado, profile]
@@ -86,9 +89,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
       return perfilPaciente.idade;
     }
     if (perfilPaciente?.data_nascimento && validarData(perfilPaciente.data_nascimento)) {
-      const anoNascimento = Number(String(perfilPaciente.data_nascimento).split('-')[0]);
-      const anoAtual = new Date().getFullYear();
-      return Number.isFinite(anoNascimento) && anoNascimento > 1900 ? anoAtual - anoNascimento : null;
+      return calculateAgeFromBirthDate(perfilPaciente.data_nascimento);
     }
     return null;
   }, [isDentista, perfilPaciente]);
@@ -118,6 +119,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
           ? String(perfilPaciente.idade)
           : ''
       );
+      setDataNascimento(perfilPaciente?.data_nascimento || '');
       setGenero(perfilPaciente?.genero || '');
     }
   }, [isDentista, perfilPaciente, profile]);
@@ -149,9 +151,22 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
       updates.especialidade = especialidade.trim();
     } else {
       const idadeLimpa = idade.trim();
+      const dataNascimentoLimpa = dataNascimento.trim();
       const generoLimpo = genero.trim();
 
-      if (idadeLimpa && /^\d{1,3}$/.test(idadeLimpa)) {
+      if (isSecretario) {
+        const idadeCalculada = calculateAgeFromBirthDate(dataNascimentoLimpa);
+        if (!dataNascimentoLimpa) {
+          Toast.show({ type: 'error', text1: 'Data de nascimento obrigatoria' });
+          return;
+        }
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dataNascimentoLimpa) || idadeCalculada === null) {
+          Toast.show({ type: 'error', text1: 'Data de nascimento invalida' });
+          return;
+        }
+        updates.data_nascimento = dataNascimentoLimpa;
+        updates.idade = idadeCalculada;
+      } else if (idadeLimpa && /^\d{1,3}$/.test(idadeLimpa)) {
         updates.idade = Number(idadeLimpa);
       }
 
@@ -219,6 +234,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
           ? String(perfilPaciente.idade)
           : ''
       );
+      setDataNascimento(perfilPaciente?.data_nascimento || '');
       setGenero(perfilPaciente?.genero || '');
     }
     setEditando(false);
@@ -271,10 +287,12 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
     >
     <ScrollView
       style={styles.container}
+      contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="always"
       keyboardDismissMode="on-drag"
     >
-      <View style={[styles.header, isDentista && styles.headerDentista]}>
+      <View style={styles.contentWidth}>
+      <View style={[styles.header, isDentista && styles.headerDentista, isSecretario && { backgroundColor: headerAccent }]}>
         <View style={styles.avatarContainer}>
           <Text style={styles.avatarText}>{getInitials(profile?.nome)}</Text>
         </View>
@@ -285,12 +303,12 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
         )}
         <View style={styles.tipoBadge}>
           <Ionicons 
-            name={isDentista ? 'medical' : 'person'} 
+            name={isDentista ? 'medical' : isSecretario ? 'briefcase' : 'person'} 
             size={14} 
-            color={isDentista ? COLORS.secondary : COLORS.primary} 
+            color={headerAccent} 
           />
-          <Text style={[styles.tipoText, isDentista && styles.tipoTextDentista]}>
-            {isDentista ? 'Dentista' : 'Paciente'}
+          <Text style={[styles.tipoText, isDentista && styles.tipoTextDentista, isSecretario && { color: headerAccent }]}>
+            {isDentista ? 'Dentista' : isSecretario ? 'Secretária' : 'Paciente'}
           </Text>
         </View>
       </View>
@@ -352,21 +370,45 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
 
         {!isDentista && (
           <>
-            <View style={styles.campo}>
-              <Text style={styles.campoLabel}>Idade</Text>
-              {editando ? (
-                <TextInput
-                  style={styles.input}
-                  value={idade}
-                  onChangeText={(v) => setIdade(v.replace(/\D/g, '').slice(0, 3))}
-                  placeholder="idade (exemplo 25)"
-                  keyboardType="numeric"
-                  maxLength={3}
-                />
-              ) : (
+            {isSecretario ? (
+              <View style={styles.campo}>
+                <Text style={styles.campoLabel}>Data de Nascimento</Text>
+                {editando ? (
+                  <TextInput
+                    style={styles.input}
+                    value={dataNascimento}
+                    onChangeText={(v) => setDataNascimento(formatBirthDateInput(v))}
+                    placeholder="AAAA-MM-DD"
+                    keyboardType="number-pad"
+                    maxLength={10}
+                  />
+                ) : (
+                  <Text style={styles.campoValor}>{perfilPaciente?.data_nascimento || '-'}</Text>
+                )}
+              </View>
+            ) : (
+              <View style={styles.campo}>
+                <Text style={styles.campoLabel}>Idade</Text>
+                {editando ? (
+                  <TextInput
+                    style={styles.input}
+                    value={idade}
+                    onChangeText={(v) => setIdade(v.replace(/\D/g, '').slice(0, 3))}
+                    placeholder="idade (exemplo 25)"
+                    keyboardType="numeric"
+                    maxLength={3}
+                  />
+                ) : (
+                  <Text style={styles.campoValor}>{idadePaciente !== null ? `${idadePaciente} anos` : '-'}</Text>
+                )}
+              </View>
+            )}
+            {isSecretario && (
+              <View style={styles.campo}>
+                <Text style={styles.campoLabel}>Idade</Text>
                 <Text style={styles.campoValor}>{idadePaciente !== null ? `${idadePaciente} anos` : '-'}</Text>
-              )}
-            </View>
+              </View>
+            )}
             <View style={styles.campo}>
               <Text style={styles.campoLabel}>Gênero / Sexo</Text>
               {editando ? (
@@ -697,6 +739,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
       </Modal>
 
       <View style={{ height: 30 }} />
+      </View>
     </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -704,11 +747,20 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
+  content: { paddingBottom: 30 },
+  contentWidth: {
+    width: '100%',
+    maxWidth: 940,
+    alignSelf: 'center',
+  },
   header: {
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     paddingVertical: SIZES.xl,
     paddingHorizontal: SIZES.md,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    ...SHADOWS.md,
   },
   headerDentista: { backgroundColor: COLORS.secondary },
   avatarContainer: {
@@ -735,7 +787,14 @@ const styles = StyleSheet.create({
   },
   tipoText: { marginLeft: SIZES.xs, color: COLORS.primary, fontWeight: '600' },
   tipoTextDentista: { color: COLORS.secondary },
-  section: { backgroundColor: COLORS.surface, marginTop: SIZES.md, padding: SIZES.md },
+  section: {
+    backgroundColor: COLORS.surface,
+    marginTop: SIZES.md,
+    marginHorizontal: SIZES.md,
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusLg,
+    ...SHADOWS.sm,
+  },
   savingBanner: {
     marginHorizontal: SIZES.md,
     marginTop: SIZES.md,
@@ -802,7 +861,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: COLORS.surface,
     marginTop: SIZES.md,
+    marginHorizontal: SIZES.md,
     padding: SIZES.md,
+    borderRadius: SIZES.radiusLg,
+    ...SHADOWS.sm,
   },
   logoutText: { marginLeft: SIZES.sm, fontSize: SIZES.fontMd, fontWeight: '600', color: COLORS.danger },
   versao: { textAlign: 'center', color: COLORS.textLight, fontSize: SIZES.fontSm, marginTop: SIZES.lg },

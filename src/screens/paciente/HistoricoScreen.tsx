@@ -12,19 +12,41 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   buscarTriagensPaciente,
   buscarTriagensDentista,
   buscarTodasTriagens,
 } from '../../services/triagemService';
-import { buscarAgendamentosPaciente } from '../../services/agendamentoService';
+import {
+  buscarAgendamentosPaciente,
+  confirmarAgendamento,
+  cancelarAgendamento,
+} from '../../services/agendamentoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { STATUS_TRIAGEM, RECOMENDACAO, STATUS_AGENDAMENTO, TIPOS_CONSULTA } from '../../utils/constants';
 import { formatDateTime, formatRelativeTime } from '../../utils/helpers';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { PacienteTabParamList } from '../../navigation/types';
 import Loading from '../../components/ui/Loading';
+
+const PRECO_POR_TIPO: Record<string, number> = {
+  consulta: 25000,
+  avaliacao: 30000,
+  retorno: 15000,
+  urgencia: 45000,
+  raio_x: 20000,
+  panoramico: 35000,
+  profilaxia: 22000,
+  branqueamento: 60000,
+  canal: 90000,
+  ortodontia: 120000,
+  restauracao: 40000,
+};
+
+const formatCurrency = (value: number) =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 });
 
 type HistoricoProps = BottomTabScreenProps<PacienteTabParamList, 'Histórico'>;
 
@@ -34,6 +56,7 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
   const [agendamentos, setAgendamentos] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [processingAgendamentoId, setProcessingAgendamentoId] = useState<string | null>(null);
   const [filtroAtivo, setFiltroAtivo] = useState<string>('todos');
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [triagemSelecionada, setTriagemSelecionada] = useState<any | null>(null);
@@ -251,6 +274,9 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
             </Text>
           </View>
         </View>
+        <Text style={styles.valorConsulta}>
+          Valor estimado: {formatCurrency(PRECO_POR_TIPO[item.tipo || 'consulta'] || 0)}
+        </Text>
 
         {/* Observações */}
         {item.observacoes && (
@@ -267,6 +293,46 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
       return renderAgendamento({ item });
     }
     return renderTriagem({ item });
+  };
+
+  const handleConfirmarAgendamentoPaciente = async () => {
+    if (!profile?.id) {
+      Toast.show({ type: 'error', text1: 'Erro de autenticação', text2: 'Seu perfil ainda não foi carregado. Tente novamente.' });
+      return;
+    }
+    if (!agendamentoSelecionado?.id || processingAgendamentoId) return;
+    setProcessingAgendamentoId(agendamentoSelecionado.id);
+    const res = await confirmarAgendamento(agendamentoSelecionado.id, profile.id);
+    if (res.success) {
+      Toast.show({ type: 'success', text1: 'Agendamento confirmado', text2: 'O horário foi confirmado com sucesso.' });
+      setModalAgendamentoVisible(false);
+      await carregarDados();
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Erro ao confirmar',
+        text2: (typeof res.error === 'string' ? res.error : res.error?.message) || 'Não foi possível confirmar o agendamento',
+      });
+    }
+    setProcessingAgendamentoId(null);
+  };
+
+  const handleCancelarAgendamentoPaciente = async () => {
+    if (!agendamentoSelecionado?.id || processingAgendamentoId) return;
+    setProcessingAgendamentoId(agendamentoSelecionado.id);
+    const res = await cancelarAgendamento(agendamentoSelecionado.id);
+    if (res.success) {
+      Toast.show({ type: 'info', text1: 'Agendamento cancelado', text2: 'O agendamento voltou para a fila de triagem.' });
+      setModalAgendamentoVisible(false);
+      await carregarDados();
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Erro ao cancelar',
+        text2: (typeof res.error === 'string' ? res.error : res.error?.message) || 'Não foi possível cancelar o agendamento',
+      });
+    }
+    setProcessingAgendamentoId(null);
   };
 
   const renderModalDetalhes = () => {
@@ -463,6 +529,12 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
                   </Text>
                 </View>
               </View>
+              <View style={styles.modalSection}>
+                <Text style={styles.modalLabel}>Valor estimado</Text>
+                <Text style={styles.modalValue}>
+                  {formatCurrency(PRECO_POR_TIPO[agendamentoSelecionado.tipo || 'consulta'] || 0)}
+                </Text>
+              </View>
 
               {/* Observações */}
               {agendamentoSelecionado.observacoes && (
@@ -471,6 +543,29 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
                   <Text style={styles.modalValueMultiline}>
                     {agendamentoSelecionado.observacoes}
                   </Text>
+                </View>
+              )}
+
+              {['sugerido', 'agendado'].includes(agendamentoSelecionado.status) && (
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[styles.modalActionButton, { backgroundColor: COLORS.secondary }]}
+                    onPress={handleConfirmarAgendamentoPaciente}
+                    disabled={processingAgendamentoId === agendamentoSelecionado.id}
+                  >
+                    <Text style={styles.modalActionButtonText}>
+                      {processingAgendamentoId === agendamentoSelecionado.id ? 'Aguarde...' : 'Confirmar horário'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalActionButton, { backgroundColor: COLORS.danger }]}
+                    onPress={handleCancelarAgendamentoPaciente}
+                    disabled={processingAgendamentoId === agendamentoSelecionado.id}
+                  >
+                    <Text style={styles.modalActionButtonText}>
+                      {processingAgendamentoId === agendamentoSelecionado.id ? 'Aguarde...' : 'Cancelar agendamento'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -667,6 +762,13 @@ const styles = StyleSheet.create({
     fontSize: SIZES.fontMd,
     color: COLORS.textSecondary,
     marginBottom: SIZES.sm,
+  },
+  valorConsulta: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    marginTop: SIZES.xs,
+    marginBottom: SIZES.sm,
+    fontWeight: '600',
   },
   categoriaBadge: {
     paddingHorizontal: SIZES.sm,
@@ -1009,6 +1111,22 @@ const styles = StyleSheet.create({
     fontSize: SIZES.fontMd,
     color: COLORS.text,
     lineHeight: 22,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: SIZES.sm,
+    marginTop: SIZES.md,
+  },
+  modalActionButton: {
+    flex: 1,
+    paddingVertical: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    alignItems: 'center',
+  },
+  modalActionButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: SIZES.fontSm,
   },
   dorAlta: {
     color: COLORS.danger,

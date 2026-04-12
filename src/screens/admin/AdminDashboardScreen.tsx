@@ -34,6 +34,7 @@ import {
   DentistaProfile,
   CriarDentistaResult,
 } from '../../services/dentistaService';
+import { authService } from '../../services/authService';
 import { validators } from '../../utils/validators';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
 
@@ -292,52 +293,45 @@ const AdminDashboardScreen: React.FC = () => {
     const emailDentista = novoEmail.trim().toLowerCase();
     const nomeDentista = novoNome.trim();
 
-    const resultado: CriarDentistaResult = await criarDentista(
+    const resultado = await authService.adminCreateUser(
       emailDentista,
       novaSenha,
-      nomeDentista,
-      novaEspecialidade,
-      novoCRM,
-      novoTelefone || undefined,
-      novaProvincia || undefined
+      {
+        nome: nomeDentista,
+        tipo: 'dentista',
+        telefone: novoTelefone || undefined,
+        provincia: novaProvincia || undefined,
+        emailConfirm: true,
+      }
     );
 
     setEnviandoForm(false);
 
     if (resultado.success) {
-      const senhaUsada = resultado.tempPassword || novaSenha;
-      if (resultado.emailSent) {
-        Toast.show({
-          type: 'success',
-          text1: 'Dentista criado',
-          text2: 'Senha temporária será enviada ao e-mail automaticamente',
-        });
-      } else {
-        Toast.show({
-          type: 'info',
-          text1: 'Dentista criado',
-          text2: 'Não foi possível enviar e-mail; verifique configuração',
-        });
-      }
+      Toast.show({
+        type: 'success',
+        text1: 'Dentista criado',
+        text2: 'Conta de dentista criada com sucesso',
+      });
 
-      if (resultado.warning) {
+      if ((resultado.data as any)?.warning) {
         Toast.show({
           type: 'info',
           text1: 'Atencao',
-          text2: resultado.warning,
+          text2: (resultado.data as any).warning,
         });
       }
 
       // Mostrar modal com a senha gerada (para caso o admin queira copiar)
-      setSenhaGerada(senhaUsada);
+      setSenhaGerada(novaSenha);
       setNomeNovoDentistaParaSenha(nomeDentista);
       setModalSenhaVisivel(true);
       try {
-        await Clipboard.setStringAsync(senhaUsada);
+        await Clipboard.setStringAsync(novaSenha);
         Toast.show({
           type: 'success',
           text1: 'Senha copiada',
-          text2: 'A senha temporária foi copiada automaticamente',
+          text2: 'A senha foi copiada automaticamente',
         });
       } catch (e) {
         // silenciosamente ignora falha de cópia
@@ -356,17 +350,21 @@ const AdminDashboardScreen: React.FC = () => {
 
       // Recarregar lista após 1 segundo
       await carregarDentistas(undefined, true);
-      if (resultado.data) {
+      if (resultado.data && typeof resultado.data === 'object' && 'id' in resultado.data) {
         setDentistas((prev) => {
-          if (prev.some((d) => d.id === resultado.data?.id)) return prev;
-          return [resultado.data as DentistaProfile, ...prev];
+          const newData = resultado.data as any;
+          if (prev.some((d) => d.id === newData.id)) return prev;
+          return [newData as DentistaProfile, ...prev];
         });
       }
     } else {
+      const errorMsg = typeof resultado.error === 'string' 
+        ? resultado.error 
+        : (resultado.error as any)?.message || 'Erro ao criar dentista';
       Toast.show({
         type: 'error',
         text1: 'Erro',
-        text2: resultado.error || 'Erro ao criar dentista',
+        text2: errorMsg,
       });
     }
   };

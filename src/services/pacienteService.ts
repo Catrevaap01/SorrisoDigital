@@ -5,34 +5,14 @@
 
 
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { supabase } from '../config/supabase';
+import { supabase, getAdminClient } from '../config/supabase';
 import { UserProfile } from '../contexts/AuthContext';
 import { withTimeout } from '../utils/withTimeout';
 import { deleteImage } from '../services/storageService';
 import NetInfo from '@react-native-community/netinfo';
 import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
-
-const getAdminClient = (): SupabaseClient | null => {
-  const extra = Constants.expoConfig?.extra || (Constants as any).manifest2?.extra || (Constants as any).manifest?.extra;
-  const url = extra?.SUPABASE_URL;
-  const key = extra?.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !key) {
-    console.warn('⚠️ pacienteService: Admin keys missing in Constants.extra');
-    return null;
-  }
-  return createClient(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
-};
-
 
 /**
  * Cache simples para profiles (TTL 5min)

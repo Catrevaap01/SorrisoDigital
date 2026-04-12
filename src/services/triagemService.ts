@@ -4,9 +4,8 @@
  */
 
 import { Platform } from 'react-native';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
-import { supabase } from '../config/supabase';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { supabase, getAdminClient } from '../config/supabase';
 import { withTimeout } from '../utils/withTimeout';
 import { logger } from '../utils/logger';
 import { handleError, HandledError } from '../utils/errorHandler';
@@ -15,15 +14,21 @@ import { obterOuCriarConversa, enviarMensagem } from './messagesService';
 import NetInfo from '@react-native-community/netinfo';
 import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
 
-const extra = Constants.expoConfig?.extra;
-const SUPABASE_URL = extra?.SUPABASE_URL as string | undefined;
-const SUPABASE_SERVICE_ROLE_KEY = extra?.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
+const tryAdminFallback = async (
+  action: (client: SupabaseClient) => Promise<{ data: any; error: any }>
+): Promise<{ data: any; error: any }> => {
+  const fromClient = await action(supabase);
+  if (!fromClient.error || !getAdminClient()) {
+    return fromClient;
+  }
 
-const getAdminClient = (): SupabaseClient | null => {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
-  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-  });
+  const adminClient = getAdminClient();
+  if (!adminClient) {
+    return fromClient;
+  }
+
+  const adminResult = await action(adminClient);
+  return adminResult.error ? fromClient : adminResult;
 };
 
 export interface TriagemData {
@@ -271,6 +276,9 @@ export const criarTriagem = async (
 ): Promise<ServiceResult<Triagem>> => {
   try {
     const payload = toTriagemDbPayload(dados, pacienteId);
+    // Status inicial: aguardando atribuição de secretário
+    if (!('status' in payload)) payload.status = 'triagem_pendente_secretaria';
+    if (!('dentista_id' in payload)) payload.dentista_id = null;
 
     // fazer upload das imagens primeiro
     if (imageUris.length && pacienteId) {
@@ -390,7 +398,7 @@ export const buscarTriagensPaciente = async (
       console.error('❌ buscarTriagensPaciente error:', error);
       throw error;
     }
-    const normalized = (data || []).map((item) => normalizeTriagemRecord(item));
+    const normalized = ((data || []) as any[]).map((item: any) => normalizeTriagemRecord(item));
     return { success: true, data: await enrichTriagens(normalized) };
   } catch (err) {
     const handled = handleError(err, 'triagemService.buscarTriagensPaciente');
@@ -413,7 +421,7 @@ export const buscarTriagensDentista = async (
       console.error('❌ buscarTriagensDentista error:', error);
       throw error;
     }
-    const normalized = (data || []).map((item) => normalizeTriagemRecord(item));
+    const normalized = ((data || []) as any[]).map((item: any) => normalizeTriagemRecord(item));
     return { success: true, data: await enrichTriagens(normalized) };
   } catch (err) {
     const handled = handleError(err, 'triagemService.buscarTriagensDentista');
@@ -576,11 +584,9 @@ export const buscarTriagemPorId = async (
   id: string
 ): Promise<ServiceResult<Triagem>> => {
   try {
-    const { data, error } = await supabase
-      .from('triagens')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const { data, error } = await tryAdminFallback(async (client) =>
+      await client.from('triagens').select('*').eq('id', id).single()
+    );
 
     if (error) throw error;
     const normalized = normalizeTriagemRecord(data);
@@ -738,6 +744,177 @@ registerSyncHandler('criarTriagem', async (payload: any) => {
 registerSyncHandler('responderTriagem', async (payload: any) => {
   return responderTriagem(payload.triagemId, payload.dentistaId, payload.resposta, payload.extras);
 });
+
+/**
+ * Secretário atribui uma triagem a um dentista específico
+ */
+export const atribuirTriagemADentista = async (
+  triagemId: string,
+  dentistaId: string,
+  secretarioId?: string
+): Promise<ServiceResult<null>> => {
+  try {
+    const adminClient = getAdminClient();
+    const client = adminClient || supabase;
+
+    const updatePayload: Record<string, any> = {
+      dentista_id: dentistaId,
+      status: 'pendente',
+      motivo_recusa: null,
+      updated_at: new Date().toISOString(),
+    };
+    if (secretarioId) updatePayload.secretario_id = secretarioId;
+
+    let { error } = await client
+      .from('triagens')
+      .update(updatePayload)
+      .eq('id', triagemId);
+
+    // retry if column missing
+    while (error && (error as any).code === 'PGRST204') {
+      const match = (error as any).message?.match(/'([^']+)' column/);
+      const col = match?.[1];
+      if (!col || !(col in updatePayload)) break;
+      const { [col]: _, ...next } = updatePayload;
+      Object.assign(updatePayload, { ...next });
+      ({ error } = await client.from('triagens').update(updatePayload).eq('id', triagemId));
+    }
+
+    if (error) throw error;
+
+    // Criar conversa entre dentista e paciente automaticamente
+    try {
+      const { data: tri } = await supabase
+        .from('triagens')
+        .select('paciente_id')
+        .eq('id', triagemId)
+        .maybeSingle();
+      if (tri?.paciente_id) {
+        await obterOuCriarConversa(dentistaId, tri.paciente_id);
+      }
+    } catch (chatErr) {
+      logger.warn('Falha ao criar conversa após atribuição', chatErr);
+    }
+
+    return { success: true };
+  } catch (err) {
+    const handled = handleError(err, 'triagemService.atribuirTriagemADentista');
+    return { success: false, error: handled };
+  }
+};
+
+/**
+ * Dentista recusa um caso (volta para o secretário atribuir a outro)
+ */
+export const recusarTriagem = async (
+  triagemId: string,
+  dentistaId: string,
+  motivo: string
+): Promise<ServiceResult<null>> => {
+  try {
+    const adminClient = getAdminClient();
+    const client = adminClient || supabase;
+
+    let updatePayload: Record<string, any> = {
+      dentista_id: null,
+      status: 'recusado',
+      motivo_recusa: motivo,
+      updated_at: new Date().toISOString(),
+    };
+
+    let { error } = await client
+      .from('triagens')
+      .update(updatePayload)
+      .eq('id', triagemId)
+      .eq('dentista_id', dentistaId);
+
+    while (error && (error as any).code === 'PGRST204') {
+      const match = (error as any).message?.match(/'([^']+)' column/);
+      const col = match?.[1];
+      if (!col || !(col in updatePayload)) break;
+      const { [col]: _, ...next } = updatePayload;
+      updatePayload = next;
+      ({ error } = await client.from('triagens').update(updatePayload).eq('id', triagemId));
+    }
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    const handled = handleError(err, 'triagemService.recusarTriagem');
+    return { success: false, error: handled };
+  }
+};
+
+/**
+ * Busca triagens sem dentista atribuído (para o painel do Secretário)
+ */
+export const buscarTriagensSemDentista = async (
+  filtros: { status?: string | null } = {}
+): Promise<ServiceResult<Triagem[]>> => {
+  try {
+    const { data, error } = await tryAdminFallback(async (client) => {
+      let query = client
+        .from('triagens')
+        .select('*')
+        .is('dentista_id', null)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (filtros.status) {
+        query = query.eq('status', filtros.status);
+      }
+      return await query;
+    });
+
+    if (error) throw error;
+    const normalized = (data || []).map((item: any) => normalizeTriagemRecord(item));
+    return { success: true, data: await enrichTriagens(normalized) };
+  } catch (err) {
+    const handled = handleError(err, 'triagemService.buscarTriagensSemDentista');
+    return { success: false, error: handled };
+  }
+};
+
+/**
+ * Busca TODAS as triagens para o Secretário (atribuídas e não atribuídas)
+ */
+export const buscarTodasTriagensSecretario = async (
+  filtros: { status?: string | null; especialidade?: string | null } = {}
+): Promise<ServiceResult<Triagem[]>> => {
+  try {
+    const { data, error } = await tryAdminFallback(async (client) => {
+      let query = client
+        .from('triagens')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(300);
+
+      if (filtros.status) {
+        query = query.eq('status', filtros.status);
+      }
+      return await query;
+    });
+
+    if (error) throw error;
+    const normalized = (data || []).map((item: any) => normalizeTriagemRecord(item));
+    const enriched = await enrichTriagens(normalized);
+
+    // Filtrar por especialidade do dentista se pedido
+    if (filtros.especialidade) {
+      return {
+        success: true,
+        data: enriched.filter((t) => {
+          const esp = (t as any).especialidade_necessaria || '';
+          return esp.toLowerCase().includes(filtros.especialidade!.toLowerCase());
+        }),
+      };
+    }
+
+    return { success: true, data: enriched };
+  } catch (err) {
+    const handled = handleError(err, 'triagemService.buscarTodasTriagensSecretario');
+    return { success: false, error: handled };
+  }
+};
 
 export const atualizarStatusTriagem = async (
   triagemId: string,

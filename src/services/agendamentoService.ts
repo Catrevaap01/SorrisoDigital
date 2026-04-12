@@ -3,25 +3,16 @@
  * Operações relacionadas a agendamentos de consultas
  */
 
-import { supabase } from '../config/supabase';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
+import { supabase, getAdminClient } from '../config/supabase';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { withTimeout } from '../utils/withTimeout';
+import { formatDate } from '../utils/helpers';
 import { HandledError, handleError } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
+import { notificarAgendamentoPaciente } from './notificacoesService';
+import { scheduleAppointmentReminder } from './localNotificationService';
 import NetInfo from '@react-native-community/netinfo';
 import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
-
-const extra = Constants.expoConfig?.extra;
-const SUPABASE_URL = extra?.SUPABASE_URL as string | undefined;
-const SUPABASE_SERVICE_ROLE_KEY = extra?.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
-
-const getAdminClient = (): SupabaseClient | null => {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
-  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-  });
-};
 
 // helper para detectar falta da tabela agendamentos e informar o usuário
 function _handleTableMissing(error: any): string | null {
@@ -85,6 +76,12 @@ export const criarAgendamento = async (
   dados: Omit<Agendamento, 'id' | 'created_at' | 'updated_at'>
 ): Promise<ServiceResult<Agendamento>> => {
   try {
+    // Garantir que agendamentos começam na fila da secretária
+    const dataWithStatus = {
+      ...dados,
+      status: 'agendamento_pendente_secretaria' as any,
+    };
+
     const runInsert = async (p: any) => {
       let res = await supabase.from('agendamentos').insert([p]).select().single();
       if (res.error && (res.error.code === '42501' || (res.error as any).status === 403)) {
@@ -94,11 +91,11 @@ export const criarAgendamento = async (
       return res;
     };
 
-    const { data, error } = await runInsert(dados);
+    const { data, error } = await runInsert(dataWithStatus);
 
     if (error) throw error;
 
-    logger.info('Agendamento criado', data);
+    logger.info('Agendamento criado na fila da secretária', data);
     return { success: true, data: data as Agendamento };
   } catch (err: any) {
     // OFFLINE HANDLING
@@ -111,6 +108,7 @@ export const criarAgendamento = async (
         data: {
           id: 'temp-' + Date.now(),
           ...dados,
+          status: 'agendamento_pendente_secretaria',
           created_at: new Date().toISOString(),
           isPendingSync: true,
         } as any
@@ -274,6 +272,22 @@ export const agendarAgendamento = async (
 
     if (error) throw error;
 
+    if (data?.paciente_id) {
+      await notificarAgendamentoPaciente(
+        data.paciente_id,
+        'Pré-agendamento realizado',
+        `Sua solicitação foi pré-agendada para ${formatDate(new Date(data.data_agendamento), "dd/MM/yyyy 'às' HH:mm")}.
+        `,
+        { agendamento_id: agendamentoId }
+      );
+      await scheduleAppointmentReminder(
+        'Lembrete da consulta',
+        `Sua consulta está prevista para ${formatDate(new Date(data.data_agendamento), "dd/MM/yyyy 'às' HH:mm")}.
+        `,
+        data.data_agendamento
+      );
+    }
+
     return { success: true, data: data as Agendamento };
   } catch (err: any) {
     // OFFLINE HANDLING
@@ -312,6 +326,22 @@ export const confirmarAgendamento = async (
       .single();
 
     if (error) throw error;
+
+    if (data?.paciente_id) {
+      await notificarAgendamentoPaciente(
+        data.paciente_id,
+        'Consulta confirmada',
+        `Seu agendamento foi confirmado para ${formatDate(new Date(data.data_agendamento), "dd/MM/yyyy 'às' HH:mm")}.
+        `,
+        { agendamento_id: agendamentoId }
+      );
+      await scheduleAppointmentReminder(
+        'Lembrete da consulta confirmada',
+        `Sua consulta confirmada é em ${formatDate(new Date(data.data_agendamento), "dd/MM/yyyy 'às' HH:mm")}.
+        `,
+        data.data_agendamento
+      );
+    }
 
     return { success: true, data: data as Agendamento };
   } catch (err: any) {
@@ -398,6 +428,16 @@ export const cancelarAgendamento = async (
     }
 
     const row = Array.isArray(data) ? data[0] : data;
+
+    if (row?.paciente_id) {
+      await notificarAgendamentoPaciente(
+        row.paciente_id,
+        'Agendamento suspenso',
+        'Seu agendamento foi devolvido à fila e será reavaliado pela recepção.',
+        { agendamento_id: agendamentoId }
+      );
+    }
+
     return { success: true, data: row as Agendamento };
   } catch (err: any) {
     // OFFLINE HANDLING
@@ -469,3 +509,168 @@ export const buscarAgendamentosPaciente = async (
     return { success: false, error: message };
   }
 };
+
+const _appendObservacoes = async (
+  agendamentoId: string,
+  nota: string
+): Promise<string | null> => {
+  const { data, error } = await supabase
+    .from('agendamentos')
+    .select('observacoes')
+    .eq('id', agendamentoId)
+    .single();
+
+  if (error || !data) {
+    return nota;
+  }
+
+  const textoAtual = data.observacoes || '';
+  return textoAtual ? `${textoAtual}\n${nota}` : nota;
+};
+
+export const buscarAgendamentosPendentes = async (): Promise<ServiceResult<Agendamento[]>> => {
+  try {
+    const { data, error } = await withTimeout(
+      supabase
+        .from('agendamentos')
+        .select('*')
+        .eq('status', 'pendente')
+        .order('created_at', { ascending: false }),
+      10000
+    );
+
+    if (error) throw error;
+
+    const agendamentos = await enrichAgendamentosWithPacientes((data || []) as Agendamento[]);
+    return { success: true, data: agendamentos };
+  } catch (err: any) {
+    const mapped = _handleTableMissing(err);
+    const message = mapped || err.message || 'Erro desconhecido';
+    return { success: false, error: message };
+  }
+};
+
+export const buscarAgendamentoPorId = async (
+  agendamentoId: string
+): Promise<ServiceResult<Agendamento>> => {
+  try {
+    const { data, error } = await supabase
+      .from('agendamentos')
+      .select('*')
+      .eq('id', agendamentoId)
+      .single();
+
+    if (error) throw error;
+    if (!data) {
+      return { success: false, error: 'Agendamento não encontrado' };
+    }
+
+    const [agendamento] = await enrichAgendamentosWithPacientes([data as Agendamento]);
+    return { success: true, data: agendamento };
+  } catch (err: any) {
+    const mapped = _handleTableMissing(err);
+    const message = mapped || err.message || 'Erro desconhecido';
+    return { success: false, error: message };
+  }
+};
+
+export const rejeitarAgendamento = async (
+  agendamentoId: string,
+  motivo: string
+): Promise<ServiceResult<Agendamento>> => {
+  try {
+    const observacoes = await _appendObservacoes(
+      agendamentoId,
+      `Rejeitado pelo dentista: ${motivo}`
+    );
+
+    const { data, error } = await supabase
+      .from('agendamentos')
+      .update({ status: 'rejeitado', observacoes })
+      .eq('id', agendamentoId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    if (data?.paciente_id) {
+      await notificarAgendamentoPaciente(
+        data.paciente_id,
+        'Agendamento rejeitado',
+        'O dentista rejeitou sua consulta. Por favor, aguarde nova resposta do secretário.',
+        { agendamento_id: agendamentoId }
+      );
+    }
+
+    return { success: true, data: data as Agendamento };
+  } catch (err: any) {
+    const state = await NetInfo.fetch();
+    if (!state.isConnected || !state.isInternetReachable) {
+      console.log('📡 Offline: Enfileirando rejeição de agendamento...');
+      await enqueueOfflineAction('rejeitarAgendamento', { agendamentoId, motivo });
+      return { success: true };
+    }
+
+    const mapped = _handleTableMissing(err);
+    const message = mapped || err.message || 'Erro desconhecido';
+    return { success: false, error: message };
+  }
+};
+
+registerSyncHandler('rejeitarAgendamento', async (payload: any) => {
+  return rejeitarAgendamento(payload.agendamentoId, payload.motivo);
+});
+
+export const sugerirNovoHorario = async (
+  agendamentoId: string,
+  dentistaId: string,
+  novoHorario: string,
+  nota?: string
+): Promise<ServiceResult<Agendamento>> => {
+  try {
+    const observacoes = await _appendObservacoes(
+      agendamentoId,
+      nota || `Novo horário sugerido pelo dentista: ${novoHorario}`
+    );
+
+    const { data, error } = await supabase
+      .from('agendamentos')
+      .update({ status: 'sugerido', data_agendamento: novoHorario, observacoes, dentista_id: dentistaId })
+      .eq('id', agendamentoId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    if (data?.paciente_id) {
+      await notificarAgendamentoPaciente(
+        data.paciente_id,
+        'Novo horário sugerido',
+        `O dentista sugeriu um novo horário para sua consulta: ${formatDate(new Date(novoHorario), "dd/MM/yyyy 'às' HH:mm")}.`,
+        { agendamento_id: agendamentoId }
+      );
+      await scheduleAppointmentReminder(
+        'Lembrete do novo horário sugerido',
+        `Você tem uma consulta sugerida para ${formatDate(new Date(novoHorario), "dd/MM/yyyy 'às' HH:mm")}. Confirme ou solicite nova data.`,
+        novoHorario
+      );
+    }
+
+    return { success: true, data: data as Agendamento };
+  } catch (err: any) {
+    const state = await NetInfo.fetch();
+    if (!state.isConnected || !state.isInternetReachable) {
+      console.log('📡 Offline: Enfileirando sugestão de horário...');
+      await enqueueOfflineAction('sugerirNovoHorario', { agendamentoId, dentistaId, novoHorario, nota });
+      return { success: true };
+    }
+
+    const mapped = _handleTableMissing(err);
+    const message = mapped || err.message || 'Erro desconhecido';
+    return { success: false, error: message };
+  }
+};
+
+registerSyncHandler('sugerirNovoHorario', async (payload: any) => {
+  return sugerirNovoHorario(payload.agendamentoId, payload.dentistaId, payload.novoHorario, payload.nota);
+});

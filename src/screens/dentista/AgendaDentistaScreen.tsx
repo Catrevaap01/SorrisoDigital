@@ -9,10 +9,34 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
-import { buscarAgendaDentista } from '../../services/agendamentoService';
+import {
+  buscarAgendaDentista,
+  agendarAgendamento,
+  confirmarAgendamento,
+  cancelarAgendamento,
+  sugerirNovoHorario,
+  rejeitarAgendamento,
+} from '../../services/agendamentoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { formatDate } from '../../utils/helpers';
 import { TIPOS_CONSULTA } from '../../utils/constants';
+
+const PRECO_POR_TIPO: Record<string, number> = {
+  consulta: 25000,
+  avaliacao: 30000,
+  retorno: 15000,
+  urgencia: 45000,
+  raio_x: 20000,
+  panoramico: 35000,
+  profilaxia: 22000,
+  branqueamento: 60000,
+  canal: 90000,
+  ortodontia: 120000,
+  restauracao: 40000,
+};
+
+const formatCurrency = (value: number) =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 });
 
 const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
   const { profile } = useAuth();
@@ -20,6 +44,9 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
   const [agendamentos, setAgendamentos] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [sugestaoAbertaPara, setSugestaoAbertaPara] = useState<string | null>(null);
+  const [sugestaoData, setSugestaoData] = useState<Date>(new Date());
+  const [sugestaoHorario, setSugestaoHorario] = useState<string>('08:00');
 
   // Gerar dias da semana atual
   const gerarSemana = () => {
@@ -53,7 +80,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
 
   useEffect(() => {
     carregarAgendamentos();
-  }, [dataSelecionada]);
+  }, [dataSelecionada, profile?.id]);
 
   const formatarDia = (data) => {
     const dias = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
@@ -68,11 +95,37 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     switch (status) {
       case 'pendente': return COLORS.accent;
       case 'agendado': return COLORS.primary;
+      case 'sugerido': return '#F59E0B';
       case 'confirmado': return '#4CAF50';
+      case 'rejeitado': return COLORS.danger;
       case 'realizado': return '#9C27B0';
       case 'cancelado': return COLORS.danger;
       default: return COLORS.textLight;
     }
+  };
+
+  const sugestaoDatas = () => {
+    const datas = [];
+    const hoje = new Date();
+    for (let i = 1; i <= 7; i += 1) {
+      const dia = new Date(hoje);
+      dia.setDate(hoje.getDate() + i);
+      if (dia.getDay() !== 0) {
+        datas.push(dia);
+      }
+    }
+    return datas;
+  };
+
+  const sugestaoHorarios = [
+    '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+    '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+  ];
+
+  const formatSuggestionLabel = (data: Date) => {
+    return `${data.getDate().toString().padStart(2, '0')}/${(data.getMonth() + 1)
+      .toString()
+      .padStart(2, '0')} ${sugestaoHorario}`;
   };
 
   const renderAgendamento = ({ item }) => {
@@ -93,10 +146,13 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     };
 
     const handleAgendar = async () => {
+      if (!profileId) {
+        Toast.show({ type: 'error', text1: 'Erro de autenticação', text2: 'Seu perfil ainda não foi carregado. Tente novamente.' });
+        return;
+      }
       if (processingId) return;
       setProcessingId(item.id);
-      const { agendarAgendamento } = await import('../../services/agendamentoService');
-      const res = await agendarAgendamento(item.id, profile.id);
+      const res = await agendarAgendamento(item.id, profileId);
       if (res.success) {
         Toast.show({ type: 'success', text1: 'Agendamento agendado' });
         await carregarAgendamentos();
@@ -112,10 +168,13 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     };
 
     const handleConfirmar = async () => {
+      if (!profileId) {
+        Toast.show({ type: 'error', text1: 'Erro de autenticação', text2: 'Seu perfil ainda não foi carregado. Tente novamente.' });
+        return;
+      }
       if (processingId) return;
       setProcessingId(item.id);
-      const { confirmarAgendamento } = await import('../../services/agendamentoService');
-      const res = await confirmarAgendamento(item.id, profile.id);
+      const res = await confirmarAgendamento(item.id, profileId);
       if (res.success) {
         Toast.show({ type: 'success', text1: 'Agendamento confirmado' });
         await carregarAgendamentos();
@@ -131,10 +190,60 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       });
     };
 
+    const handleRejeitar = async () => {
+      if (processingId) return;
+      setProcessingId(item.id);
+      const res = await rejeitarAgendamento(item.id, 'Agendamento rejeitado pelo dentista');
+      if (res.success) {
+        Toast.show({ type: 'info', text1: 'Agendamento rejeitado' });
+        await carregarAgendamentos();
+        setProcessingId(null);
+        return;
+      }
+      setProcessingId(null);
+      Toast.show({
+        type: 'error',
+        text1: 'Erro ao rejeitar',
+        text2: (typeof res.error === 'string' ? res.error : res.error?.message) || 'Não foi possível rejeitar o agendamento',
+      });
+    };
+
+    const handleAbrirSugestao = () => {
+      setSugestaoAbertaPara(item.id);
+      setSugestaoData(new Date());
+      setSugestaoHorario('08:00');
+    };
+
+    const handleEnviarSugestao = async () => {
+      if (!profileId) {
+        Toast.show({ type: 'error', text1: 'Erro de autenticação', text2: 'Seu perfil ainda não foi carregado. Tente novamente.' });
+        return;
+      }
+      if (!sugestaoAbertaPara) return;
+      if (processingId) return;
+      setProcessingId(item.id);
+      const horarioIso = new Date(sugestaoData);
+      const [hora, minuto] = sugestaoHorario.split(':');
+      horarioIso.setHours(Number(hora), Number(minuto), 0, 0);
+      const res = await sugerirNovoHorario(item.id, profileId, horarioIso.toISOString());
+      if (res.success) {
+        Toast.show({ type: 'success', text1: 'Novo horário sugerido', text2: `Proposta para ${formatDate(horarioIso, "dd/MM/yyyy 'às' HH:mm")}` });
+        setSugestaoAbertaPara(null);
+        await carregarAgendamentos();
+        setProcessingId(null);
+        return;
+      }
+      setProcessingId(null);
+      Toast.show({
+        type: 'error',
+        text1: 'Erro ao sugerir horário',
+        text2: (typeof res.error === 'string' ? res.error : res.error?.message) || 'Não foi possível sugerir o horário',
+      });
+    };
+
     const handleCancelar = async () => {
       if (processingId) return;
       setProcessingId(item.id);
-      const { cancelarAgendamento } = await import('../../services/agendamentoService');
       const res = await cancelarAgendamento(item.id);
       if (res.success) {
         Toast.show({ type: 'info', text1: 'Agendamento voltou para pendente' });
@@ -191,11 +300,14 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
                 {item.observacoes}
               </Text>
             )}
+            <Text style={styles.valorLabel}>
+              Valor estimado: {formatCurrency(PRECO_POR_TIPO[item.tipo || 'consulta'] || 0)}
+            </Text>
           </View>
         </TouchableOpacity>
 
         <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(item.status) }]} />
-        {(item.status === 'pendente' || item.status === 'agendado' || item.status === 'confirmado') && (
+        {(item.status === 'pendente' || item.status === 'agendado' || item.status === 'sugerido' || item.status === 'confirmado') && (
           <View style={styles.actionRow}>
             {item.status === 'pendente' && (
               <TouchableOpacity
@@ -209,17 +321,39 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
                 </Text>
               </TouchableOpacity>
             )}
-            {item.status === 'agendado' && (
-              <TouchableOpacity
-                style={[styles.actionButton, { backgroundColor: COLORS.secondary }]}
-                onPress={handleConfirmar}
-                disabled={processingId === item.id}
-              >
-                <Ionicons name="checkmark-circle" size={16} color={COLORS.textInverse} />
-                <Text style={styles.actionButtonText}>
-                  {processingId === item.id ? 'Processando' : 'Confirmar'}
-                </Text>
-              </TouchableOpacity>
+            {(item.status === 'agendado' || item.status === 'sugerido') && (
+              <>
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: COLORS.secondary }]}
+                  onPress={handleConfirmar}
+                  disabled={processingId === item.id}
+                >
+                  <Ionicons name="checkmark-circle" size={16} color={COLORS.textInverse} />
+                  <Text style={styles.actionButtonText}>
+                    {processingId === item.id ? 'Processando' : 'Confirmar'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: '#F59E0B' }]}
+                  onPress={handleAbrirSugestao}
+                  disabled={processingId === item.id}
+                >
+                  <Ionicons name="swap-horizontal" size={16} color={COLORS.textInverse} />
+                  <Text style={styles.actionButtonText}>
+                    Sugerir
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: COLORS.danger }]}
+                  onPress={handleRejeitar}
+                  disabled={processingId === item.id}
+                >
+                  <Ionicons name="close-circle" size={16} color={COLORS.textInverse} />
+                  <Text style={styles.actionButtonText}>
+                    Rejeitar
+                  </Text>
+                </TouchableOpacity>
+              </>
             )}
             {item.status === 'confirmado' && (
               <TouchableOpacity
@@ -233,40 +367,96 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
                 </Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: COLORS.danger }]}
-              onPress={handleCancelar}
-              disabled={processingId === item.id}
-            >
-              <Ionicons name="close-circle" size={16} color={COLORS.textInverse} />
-              <Text style={styles.actionButtonText}>
-                {processingId === item.id ? 'Processando' : 'Cancelar'}
-              </Text>
-            </TouchableOpacity>
+            {item.status === 'pendente' || item.status === 'confirmado' ? (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: COLORS.danger }]}
+                onPress={handleCancelar}
+                disabled={processingId === item.id}
+              >
+                <Ionicons name="close-circle" size={16} color={COLORS.textInverse} />
+                <Text style={styles.actionButtonText}>
+                  {processingId === item.id ? 'Processando' : 'Cancelar'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        )}
+        {sugestaoAbertaPara === item.id && (
+          <View style={styles.suggestionPanel}>
+            <Text style={styles.suggestionTitle}>Sugerir novo horário</Text>
+            <View style={styles.suggestionRow}>
+              {sugestaoDatas().map((data, index) => {
+                const active = data.toDateString() === sugestaoData.toDateString();
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.suggestionDate, active && styles.suggestionDateActive]}
+                    onPress={() => setSugestaoData(data)}
+                  >
+                    <Text style={[styles.suggestionDateText, active && styles.suggestionDateTextActive]}>
+                      {data.getDate()}/{data.getMonth() + 1}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={styles.suggestionRowWrap}>
+              {sugestaoHorarios.map((hora) => {
+                const active = sugestaoHorario === hora;
+                return (
+                  <TouchableOpacity
+                    key={hora}
+                    style={[styles.suggestionTime, active && styles.suggestionTimeActive]}
+                    onPress={() => setSugestaoHorario(hora)}
+                  >
+                    <Text style={[styles.suggestionTimeText, active && styles.suggestionTimeTextActive]}>{hora}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={styles.suggestionActions}>
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: COLORS.secondary, flex: 1 }]}
+                onPress={handleEnviarSugestao}
+                disabled={processingId === item.id}
+              >
+                <Ionicons name="send" size={16} color={COLORS.textInverse} />
+                <Text style={styles.actionButtonText}>Enviar sugestão</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: COLORS.danger, flex: 1 }]}
+                onPress={() => setSugestaoAbertaPara(null)}
+                disabled={processingId === item.id}
+              >
+                <Ionicons name="close-circle" size={16} color={COLORS.textInverse} />
+                <Text style={styles.actionButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </View>
     );
   };
 
+  const profileId = profile?.id;
   const pendentesDoDia = agendamentos.filter((a) => a.status === 'pendente');
   const meusAgendadosDoDia = agendamentos.filter(
     (a) =>
-      a.dentista_id === profile.id &&
+      a.dentista_id === profileId &&
       a.status === 'agendado'
   );
   const meusConfirmadosDoDia = agendamentos.filter(
     (a) =>
-      a.dentista_id === profile.id &&
+      a.dentista_id === profileId &&
       a.status === 'confirmado'
   );
   const realizadosDoDia = agendamentos.filter(
     (a) =>
-      a.dentista_id === profile.id &&
+      a.dentista_id === profileId &&
       a.status === 'realizado'
   );
   const canceladosDoDia = agendamentos.filter(
-    (a) => a.status === 'cancelado' && (!a.dentista_id || a.dentista_id === profile.id)
+    (a) => a.status === 'cancelado' && (!a.dentista_id || a.dentista_id === profileId)
   );
 
   return (
@@ -561,6 +751,12 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: 4,
   },
+  valorLabel: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    marginTop: 6,
+    fontWeight: '600',
+  },
   statusIndicator: {
     width: 4,
   },
@@ -592,6 +788,74 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: SIZES.sm,
     gap: SIZES.xs,
+  },
+  suggestionPanel: {
+    backgroundColor: '#fff7e6',
+    borderRadius: SIZES.radiusMd,
+    margin: SIZES.sm,
+    padding: SIZES.sm,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  suggestionTitle: {
+    fontWeight: '700',
+    color: '#B45309',
+    marginBottom: SIZES.sm,
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SIZES.xs,
+    marginBottom: SIZES.sm,
+  },
+  suggestionDate: {
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: SIZES.sm,
+    paddingVertical: 6,
+    borderRadius: SIZES.radiusMd,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  suggestionDateActive: {
+    backgroundColor: COLORS.secondary,
+    borderColor: COLORS.secondary,
+  },
+  suggestionDateText: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+  },
+  suggestionDateTextActive: {
+    color: COLORS.textInverse,
+  },
+  suggestionRowWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SIZES.xs,
+    marginBottom: SIZES.sm,
+  },
+  suggestionTime: {
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: SIZES.sm,
+    paddingVertical: 6,
+    borderRadius: SIZES.radiusMd,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  suggestionTimeActive: {
+    backgroundColor: COLORS.secondary,
+    borderColor: COLORS.secondary,
+  },
+  suggestionTimeText: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+  },
+  suggestionTimeTextActive: {
+    color: COLORS.textInverse,
+  },
+  suggestionActions: {
+    flexDirection: 'row',
+    gap: SIZES.xs,
+    marginTop: SIZES.sm,
   },
   actionButton: {
     flexDirection: 'row',

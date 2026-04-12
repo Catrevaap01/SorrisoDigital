@@ -1,10 +1,11 @@
-import React, { useCallback, useState } from 'react';
+import * as React from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   Platform,
@@ -12,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
+import { authService } from '../../services/authService';
 import { supabase } from '../../config/supabase';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 import { gerarRelatorioGeral } from '../../services/relatorioService';
@@ -26,6 +28,8 @@ interface ReportStats {
   totalPacientes: number;
   totalConsultas: number;
   totalMensagens: number;
+  receitaEstimada: number;
+  receitaRealizada: number;
   cadastrosMesAtual: number;
   dentistasMesAtual: number;
   pacientesMesAtual: number;
@@ -81,6 +85,8 @@ const buildMonthlyStats = (profiles: any[]) => {
   };
 };
 
+const { useCallback, useState } = React;
+
 const AdminReportsScreen: React.FC = () => {
   const [stats, setStats] = useState<ReportStats>({
     totalCadastros: 0,
@@ -88,6 +94,8 @@ const AdminReportsScreen: React.FC = () => {
     totalPacientes: 0,
     totalConsultas: 0,
     totalMensagens: 0,
+    receitaEstimada: 0,
+    receitaRealizada: 0,
     cadastrosMesAtual: 0,
     dentistasMesAtual: 0,
     pacientesMesAtual: 0,
@@ -96,6 +104,9 @@ const AdminReportsScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingPdf, setLoadingPdf] = useState<string | null>(null);
   const [dentistasResumo, setDentistasResumo] = useState<DentistaResumo[]>([]);
+  const [secretarios, setSecretarios] = useState<any[]>([]);
+  const [novoSecretario, setNovoSecretario] = useState({ nome: '', email: '', telefone: '', password: '' });
+  const [registering, setRegistering] = useState(false);
 
   const carregarEstatisticas = async () => {
     setLoading(true);
@@ -135,6 +146,8 @@ const AdminReportsScreen: React.FC = () => {
               totalPacientes,
               totalConsultas: Number(row.total_consultas || 0),
               totalMensagens: Number(row.total_mensagens || 0),
+              receitaEstimada: 0,
+              receitaRealizada: 0,
               cadastrosMesAtual: totalCadastros,
               dentistasMesAtual: monthStats.dentistasMesAtual,
               pacientesMesAtual: monthStats.pacientesMesAtual,
@@ -173,6 +186,8 @@ const AdminReportsScreen: React.FC = () => {
         totalPacientes,
         totalConsultas: (consultas || []).length,
         totalMensagens: (mensagens || []).length,
+        receitaEstimada: 0,
+        receitaRealizada: 0,
         cadastrosMesAtual: totalCadastros,
         dentistasMesAtual: monthStats.dentistasMesAtual,
         pacientesMesAtual: monthStats.pacientesMesAtual,
@@ -190,7 +205,15 @@ const AdminReportsScreen: React.FC = () => {
             triagensRespondidas: d.triagensRespondidas,
           }))
         );
+        if (typeof relatorio.data.receitaEstimada === 'number') {
+          setStats((prev) => ({ ...prev, receitaEstimada: relatorio.data.receitaEstimada || 0 }));
+        }
+        if (typeof relatorio.data.receitaRealizada === 'number') {
+          setStats((prev) => ({ ...prev, receitaRealizada: relatorio.data.receitaRealizada || 0 }));
+        }
       }).catch(() => {});
+
+      await carregarSecretarios();
     } catch (error) {
       Toast.show({
         type: 'error',
@@ -202,11 +225,58 @@ const AdminReportsScreen: React.FC = () => {
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      carregarEstatisticas();
-    }, [])
-  );
+  const carregarSecretarios = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, nome, email, telefone, created_at')
+        .eq('tipo', 'secretario')
+        .order('created_at', { ascending: false });
+      if (!error) {
+        setSecretarios(data || []);
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar secretários', err);
+    }
+  };
+
+  const handleCadastrarSecretario = async () => {
+    if (!novoSecretario.nome.trim() || !novoSecretario.email.trim() || !novoSecretario.password.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Preencha os campos obrigatórios',
+      });
+      return;
+    }
+
+    setRegistering(true);
+    const result = await authService.adminCreateUser(novoSecretario.email.trim(), novoSecretario.password, {
+      nome: novoSecretario.nome.trim(),
+      tipo: 'secretario',
+      role: 'secretario',
+      telefone: novoSecretario.telefone.trim(),
+      provincia: '',
+      emailConfirm: true,
+    });
+    setRegistering(false);
+
+    if (result.success) {
+      Toast.show({
+        type: 'success',
+        text1: 'Secretário cadastrado',
+        text2: 'A conta de recepção foi criada com sucesso.',
+      });
+      setNovoSecretario({ nome: '', email: '', telefone: '', password: '' });
+      await carregarSecretarios();
+      return;
+    }
+
+    Toast.show({
+      type: 'error',
+      text1: 'Erro ao cadastrar secretário',
+      text2: result.error?.message || 'Tente novamente mais tarde.',
+    });
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -276,6 +346,8 @@ const AdminReportsScreen: React.FC = () => {
             <StatCard icon="people" label="Total de Pacientes" valor={stats.totalPacientes} cor={COLORS.primary} />
             <StatCard icon="mail" label="Total de Mensagens" valor={stats.totalMensagens} cor={COLORS.info} />
             <StatCard icon="calendar" label="Consultas" valor={stats.totalConsultas} cor={COLORS.warning} />
+            <StatCard icon="cash-outline" label="Receita estimada" valor={stats.receitaEstimada} cor={COLORS.success || COLORS.secondary} />
+            <StatCard icon="checkmark-done-circle-outline" label="Receita realizada" valor={stats.receitaRealizada} cor={COLORS.secondary} />
           </View>
 
           <View style={styles.section}>
@@ -296,6 +368,82 @@ const AdminReportsScreen: React.FC = () => {
                 <Text style={styles.resumoValue}>{stats.pacientesMesAtual}</Text>
               </View>
             </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Cadastro de Secretária / Recepção</Text>
+
+            <View style={styles.formRow}>
+              <TextInput
+                style={styles.input}
+                placeholder="Nome"
+                placeholderTextColor={COLORS.textSecondary}
+                value={novoSecretario.nome}
+                onChangeText={(text) => setNovoSecretario((prev) => ({ ...prev, nome: text }))}
+              />
+            </View>
+            <View style={styles.formRow}>
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholderTextColor={COLORS.textSecondary}
+                value={novoSecretario.email}
+                onChangeText={(text) => setNovoSecretario((prev) => ({ ...prev, email: text }))}
+              />
+            </View>
+            <View style={styles.formRow}>
+              <TextInput
+                style={styles.input}
+                placeholder="Telefone"
+                keyboardType="phone-pad"
+                placeholderTextColor={COLORS.textSecondary}
+                value={novoSecretario.telefone}
+                onChangeText={(text) => setNovoSecretario((prev) => ({ ...prev, telefone: text }))}
+              />
+            </View>
+            <View style={styles.formRow}>
+              <TextInput
+                style={styles.input}
+                placeholder="Senha"
+                secureTextEntry
+                placeholderTextColor={COLORS.textSecondary}
+                value={novoSecretario.password}
+                onChangeText={(text) => setNovoSecretario((prev) => ({ ...prev, password: text }))}
+              />
+            </View>
+            <TouchableOpacity
+              style={[styles.exportButton, { backgroundColor: COLORS.secondary }]}
+              onPress={handleCadastrarSecretario}
+              disabled={registering}
+            >
+              {registering ? (
+                <ActivityIndicator color={COLORS.textInverse} />
+              ) : (
+                <Text style={styles.exportButtonText}>Cadastrar Secretária / Recepção</Text>
+              )}
+            </TouchableOpacity>
+
+            {secretarios.length > 0 && (
+              <View style={[styles.resumoCard, { marginTop: SPACING.md }]}> 
+                <View style={styles.resumoRow}>
+                  <Text style={styles.resumoLabel}>Total de Secretários</Text>
+                  <Text style={styles.resumoValue}>{secretarios.length}</Text>
+                </View>
+                <View style={styles.section}>
+                  {secretarios.map((sec) => (
+                    <View style={styles.secretarioRow} key={sec.id}>
+                      <View>
+                        <Text style={styles.secretarioName}>{sec.nome || 'Sem nome'}</Text>
+                        <Text style={styles.secretarioMeta}>{sec.email}</Text>
+                        {sec.telefone ? <Text style={styles.secretarioMeta}>{sec.telefone}</Text> : null}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
 
           <View style={styles.section}>
@@ -357,17 +505,20 @@ interface StatCardProps {
   cor: string;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ icon, label, valor, cor }) => (
-  <TouchableOpacity style={[styles.statCard, { borderLeftColor: cor }]}> 
-    <View style={styles.statContent}>
-      <Ionicons name={icon as any} size={32} color={cor} />
-      <View style={styles.statText}>
-        <Text style={styles.statLabel}>{label}</Text>
-        <Text style={[styles.statValue, { color: cor }]}>{valor}</Text>
+const StatCard: React.FC<StatCardProps> = ({ icon, label, valor, cor }) => {
+  const displayValue = valor.toLocaleString('pt-BR');
+  return (
+    <TouchableOpacity style={[styles.statCard, { borderLeftColor: cor }]}> 
+      <View style={styles.statContent}>
+        <Ionicons name={icon as any} size={32} color={cor} />
+        <View style={styles.statText}>
+          <Text style={styles.statLabel}>{label}</Text>
+          <Text style={[styles.statValue, { color: cor }]}>{displayValue}</Text>
+        </View>
       </View>
-    </View>
-  </TouchableOpacity>
-);
+    </TouchableOpacity>
+  );
+};
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
@@ -436,6 +587,36 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   exportButtonText: { color: COLORS.textInverse, fontSize: TYPOGRAPHY.sizes.sm, fontWeight: '700' },
+  formRow: {
+    marginBottom: SPACING.sm,
+  },
+  input: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 10,
+    padding: SPACING.md,
+    color: COLORS.text,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  secretarioRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.background,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  secretarioName: {
+    fontSize: TYPOGRAPHY.sizes.md,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  secretarioMeta: {
+    fontSize: TYPOGRAPHY.sizes.sm,
+    color: COLORS.textSecondary,
+  },
   dentistaRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -43,7 +43,7 @@ interface ConversationsListScreenProps {
 const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
   onSelectConversation,
 }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [conversas, setConversas] = useState<
     (Conversation & { naoLidas: number })[]
   >([]);
@@ -60,6 +60,12 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
   const [pacientesOrig, setPacientesOrig] = useState<PacienteProfile[]>([]);
   const [loadingPacientes, setLoadingPacientes] = useState(false);
   const [buscaPaciente, setBuscaPaciente] = useState('');
+  const accentColor =
+    profile?.tipo === 'secretario'
+      ? '#6D28D9'
+      : profile?.tipo === 'dentista' || profile?.tipo === 'medico'
+      ? COLORS.secondary
+      : COLORS.primary;
 
   // Carregar conversas
   const carregarConversas = async () => {
@@ -349,7 +355,19 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 24}
     >
       <View style={styles.container}>
+        <View style={[styles.heroCard, { backgroundColor: accentColor }]}>
+          <Text style={styles.heroTitle}>Mensagens</Text>
+          <Text style={styles.heroSubtitle}>
+            Converse com seus contactos e acompanhe as respostas em tempo real.
+          </Text>
+          <View style={styles.heroBadge}>
+            <Text style={styles.heroBadgeValue}>{conversas.length}</Text>
+            <Text style={styles.heroBadgeLabel}>conversa(s)</Text>
+          </View>
+        </View>
+
         {/* Search bar */}
+        <View style={styles.contentWidth}>
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color={COLORS.textSecondary} />
           <TextInput
@@ -365,11 +383,12 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
             </TouchableOpacity>
           ) : null}
         </View>
+        </View>
 
         {/* Lista de conversas */}
         {loading && !refreshing ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+            <ActivityIndicator size="large" color={accentColor} />
           </View>
         ) : (
           <FlatList
@@ -378,7 +397,7 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
             keyExtractor={(item) => item.id}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={[
-              { paddingBottom: SPACING.xl },
+              styles.listContent,
               Platform.OS === 'web' && { paddingBottom: 100 }
             ]}
             refreshControl={
@@ -402,7 +421,7 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
 
         {/* Floating Action Button for New Chat */}
         <TouchableOpacity 
-          style={styles.fab}
+          style={[styles.fab, { backgroundColor: accentColor }]}
           onPress={() => {
             setModalVisible(true);
             carregarPacientes();
@@ -479,16 +498,56 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  contentWidth: {
+    width: '100%',
+    maxWidth: 940,
+    alignSelf: 'center',
+  },
+  heroCard: {
+    margin: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderRadius: 20,
+    padding: SPACING.lg,
+    ...SHADOWS.md,
+  },
+  heroTitle: {
+    fontSize: TYPOGRAPHY.sizes.h2,
+    color: COLORS.textInverse,
+    fontWeight: '700',
+  },
+  heroSubtitle: {
+    marginTop: SPACING.xs,
+    color: 'rgba(255,255,255,0.84)',
+    lineHeight: 20,
+  },
+  heroBadge: {
+    alignSelf: 'flex-start',
+    marginTop: SPACING.md,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderRadius: 999,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  heroBadgeValue: {
+    color: COLORS.textInverse,
+    fontSize: TYPOGRAPHY.sizes.lg,
+    fontWeight: '700',
+  },
+  heroBadgeLabel: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: TYPOGRAPHY.sizes.xs,
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.surface,
-    borderRadius: 8,
-    paddingHorizontal: SPACING.sm,
+    borderRadius: 14,
+    paddingHorizontal: SPACING.md,
     marginHorizontal: SPACING.md,
     marginVertical: SPACING.md,
     borderWidth: 1,
     borderColor: COLORS.border,
+    ...SHADOWS.sm,
   },
   searchInput: {
     flex: 1,
@@ -505,10 +564,14 @@ const styles = StyleSheet.create({
   conversaCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 16,
+    backgroundColor: COLORS.surface,
     gap: SPACING.md,
   },
   avatar: {
@@ -586,6 +649,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...SHADOWS.md,
+  },
+  listContent: {
+    width: '100%',
+    maxWidth: 940,
+    alignSelf: 'center',
+    paddingBottom: SPACING.xl,
   },
   modalOverlay: {
     flex: 1,

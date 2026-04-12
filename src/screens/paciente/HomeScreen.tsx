@@ -14,7 +14,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { useDentist } from '../../contexts/DentistContext';
 import { buscarTriagensPaciente } from '../../services/triagemService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { STATUS_TRIAGEM } from '../../utils/constants';
@@ -30,8 +29,6 @@ const HomeScreen: React.FC<HomeProps> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const { selectedDentist, consumeAutoOpenChooseDentist } = useDentist();
-
   const carregarDados = async () => {
     if (!profile?.id) return;
 
@@ -46,18 +43,7 @@ const HomeScreen: React.FC<HomeProps> = ({ navigation }) => {
     carregarDados();
   }, [profile]);
 
-  // Redirecionar imediatamente para escolha de dentista se necessário
-  useEffect(() => {
-    if (!selectedDentist) {
-      // Consume auto-open flag if set
-      consumeAutoOpenChooseDentist();
-      // Redirecionar imediatamente sem Alert
-      const timer = setTimeout(() => {
-        navigation.getParent()?.navigate('ChooseDentista' as any);
-      }, 300); // Pequeno delay para garantir que a navegação está pronta
-      return () => clearTimeout(timer);
-    }
-  }, [selectedDentist, navigation]);
+
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

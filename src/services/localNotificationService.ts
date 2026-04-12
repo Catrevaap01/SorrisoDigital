@@ -63,3 +63,48 @@ export const notifyNewMessage = async (
   }
 };
 
+export const scheduleLocalNotification = async (
+  title: string,
+  body: string,
+  date: Date,
+  data: Record<string, any> = {}
+): Promise<void> => {
+  if (!Notifications) {
+    return;
+  }
+
+  if (Number.isNaN(date.getTime()) || date <= new Date()) {
+    return;
+  }
+
+  await ensureConfigured();
+
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: { title, body, data, sound: 'default' },
+      trigger: date,
+    });
+  } catch {
+    // Fallback: do nothing if scheduling is not available
+  }
+};
+
+export const scheduleAppointmentReminder = async (
+  title: string,
+  body: string,
+  appointmentDate: string
+): Promise<void> => {
+  try {
+    const date = new Date(appointmentDate);
+    if (Number.isNaN(date.getTime())) return;
+
+    const reminder = new Date(date);
+    reminder.setHours(reminder.getHours() - 1);
+    if (reminder <= new Date()) return;
+
+    await scheduleLocalNotification(title, body, reminder, { appointmentDate });
+  } catch {
+    // ignore scheduling failures
+  }
+};
+

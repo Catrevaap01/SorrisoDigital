@@ -17,7 +17,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
-import { buscarTriagemPorId, responderTriagem, atualizarStatusTriagem } from '../../services/triagemService';
+import { buscarTriagemPorId, responderTriagem, atualizarStatusTriagem, recusarTriagem } from '../../services/triagemService';
 import { obterOuCriarConversa } from '../../services/messagesService';
 import { supabase } from '../../config/supabase';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
@@ -41,6 +41,11 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
   const [orientacao, setOrientacao] = useState<string>('');
   const [recomendacao, setRecomendacao] = useState<string>('');
   const [observacoes, setObservacoes] = useState<string>('');
+
+  // Recusar caso
+  const [modalRecusa, setModalRecusa] = useState(false);
+  const [motivoRecusa, setMotivoRecusa] = useState('');
+  const [recusando, setRecusando] = useState(false);
 
 const carregarTriagem = async () => {
     const result = await buscarTriagemPorId(triagemId);
@@ -213,6 +218,30 @@ const carregarTriagem = async () => {
     setLoading(false);
   };
 
+  const handleRecusarCaso = () => setModalRecusa(true);
+
+  const processarRecusa = async () => {
+    if (!motivoRecusa.trim()) {
+      Toast.show({ type: 'error', text1: 'Escreva o motivo da recusa' });
+      return;
+    }
+    if (!profile?.id) return;
+    setRecusando(true);
+    const result = await recusarTriagem(triagemId, profile.id, motivoRecusa.trim());
+    setRecusando(false);
+    if (result.success) {
+      setModalRecusa(false);
+      Toast.show({
+        type: 'success',
+        text1: 'Caso recusado',
+        text2: 'O secretário será notificado para re-atribuir',
+      });
+      navigation.goBack();
+    } else {
+      Toast.show({ type: 'error', text1: 'Erro ao recusar caso' });
+    }
+  };
+
   const handleAbrirChatPaciente = async () => {
     if (!profile?.id || !profile?.nome) return;
     const pacienteId = triagem?.paciente_id;
@@ -271,7 +300,13 @@ const carregarTriagem = async () => {
   }
 
   const temResposta = triagem && triagem.respostas && triagem.respostas.length > 0;
-  const effectiveStatus = temResposta ? 'respondido' : (triagem?.status === 'urgente' || triagem?.prioridade === 'urgente' || Number(triagem?.intensidade_dor || 0) >= 8 ? 'urgente' : (triagem?.status || 'pendente'));
+  const statusAtual = String(triagem?.status || 'pendente').toLowerCase();
+  const prioridadeAtual = String(triagem?.prioridade || '').toLowerCase();
+  const effectiveStatus = temResposta
+    ? 'respondido'
+    : (prioridadeAtual === 'urgente' || prioridadeAtual === 'alta' || Number(triagem?.intensidade_dor || 0) >= 8
+        ? 'urgente'
+        : statusAtual);
   const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
 
   return (
@@ -323,7 +358,41 @@ const carregarTriagem = async () => {
             <Text style={styles.chatButtonText}>Ver histórico</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Módulo Clínico — Anamnese, Plano, Prescrição */}
+        <View style={styles.clinicaRow}>
+          <TouchableOpacity
+            style={styles.clinicaBtn}
+            onPress={() => triagem.paciente_id && navigation.navigate('Anamnese', {
+              triagemId, pacienteId: triagem.paciente_id, pacienteNome: triagem.paciente?.nome,
+            })}
+          >
+            <Ionicons name="clipboard" size={16} color="#7C3AED" />
+            <Text style={[styles.clinicaBtnText, { color: '#7C3AED' }]}>Anamnese</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.clinicaBtn}
+            onPress={() => triagem.paciente_id && navigation.navigate('PlanoTratamento', {
+              triagemId, pacienteId: triagem.paciente_id, pacienteNome: triagem.paciente?.nome,
+            })}
+          >
+            <Ionicons name="list" size={16} color={COLORS.primary} />
+            <Text style={[styles.clinicaBtnText, { color: COLORS.primary }]}>Plano</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.clinicaBtn}
+            onPress={() => triagem.paciente_id && navigation.navigate('Prescricao', {
+              triagemId, pacienteId: triagem.paciente_id, pacienteNome: triagem.paciente?.nome,
+            })}
+          >
+            <Ionicons name="medical" size={16} color="#E91E63" />
+            <Text style={[styles.clinicaBtnText, { color: '#E91E63' }]}>Prescrição</Text>
+          </TouchableOpacity>
+        </View>
       </View>
+
       <View style={styles.statusCard}>
         <View style={[styles.statusBadgeLarge, { backgroundColor: statusInfo.color }]}>
           <Ionicons name={statusInfo.icon as any} size={18} color="#fff" />
@@ -460,6 +529,14 @@ const carregarTriagem = async () => {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={styles.recusarButton}
+            onPress={handleRecusarCaso}
+          >
+            <Ionicons name="close-circle-outline" size={20} color={COLORS.textInverse} />
+            <Text style={styles.urgenteButtonText}>Recusar</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={[styles.enviarButton, enviando && styles.buttonDisabled]}
             onPress={handleEnviarResposta}
             disabled={enviando}
@@ -505,6 +582,53 @@ const carregarTriagem = async () => {
             <Ionicons name="close-circle" size={40} color="#fff" />
           </TouchableOpacity>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Modal de Recusa */}
+      <Modal
+        visible={modalRecusa}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setModalRecusa(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Recusar Caso</Text>
+            <Text style={styles.modalSub}>
+              Explica o motivo da recusa. O secretário será notificado para atribuir a outro dentista.
+            </Text>
+            <TextInput
+              style={styles.motivoInput}
+              placeholder="Ex: Fora da minha especialidade. Recomendo endodontista."
+              placeholderTextColor={COLORS.textSecondary}
+              value={motivoRecusa}
+              onChangeText={setMotivoRecusa}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+            <View style={styles.modalBtns}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => setModalRecusa(false)}
+                disabled={recusando}
+              >
+                <Text style={styles.modalBtnCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtnConfirm, recusando && { opacity: 0.6 }]}
+                onPress={processarRecusa}
+                disabled={recusando}
+              >
+                {recusando ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Text style={styles.modalBtnConfirmText}>Confirmar Recusa</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
 
         <View style={{ height: 30 }} />
@@ -770,6 +894,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: SIZES.xs,
   },
+  recusarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6B7280',
+    paddingVertical: SIZES.md,
+    paddingHorizontal: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    marginRight: SIZES.sm,
+  },
   enviarButton: {
     flex: 1,
     flexDirection: 'row',
@@ -795,6 +929,27 @@ const styles = StyleSheet.create({
     padding: SIZES.md,
     borderRadius: SIZES.radiusMd,
   },
+  clinicaRow: {
+    flexDirection: 'row',
+    gap: SIZES.sm,
+    marginTop: SIZES.sm,
+  },
+  clinicaBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: COLORS.background,
+    borderRadius: SIZES.radiusMd,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  clinicaBtnText: {
+    fontSize: SIZES.fontSm,
+    fontWeight: '700',
+  },
   avisoText: {
     flex: 1,
     marginLeft: SIZES.sm,
@@ -818,6 +973,75 @@ const styles = StyleSheet.create({
     top: 50,
     right: 20,
   },
+  // Modal de Recusa
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  modalBox: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: SIZES.lg,
+    width: '100%',
+    maxWidth: 600,
+  },
+  modalTitle: {
+    fontSize: SIZES.fontXl,
+    fontWeight: '800',
+    color: COLORS.text,
+    marginBottom: SIZES.sm,
+  },
+  modalSub: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    marginBottom: SIZES.md,
+    lineHeight: 20,
+  },
+  motivoInput: {
+    backgroundColor: COLORS.background,
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.md,
+    fontSize: SIZES.fontMd,
+    color: COLORS.text,
+    minHeight: 100,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SIZES.md,
+  },
+  modalBtns: {
+    flexDirection: 'row',
+    gap: SIZES.sm,
+  },
+  modalBtnCancel: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    borderRadius: SIZES.radiusMd,
+    paddingVertical: SIZES.md,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  modalBtnCancelText: {
+    fontSize: SIZES.fontMd,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  modalBtnConfirm: {
+    flex: 1,
+    backgroundColor: '#EF4444',
+    borderRadius: SIZES.radiusMd,
+    paddingVertical: SIZES.md,
+    alignItems: 'center',
+  },
+  modalBtnConfirmText: {
+    fontSize: SIZES.fontMd,
+    color: 'white',
+    fontWeight: '700',
+  },
 });
+
 
 export default CasoDetalheScreen;

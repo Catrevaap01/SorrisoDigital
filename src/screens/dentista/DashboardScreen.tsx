@@ -1,14 +1,22 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { logger } from '../../utils/logger';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../config/supabase';
 import { DentistaTabParamList } from '../../navigation/types';
 import { Agendamento, ServiceResult, buscarAgendaDentista, buscarAgendamentosDentistaPorPeriodo } from '../../services/agendamentoService';
 import { buscarContadoresDentista, buscarTriagensDentista, Contadores, Triagem } from '../../services/triagemService';
+import {
+  exportarAnamnesePdf,
+  exportarHistoricoPacientePdf,
+  exportarPlanoTratamentoPdf,
+  exportarPrescricaoPdf,
+} from '../../services/pdfReportService';
 import { COLORS, SHADOWS, SIZES } from '../../styles/theme';
 import { PRIORIDADE, STATUS_AGENDAMENTO, STATUS_TRIAGEM, TIPOS_CONSULTA } from '../../utils/constants';
 import { formatRelativeTime } from '../../utils/helpers';
@@ -16,6 +24,21 @@ import { getEspecialidadeConfig, EspecialidadeConfig } from '../../config/specia
 
 type Props = BottomTabScreenProps<DentistaTabParamList, 'Dashboard'>;
 type ListaItem = Triagem | Agendamento;
+type DocumentoTipo = 'anamnese' | 'plano' | 'prescricao';
+
+type DocumentoRecente = {
+  id: string;
+  tipo: DocumentoTipo;
+  pacienteId: string;
+  pacienteNome: string;
+  data: string;
+};
+
+type PacienteClinico = {
+  pacienteId: string;
+  pacienteNome: string;
+  triagemId?: string;
+};
 
 const CONTADORES_DEFAULT: Contadores = { pendente: 0, urgente: 0, respondido: 0, total: 0, realizados: 0 };
 const PRECO_POR_TIPO: Record<string, number> = { consulta: 25000, avaliacao: 30000, retorno: 15000, urgencia: 45000, raio_x: 20000, panoramico: 35000, profilaxia: 22000, branqueamento: 60000, canal: 90000, ortodontia: 120000, restauracao: 40000 };
@@ -29,9 +52,13 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [agendaHoje, setAgendaHoje] = useState<Agendamento[]>([]);
   const [contadores, setContadores] = useState<Contadores>(CONTADORES_DEFAULT);
+  const [documentosRecentes, setDocumentosRecentes] = useState<DocumentoRecente[]>([]);
+  const [tratamentosPendentes, setTratamentosPendentes] = useState(0);
+  const [prescricoesEmitidas, setPrescricoesEmitidas] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filtroAtivo, setFiltroAtivo] = useState<'todos' | 'pendente' | 'urgente' | 'respondido' | 'realizados'>('todos');
+  const [pacienteSelecionadoId, setPacienteSelecionadoId] = useState<string | undefined>();
   const hasLoadedRef = useRef(false);
 
   // Configuração por especialidade
@@ -39,6 +66,103 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     () => getEspecialidadeConfig(profile?.especialidade),
     [profile?.especialidade]
   );
+
+  const carregarDocumentacaoClinica = useCallback(async () => {
+    if (!profile?.id) return;
+
+    const [anamnesesRes, planosRes, prescricoesRes, planosIdsRes, prescricoesCountRes] = await Promise.all([
+      supabase
+        .from('anamneses')
+        .select('id, paciente_id, updated_at, created_at')
+        .eq('dentista_id', profile.id)
+        .order('updated_at', { ascending: false })
+        .limit(8),
+      supabase
+        .from('planos_tratamento')
+        .select('id, paciente_id, updated_at, created_at')
+        .eq('dentista_id', profile.id)
+        .order('updated_at', { ascending: false })
+        .limit(8),
+      supabase
+        .from('prescricoes')
+        .select('id, paciente_id, created_at')
+        .eq('dentista_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(8),
+      supabase
+        .from('planos_tratamento')
+        .select('id')
+        .eq('dentista_id', profile.id),
+      supabase
+        .from('prescricoes')
+        .select('id', { count: 'exact', head: true })
+        .eq('dentista_id', profile.id),
+    ]);
+
+    const planos = planosRes.data || [];
+    const planoIds = (planosIdsRes.data || []).map((item: any) => item.id).filter(Boolean);
+    let procedimentosPendentes = 0;
+
+    if (planoIds.length > 0) {
+      const procRes = await supabase
+        .from('procedimentos_tratamento')
+        .select('id, status, plano_id')
+        .in('plano_id', planoIds);
+      procedimentosPendentes = (procRes.data || []).filter(
+        (item: any) => !['concluido', 'cancelado'].includes(String(item.status || '').toLowerCase())
+      ).length;
+    }
+
+    const pacienteIds = Array.from(
+      new Set(
+        [
+          ...(anamnesesRes.data || []).map((item: any) => item.paciente_id),
+          ...planos.map((item: any) => item.paciente_id),
+          ...(prescricoesRes.data || []).map((item: any) => item.paciente_id),
+        ].filter(Boolean)
+      )
+    ) as string[];
+
+    let pacientesById: Record<string, string> = {};
+    if (pacienteIds.length > 0) {
+      const pacientesRes = await supabase
+        .from('profiles')
+        .select('id, nome')
+        .in('id', pacienteIds);
+      pacientesById = Object.fromEntries((pacientesRes.data || []).map((item: any) => [item.id, item.nome || 'Paciente']));
+    }
+
+    const recentes: DocumentoRecente[] = [
+      ...(anamnesesRes.data || []).map((item: any) => ({
+        id: `anamnese-${item.id}`,
+        tipo: 'anamnese' as const,
+        pacienteId: item.paciente_id,
+        pacienteNome: pacientesById[item.paciente_id] || 'Paciente',
+        data: item.updated_at || item.created_at,
+      })),
+      ...planos.map((item: any) => ({
+        id: `plano-${item.id}`,
+        tipo: 'plano' as const,
+        pacienteId: item.paciente_id,
+        pacienteNome: pacientesById[item.paciente_id] || 'Paciente',
+        data: item.updated_at || item.created_at,
+      })),
+      ...(prescricoesRes.data || []).map((item: any) => ({
+        id: `prescricao-${item.id}`,
+        tipo: 'prescricao' as const,
+        pacienteId: item.paciente_id,
+        pacienteNome: pacientesById[item.paciente_id] || 'Paciente',
+        data: item.created_at,
+      })),
+    ]
+      .filter((item) => !!item.pacienteId)
+      .sort((a, b) => new Date(b.data || 0).getTime() - new Date(a.data || 0).getTime())
+      .slice(0, 6);
+
+    setDocumentosRecentes(recentes);
+    setTratamentosPendentes(procedimentosPendentes);
+    setPrescricoesEmitidas(prescricoesCountRes.count || 0);
+  }, [profile?.id]);
 
   const carregarDados = useCallback(async () => {
     if (!profile?.id) return;
@@ -68,9 +192,10 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       logger.warn(`Dashboard: ${errors}/4 services failed on ${Platform.OS}, showing partial data`);
     }
 
+    await carregarDocumentacaoClinica();
     hasLoadedRef.current = true;
     setLoading(false);
-  }, [profile?.id]);
+  }, [carregarDocumentacaoClinica, profile?.id]);
 
   useFocusEffect(useCallback(() => { void carregarDados(); }, [carregarDados]));
 
@@ -119,6 +244,149 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       taxaFaltas,
     };
   }, [agendaHoje, agendamentos]);
+
+  const pacienteFoco = useMemo(() => {
+    const proximoAgendamento = [...agendaHoje]
+      .sort((a, b) => new Date(a.data_agendamento || 0).getTime() - new Date(b.data_agendamento || 0).getTime())
+      .find((item) => !!item.paciente_id);
+
+    const triagemRelacionada = triagens.find((item) => item.paciente_id === proximoAgendamento?.paciente_id)
+      || triagens.find((item) => !!item.paciente_id);
+
+    const pacienteId = triagemRelacionada?.paciente_id || proximoAgendamento?.paciente_id;
+    const pacienteNome =
+      triagemRelacionada?.paciente?.nome ||
+      proximoAgendamento?.paciente?.nome ||
+      documentosRecentes.find((item) => item.pacienteId === pacienteId)?.pacienteNome;
+
+    return {
+      pacienteId,
+      pacienteNome: pacienteNome || 'Paciente',
+      triagemId: triagemRelacionada?.id,
+    };
+  }, [agendaHoje, documentosRecentes, triagens]);
+
+  const pacientesClinicos = useMemo<PacienteClinico[]>(() => {
+    const pacientesMap = new Map<string, PacienteClinico>();
+
+    triagens.forEach((item) => {
+      if (!item.paciente_id) return;
+      pacientesMap.set(item.paciente_id, {
+        pacienteId: item.paciente_id,
+        pacienteNome: item.paciente?.nome || documentosRecentes.find((doc) => doc.pacienteId === item.paciente_id)?.pacienteNome || 'Paciente',
+        triagemId: item.id,
+      });
+    });
+
+    agendaHoje.forEach((item) => {
+      if (!item.paciente_id || pacientesMap.has(item.paciente_id)) return;
+      pacientesMap.set(item.paciente_id, {
+        pacienteId: item.paciente_id,
+        pacienteNome: item.paciente?.nome || documentosRecentes.find((doc) => doc.pacienteId === item.paciente_id)?.pacienteNome || 'Paciente',
+      });
+    });
+
+    documentosRecentes.forEach((item) => {
+      if (!item.pacienteId || pacientesMap.has(item.pacienteId)) return;
+      pacientesMap.set(item.pacienteId, {
+        pacienteId: item.pacienteId,
+        pacienteNome: item.pacienteNome || 'Paciente',
+      });
+    });
+
+    return Array.from(pacientesMap.values()).sort((a, b) => a.pacienteNome.localeCompare(b.pacienteNome));
+  }, [agendaHoje, documentosRecentes, triagens]);
+
+  useEffect(() => {
+    if (!pacientesClinicos.length) {
+      if (pacienteSelecionadoId) setPacienteSelecionadoId(undefined);
+      return;
+    }
+
+    const pacienteValido = pacientesClinicos.some((item) => item.pacienteId === pacienteSelecionadoId);
+    if (pacienteValido) return;
+
+    setPacienteSelecionadoId(pacienteFoco.pacienteId || pacientesClinicos[0]?.pacienteId);
+  }, [pacienteFoco.pacienteId, pacienteSelecionadoId, pacientesClinicos]);
+
+  const pacienteClinicoAtivo = useMemo(() => {
+    return pacientesClinicos.find((item) => item.pacienteId === pacienteSelecionadoId) || (
+      pacienteFoco.pacienteId
+        ? {
+            pacienteId: pacienteFoco.pacienteId,
+            pacienteNome: pacienteFoco.pacienteNome,
+            triagemId: pacienteFoco.triagemId,
+          }
+        : undefined
+    );
+  }, [pacienteFoco.pacienteId, pacienteFoco.pacienteNome, pacienteFoco.triagemId, pacienteSelecionadoId, pacientesClinicos]);
+
+  const resolverTriagemPaciente = useCallback(async (pacienteId?: string) => {
+    if (!pacienteId) return undefined;
+
+    const triagemLocal = triagens.find((item) => item.paciente_id === pacienteId)?.id;
+    if (triagemLocal) return triagemLocal;
+
+    const { data } = await supabase
+      .from('triagens')
+      .select('id')
+      .eq('paciente_id', pacienteId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    return data?.id;
+  }, [triagens]);
+
+  const abrirModuloClinico = useCallback(async (screen: 'Anamnese' | 'PlanoTratamento' | 'Prescricao') => {
+    if (!pacienteClinicoAtivo?.pacienteId) {
+      Toast.show({
+        type: 'info',
+        text1: 'Nenhum paciente selecionado',
+        text2: 'Escolha o paciente antes de abrir o modulo clinico.',
+      });
+      return;
+    }
+
+    const triagemId = pacienteClinicoAtivo.triagemId || await resolverTriagemPaciente(pacienteClinicoAtivo.pacienteId);
+    if (!triagemId) {
+      Toast.show({
+        type: 'info',
+        text1: 'Triagem não encontrada',
+        text2: 'Este paciente ainda não possui triagem vinculada.',
+      });
+      return;
+    }
+
+    navigation.getParent<any>()?.navigate(screen, {
+      triagemId,
+      pacienteId: pacienteClinicoAtivo.pacienteId,
+      pacienteNome: pacienteClinicoAtivo.pacienteNome,
+    });
+  }, [navigation, pacienteClinicoAtivo, resolverTriagemPaciente]);
+
+  const gerarPdfDocumento = useCallback(async (tipo: DocumentoTipo | 'historico', pacienteId?: string) => {
+    const alvoPacienteId = pacienteId || pacienteClinicoAtivo?.pacienteId;
+    if (!alvoPacienteId) {
+      Toast.show({ type: 'info', text1: 'Nenhum paciente disponível para PDF' });
+      return;
+    }
+
+    const result = tipo === 'anamnese'
+      ? await exportarAnamnesePdf(alvoPacienteId)
+      : tipo === 'plano'
+        ? await exportarPlanoTratamentoPdf(alvoPacienteId)
+        : tipo === 'prescricao'
+          ? await exportarPrescricaoPdf(alvoPacienteId)
+          : await exportarHistoricoPacientePdf(alvoPacienteId);
+
+    if (!result.success) {
+      Toast.show({ type: 'error', text1: 'Erro ao gerar PDF', text2: result.error || 'Tente novamente' });
+      return;
+    }
+
+    Toast.show({ type: 'success', text1: 'PDF pronto' });
+  }, [pacienteClinicoAtivo?.pacienteId]);
 
   const dadosFiltrados: ListaItem[] = useMemo(() => {
     if (filtroAtivo === 'todos') {
@@ -353,44 +621,141 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.grid}>
         <View style={styles.metric}>
           <Text style={[styles.metricValue, { color: COLORS.primary }]}>{agendaHoje.length}</Text>
-          <Text style={styles.metricLabel}>Agenda do dia</Text>
+          <Text style={styles.metricLabel}>Consultas hoje</Text>
         </View>
         <View style={styles.metric}>
-          <Text style={[styles.metricValue, { color: dashboard.atrasados.length > 0 ? COLORS.danger : COLORS.primary }]}>
-            {dashboard.atrasados.length}
+          <Text style={[styles.metricValue, { color: contadores.pendente > 0 ? COLORS.danger : COLORS.primary }]}>
+            {contadores.pendente}
           </Text>
-          <Text style={styles.metricLabel}>Em atraso</Text>
+          <Text style={styles.metricLabel}>Pacientes em espera</Text>
         </View>
         <View style={styles.metric}>
-          <Text style={[styles.metricValue, { color: triagens.filter(t => {
-            const s = (t.status || '').toLowerCase();
-            const p = (t.prioridade || '').toLowerCase();
-            return s === 'urgente' || p === 'urgente' || p === 'alta' || Number((t as any).intensidade_dor || 0) > 6;
-          }).length + agendamentos.filter(a => {
-            const s = (a.status || '').toLowerCase();
-            const p = (a.prioridade || '').toLowerCase();
-            return s === 'urgente' || p === 'urgente' || p === 'alta';
-          }).length > 0 ? COLORS.danger : COLORS.primary }]}>
-            {triagens.filter(t => {
-              const s = (t.status || '').toLowerCase();
-              const p = (t.prioridade || '').toLowerCase();
-              return s === 'urgente' || p === 'urgente' || p === 'alta' || Number((t as any).intensidade_dor || 0) > 6;
-            }).length + agendamentos.filter(a => {
-              const s = (a.status || '').toLowerCase();
-              const p = (a.prioridade || '').toLowerCase();
-              return s === 'urgente' || p === 'urgente' || p === 'alta';
-            }).length}
+          <Text style={[styles.metricValue, { color: tratamentosPendentes > 0 ? '#C2410C' : COLORS.primary }]}>
+            {tratamentosPendentes}
           </Text>
-          <Text style={styles.metricLabel}>Urgentes</Text>
+          <Text style={styles.metricLabel}>Tratamentos pendentes</Text>
         </View>
         <View style={styles.metric}>
-          <Text style={[styles.metricValue, { color: COLORS.success }]}>{contadores.respondido}</Text>
-          <Text style={styles.metricLabel}>Respondidos</Text>
+          <Text style={[styles.metricValue, { color: '#BE185D' }]}>{prescricoesEmitidas}</Text>
+          <Text style={styles.metricLabel}>Prescrições emitidas</Text>
         </View>
-        <View style={styles.metric}>
-          <Text style={[styles.metricValue, { color: COLORS.secondary }]}>{contadores.realizados}</Text>
-          <Text style={styles.metricLabel}>Realizados</Text>
+      </View>
+
+      <View style={styles.block}>
+        <View style={styles.blockHeader}>
+          <Ionicons name="document-text-outline" size={18} color={COLORS.primary} />
+          <Text style={styles.blockTitle}>Documentação clínica</Text>
         </View>
+        <Text style={styles.blockSubtext}>
+          {pacienteFoco.pacienteId
+            ? `Paciente em foco: ${pacienteFoco.pacienteNome}`
+            : 'Sem paciente em foco. Selecione um caso para abrir os módulos clínicos.'}
+        </Text>
+
+        {pacientesClinicos.length > 0 && (
+          <View style={styles.patientSelector}>
+            {pacientesClinicos.map((item) => {
+              const ativo = item.pacienteId === pacienteClinicoAtivo?.pacienteId;
+              return (
+                <TouchableOpacity
+                  key={item.pacienteId}
+                  style={[styles.patientChip, ativo && styles.patientChipActive]}
+                  onPress={() => setPacienteSelecionadoId(item.pacienteId)}
+                >
+                  <Text style={[styles.patientChipText, ativo && styles.patientChipTextActive]}>
+                    {item.pacienteNome}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {!!pacienteClinicoAtivo?.pacienteId && (
+          <Text style={styles.patientSelectionHint}>Paciente escolhido para abrir e guardar documentos: {pacienteClinicoAtivo.pacienteNome}</Text>
+        )}
+
+        <View style={styles.modulesGrid}>
+          <View style={[styles.moduleCard, styles.moduleCardAnamnese]}>
+            <View style={[styles.moduleIconWrap, styles.moduleIconWrapAnamnese]}>
+              <Ionicons name="clipboard-outline" size={20} color="#7C3AED" />
+            </View>
+            <Text style={styles.moduleEyebrow}>Anamnese</Text>
+            <Text style={styles.moduleTitle}>Histórico clínico</Text>
+            <Text style={styles.moduleText}>Queixa principal, alergias, medicamentos e observações.</Text>
+            <View style={styles.moduleActions}>
+              <TouchableOpacity style={styles.moduleGhostBtn} onPress={() => abrirModuloClinico('Anamnese')}>
+                <Text style={styles.moduleGhostText}>Abrir</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modulePrimaryBtn} onPress={() => void gerarPdfDocumento('anamnese')}>
+                <Text style={styles.modulePrimaryText}>PDF</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={[styles.moduleCard, styles.moduleCardPlano]}>
+            <View style={[styles.moduleIconWrap, styles.moduleIconWrapPlano]}>
+              <Ionicons name="medkit-outline" size={20} color="#0F766E" />
+            </View>
+            <Text style={styles.moduleEyebrow}>Plano</Text>
+            <Text style={styles.moduleTitle}>Plano de tratamento</Text>
+            <Text style={styles.moduleText}>Procedimentos, sessões, estado e soma total por paciente.</Text>
+            <View style={styles.moduleActions}>
+              <TouchableOpacity style={styles.moduleGhostBtn} onPress={() => abrirModuloClinico('PlanoTratamento')}>
+                <Text style={styles.moduleGhostText}>Abrir</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modulePrimaryBtn} onPress={() => void gerarPdfDocumento('plano')}>
+                <Text style={styles.modulePrimaryText}>PDF</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={[styles.moduleCard, styles.moduleCardPrescricao]}>
+            <View style={[styles.moduleIconWrap, styles.moduleIconWrapPrescricao]}>
+              <Ionicons name="medical-outline" size={20} color="#BE185D" />
+            </View>
+            <Text style={styles.moduleEyebrow}>Prescrição</Text>
+            <Text style={styles.moduleTitle}>Receituário</Text>
+            <Text style={styles.moduleText}>Medicamentos, dose, frequência, duração e assinatura clínica.</Text>
+            <View style={styles.moduleActions}>
+              <TouchableOpacity style={styles.moduleGhostBtn} onPress={() => abrirModuloClinico('Prescricao')}>
+                <Text style={styles.moduleGhostText}>Abrir</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modulePrimaryBtn} onPress={() => void gerarPdfDocumento('prescricao')}>
+                <Text style={styles.modulePrimaryText}>PDF</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.block}>
+        <View style={styles.blockHeader}>
+          <Ionicons name="albums-outline" size={18} color={COLORS.primary} />
+          <Text style={styles.blockTitle}>Documentos recentes</Text>
+        </View>
+        {documentosRecentes.length === 0 ? (
+          <Text style={styles.empty}>Nenhum documento recente.</Text>
+        ) : (
+          documentosRecentes.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.docLine} onPress={() => void gerarPdfDocumento(item.tipo, item.pacienteId)}>
+              <View style={styles.docIcon}>
+                <Ionicons
+                  name={item.tipo === 'anamnese' ? 'clipboard-outline' : item.tipo === 'plano' ? 'medkit-outline' : 'medical-outline'}
+                  size={16}
+                  color={COLORS.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.lineTitle}>
+                  {item.tipo === 'anamnese' ? 'Anamnese' : item.tipo === 'plano' ? 'Plano' : 'Prescrição'} - {item.pacienteNome}
+                </Text>
+                <Text style={styles.lineMeta}>{formatRelativeTime(item.data)}</Text>
+              </View>
+              <Ionicons name="document-attach-outline" size={18} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          ))
+        )}
       </View>
 
 
@@ -597,6 +962,141 @@ const styles = StyleSheet.create({
   },
   blockHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SIZES.sm },
   blockTitle: { fontSize: SIZES.fontLg, fontWeight: '700', color: COLORS.text },
+  blockSubtext: { fontSize: SIZES.fontSm, color: COLORS.textSecondary, marginBottom: SIZES.md },
+  patientSelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SIZES.sm,
+    marginBottom: SIZES.md,
+  },
+  patientChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: SIZES.radiusFull,
+    borderWidth: 1,
+    borderColor: '#D7E0EA',
+    backgroundColor: '#FFFFFF',
+  },
+  patientChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  patientChipText: {
+    color: COLORS.text,
+    fontSize: SIZES.fontSm,
+    fontWeight: '700',
+  },
+  patientChipTextActive: {
+    color: COLORS.textInverse,
+  },
+  patientSelectionHint: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.primary,
+    fontWeight: '700',
+    marginBottom: SIZES.md,
+  },
+  modulesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SIZES.sm,
+    justifyContent: 'space-between',
+  },
+  moduleCard: {
+    width: Platform.OS === 'web' ? '32%' : '100%',
+    minHeight: Platform.OS === 'web' ? 230 : 210,
+    backgroundColor: '#FCFCFD',
+    borderRadius: 24,
+    padding: SIZES.md + 2,
+    borderWidth: 1,
+    borderColor: '#E7EDF5',
+    ...SHADOWS.sm,
+  },
+  moduleCardAnamnese: {
+    backgroundColor: '#FCFAFF',
+  },
+  moduleCardPlano: {
+    backgroundColor: '#F8FFFE',
+  },
+  moduleCardPrescricao: {
+    backgroundColor: '#FFF9FC',
+  },
+  moduleIconWrap: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#EEF2F7',
+  },
+  moduleIconWrapAnamnese: {
+    backgroundColor: '#F5F1FF',
+    borderColor: '#E9DDFF',
+  },
+  moduleIconWrapPlano: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#CFF6E2',
+  },
+  moduleIconWrapPrescricao: {
+    backgroundColor: '#FDF2F8',
+    borderColor: '#F8D7E7',
+  },
+  moduleEyebrow: {
+    fontSize: SIZES.fontXs,
+    fontWeight: '700',
+    color: COLORS.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  moduleTitle: {
+    fontSize: SIZES.fontLg,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginTop: 2,
+  },
+  moduleText: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    lineHeight: 21,
+    marginTop: 8,
+    minHeight: 64,
+  },
+  moduleActions: {
+    flexDirection: 'row',
+    gap: SIZES.sm,
+    marginTop: 'auto',
+    paddingTop: SIZES.md,
+  },
+  moduleGhostBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: SIZES.radiusFull,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D7E0EA',
+  },
+  moduleGhostText: {
+    color: COLORS.text,
+    fontSize: SIZES.fontSm,
+    fontWeight: '700',
+  },
+  modulePrimaryBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: SIZES.radiusFull,
+    paddingVertical: 12,
+    backgroundColor: COLORS.primary,
+  },
+  modulePrimaryText: {
+    color: COLORS.textInverse,
+    fontSize: SIZES.fontSm,
+    fontWeight: '700',
+  },
   line: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -614,6 +1114,22 @@ const styles = StyleSheet.create({
     borderRadius: SIZES.radiusFull,
   },
   timeChipText: { fontSize: SIZES.fontSm, fontWeight: '700', color: '#E65100' },
+  docLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.sm,
+    paddingVertical: SIZES.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+  },
+  docIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF2FF',
+  },
 
   // Financeiro
   finRow: { flexDirection: 'row', gap: SIZES.sm, marginBottom: SIZES.sm },

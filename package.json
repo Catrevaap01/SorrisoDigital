@@ -7,6 +7,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "preview": "expo export && cd dist && npx serve -s -l tcp://0.0.0.0:3000",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck"
   },
@@ -45,6 +46,7 @@
     "@babel/core": "^7.26.0",
     "@babel/preset-env": "^7.26.0",
     "@types/react": "~19.1.10",
+    "expo-module-scripts": "^55.0.2",
     "typescript": "~5.9.2"
   }
 }

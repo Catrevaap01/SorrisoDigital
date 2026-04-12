@@ -48,6 +48,36 @@ export const formatBirthDateInput = (value: string): string => {
 };
 
 /**
+ * Calcula a idade a partir de uma data no formato YYYY-MM-DD.
+ */
+export const calculateAgeFromBirthDate = (birthDate?: string): number | null => {
+  if (!birthDate || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return null;
+
+  const [year, month, day] = birthDate.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  const today = new Date();
+  let age = today.getFullYear() - year;
+
+  if (
+    today.getMonth() < month - 1 ||
+    (today.getMonth() === month - 1 && today.getDate() < day)
+  ) {
+    age -= 1;
+  }
+
+  return age >= 0 ? age : null;
+};
+
+/**
  * Comprime imagem (placeholder para expo-image-manipulator)
  */
 export const compressImage = async (uri: string, quality: number = 0.7): Promise<string> => {

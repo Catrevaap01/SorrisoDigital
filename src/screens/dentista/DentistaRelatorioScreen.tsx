@@ -10,6 +10,7 @@ import {
   Modal,
   FlatList,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
@@ -293,8 +294,8 @@ const DentistaRelatorioScreen: React.FC = () => {
             <View style={styles.cardIcon}>
               <Ionicons name="document-attach-outline" size={32} color="#9C27B0" />
             </View>
-            <Text style={styles.cardTitle}>Ficha do Paciente</Text>
-            <Text style={styles.cardDescription}>Gerar ficha completa com histórico e triagens</Text>
+            <Text style={styles.cardTitle}>Documentos em PDF</Text>
+            <Text style={styles.cardDescription}>Gerar ficha completa e historico clinico do paciente em PDF</Text>
             <View style={styles.cardFooter}>
               <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
               <Text style={styles.cardFooterText}>{pacientesList.length} pacientes disponíveis</Text>
@@ -311,7 +312,7 @@ const DentistaRelatorioScreen: React.FC = () => {
               <Ionicons name="calendar-outline" size={32} color={COLORS.primary} />
             </View>
             <Text style={styles.cardTitle}>Relatório Completo</Text>
-            <Text style={styles.cardDescription}>Resumo detalhado de todas as consultas</Text>
+            <Text style={styles.cardDescription}>Resumo detalhado das consultas e indicadores do dentista</Text>
             <View style={styles.cardFooter}>
               <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
               <Text style={styles.cardFooterText}>{agendamentos.length} registros</Text>
@@ -474,11 +475,15 @@ const styles = StyleSheet.create({
   cardsContainer: {
     paddingHorizontal: SIZES.md,
     gap: SIZES.lg,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   card: {
     backgroundColor: COLORS.surface,
     borderRadius: SIZES.radiusLg,
     padding: SIZES.lg,
+    width: Platform.OS === 'web' ? '48.5%' : '100%',
     ...SHADOWS.md,
   },
   cardElevated: {

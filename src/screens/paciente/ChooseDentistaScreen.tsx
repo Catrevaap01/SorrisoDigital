@@ -18,10 +18,7 @@ import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { PacienteStackParamList } from '../../navigation/types';
 
-type ChooseDentistaProps = NativeStackScreenProps<
-  PacienteStackParamList,
-  'ChooseDentista'
->;
+type ChooseDentistaProps = NativeStackScreenProps<any, any>;
 
 const ChooseDentistaScreen: React.FC<ChooseDentistaProps> = ({ navigation }) => {
   const { profile } = useAuth();

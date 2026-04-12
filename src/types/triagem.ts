@@ -15,9 +15,18 @@ export interface RespostaTriagem {
   };
 }
 
+export type TriagemStatus =
+  | 'triagem_pendente_secretaria'
+  | 'pendente'
+  | 'em_triagem'
+  | 'respondida'
+  | 'recusada'
+  | 'cancelada';
+
 export interface TriagemData {
   paciente_id?: string;
   dentista_id?: string;
+  secretario_id?: string;
   sintoma_principal?: string;
   descricao?: string;
   duracao?: string;
@@ -25,9 +34,10 @@ export interface TriagemData {
   intensidade_dor?: number | string;
   imagens?: string[];
   prioridade?: string;
-  status?: string;
+  status?: TriagemStatus;
   data_agendamento?: string;
   observacoes?: string;
+  motivo_recusa?: string;
 }
 
 export interface Triagem extends TriagemData {

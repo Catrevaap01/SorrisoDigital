@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getOfflineActions, syncOfflineActions } from '../services/offlineSyncService';
+import { getOfflineQueue, processOfflineQueue } from '../services/offlineSyncService';
 
 export function useNetworkStatus() {
   const [isOnline, setIsOnline] = useState<boolean>(() =>
@@ -32,14 +32,14 @@ export function useOfflineSync() {
   const [lastSync, setLastSync] = useState<string | null>(null);
 
   const updatePending = useCallback(async () => {
-    const actions = await getOfflineActions();
+    const actions = await getOfflineQueue();
     setPendingCount(actions.length);
   }, []);
 
   const syncNow = useCallback(async () => {
     setIsSyncing(true);
     try {
-      const result = await syncOfflineActions();
+      const result = await processOfflineQueue();
       if (result.synced > 0) {
         setLastSync(new Date().toISOString());
       }

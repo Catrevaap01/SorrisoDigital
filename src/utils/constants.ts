@@ -5,12 +5,28 @@
 
 // Status de Triagem
 export const STATUS_TRIAGEM: Record<string, { label: string; color: string; icon: string }> = {
+  // Status inicial — aguarda análise da secretaria
+  triagem_pendente_secretaria: {
+    label: 'Em análise',
+    color: '#7C3AED',
+    icon: 'hourglass-outline',
+  },
   pendente: {
     label: 'Pendente',
     color: '#FFA726',
     icon: 'time-outline',
   },
+  em_triagem: {
+    label: 'Em triagem',
+    color: '#F59E0B',
+    icon: 'chatbox-ellipses-outline',
+  },
   respondido: {
+    label: 'Respondido',
+    color: '#66BB6A',
+    icon: 'checkmark-circle-outline',
+  },
+  respondida: {
     label: 'Respondido',
     color: '#66BB6A',
     icon: 'checkmark-circle-outline',
@@ -19,6 +35,26 @@ export const STATUS_TRIAGEM: Record<string, { label: string; color: string; icon
     label: 'Urgente',
     color: '#EF5350',
     icon: 'alert-circle-outline',
+  },
+  recusada: {
+    label: 'Recusada',
+    color: '#EF4444',
+    icon: 'close-circle-outline',
+  },
+  recusado: {
+    label: 'Recusada',
+    color: '#EF4444',
+    icon: 'close-circle-outline',
+  },
+  cancelada: {
+    label: 'Cancelada',
+    color: '#9CA3AF',
+    icon: 'ban-outline',
+  },
+  cancelado: {
+    label: 'Cancelada',
+    color: '#9CA3AF',
+    icon: 'ban-outline',
   },
   completo: {
     label: 'Finalizado',
@@ -34,20 +70,47 @@ export const STATUS_TRIAGEM: Record<string, { label: string; color: string; icon
 
 // Status de Agendamento
 export const STATUS_AGENDAMENTO: Record<string, { label: string; color: string; icon: string }> = {
+  // Status inicial — aguarda análise da secretaria
+  agendamento_pendente_secretaria: {
+    label: 'Aguardando secretaria',
+    color: '#7C3AED',
+    icon: 'hourglass-outline',
+  },
+  // Secretaria atribuiu ao dentista
+  atribuido_dentista: {
+    label: 'Atribuído ao dentista',
+    color: '#2196F3',
+    icon: 'person-add-outline',
+  },
   pendente: {
     label: 'Pendente',
     color: '#FFA726',
     icon: 'time-outline',
   },
   agendado: {
-    label: 'Agendado',
+    label: 'Pré-agendado',
     color: '#42A5F5',
     icon: 'calendar-outline',
+  },
+  sugerido: {
+    label: 'Horário Sugerido',
+    color: '#F59E0B',
+    icon: 'swap-horizontal-outline',
   },
   confirmado: {
     label: 'Confirmado',
     color: '#66BB6A',
     icon: 'checkmark-circle-outline',
+  },
+  confirmado_dentista: {
+    label: 'Confirmado pelo dentista',
+    color: '#66BB6A',
+    icon: 'checkmark-circle-outline',
+  },
+  rejeitado: {
+    label: 'Rejeitado',
+    color: '#EF4444',
+    icon: 'close-circle-outline',
   },
   cancelado: {
     label: 'Cancelado',
@@ -58,6 +121,90 @@ export const STATUS_AGENDAMENTO: Record<string, { label: string; color: string; 
     label: 'Realizado',
     color: '#9C27B0',
     icon: 'checkmark-done-outline',
+  },
+};
+
+export const APPOINTMENT_STATUS: Record<string, { label: string; color: string; icon: string }> = {
+  solicitado: {
+    label: 'Solicitado',
+    color: '#FFA726',
+    icon: 'hourglass-outline',
+  },
+  // Status novo — aguarda secretaria
+  agendamento_pendente_secretaria: {
+    label: 'Aguardando secretaria',
+    color: '#7C3AED',
+    icon: 'clipboard-outline',
+  },
+  // Status novo — secretaria atribuiu ao dentista
+  atribuido_dentista: {
+    label: 'Atribuído ao dentista',
+    color: '#2196F3',
+    icon: 'person-add-outline',
+  },
+  em_triagem: {
+    label: 'Em triagem',
+    color: '#F59E0B',
+    icon: 'chatbox-ellipses-outline',
+  },
+  aguardando_dentista: {
+    label: 'Aguardando dentista',
+    color: '#42A5F5',
+    icon: 'person-outline',
+  },
+  confirmado_dentista: {
+    label: 'Confirmado dentista',
+    color: '#66BB6A',
+    icon: 'checkmark-circle-outline',
+  },
+  rejeitado_dentista: {
+    label: 'Rejeitado dentista',
+    color: '#EF4444',
+    icon: 'close-circle-outline',
+  },
+  reagendamento_solicitado: {
+    label: 'Reagendamento solicitado',
+    color: '#F59E0B',
+    icon: 'swap-horizontal-outline',
+  },
+  notificado_paciente: {
+    label: 'Notificado paciente',
+    color: '#42A5F5',
+    icon: 'notifications-outline',
+  },
+  confirmado_paciente: {
+    label: 'Confirmado paciente',
+    color: '#66BB6A',
+    icon: 'checkmark-done-circle-outline',
+  },
+  realizado: {
+    label: 'Realizado',
+    color: '#9C27B0',
+    icon: 'medkit-outline',
+  },
+  cancelado: {
+    label: 'Cancelado',
+    color: '#EF5350',
+    icon: 'close-circle-outline',
+  },
+};
+
+export const APPOINTMENT_URGENCY: Record<string, { label: string; color: string }> = {
+  baixa: {
+    label: 'Baixa',
+    color: '#66BB6A',
+  },
+  normal: {
+    label: 'Normal',
+    color: '#42A5F5',
+  },
+  alta: {
+    label: 'Alta',
+    color: '#F59E0B',
+  },
+  urgente: {
+    label: 'Urgente',
+    color: '#EF4444',
   },
 };
 

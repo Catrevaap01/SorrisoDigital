@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
-import { useDentist } from '../../contexts/DentistContext';
 import { criarAgendamento } from '../../services/agendamentoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -23,7 +22,6 @@ type AgendamentoProps = NativeStackScreenProps<PacienteStackParamList, 'Agendame
 
 const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
   const { profile } = useAuth();
-  const { selectedDentist, selectDentist } = useDentist();
   const [loading, setLoading] = useState<boolean>(false);
   
   // Dados do agendamento
@@ -31,8 +29,6 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
   const [dataSelecionada, setDataSelecionada] = useState<Date | null>(null);
   const [horarioSelecionado, setHorarioSelecionado] = useState<string | null>(null);
   const [observacoes, setObservacoes] = useState<string>('');
-  const [dentistas, setDentistas] = useState<any[]>([]);
-  const [dentistaSelecionado, setDentistaSelecionado] = useState<string | null>(null);
 
   const tiposConsulta = [
     { id: 'consulta', label: 'Consulta de Rotina', icon: 'calendar', cor: COLORS.primary },
@@ -91,39 +87,6 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     };
   };
 
-  // load dentists list
-  React.useEffect(() => {
-    (async () => {
-      const { listarDentistas } = await import('../../services/dentistaService');
-      const res = await listarDentistas();
-      if (res.success && res.data) {
-        setDentistas(res.data);
-      }
-    })();
-  }, []);
-
-  // preselect from context
-  useEffect(() => {
-    if (selectedDentist) {
-      setDentistaSelecionado(selectedDentist.id);
-    }
-  }, [selectedDentist]);
-
-  useEffect(() => {
-    if (!selectedDentist) {
-      Alert.alert(
-        'Dentista obrigatório',
-        'Você deve selecionar um dentista antes de agendar.',
-        [
-          {
-            text: 'Escolher agora',
-            onPress: () => navigation.getParent()?.navigate('ChooseDentista' as any),
-          },
-        ],
-        { cancelable: false }
-      );
-    }
-  }, [selectedDentist]);
 
   const handleAgendar = async () => {
     if (!tipoConsulta) {
@@ -136,11 +99,6 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     }
     if (!horarioSelecionado) {
       Toast.show({ type: 'error', text1: 'Selecione um horário' });
-      return;
-    }
-    if (!dentistaSelecionado) {
-      Toast.show({ type: 'error', text1: 'Selecione um dentista' });
-      navigation.getParent()?.navigate('ChooseDentista' as any);
       return;
     }
 
@@ -164,6 +122,12 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
   };
 
   const processarAgendamento = async () => {
+    if (!profile?.id || !dataSelecionada || !horarioSelecionado) {
+      setLoading(false);
+      Toast.show({ type: 'error', text1: 'Erro interno', text2: 'Seu perfil ainda não foi carregado. Tente novamente.' });
+      return;
+    }
+
     setLoading(true);
 
     // Criar data/hora completa
@@ -171,13 +135,15 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     const dataAgendamento = new Date(dataSelecionada);
     dataAgendamento.setHours(parseInt(hora), parseInt(minuto), 0, 0);
 
+    // Não definir status nem dentista_id aqui.
+    // O serviço criarAgendamento define automaticamente:
+    //   status = 'agendamento_pendente_secretaria'
+    // garantindo que o agendamento vai para a fila da secretaria.
     const result = await criarAgendamento({
       paciente_id: profile.id,
       data_agendamento: dataAgendamento.toISOString(),
       tipo: tipoConsulta,
       observacoes: observacoes.trim(),
-      status: 'pendente',
-      dentista_id: dentistaSelecionado || null,
     });
 
     setLoading(false);
@@ -185,8 +151,8 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     if (result.success) {
       Toast.show({
         type: 'success',
-        text1: 'Agendamento realizado!',
-        text2: 'Você receberá uma confirmação em breve',
+        text1: 'Solicitação enviada!',
+        text2: 'A secretaria irá analisar e confirmar o agendamento',
       });
       navigation.goBack();
     } else {
@@ -216,37 +182,6 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
         <View style={[
           Platform.OS === 'web' && styles.webContent
         ]}>
-      {/* Selecionar dentista (opcional) */}
-      {dentistas.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Enviar para</Text>
-          <TouchableOpacity
-            style={styles.selectButton}
-            onPress={() => {
-              const alertOptions = dentistas.map((d) => ({
-                text: d.nome,
-                onPress: () => {
-                  setDentistaSelecionado(d.id);
-                  selectDentist({ id: d.id, nome: d.nome, foto_url: d.foto_url });
-                },
-              }));
-
-              Alert.alert('Escolher dentista', '', [
-                ...alertOptions,
-                { text: 'Cancelar', style: 'cancel' },
-              ]);
-            }}
-          >
-            <Text style={[styles.selectText, !dentistaSelecionado && styles.selectPlaceholder]}>
-              {dentistaSelecionado
-                ? dentistas.find((d) => d.id === dentistaSelecionado)?.nome
-                : 'Selecione (opcional)'}
-            </Text>
-            <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
-          </TouchableOpacity>
-        </View>
-      )}
-
       {/* Tipo de Consulta */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Tipo de Consulta</Text>

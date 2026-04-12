@@ -7,7 +7,7 @@
 import { Platform } from 'react-native';
 import { gerarRelatorioDentista, gerarRelatorioGeral } from './relatorioService';
 import { exportHtmlAsPdf } from '../utils/pdfExportUtils';
-import { supabase } from '../config/supabase';
+import { supabase, SUPABASE_SERVICE_ROLE_KEY } from '../config/supabase';
 
 type PdfResult = { success: boolean; error?: string };
 
@@ -231,7 +231,7 @@ const getAdminCredentials = async (): Promise<{ url: string; key: string } | nul
         || (Constants as any).manifest2?.extra
         || (Constants as any).manifest?.extra;
       const url = extra?.SUPABASE_URL;
-      const key = extra?.SUPABASE_SERVICE_ROLE_KEY;
+      const key = extra?.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_SERVICE_ROLE_KEY;
       if (url && key) return { url, key };
     }
 
@@ -345,4 +345,159 @@ export const exportarHistoricoPacientePdf = async (
  */
 export const exportarFichaPdf = async (html: string, nomeP?: string): Promise<PdfResult> => {
   return exportHtmlAsPdf(html, `ficha-${nomeP?.replace(/[^a-z0-9]/gi, '_') || 'paciente'}.pdf`);
+};
+
+const safeFileName = (value?: string) =>
+  (value || 'paciente').replace(/[^a-z0-9]/gi, '_');
+
+const buildAnamneseHtml = (paciente: any, anamnese: any) => `
+<!DOCTYPE html><html lang="pt-AO"><head><meta charset="utf-8"><title>Anamnese</title><style>${CSS_BASE}</style></head><body>
+  <div class="header">
+    <h1>Anamnese Clínica</h1>
+    <div class="sub">${paciente?.nome || 'Paciente'}</div>
+    <div class="badge">${formatDate(anamnese?.updated_at || anamnese?.created_at || new Date().toISOString())}</div>
+  </div>
+  <div class="section"><h2>Resumo</h2>
+    <div class="info-grid">
+      <div class="info-item"><span class="label">Paciente</span><span class="value">${paciente?.nome || '-'}</span></div>
+      <div class="info-item"><span class="label">Telefone</span><span class="value">${paciente?.telefone || '-'}</span></div>
+      <div class="info-item"><span class="label">Queixa principal</span><span class="value">${anamnese?.queixa_principal || '-'}</span></div>
+      <div class="info-item"><span class="label">Medicamentos</span><span class="value">${anamnese?.medicamentos || '-'}</span></div>
+    </div>
+  </div>
+  <div class="section"><h2>História clínica</h2>
+    <p><strong>HDA:</strong> ${anamnese?.hda || '-'}</p>
+    <p><strong>Alergias:</strong> ${anamnese?.alergias_desc || (anamnese?.alergico ? 'Sim' : 'Não informado')}</p>
+    <p><strong>Doenças crônicas:</strong> ${[
+      anamnese?.hipertensao ? 'Hipertensão' : '',
+      anamnese?.diabetes ? 'Diabetes' : '',
+      anamnese?.cardiopatia ? 'Cardiopatia' : '',
+      anamnese?.coagulopatia ? 'Coagulopatia' : '',
+      anamnese?.hepatite ? 'Hepatite' : '',
+      anamnese?.hiv ? 'HIV' : '',
+      anamnese?.outras_doencas || '',
+    ].filter(Boolean).join(', ') || '-'}</p>
+    <p><strong>Observações:</strong> ${anamnese?.observacoes || '-'}</p>
+  </div>
+  <div class="footer">Documento clínico gerado automaticamente pelo sistema</div>
+</body></html>`;
+
+const buildPlanoHtml = (paciente: any, procedimentos: any[]) => {
+  const total = (procedimentos || []).reduce((sum: number, item: any) => sum + Number(item.valor || 0), 0);
+  const rows = (procedimentos || []).map((item: any) => `
+    <tr>
+      <td>${item.descricao || '-'}</td>
+      <td>${item.dente || '-'}</td>
+      <td>${item.status || '-'}</td>
+      <td>${Number(item.valor || 0).toLocaleString('pt-AO')} Kz</td>
+      <td>${item.observacoes || '-'}</td>
+    </tr>
+  `).join('');
+
+  return `<!DOCTYPE html><html lang="pt-AO"><head><meta charset="utf-8"><title>Plano</title><style>${CSS_BASE}</style></head><body>
+    <div class="header">
+      <h1>Plano de Tratamento</h1>
+      <div class="sub">${paciente?.nome || 'Paciente'}</div>
+      <div class="badge">Total estimado: ${total.toLocaleString('pt-AO')} Kz</div>
+    </div>
+    <div class="section"><h2>Procedimentos</h2>
+      <table>
+        <thead><tr><th>Procedimento</th><th>Dente</th><th>Estado</th><th>Valor</th><th>Observações</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="5">Nenhum procedimento registado.</td></tr>'}</tbody>
+      </table>
+    </div>
+    <div class="footer">Quando o paciente é o mesmo, o plano consolida os valores dos serviços.</div>
+  </body></html>`;
+};
+
+const buildPrescricaoHtml = (paciente: any, prescricao: any) => {
+  const medicamentos = Array.isArray(prescricao?.medicamentos) ? prescricao.medicamentos : [];
+  const meds = medicamentos.map((m: any) => `
+    <tr>
+      <td>${m.nome || '-'}</td>
+      <td>${m.dose || '-'}</td>
+      <td>${m.frequencia || '-'}</td>
+      <td>${m.duracao || '-'}</td>
+      <td>${m.observacoes || '-'}</td>
+    </tr>
+  `).join('');
+
+  return `<!DOCTYPE html><html lang="pt-AO"><head><meta charset="utf-8"><title>Prescrição</title><style>${CSS_BASE}</style></head><body>
+    <div class="header">
+      <h1>Prescrição</h1>
+      <div class="sub">${paciente?.nome || 'Paciente'}</div>
+      <div class="badge">${formatDate(prescricao?.created_at || new Date().toISOString())}</div>
+    </div>
+    <div class="section"><h2>Medicamentos</h2>
+      <table>
+        <thead><tr><th>Medicamento</th><th>Dose</th><th>Frequência</th><th>Duração</th><th>Observações</th></tr></thead>
+        <tbody>${meds || '<tr><td colspan="5">Nenhum medicamento registado.</td></tr>'}</tbody>
+      </table>
+    </div>
+    <div class="section"><h2>Assinatura clínica</h2>
+      <p><strong>Dentista:</strong> ${prescricao?.dentista_nome || '-'}</p>
+      <p><strong>CRM:</strong> ${prescricao?.dentista_crm || '-'}</p>
+      <p><strong>Observações:</strong> ${prescricao?.observacoes || '-'}</p>
+    </div>
+  </body></html>`;
+};
+
+export const exportarAnamnesePdf = async (pacienteId: string): Promise<PdfResult> => {
+  try {
+    const [pacienteRes, anamneseRes] = await Promise.all([
+      supabase.from('profiles').select('id, nome, telefone').eq('id', pacienteId).single(),
+      supabase.from('anamneses').select('*').eq('paciente_id', pacienteId).order('updated_at', { ascending: false }).limit(1).maybeSingle(),
+    ]);
+
+    if (!pacienteRes.data) return { success: false, error: 'Paciente não encontrado' };
+    if (!anamneseRes.data) return { success: false, error: 'Nenhuma anamnese encontrada para este paciente' };
+
+    return exportHtmlAsPdf(buildAnamneseHtml(pacienteRes.data, anamneseRes.data), `anamnese-${safeFileName(pacienteRes.data.nome)}.pdf`);
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao gerar PDF da anamnese' };
+  }
+};
+
+export const exportarPlanoTratamentoPdf = async (pacienteId: string): Promise<PdfResult> => {
+  try {
+    const [pacienteRes, planoRes] = await Promise.all([
+      supabase.from('profiles').select('id, nome, telefone').eq('id', pacienteId).single(),
+      supabase.from('planos_tratamento').select('id').eq('paciente_id', pacienteId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    ]);
+
+    if (!pacienteRes.data) return { success: false, error: 'Paciente não encontrado' };
+    if (!planoRes.data?.id) return { success: false, error: 'Nenhum plano encontrado para este paciente' };
+
+    const procedimentosRes = await supabase
+      .from('procedimentos_tratamento')
+      .select('*')
+      .eq('plano_id', planoRes.data.id)
+      .order('created_at', { ascending: true });
+
+    return exportHtmlAsPdf(
+      buildPlanoHtml(pacienteRes.data, procedimentosRes.data || []),
+      `plano-${safeFileName(pacienteRes.data.nome)}.pdf`
+    );
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao gerar PDF do plano de tratamento' };
+  }
+};
+
+export const exportarPrescricaoPdf = async (pacienteId: string): Promise<PdfResult> => {
+  try {
+    const [pacienteRes, prescricaoRes] = await Promise.all([
+      supabase.from('profiles').select('id, nome, telefone').eq('id', pacienteId).single(),
+      supabase.from('prescricoes').select('*').eq('paciente_id', pacienteId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    ]);
+
+    if (!pacienteRes.data) return { success: false, error: 'Paciente não encontrado' };
+    if (!prescricaoRes.data) return { success: false, error: 'Nenhuma prescrição encontrada para este paciente' };
+
+    return exportHtmlAsPdf(
+      buildPrescricaoHtml(pacienteRes.data, prescricaoRes.data),
+      `prescricao-${safeFileName(pacienteRes.data.nome)}.pdf`
+    );
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao gerar PDF da prescrição' };
+  }
 };

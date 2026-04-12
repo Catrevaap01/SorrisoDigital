@@ -3,25 +3,9 @@
  * FunÃ§Ãµes para gerar senhas aleatÃ³rias e recuperar senhas
  */
 
-import { supabase, PROFILE_SCHEMA_FEATURES } from '../config/supabase';
+import { supabase, PROFILE_SCHEMA_FEATURES, getAdminClient } from '../config/supabase';
 import { sendPasswordRecoveryEmail } from './emailService';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
-
-const extra = Constants.expoConfig?.extra;
-const SUPABASE_URL = extra?.SUPABASE_URL as string | undefined;
-const SUPABASE_SERVICE_ROLE_KEY = extra?.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
-
-const getAdminClient = (): SupabaseClient | null => {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
-  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
-};
+import { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * Gerar senha aleatÃ³ria segura
@@ -39,10 +23,10 @@ export const gerarSenhaAleatoria = (length: number = 12): string => {
  * Recuperar senha de um dentista (admin only)
  * Gera senha temporaria, envia por email e forca troca no proximo login.
  */
-export const recuperarSenhaDentista = async (
-  dentistaId: string,
-  dentistaEmail: string,
-  dentistaNome: string
+export const recuperarSenhaProfissional = async (
+  profissionalId: string,
+  profissionalEmail: string,
+  profissionalNome: string
 ): Promise<{
   success: boolean;
   novaSenha?: string;
@@ -54,11 +38,11 @@ export const recuperarSenhaDentista = async (
     const adminClient = getAdminClient();
 
     const authApi = adminClient?.auth.admin || supabase.auth.admin;
-    const { data: userData } = await authApi.getUserById(dentistaId);
+    const { data: userData } = await authApi.getUserById(profissionalId);
     const currentMetadata = userData?.user?.user_metadata || {};
 
     const { error: updateError } = await authApi.updateUserById(
-      dentistaId,
+      profissionalId,
       {
         password: novaSenha,
         user_metadata: {
@@ -90,7 +74,7 @@ export const recuperarSenhaDentista = async (
           senha_alterada: false,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', dentistaId);
+        .eq('id', profissionalId);
 
       if (profileError) {
         return { success: false, error: profileError.message };
@@ -98,8 +82,8 @@ export const recuperarSenhaDentista = async (
     }
 
     const emailResult = await sendPasswordRecoveryEmail(
-      dentistaEmail,
-      dentistaNome,
+      profissionalEmail,
+      profissionalNome,
       novaSenha
     );
 
@@ -124,6 +108,8 @@ export const recuperarSenhaDentista = async (
     };
   }
 };
+
+export const recuperarSenhaDentista = recuperarSenhaProfissional;
 
 /**
  * Atualizar senha do usuÃ¡rio apÃ³s primeira login (mudanÃ§a obrigatÃ³ria)

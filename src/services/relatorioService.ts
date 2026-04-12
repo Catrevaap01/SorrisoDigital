@@ -25,6 +25,8 @@ export interface RelatorioGeral {
   totalTriagens: number;
   totalConsultas?: number;
   totalMensagens?: number;
+  receitaEstimada?: number;
+  receitaRealizada?: number;
   triagensRespondidas: number;
   percentualResposta: number;
   // novos campos para resumo do mês atual
@@ -41,6 +43,20 @@ export interface ExportResult {
   fileUri?: string;
   error?: string;
 }
+
+const PRECO_POR_TIPO: Record<string, number> = {
+  consulta: 25000,
+  avaliacao: 30000,
+  retorno: 15000,
+  urgencia: 45000,
+  raio_x: 20000,
+  panoramico: 35000,
+  profilaxia: 22000,
+  branqueamento: 60000,
+  canal: 90000,
+  ortodontia: 120000,
+  restauracao: 40000,
+};
 
 /**
  * Gera relatorio geral de todos os dentistas
@@ -62,6 +78,7 @@ export const gerarRelatorioGeral = async (): Promise<{
       { count: mensagensCount, error: mensagensError },
       { count: dentistasMesCount, error: dentistasMesError },
       { count: pacientesMesCount, error: pacientesMesError },
+      { data: agendamentosReceita, error: receitaError },
     ] = await Promise.all([
       // 1. Listagem de dentistas (campos essenciais)
       supabase
@@ -91,6 +108,8 @@ export const gerarRelatorioGeral = async (): Promise<{
       supabase.from('profiles').select('*', { count: 'exact', head: true })
         .eq('tipo', 'paciente')
         .gte('created_at', inicioMes),
+      // 8. Agendamentos confirmados ou realizados para estimativa de receita
+      supabase.from('agendamentos').select('tipo,status'),
     ]);
 
     if (dentistasError) return { success: false, error: dentistasError.message };
@@ -100,6 +119,21 @@ export const gerarRelatorioGeral = async (): Promise<{
     if (mensagensError) return { success: false, error: mensagensError.message };
     if (dentistasMesError) return { success: false, error: dentistasMesError.message };
     if (pacientesMesError) return { success: false, error: pacientesMesError.message };
+    if (receitaError) return { success: false, error: receitaError.message };
+
+    const receitaEstimada = (agendamentosReceita || []).reduce((sum: number, agenda: any) => {
+      const valor = PRECO_POR_TIPO[agenda.tipo] || 0;
+      const status = (agenda.status || '').toLowerCase();
+      if (['cancelado', 'rejeitado'].includes(status)) {
+        return sum;
+      }
+      return sum + valor;
+    }, 0);
+
+    const receitaRealizada = (agendamentosReceita || []).reduce((sum: number, agenda: any) => {
+      const valor = PRECO_POR_TIPO[agenda.tipo] || 0;
+      return agenda.status === 'realizado' ? sum + valor : sum;
+    }, 0);
 
     const relatoriosDentistas: RelatorioDentista[] = (dentistas || []).map(
       (dentista: any) => {
@@ -170,6 +204,8 @@ export const gerarRelatorioGeral = async (): Promise<{
       totalTriagens,
       totalConsultas: Number(consultasCount || 0),
       totalMensagens: Number(mensagensCount || 0),
+      receitaEstimada,
+      receitaRealizada,
       triagensRespondidas: totalRespondidas,
       percentualResposta: Math.round(percentualGeral),
       cadastrosMes: (dentistasMesCount || 0) + (pacientesMesCount || 0),

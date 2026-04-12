@@ -3,7 +3,7 @@
  * Dashboard, Relatórios, Recuperação de Senhas, Perfil
  */
 
-import React from 'react';
+import * as React from 'react';
 import { Platform, Text, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,9 +13,11 @@ import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 import AdminReportsScreen from '../screens/admin/AdminReportsScreen';
 import AdminPasswordRecoveryScreen from '../screens/admin/AdminPasswordRecoveryScreen';
 import AdminProfileScreen from '../screens/admin/AdminProfileScreen';
+import AdminSecretariosScreen from '../screens/admin/AdminSecretariosScreen';
 
 export type AdminTabParamList = {
   AdminDashboard: undefined;
+  AdminSecretarios: undefined;
   AdminReports: undefined;
   AdminPasswordRecovery: undefined;
   AdminProfile: undefined;
@@ -47,6 +49,9 @@ const AdminNavigator: React.FC = () => {
           switch (route.name) {
             case 'AdminDashboard':
               iconName = focused ? 'grid' : 'grid-outline';
+              break;
+            case 'AdminSecretarios':
+              iconName = focused ? 'people' : 'people-outline';
               break;
             case 'AdminReports':
               iconName = focused ? 'bar-chart' : 'bar-chart-outline';
@@ -114,6 +119,14 @@ const AdminNavigator: React.FC = () => {
         options={{
           title: 'Dentistas',
           tabBarLabel: 'Dentistas',
+        }}
+      />
+      <Tab.Screen
+        name="AdminSecretarios"
+        component={AdminSecretariosScreen}
+        options={{
+          title: 'Secretários',
+          tabBarLabel: 'Secretários',
         }}
       />
       <Tab.Screen

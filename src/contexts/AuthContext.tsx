@@ -6,10 +6,10 @@
 import React, { createContext, useState, useContext, useEffect, useRef, useCallback, ReactNode } from 'react';
 import { Platform, AppState } from 'react-native';
 import Constants from 'expo-constants';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { User } from '@supabase/supabase-js';
 import { universalStorage } from '../utils/storage';
-import { supabase, PROFILE_SCHEMA_FEATURES, SUPABASE_URL } from '../config/supabase';
+import { supabase, PROFILE_SCHEMA_FEATURES, SUPABASE_URL, getAdminClient } from '../config/supabase';
 import Toast from 'react-native-toast-message';
 import { logger } from '../utils/logger';
 import { withTimeout } from '../utils/withTimeout';
@@ -23,7 +23,7 @@ export interface UserProfile {
   id: string;
   email?: string;
   nome?: string;
-  tipo?: 'paciente' | 'dentista' | 'medico' | 'admin';
+  tipo?: 'paciente' | 'dentista' | 'medico' | 'admin' | 'secretario';
   telefone?: string;
   provincia?: string;
   provincia_id?: number;
@@ -150,25 +150,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    */
   const LATEST_SESSION_KEY = 'teodonto_active_instance_id';
 
-  // Helper from pacienteService (copied for RLS fallback)
-  const getAdminClient = (): SupabaseClient | null => {
-    const extra = Constants.expoConfig?.extra || (Constants as any).manifest2?.extra || (Constants as any).manifest?.extra;
-    const url = extra?.SUPABASE_URL;
-    const key = extra?.SUPABASE_SERVICE_ROLE_KEY;
+  // Use the shared admin client singleton from config for RLS fallback.
+  // This avoids creating multiple GoTrueClient instances in the browser.
 
-    if (!url || !key) {
-      console.warn('⚠️ getAdminClient: Admin keys missing in Constants.extra');
-      return null;
-    }
 
-    return createClient(url, key, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-    });
-  };
 
   const isRowLevelSecurityError = (error: any): boolean => {
     const msg = String(error?.message || '').toLowerCase();

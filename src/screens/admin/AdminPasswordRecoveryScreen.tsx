@@ -22,40 +22,55 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
-import { listarDentistas, DentistaProfile } from '../../services/dentistaService';
-import { recuperarSenhaDentista } from '../../services/passwordRecoveryService';
+import { authService } from '../../services/authService';
+import { recuperarSenhaProfissional } from '../../services/passwordRecoveryService';
 import { copiarParaAreaDeTransferencia } from '../../utils/senhaUtils';
 
+interface ProfissionalRecovery {
+  id: string;
+  nome?: string;
+  email?: string;
+  telefone?: string;
+  especialidade?: string;
+  tipo?: string;
+}
+
 const AdminPasswordRecoveryScreen: React.FC = () => {
-  const [dentistas, setDentistas] = useState<DentistaProfile[]>([]);
-  const [dentistasOrig, setDentistasOrig] = useState<DentistaProfile[]>([]);
+  const [profissionais, setProfissionais] = useState<ProfissionalRecovery[]>([]);
+  const [profissionaisOrig, setProfissionaisOrig] = useState<ProfissionalRecovery[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [busca, setBusca] = useState('');
   const [recoveryModal, setRecoveryModal] = useState(false);
-  const [dentistaSelecionado, setDentistaSelecionado] = useState<DentistaProfile | null>(null);
+  const [profissionalSelecionado, setProfissionalSelecionado] = useState<ProfissionalRecovery | null>(null);
   const [novaSenha, setNovaSenha] = useState('');
   const [processandoRecuperacao, setProcessandoRecuperacao] = useState(false);
 
-  const carregarDentistas = async (forceRefresh = false) => {
+  const getTipoLabel = (tipo?: string) => {
+    const normalizado = String(tipo || '').toLowerCase();
+    if (normalizado === 'secretario') return 'Secretário';
+    return 'Dentista';
+  };
+
+  const carregarProfissionais = async () => {
     setLoading(true);
     try {
-      const resultado = await listarDentistas({ forceRefresh });
+      const resultado = await authService.adminListProfissionais();
       if (resultado.success && resultado.data) {
-        setDentistas(resultado.data);
-        setDentistasOrig(resultado.data);
+        setProfissionais(resultado.data as ProfissionalRecovery[]);
+        setProfissionaisOrig(resultado.data as ProfissionalRecovery[]);
       } else {
         Toast.show({
           type: 'error',
           text1: 'Erro',
-          text2: resultado.error || 'Erro ao carregar dentistas',
+          text2: 'Erro ao carregar profissionais',
         });
       }
     } catch {
       Toast.show({
         type: 'error',
         text1: 'Erro',
-        text2: 'Erro ao carregar dentistas',
+        text2: 'Erro ao carregar profissionais',
       });
     } finally {
       setLoading(false);
@@ -64,33 +79,34 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      carregarDentistas(true);
+      carregarProfissionais();
     }, [])
   );
 
   const handleBusca = (texto: string) => {
     setBusca(texto);
     if (texto.trim()) {
-      const filtrados = dentistasOrig.filter(
+      const filtrados = profissionaisOrig.filter(
         (d) =>
           d.nome?.toLowerCase().includes(texto.toLowerCase()) ||
-          d.email?.toLowerCase().includes(texto.toLowerCase())
+          d.email?.toLowerCase().includes(texto.toLowerCase()) ||
+          String(d.tipo || '').toLowerCase().includes(texto.toLowerCase())
       );
-      setDentistas(filtrados);
+      setProfissionais(filtrados);
       return;
     }
-    setDentistas(dentistasOrig);
+    setProfissionais(profissionaisOrig);
   };
 
   const handleRecuperarSenha = async () => {
-    if (!dentistaSelecionado) return;
+    if (!profissionalSelecionado) return;
 
     setProcessandoRecuperacao(true);
     try {
-      const resetResult = await recuperarSenhaDentista(
-        dentistaSelecionado.id,
-        dentistaSelecionado.email || '',
-        dentistaSelecionado.nome || ''
+      const resetResult = await recuperarSenhaProfissional(
+        profissionalSelecionado.id,
+        profissionalSelecionado.email || '',
+        profissionalSelecionado.nome || ''
       );
 
       if (resetResult.success && resetResult.novaSenha) {
@@ -140,19 +156,19 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await carregarDentistas(true);
+    await carregarProfissionais();
     setRefreshing(false);
   };
 
-  const openRecoveryModal = (dentista: DentistaProfile) => {
-    setDentistaSelecionado(dentista);
+  const openRecoveryModal = (profissional: ProfissionalRecovery) => {
+    setProfissionalSelecionado(profissional);
     setNovaSenha('');
     setRecoveryModal(true);
   };
 
   const closeRecoveryModal = () => {
     setRecoveryModal(false);
-    setDentistaSelecionado(null);
+    setProfissionalSelecionado(null);
     setNovaSenha('');
   };
 
@@ -173,7 +189,7 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
             <Ionicons name="search" size={20} color={COLORS.textSecondary} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Buscar dentista..."
+              placeholder="Buscar dentista ou secretário..."
               placeholderTextColor={COLORS.textSecondary}
               value={busca}
               onChangeText={handleBusca}
@@ -193,7 +209,7 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
         </View>
       ) : (
         <FlatList
-          data={dentistas}
+          data={profissionais}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[
             styles.listContent,
@@ -213,7 +229,10 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
                 <View style={styles.info}>
                   <Text style={styles.name}>{item.nome}</Text>
                   <Text style={styles.email}>{item.email}</Text>
-                  <Text style={styles.especialidade}>{item.especialidade}</Text>
+                  <Text style={styles.especialidade}>
+                    {getTipoLabel(item.tipo)}
+                    {item.especialidade ? ` • ${item.especialidade}` : ''}
+                  </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={24} color={COLORS.textSecondary} />
               </View>
@@ -223,7 +242,7 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="person-remove-outline" size={48} color={COLORS.textSecondary} />
-              <Text style={styles.emptyText}>Nenhum dentista encontrado</Text>
+              <Text style={styles.emptyText}>Nenhum profissional encontrado</Text>
             </View>
           }
         />
@@ -241,16 +260,20 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
             </View>
 
             <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
-              {dentistaSelecionado && (
+              {profissionalSelecionado && (
                 <>
                   <View style={styles.dentistInfo}>
                     <View style={[styles.avatar, { width: 80, height: 80 }]}>
                       <Text style={[styles.avatarText, { fontSize: 32 }]}>
-                        {dentistaSelecionado.nome?.charAt(0).toUpperCase()}
+                        {profissionalSelecionado.nome?.charAt(0).toUpperCase()}
                       </Text>
                     </View>
-                    <Text style={styles.dentistName}>{dentistaSelecionado.nome}</Text>
-                    <Text style={styles.dentistEmail}>{dentistaSelecionado.email}</Text>
+                    <Text style={styles.dentistName}>{profissionalSelecionado.nome}</Text>
+                    <Text style={styles.dentistEmail}>{profissionalSelecionado.email}</Text>
+                    <Text style={styles.especialidade}>
+                      {getTipoLabel(profissionalSelecionado.tipo)}
+                      {profissionalSelecionado.especialidade ? ` • ${profissionalSelecionado.especialidade}` : ''}
+                    </Text>
                   </View>
 
                   {novaSenha ? (
@@ -263,7 +286,7 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
                         </TouchableOpacity>
                       </View>
                       <Text style={styles.senhaInfo}>
-                        Esta senha foi enviada por email. No proximo login o dentista sera
+                        Esta senha foi enviada por email. No proximo login o utilizador sera
                         obrigado a alterar a senha.
                       </Text>
                     </View>
@@ -499,5 +522,4 @@ const styles = StyleSheet.create({
 });
 
 export default AdminPasswordRecoveryScreen;
-
 

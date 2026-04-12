@@ -3,33 +3,22 @@
  * Notifica quando triagem é criada, respondida e envia feedback
  */
 
-import { supabase } from '../config/supabase';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
+import { supabase, getAdminClient } from '../config/supabase';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '../utils/logger';
 import { handleError, HandledError } from '../utils/errorHandler';
-
-const extra = Constants.expoConfig?.extra;
-const SUPABASE_URL = extra?.SUPABASE_URL as string | undefined;
-const SUPABASE_SERVICE_ROLE_KEY = extra?.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
-
-const getAdminClient = (): SupabaseClient | null => {
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
-  return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-  });
-};
 
 export interface Notificacao {
   id: string;
   usuario_id: string;
-  tipo: 'triagem_enviada' | 'triagem_respondida' | 'feedback_saude' | 'conselho' | 'urgencia';
+  tipo: 'triagem_enviada' | 'triagem_respondida' | 'feedback_saude' | 'conselho' | 'urgencia' | 'agendamento_atualizado';
   titulo: string;
   mensagem: string;
   dados?: {
     triagem_id?: string;
     dentista_id?: string;
     paciente_id?: string;
+    agendamento_id?: string;
     [key: string]: any;
   };
   lida: boolean;
@@ -139,6 +128,50 @@ export const notificarTriagemRespondida = async (
     return { success: true };
   } catch (err) {
     const handled = handleError(err, 'notificacoesService.notificarTriagemRespondida');
+    return { success: false, error: handled };
+  }
+};
+
+/**
+ * Notifica paciente sobre atualização de agendamento
+ */
+export const notificarAgendamentoPaciente = async (
+  pacienteId: string,
+  titulo: string,
+  mensagem: string,
+  dados: Record<string, any> = {}
+): Promise<{ success: boolean; error?: HandledError | string }> => {
+  try {
+    const payload = [
+      {
+        usuario_id: pacienteId,
+        tipo: 'agendamento_atualizado',
+        titulo,
+        mensagem,
+        dados: {
+          ...dados,
+          paciente_id: pacienteId,
+        },
+        lida: false,
+      },
+    ];
+
+    const runInsert = async (p: any[]) => {
+      let res = await supabase.from('notificacoes').insert(p);
+      if (res.error && (res.error.code === '42501' || (res.error as any).status === 403)) {
+        const admin = getAdminClient();
+        if (admin) res = await admin.from('notificacoes').insert(p);
+      }
+      return res;
+    };
+
+    const { error } = await runInsert(payload);
+    if (error) throw error;
+
+    logger.info('Notificação de agendamento enviada', { pacienteId });
+    return { success: true };
+  } catch (err) {
+    const handled = handleError(err, 'notificacoesService.notificarAgendamentoPaciente');
     return { success: false, error: handled };
   }
 };

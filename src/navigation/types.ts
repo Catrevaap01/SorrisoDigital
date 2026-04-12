@@ -37,15 +37,40 @@ export type DentistaTabParamList = {
 
 export type AdminTabParamList = {
   AdminDashboard: undefined;
+  AdminSecretarios: undefined;
   AdminReports: undefined;
   AdminPasswordRecovery: undefined;
   AdminProfile: undefined;
 };
 
+export type SecretarioTabParamList = {
+  SecretarioDashboard: undefined;
+  Agendamentos: undefined;
+  Mensagens:
+    | {
+        openConversationId?: string;
+        otherUserName?: string;
+        otherUserAvatar?: string;
+      }
+    | undefined;
+  Perfil: undefined;
+};
+
+export type SecretarioStackParamList = {
+  SecretarioTabs: undefined;
+  AtribuirDentista: { triagemId: string; especialidadeSugerida?: string };
+  AtribuirAgendamento: { agendamentoId: string; especialidadeSugerida?: string };
+  Settings: undefined;
+  Notificacoes: undefined;
+  NotificacoesDetalhe: undefined;
+  Privacidade: undefined;
+  TermosUso: undefined;
+  Ajuda: undefined;
+};
+
 export type PacienteStackParamList = {
   PacienteTabs: undefined;
   Agendamento: undefined;
-  ChooseDentista: undefined; // força paciente escolher dentista antes de triagem/consulta
   Settings: undefined; // tela de configurações do aplicativo
   Notificacoes: undefined;
   NotificacoesDetalhe: undefined;
@@ -59,13 +84,19 @@ export type DentistaStackParamList = {
   CasoDetalhe: { triagemId: string };
   PacienteHistorico: { pacienteId: string; pacienteNome?: string };
   CadastrarPaciente: undefined;
-  Settings: undefined; // mesma tela de configurações usada pelo paciente
+  Settings: undefined;
   Notificacoes: undefined;
   NotificacoesDetalhe: undefined;
   Privacidade: undefined;
   TermosUso: undefined;
   Ajuda: undefined;
+  // Módulo Clínico
+  Anamnese: { triagemId: string; pacienteId: string; pacienteNome?: string };
+  PlanoTratamento: { triagemId: string; pacienteId: string; pacienteNome?: string };
+  Prescricao: { triagemId: string; pacienteId: string; pacienteNome?: string };
+  EvolucaoClinica: { triagemId: string; pacienteId: string; pacienteNome?: string };
 };
+
 
 
 
@@ -82,5 +113,6 @@ export type RootStackParamList = {
   DentistaMain: undefined;
   PacienteMain: undefined;
   AdminMain: undefined;
+  SecretarioMain: undefined;
   CompleteProfile: { forceEdit?: boolean } | undefined;
 };

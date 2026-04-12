@@ -20,7 +20,6 @@ import Svg, { Ellipse, G, Path, Text as SvgText } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
-import { useDentist } from '../../contexts/DentistContext';
 import { criarTriagem } from '../../services/triagemService';
 import { COLORS, SIZES, SHADOWS, SPACING } from '../../styles/theme';
 import { SINTOMAS, DURACAO_OPTIONS } from '../../utils/constants';
@@ -83,12 +82,10 @@ const createToothPath = (
 };
 
 const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
-  // scrollRef e keyboard handler já existe abaixo
   const { profile } = useAuth();
-  const { selectedDentist, selectDentist } = useDentist();
   const [etapa, setEtapa] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
-  
+
   // Dados da triagem
   const [sintomaPrincipal, setSintomaPrincipal] = useState<string>('');
   const [descricao, setDescricao] = useState<string>('');
@@ -97,51 +94,8 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
   const [dentesSelecionados, setDentesSelecionados] = useState<Set<string>>(new Set());
   const [intensidadeDor, setIntensidadeDor] = useState<number>(0);
   const [imagens, setImagens] = useState<string[]>([]);
-  const [dentistas, setDentistas] = useState<any[]>([]);
-  const [dentistaSelecionado, setDentistaSelecionado] = useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
-  const [sugestoesAbertas, setSugestoesAbertas] = useState<boolean>(false);
   const scrollRef = useRef<ScrollView>(null);
-
-  // Funções de câmera/galeria - CORRIGIDO
-  // load dentists on first render
-  React.useEffect(() => {
-    (async () => {
-      const { listarDentistas } = await import('../../services/dentistaService');
-      const res = await listarDentistas();
-      if (res.success && res.data) {
-        setDentistas(res.data);
-      }
-    })();
-  }, []);
-
-  // prefill selectedDentist from context
-  useEffect(() => {
-    if (selectedDentist) {
-      setDentistaSelecionado(selectedDentist.id);
-    }
-  }, [selectedDentist]);
-
-  // if there's no dentist chosen at all, force the user to pick one
-  useEffect(() => {
-    if (!selectedDentist) {
-      if (Platform.OS === 'web') {
-        navigation.getParent()?.navigate('ChooseDentista' as any);
-      } else {
-        Alert.alert(
-          'Dentista obrigatório',
-          'Você deve selecionar um dentista antes de enviar triagem.',
-          [
-            {
-              text: 'Escolher agora',
-              onPress: () => navigation.getParent()?.navigate('ChooseDentista' as any),
-            },
-          ],
-          { cancelable: false }
-        );
-      }
-    }
-  }, [selectedDentist]);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -299,20 +253,22 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
       Toast.show({ type: 'error', text1: 'Selecione o sintoma principal' });
       return;
     }
-
-    // ensure a dentist is chosen (from step or context)
-    if (!dentistaSelecionado) {
-      Toast.show({ type: 'error', text1: 'Selecione um dentista' });
-      navigation.getParent()?.navigate('ChooseDentista' as any);
-      return;
-    }
-
     await processarEnvio();
   };
 
   const processarEnvio = async () => {
+    if (!profile?.id) {
+      Toast.show({ type: 'error', text1: 'Erro de autenticação', text2: 'Seu perfil ainda não foi carregado. Tente novamente.' });
+      return;
+    }
+
     setLoading(true);
 
+    // Não definir status, dentista_id nem secretario_id aqui.
+    // O serviço criarTriagem define automaticamente:
+    //   status = 'triagem_pendente_secretaria'
+    //   dentista_id = null
+    // garantindo que a triagem vai para a fila da secretaria.
     const triagemData: any = {
       paciente_id: profile.id,
       sintoma_principal: sintomaPrincipal,
@@ -322,10 +278,6 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
       intensidade_dor: intensidadeDor,
     };
 
-    // include dentist if selected
-    if (dentistaSelecionado) {
-      triagemData.dentista_id = dentistaSelecionado;
-    }
     const result = await criarTriagem(triagemData, imagens, profile.id);
 
     setLoading(false);
@@ -333,8 +285,8 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
     if (result.success) {
       Toast.show({
         type: 'success',
-        text1: 'Triagem enviada!',
-        text2: 'Aguarde a análise do profissional',
+        text1: '✅ Triagem enviada!',
+        text2: 'A secretaria irá analisar e atribuir ao dentista especialista',
       });
 
       // Resetar formulário
@@ -577,75 +529,6 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
           <Text style={styles.localizacaoResumoTexto}>{localizacao}</Text>
         </View>
       )}
-
-      {/* Escolher dentista */}
-      <View style={styles.campo}>
-        <Text style={styles.campoLabel}>Enviar para</Text>
-        <TouchableOpacity
-          style={styles.selectButton}
-          onPress={() => setSugestoesAbertas(true)}
-        >
-          <Text style={[styles.selectText, !dentistaSelecionado && styles.selectPlaceholder]}>
-            {dentistaSelecionado
-              ? dentistas.find((d) => d.id === dentistaSelecionado)?.nome
-              : 'Selecione um profissional (Opcional)'}
-          </Text>
-          <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Modal de Seleção de Dentista */}
-      <Modal
-        visible={sugestoesAbertas}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSugestoesAbertas(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setSugestoesAbertas(false)}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Escolher Dentista</Text>
-              <TouchableOpacity onPress={() => setSugestoesAbertas(false)}>
-                <Ionicons name="close" size={24} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-
-            <FlatList
-              data={dentistas}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.dentistaSelectItem}
-                  onPress={() => {
-                    setDentistaSelecionado(item.id);
-                    selectDentist({ id: item.id, nome: item.nome, foto_url: item.foto_url });
-                    setSugestoesAbertas(false);
-                  }}
-                >
-                  <View style={styles.dentistaSelectInfo}>
-                    <Text style={styles.dentistaSelectNome}>{item.nome}</Text>
-                    {item.especialidade && (
-                      <Text style={styles.dentistaSelectEspecialidade}>{item.especialidade}</Text>
-                    )}
-                  </View>
-                  {dentistaSelecionado === item.id && (
-                    <Ionicons name="checkmark-circle" size={24} color={COLORS.secondary} />
-                  )}
-                </TouchableOpacity>
-              )}
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>Nenhum dentista disponível no momento.</Text>
-                </View>
-              }
-            />
-          </View>
-        </TouchableOpacity>
-      </Modal>
 
       {/* Intensidade da dor */}
       <Text style={styles.fieldLabel}>

@@ -3,29 +3,10 @@
  * Funções para enviar, listar e gerenciar mensagens em tempo real
  */
 
-import { supabase } from '../config/supabase';
-import { createClient, SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
+import { supabase, getAdminClient } from '../config/supabase';
+import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import NetInfo from '@react-native-community/netinfo';
 import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
-
-const extra = Constants.expoConfig?.extra;
-const SUPABASE_URL = extra?.SUPABASE_URL as string | undefined;
-const SUPABASE_SERVICE_ROLE_KEY = extra?.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
-
-const getAdminClient = (): SupabaseClient | null => {
-  const finalExtra = Constants.expoConfig?.extra || (Constants as any).manifest2?.extra || (Constants as any).manifest?.extra;
-  const url = finalExtra?.SUPABASE_URL || SUPABASE_URL;
-  const key = finalExtra?.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !key) {
-    console.warn('⚠️ messagesService: Admin keys missing', { url: !!url, key: !!key });
-    return null;
-  }
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-  });
-};
 
 export interface Message {
   id: string;
@@ -82,8 +63,8 @@ export const obterOuCriarConversa = async (
   userId2: string,
   user1Name?: string,
   user2Name?: string,
-  user1Avatar?: string,
-  user2Avatar?: string
+  user1Avatar?: string | null,
+  user2Avatar?: string | null
 ): Promise<{ success: boolean; data?: Conversation; error?: string }> => {
   try {
     // Verificar se conversa já existe
