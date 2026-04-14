@@ -12,7 +12,8 @@ export const gerarFichaCadastroHTML = async (
   paciente: PacienteProfile,
   tempEmail: string,
   tempPassword: string,
-  dentistaNome: string
+  dentistaNome: string,
+  responsavelRole: string = 'dentista'
 ): Promise<string> => {
   const dataGeracao = new Date().toLocaleDateString('pt-BR', {
     day: '2-digit',
@@ -41,9 +42,9 @@ export const gerarFichaCadastroHTML = async (
     }
     body {
       font-family: 'Segoe UI', Arial, sans-serif;
-      padding: 15mm;
+      padding: 10mm;
       color: #333;
-      line-height: 1.4;
+      line-height: 1.3;
       width: 210mm;
       height: 297mm;
       margin: 0 auto;
@@ -52,74 +53,73 @@ export const gerarFichaCadastroHTML = async (
     }
     .header {
       text-align: center;
-      margin-bottom: 20px;
-      padding-bottom: 15px;
-      border-bottom: 3px solid #1E88E5;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #1E88E5;
     }
-    .logo { font-size: 28px; font-weight: bold; color: #1E88E5; }
-    .subtitle { color: #666; margin-top: 4px; font-size: 14px; }
+    .logo { font-size: 22px; font-weight: bold; color: #1E88E5; }
+    .subtitle { color: #666; margin-top: 2px; font-size: 12px; }
 
     .badge { 
       display: inline-block;
       background: #E3F2FD;
       color: #1565C0;
-      padding: 6px 16px;
+      padding: 4px 12px;
       border-radius: 20px;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
-      margin-top: 8px;
+      margin-top: 5px;
     }
 
     .section {
       background: #f8f9fa;
-      padding: 20px;
-      border-radius: 12px;
-      margin: 16px 0;
+      padding: 12px;
+      border-radius: 10px;
+      margin: 8px 0;
     }
     .section h3 {
-      margin: 0 0 14px 0;
+      margin: 0 0 8px 0;
       color: #1E88E5;
-      font-size: 17px;
+      font-size: 15px;
     }
     .info-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
+      gap: 8px;
     }
     .info-item {
       display: flex;
       flex-direction: column;
     }
     .info-label {
-      font-size: 12px;
+      font-size: 10px;
       color: #888;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
     .info-value {
-      font-size: 15px;
+      font-size: 14px;
       color: #333;
       font-weight: 500;
     }
-
     .credentials-box {
       background: linear-gradient(135deg, #E3F2FD, #BBDEFB);
-      padding: 24px;
-      border-radius: 12px;
+      padding: 10px;
+      border-radius: 10px;
       border-left: 5px solid #1E88E5;
-      margin: 20px 0;
+      margin: 8px 0;
     }
     .credentials-box h3 {
-      margin: 0 0 16px 0;
+      margin: 0 0 6px 0;
       color: #1565C0;
-      font-size: 17px;
+      font-size: 15px;
     }
     .credential-row {
-      margin-bottom: 14px;
+      margin-bottom: 8px;
     }
     .credential-label {
-      font-size: 12px;
+      font-size: 10px;
       color: #1976D2;
       font-weight: 700;
       text-transform: uppercase;
@@ -127,110 +127,99 @@ export const gerarFichaCadastroHTML = async (
     }
     .credential-value {
       display: block;
-      font-size: 32px;
+      font-size: 20px;
       font-family: 'Courier New', Courier, monospace;
       font-weight: 800;
       background: #FFFFFF;
-      padding: 16px 20px;
-      border: 3px solid #1E88E5;
-      border-radius: 12px;
-      margin-top: 8px;
+      padding: 8px 12px;
+      border: 2px solid #1E88E5;
+      border-radius: 8px;
+      margin-top: 2px;
       color: #000000;
-      letter-spacing: 3px;
+      letter-spacing: 1px;
       text-align: center;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     .credential-note {
-      font-size: 12px;
+      font-size: 10px;
       color: #666;
-      margin-top: 10px;
+      margin-top: 4px;
       font-style: italic;
     }
 
     .qr-section {
       text-align: center;
-      margin: 15px 0;
-      padding: 15px;
-      padding-top: 10px;
+      margin: 5px 0;
+      padding: 8px;
       background: #FAFAFA;
-      border-radius: 12px;
-      border: 2px dashed #1E88E5;
+      border-radius: 10px;
+      border: 1px dashed #1E88E5;
     }
     .qr-title {
       font-weight: 700;
-      font-size: 16px;
+      font-size: 13px;
       margin-bottom: 2px;
       color: #1565C0;
     }
     .qr-subtitle {
-      font-size: 11px;
+      font-size: 9px;
       color: #888;
-      margin-bottom: 10px;
+      margin-bottom: 4px;
     }
     .qr-code {
-      width: 140px; /* Reduced for A4 balance */
-      height: 140px;
+      width: 100px;
+      height: 100px;
       margin: 0 auto;
       border-radius: 8px;
     }
     .qr-url {
       font-family: 'Courier New', monospace;
-      font-size: 11px;
+      font-size: 9px;
       color: #1E88E5;
-      margin-top: 8px;
+      margin-top: 4px;
       word-break: break-all;
     }
-    .qr-instrucoes {
-      font-size: 11px;
-      color: #666;
-      margin-top: 8px;
-      line-height: 1.4;
-      max-width: 400px;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    .qr-instrucoes strong { color: #333; }
 
     .steps-box {
       background: #fcfcfc;
-      padding: 15px;
-      border-radius: 12px;
-      margin: 15px 0;
+      padding: 8px;
+      border-radius: 10px;
+      margin: 8px 0;
       border: 1px solid #eee;
     }
     .step {
       display: flex;
       align-items: flex-start;
-      margin-bottom: 8px;
+      margin-bottom: 2px;
     }
     .step-text { 
-      font-size: 13px; 
+      font-size: 11px; 
       color: #666; 
-      line-height: 1.4;
+      line-height: 1.2;
     }
     .step-text strong { color: #333; }
 
     .dentista-info {
       background: #E8F5E8;
-      padding: 16px;
-      border-radius: 12px;
-      margin: 20px 0;
+      padding: 8px;
+      border-radius: 10px;
+      margin: 8px 0;
       text-align: center;
-      font-size: 14px;
+      font-size: 12px;
     }
     .dentista-info strong { color: #2E7D32; }
 
     .footer {
-      margin-top: 40px;
+      margin-top: 10px;
       text-align: center;
       color: #999;
-      font-size: 11px;
+      font-size: 9px;
       border-top: 1px solid #eee;
-      padding-top: 20px;
+      padding-top: 8px;
     }
 
     @media print {
-      body { margin: 0; padding: 15px; }
+      body { margin: 0; padding: 5mm; }
       .no-print { display: none; }
     }
   </style>
@@ -272,38 +261,11 @@ export const gerarFichaCadastroHTML = async (
     </div>
   </div>
 
-  ${(paciente.historico_medico || paciente.alergias || paciente.medicamentos_atuais || paciente.observacoes_gerais) ? `
-  <div class="section">
-    <h3>🏥 Informações Clínicas</h3>
-    <div class="info-grid">
-      ${paciente.historico_medico ? `
-      <div class="info-item" style="grid-column: span 2;">
-        <span class="info-label">Histórico Médico</span>
-        <span class="info-value">${paciente.historico_medico}</span>
-      </div>` : ''}
-      ${paciente.alergias ? `
-      <div class="info-item" style="grid-column: span 2;">
-        <span class="info-label" style="color: #d32f2f;">Alergias (Importante)</span>
-        <span class="info-value" style="color: #d32f2f; font-weight: 700;">${paciente.alergias}</span>
-      </div>` : ''}
-      ${paciente.medicamentos_atuais ? `
-      <div class="info-item" style="grid-column: span 2;">
-        <span class="info-label">Medicações em Uso</span>
-        <span class="info-value">${paciente.medicamentos_atuais}</span>
-      </div>` : ''}
-      ${paciente.observacoes_gerais ? `
-      <div class="info-item" style="grid-column: span 2;">
-        <span class="info-label">Observações Gerais</span>
-        <span class="info-value">${paciente.observacoes_gerais}</span>
-      </div>` : ''}
-    </div>
-  </div>` : ''}
-
   <div class="credentials-box">
     <h3>🔑 Credenciais de Acesso</h3>
     <div class="credential-row">
       <span class="credential-label">Email</span>
-      <span class="credential-value">${tempEmail}</span>
+      <span class="credential-value" style="font-size: 18px; letter-spacing: 1px;">${tempEmail}</span>
     </div>
     <div class="credential-row">
       <span class="credential-label">Senha Temporária</span>
@@ -318,7 +280,7 @@ export const gerarFichaCadastroHTML = async (
     <div class="qr-title">📲 QR - Instalar o App</div>
     <div class="qr-subtitle">Escaneie com a câmera do celular</div>
     <div style="display: inline-block; padding: 10px; border: 2px solid #1E88E5; border-radius: 12px; background: white; margin-bottom: 8px;">
-      <img src="${qrDataUri}" alt="QR Code Instalar App" style="width: 140px; height: 140px; display: block; border-radius: 4px;">
+      <img src="${qrDataUri}" alt="QR Code Instalar App" style="width: 120px; height: 120px; display: block; border-radius: 4px;">
     </div>
     <div class="qr-url">${qrContent}</div>
   </div>
@@ -339,7 +301,7 @@ export const gerarFichaCadastroHTML = async (
   </div>
 
   <div class="dentista-info">
-    <strong>🩺 Dentista Responsável:</strong> ${dentistaNome}<br>
+    <strong>🩺 ${responsavelRole === 'secretario' ? 'Secretário' : 'Dentista'} Responsável:</strong> ${dentistaNome}<br>
     Este paciente foi cadastrado para atendimento odontológico.
   </div>
 

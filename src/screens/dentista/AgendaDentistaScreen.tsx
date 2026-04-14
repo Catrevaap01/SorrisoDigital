@@ -40,20 +40,20 @@ const formatCurrency = (value: number) =>
 
 const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
   const { profile } = useAuth();
-  const [dataSelecionada, setDataSelecionada] = useState<Date>(new Date());
-  const [agendamentos, setAgendamentos] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [dataSelecionada, setDataSelecionada] = useState(new Date());
+  const [agendamentos, setAgendamentos] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [sugestaoAbertaPara, setSugestaoAbertaPara] = useState<string | null>(null);
-  const [sugestaoData, setSugestaoData] = useState<Date>(new Date());
-  const [sugestaoHorario, setSugestaoHorario] = useState<string>('08:00');
+  const [sugestaoData, setSugestaoData] = useState(new Date());
+  const [sugestaoHorario, setSugestaoHorario] = useState('08:00');
 
   // Gerar dias da semana atual
   const gerarSemana = () => {
     const dias = [];
     const hoje = new Date();
     const inicioSemana = new Date(hoje);
-    inicioSemana.setDate(hoje.getDate() - hoje.getDay());
+    inicioSemana.setDate(hoje.getDate() - hoje.getDay() || 7);
 
     for (let i = 0; i < 7; i++) {
       const dia = new Date(inicioSemana);
@@ -93,11 +93,11 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pendente': return COLORS.accent;
-      case 'agendado': return COLORS.primary;
-      case 'sugerido': return '#F59E0B';
-      case 'confirmado': return '#4CAF50';
-      case 'rejeitado': return COLORS.danger;
+      case 'solicitado': return COLORS.accent;
+      case 'atribuido_dentista': return COLORS.primary;
+      case 'reagendamento_solicitado': return '#F59E0B';
+      case 'confirmado_dentista': return '#4CAF50';
+      case 'rejeitado_dentista': return COLORS.danger;
       case 'realizado': return '#9C27B0';
       case 'cancelado': return COLORS.danger;
       default: return COLORS.textLight;
@@ -129,10 +129,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
   };
 
   const renderAgendamento = ({ item }) => {
-    const hora = new Date(item.data_agendamento).toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const hora = formatDate(item.appointment_date, 'HH:mm') || '--:--';
 
     // Obter label do tipo de consulta
     const tipoLabel = TIPOS_CONSULTA[item.tipo]?.label || item.tipo;
@@ -284,10 +281,10 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
           <Text style={styles.horaText}>{hora}</Text>
         </View>
 
-        <TouchableOpacity style={styles.agendamentoInfo} activeOpacity={0.8} onPress={handleAbrirPaciente}>
+        <TouchableOpacity style={styles.agendamentoInfo} activeOpacity={(item.status === 'confirmado_dentista' || item.status === 'atribuido_dentista') ? 1 : 0.8} onPress={(item.status === 'confirmado_dentista' || item.status === 'atribuido_dentista') ? undefined : handleAbrirPaciente}>
           <View>
             <Text style={styles.pacienteNome}>
-              {item.paciente?.nome || item.paciente_nome || 'Paciente'}
+              {item.paciente?.nome || item.patient_name || 'Paciente'}
             </Text>
             <Text style={styles.tipoConsulta}>{tipoLabel}</Text>
             {item.paciente?.telefone && (
@@ -297,19 +294,26 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
             )}
             {item.observacoes && (
               <Text style={styles.observacoes} numberOfLines={1}>
-                {item.observacoes}
+                {item.notes || item.observacoes}
               </Text>
             )}
             <Text style={styles.valorLabel}>
               Valor estimado: {formatCurrency(PRECO_POR_TIPO[item.tipo || 'consulta'] || 0)}
             </Text>
           </View>
+          {(item.status === 'confirmado_dentista' || item.status === 'atribuido_dentista') && (
+            <View style={{ marginLeft: 16, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ fontWeight: 'bold', color: item.status === 'confirmado_dentista' ? '#4CAF50' : '#F59E0B', fontSize: 12 }}>
+                {item.status === 'confirmado_dentista' ? 'Confirmado' : 'Atribuído'}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(item.status) }]} />
-        {(item.status === 'pendente' || item.status === 'agendado' || item.status === 'sugerido' || item.status === 'confirmado') && (
+        {(item.status === 'solicitado' || item.status === 'atribuido_dentista' || item.status === 'reagendamento_solicitado' || item.status === 'confirmado_dentista') && (
           <View style={styles.actionRow}>
-            {item.status === 'pendente' && (
+            {(item.status === 'solicitado' || item.status === 'atribuido_dentista') && (
               <TouchableOpacity
                 style={[styles.actionButton, { backgroundColor: COLORS.primary }]}
                 onPress={handleAgendar}
@@ -321,7 +325,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
                 </Text>
               </TouchableOpacity>
             )}
-            {(item.status === 'agendado' || item.status === 'sugerido') && (
+            {(item.status === 'atribuido_dentista' || item.status === 'reagendamento_solicitado' || item.status === 'reagendamento_solicitado') && (
               <>
                 <TouchableOpacity
                   style={[styles.actionButton, { backgroundColor: COLORS.secondary }]}
@@ -355,7 +359,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
                 </TouchableOpacity>
               </>
             )}
-            {item.status === 'confirmado' && (
+            {item.status === 'confirmado_dentista' && (
               <TouchableOpacity
                 style={[styles.actionButton, { backgroundColor: '#9C27B0' }]}
                 onPress={handleRealizar}
@@ -367,7 +371,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
                 </Text>
               </TouchableOpacity>
             )}
-            {item.status === 'pendente' || item.status === 'confirmado' ? (
+            {item.status === 'solicitado' || item.status === 'confirmado_dentista' ? (
               <TouchableOpacity
                 style={[styles.actionButton, { backgroundColor: COLORS.danger }]}
                 onPress={handleCancelar}
@@ -439,24 +443,27 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
   };
 
   const profileId = profile?.id;
-  const pendentesDoDia = agendamentos.filter((a) => a.status === 'pendente');
+  const pendentesDoDia = agendamentos.filter((a) => 
+    a.dentist_id === profileId &&
+    (a.status === 'solicitado' || a.status === 'atribuido_dentista')
+  );
   const meusAgendadosDoDia = agendamentos.filter(
     (a) =>
-      a.dentista_id === profileId &&
-      a.status === 'agendado'
+      a.dentist_id === profileId &&
+      (a.status === 'reagendamento_solicitado' || a.status === 'atribuido_dentista')
   );
   const meusConfirmadosDoDia = agendamentos.filter(
     (a) =>
-      a.dentista_id === profileId &&
-      a.status === 'confirmado'
+      a.dentist_id === profileId &&
+      (a.status === 'confirmado_dentista' || a.status === 'confirmado_paciente' || a.status === 'notificado_paciente')
   );
   const realizadosDoDia = agendamentos.filter(
     (a) =>
-      a.dentista_id === profileId &&
+      a.dentist_id === profileId &&
       a.status === 'realizado'
   );
   const canceladosDoDia = agendamentos.filter(
-    (a) => a.status === 'cancelado' && (!a.dentista_id || a.dentista_id === profileId)
+    (a) => a.status === 'cancelado' && (!a.dentist_id || a.dentist_id === profileId)
   );
 
   return (
@@ -526,16 +533,6 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.lista} showsVerticalScrollIndicator={false}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Pendente</Text>
-            <Text style={styles.sectionCount}>{pendentesDoDia.length}</Text>
-          </View>
-          {pendentesDoDia.length === 0 ? (
-            <Text style={styles.sectionEmpty}>Sem pacientes pendentes neste dia.</Text>
-          ) : (
-            pendentesDoDia.map((item) => <View key={item.id}>{renderAgendamento({ item })}</View>)
-          )}
-
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Agendado</Text>
             <Text style={styles.sectionCount}>{meusAgendadosDoDia.length}</Text>

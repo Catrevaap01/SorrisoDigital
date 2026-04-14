@@ -7,6 +7,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   buscarTriagensPendentesSecretaria,
   buscarAgendamentosPendentesSecretaria,
+  buscarProcedimentosPendentesSecretaria,
 } from '../services/secretarioService';
 
 export interface FilasSecretaria {
@@ -40,21 +41,36 @@ export const useFilasSecretaria = () => {
   const carregarFilas = useCallback(async () => {
     setFilas((prev) => ({ ...prev, loading: true }));
     try {
-      const [triagensRes, agendamentosRes] = await Promise.all([
+      const [triagensRes, agendamentosRes, procedimentosRes] = await Promise.all([
         buscarTriagensPendentesSecretaria(),
         buscarAgendamentosPendentesSecretaria(),
+        buscarProcedimentosPendentesSecretaria(),
       ]);
 
       const triagensNovas = triagensRes.success ? triagensRes.data ?? [] : [];
-      const agendamentosNovos = agendamentosRes.success ? agendamentosRes.data ?? [] : [];
+      const agendamentosBase = agendamentosRes.success ? agendamentosRes.data ?? [] : [];
+      const procedimentosNovos = procedimentosRes.success ? procedimentosRes.data ?? [] : [];
+      
+      // Combinar agendamentos tradicionais com procedimentos que precisam de agendamento
+      const agendamentosNovos = [...agendamentosBase, ...procedimentosNovos].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      // Calcular contadores apenas para itens QUE NÃO FORAM ATRIBUÍDOS AINDA
+      const triagensNaoAtribuidas = triagensNovas.filter(
+        (t: any) => t.status === 'triagem_pendente_secretaria'
+      ).length;
+      const agendamentosNaoAtribuidos = agendamentosNovos.filter(
+        (a: any) => a.status === 'agendamento_pendente_secretaria' || a.status === 'solicitado' || a.status === 'pendente'
+      ).length;
 
       setFilas({
         triagensNovas,
         agendamentosNovos,
         contadores: {
-          triagensNovas: triagensNovas.length,
-          agendamentosNovos: agendamentosNovos.length,
-          total: triagensNovas.length + agendamentosNovos.length,
+          triagensNovas: triagensNaoAtribuidas,
+          agendamentosNovos: agendamentosNaoAtribuidos,
+          total: triagensNaoAtribuidas + agendamentosNaoAtribuidos,
         },
         loading: false,
       });

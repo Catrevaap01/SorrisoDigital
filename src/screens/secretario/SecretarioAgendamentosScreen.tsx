@@ -41,10 +41,10 @@ const getAppointmentType = (item: AgendaItem): string =>
 
 const getStatusLabel = (status?: string): string => {
   const value = String(status || '').toLowerCase();
-  if (value === 'agendamento_pendente_secretaria') return 'Pendente';
-  if (value === 'atribuido_dentista' || value === 'pendente') return 'Aguardando dentista';
-  if (value === 'agendado' || value === 'confirmado') return 'Confirmado';
-  if (value === 'cancelado' || value === 'rejeitado') return 'Cancelado';
+  if (value === 'agendamento_pendente_secretaria' || value === 'solicitado') return 'Pendente';
+  if (value === 'atribuido_dentista' || value === 'aguardando_dentista') return 'Aguardando dentista';
+  if (value === 'reagendamento_solicitado' || value === 'confirmado_dentista') return 'Confirmado';
+  if (value === 'cancelado' || value === 'rejeitado_dentista') return 'Cancelado';
   if (value === 'realizado') return 'Realizado';
   return status || 'Pendente';
 };
@@ -74,22 +74,65 @@ const SecretarioAgendamentosScreen: React.FC<Props> = ({ navigation }) => {
 
   const carregar = useCallback(async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('agendamentos')
-      .select(`
-        *,
-        paciente:profiles!paciente_id(id, nome, telefone, email),
-        dentista:profiles!dentista_id(id, nome, especialidade)
-      `)
-      .order('created_at', { ascending: false })
-      .limit(120);
+    try {
+      // 1. Buscar agendamentos tradicionais
+      const { data: agendaData, error: agendaError } = await supabase
+        .from('appointments')
+        .select(`
+          *,
+          paciente:profiles!patient_id(id, nome, telefone, email),
+          dentista:profiles!dentist_id(id, nome, especialidade)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(150);
 
-    if (!error && data) {
-      setAgendamentos(data as AgendaItem[]);
-    } else {
+      // 2. Buscar procedimentos (tratamentos) pendentes que precisam de agenda
+      const { data: procsData, error: procsError } = await supabase
+        .from('procedimentos_tratamento')
+        .select('*, plano:planos_tratamento(id, paciente_id, dentista_id)')
+        .eq('status', 'pendente')
+        .limit(50);
+
+      let finalAgendas: AgendaItem[] = [];
+
+      if (!agendaError && agendaData) {
+        finalAgendas = agendaData as AgendaItem[];
+      }
+
+      if (!procsError && procsData && procsData.length > 0) {
+        // Enriquecer procedimentos
+        const patientIds = procsData.map((p: any) => p.plano?.paciente_id).filter(Boolean);
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, nome, telefone, email')
+          .in('id', patientIds);
+        
+        const profilesById = Object.fromEntries((profiles || []).map((p: any) => [p.id, p]));
+
+        const mappedProcs = procsData.map((p: any) => ({
+          id: p.id,
+          patient_id: p.plano?.paciente_id,
+          symptoms: `Tratamento: ${p.descricao}`,
+          urgency: 'normal',
+          status: 'procedimento_pendente',
+          created_at: p.created_at,
+          paciente: profilesById[p.plano?.paciente_id] || { nome: 'Paciente' },
+          is_procedimento: true,
+          plano_id: p.plano_id
+        }));
+
+        finalAgendas = [...finalAgendas, ...mappedProcs].sort(
+          (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+        );
+      }
+
+      setAgendamentos(finalAgendas);
+    } catch (err) {
+      console.error('Erro ao carregar agendamentos:', err);
       setAgendamentos([]);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
   useFocusEffect(
@@ -108,21 +151,22 @@ const SecretarioAgendamentosScreen: React.FC<Props> = ({ navigation }) => {
     const pendentes = agendamentos.filter((item) =>
       [
         'agendamento_pendente_secretaria',
+        'solicitado',
         'atribuido_dentista',
+        'procedimento_pendente',
         'pendente',
-        'agendado',
-        'confirmado',
+        'aguardando_dentista',
         'sugerido',
       ].includes(String(item.status || '').toLowerCase())
     );
     const encaminhados = agendamentos.filter((item) =>
-      ['atribuido_dentista', 'pendente', 'agendado', 'confirmado', 'sugerido'].includes(String(item.status || '').toLowerCase())
+      ['atribuido_dentista', 'aguardando_dentista', 'confirmado_dentista', 'notificado_paciente'].includes(String(item.status || '').toLowerCase())
     );
     const retornos = agendamentos.filter((item) =>
-      ['agendado', 'confirmado', 'cancelado', 'rejeitado', 'sugerido'].includes(String(item.status || '').toLowerCase())
+      ['rejeitado_dentista', 'reagendamento_solicitado', 'cancelado'].includes(String(item.status || '').toLowerCase())
     );
     const historico = agendamentos.filter((item) =>
-      ['realizado', 'confirmado', 'cancelado'].includes(String(item.status || '').toLowerCase())
+      ['realizado', 'cancelado'].includes(String(item.status || '').toLowerCase())
     );
     return { pendentes, encaminhados, retornos, historico };
   }, [agendamentos]);
@@ -134,7 +178,7 @@ const SecretarioAgendamentosScreen: React.FC<Props> = ({ navigation }) => {
     return base.filter((item) => {
       if (!term) return true;
       const patientName = String(item.paciente?.nome || '').toLowerCase();
-      const problem = String(item.symptoms || item.observacoes || '').toLowerCase();
+      const problem = String(item.symptoms || item.notes || '').toLowerCase();
       const doctor = String(item.dentista?.nome || '').toLowerCase();
       return patientName.includes(term) || problem.includes(term) || doctor.includes(term);
     });
@@ -169,9 +213,9 @@ const SecretarioAgendamentosScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.requestHeader}>
           <View style={styles.requestMain}>
             <Text style={styles.patientLabel}>Paciente</Text>
-            <Text style={styles.requestName}>{item.paciente?.nome || 'Nao identificado'}</Text>
+            <Text style={styles.requestName}>{item.paciente?.nome || 'Paciente'}</Text>
             <Text style={styles.requestProblem}>
-              {item.symptoms || item.observacoes || 'Solicitacao sem descricao detalhada'}
+              {item.symptoms || item.notes || 'Solicitação sem descrição detalhada'}
             </Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: statusTone.bg }]}>
@@ -183,7 +227,7 @@ const SecretarioAgendamentosScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.metaText}>{getAppointmentType(item)}</Text>
           <Text style={styles.metaDot}>•</Text>
           <Text style={styles.metaText}>
-            {item.data_agendamento ? formatDateTime(item.data_agendamento) : 'Sem horario'}
+            {item.appointment_date ? formatDateTime(item.appointment_date) : 'Sem horario'}
           </Text>
           <View style={[styles.urgencyBadge, { backgroundColor: urgencyTone.bg }]}>
             <Text style={[styles.urgencyText, { color: urgencyTone.text }]}>{urgencyTone.label}</Text>
@@ -195,13 +239,21 @@ const SecretarioAgendamentosScreen: React.FC<Props> = ({ navigation }) => {
             {item.paciente?.telefone || 'Sem telefone'}
             {item.dentista?.nome ? ` • Dr(a). ${item.dentista.nome}` : ''}
           </Text>
-          <TouchableOpacity style={styles.primaryAction} onPress={() => handleAbrirAtribuicao(item)}>
+          <TouchableOpacity 
+            style={[
+              styles.primaryAction, 
+              ['atribuido_dentista', 'pendente', 'confirmado', 'agendado'].includes(String(item.status || '').toLowerCase()) && { backgroundColor: '#94A3B8' }
+            ]} 
+            onPress={() => {
+              if (['atribuido_dentista', 'pendente', 'confirmado', 'agendado'].includes(String(item.status || '').toLowerCase())) return;
+              handleAbrirAtribuicao(item);
+            }}
+            disabled={['atribuido_dentista', 'pendente', 'confirmado', 'agendado'].includes(String(item.status || '').toLowerCase())}
+          >
             <Text style={styles.primaryActionText}>
-              {tab === 'pendentes'
-                ? (item.status === 'agendamento_pendente_secretaria' ? 'Agendar' : 'Abrir')
-                : tab === 'encaminhados'
-                  ? 'Ver encaminhamento'
-                  : 'Abrir'}
+              {['atribuido_dentista', 'pendente', 'confirmado', 'agendado'].includes(String(item.status || '').toLowerCase())
+                ? 'Atribuído'
+                : (tab === 'pendentes' ? 'Agendar' : 'Abrir')}
             </Text>
           </TouchableOpacity>
         </View>

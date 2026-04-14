@@ -74,7 +74,13 @@ const NovoPacienteScreen: React.FC<Props> = ({ navigation: propNavigation }) => 
 
     setLoading(true);
     try {
-      const result = await createPaciente(dentista?.id || '', formData);
+      // ✅ Inject role marker if secretary
+      const dataToSubmit = { ...formData };
+      if (dentista?.tipo === 'secretario') {
+        dataToSubmit.observacoes_gerais = `[SECRETARIA] ${dataToSubmit.observacoes_gerais || ''}`.trim();
+      }
+
+      const result = await createPaciente(dentista?.id || '', dataToSubmit);
       if (!result.success || !result.data || !result.tempPassword) {
         Toast.show({ type: 'error', text1: 'Erro', text2: result.error || 'Falha ao criar paciente' });
         return;
@@ -84,7 +90,8 @@ const NovoPacienteScreen: React.FC<Props> = ({ navigation: propNavigation }) => 
         result.data,
         result.tempEmail || formData.email, // ✅ Use normalized email from result
         result.tempPassword,
-        dentista?.nome || 'Dentista'
+        dentista?.nome || 'TeOdonto',
+        dentista?.tipo || 'dentista'
       );
 
       setFichaHtml(html);
@@ -136,7 +143,9 @@ const NovoPacienteScreen: React.FC<Props> = ({ navigation: propNavigation }) => 
             <Ionicons name="person-add" size={32} color={COLORS.secondary} />
           </View>
           <Text style={styles.title}>Novo Paciente</Text>
-          <Text style={styles.subtitle}>Dr(a). {dentista?.nome}</Text>
+          <Text style={styles.subtitle}>
+            {dentista?.tipo === 'dentista' ? `Dr(a). ${dentista?.nome}` : `Responsável: ${dentista?.nome || 'Staff'}`}
+          </Text>
           {dentista?.especialidade && (
             <Text style={styles.specialty}>{dentista.especialidade}</Text>
           )}

@@ -139,9 +139,9 @@ const AtribuirDentistaAgendamentoScreen: React.FC<Props> = ({ route, navigation 
       <View style={styles.infoBox}>
         <Text style={styles.infoTitle}>Solicitação do paciente</Text>
         <Text style={styles.infoText}>Paciente: {agendamento?.paciente?.nome || '—'}</Text>
-        <Text style={styles.infoText}>Data preferida: {agendamento ? formatDateTime(agendamento.data_agendamento) : '—'}</Text>
-        {agendamento?.observacoes ? (
-          <Text style={styles.infoText}>Motivo: {agendamento.observacoes}</Text>
+        <Text style={styles.infoText}>Data preferida: {agendamento?.appointment_date ? formatDateTime(agendamento.appointment_date) : '—'}</Text>
+        {agendamento?.notes ? (
+          <Text style={styles.infoText}>Motivo: {agendamento.notes}</Text>
         ) : null}
       </View>
 
@@ -269,8 +269,8 @@ const styles = StyleSheet.create({
   },
   filterButton: {
     backgroundColor: COLORS.surface,
-    paddingHorizontal: SIZES.md,
-    paddingVertical: SIZES.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: SIZES.radiusLg,
     marginRight: SIZES.sm,
     borderWidth: 1,
@@ -282,6 +282,8 @@ const styles = StyleSheet.create({
   },
   filterButtonText: {
     color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '500',
   },
   filterButtonTextActive: {
     color: 'white',

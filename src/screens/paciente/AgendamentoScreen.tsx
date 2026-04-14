@@ -139,11 +139,16 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     // O serviço criarAgendamento define automaticamente:
     //   status = 'agendamento_pendente_secretaria'
     // garantindo que o agendamento vai para a fila da secretaria.
+    // Formatar data e hora separadamente para compatibilidade com o banco (DATE/TIME)
+    const dataYYYYMMDD = dataAgendamento.toISOString().split('T')[0];
+    const horaHHMMSS = `${hora}:${minuto}:00`;
+
     const result = await criarAgendamento({
-      paciente_id: profile.id,
-      data_agendamento: dataAgendamento.toISOString(),
+      patient_id: profile.id,
+      appointment_date: dataYYYYMMDD,
+      appointment_time: horaHHMMSS,
       tipo: tipoConsulta,
-      observacoes: observacoes.trim(),
+      notes: observacoes.trim(),
     });
 
     setLoading(false);
@@ -156,10 +161,11 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
       });
       navigation.goBack();
     } else {
+      const errorMsg = typeof result.error === 'string' ? result.error : (result.error as any)?.message || 'Erro desconhecido';
       Toast.show({
         type: 'error',
-        text1: 'Erro ao agendar',
-        text2: 'Tente novamente mais tarde',
+        text1: 'Falha no Agendamento',
+        text2: `Detalhe: ${errorMsg || 'Sem resposta do servidor'}`,
       });
     }
   };

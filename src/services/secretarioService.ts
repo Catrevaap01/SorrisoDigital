@@ -3,7 +3,7 @@
  * Funções para gerir atribuição de triagens e estatísticas
  */
 
-import { supabase } from '../config/supabase';
+import { supabase, getAdminClient } from '../config/supabase';
 import { withTimeout } from '../utils/withTimeout';
 import { handleError } from '../utils/errorHandler';
 import { DentistaProfile } from './dentistaService';
@@ -322,9 +322,9 @@ export const obterEstatisticasSecretario =
         ),
         withTimeout(
           supabase
-            .from('agendamentos')
+            .from('appointments')
             .select('id, status')
-            .eq('status', 'agendamento_pendente_secretaria') as any,
+            .in('status', ['agendamento_pendente_secretaria', 'solicitado']) as any,
           8000
         ),
       ]);
@@ -338,9 +338,9 @@ export const obterEstatisticasSecretario =
         urgentes: 0,
         respondidos: 0,
         novasTriagens: 0,
-        novosAgendamentos: !agendamentosRes.error
-          ? (agendamentosRes.data || []).length
-          : 0,
+        novosAgendamentos: agendamentosRes.error
+          ? 0
+          : (agendamentosRes.data || []).length,
         total: rows.length,
       };
 
@@ -397,12 +397,27 @@ export const atribuirTriagemAoDentista = async (
   observacoes?: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    // Obter o paciente_id da triagem
+    const { data: triagemData } = await supabase
+      .from('triagens')
+      .select('paciente_id')
+      .eq('id', triagemId)
+      .single();
+
+    if (triagemData?.paciente_id) {
+      // Atualizar o profile do paciente com o dentista_id
+      await supabase
+        .from('profiles')
+        .update({ dentist_id: dentistaId, updated_at: new Date().toISOString() })
+        .eq('id', triagemData.paciente_id);
+    }
+
     const { error } = await supabase
       .from('triagens')
       .update({
         dentista_id: dentistaId,
         secretario_id: secretarioId,
-        status: 'pendente',
+        status: 'atribuido_dentista',
         observacoes: observacoes || null,
         updated_at: new Date().toISOString(),
       })
@@ -463,19 +478,37 @@ export const atribuirAgendamentoAoDentista = async (
   observacoes?: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    const admin = getAdminClient();
+    const client = admin || supabase;
+    
     const updateData: any = {
-      dentista_id: dentistaId,
-      secretario_id: secretarioId,
+      dentist_id: dentistaId,
+      secretary_id: secretarioId,
       status: 'atribuido_dentista',
       updated_at: new Date().toISOString(),
     };
 
-    if (dataAgendamento) updateData.data_agendamento = dataAgendamento;
-    if (horaAgendamento) updateData.hora_agendamento = horaAgendamento;
-    if (observacoes) updateData.observacoes = observacoes;
+    if (dataAgendamento) updateData.appointment_date = dataAgendamento;
+    if (horaAgendamento) updateData.appointment_time = horaAgendamento;
+    if (observacoes) updateData.notes = observacoes;
 
-    const { error } = await supabase
-      .from('agendamentos')
+    // Obter o patient_id do agendamento
+    const { data: agendamentoData } = await client
+      .from('appointments')
+      .select('patient_id')
+      .eq('id', agendamentoId)
+      .single();
+
+    if (agendamentoData?.patient_id) {
+      // Atualizar o profile do paciente com o dentista_id
+      await client
+        .from('profiles')
+        .update({ dentist_id: dentistaId, updated_at: new Date().toISOString() })
+        .eq('id', agendamentoData.patient_id);
+    }
+
+    const { error } = await client
+      .from('appointments')
       .update(updateData)
       .eq('id', agendamentoId);
 
@@ -501,11 +534,11 @@ export const rejeitarAgendamento = async (
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const { error } = await supabase
-      .from('agendamentos')
+      .from('appointments')
       .update({
         status: 'cancelado',
-        secretario_id: secretarioId,
-        observacoes: `Rejeitado: ${motivo}`,
+        secretary_id: secretarioId,
+        notes: `Rejeitado: ${motivo}`,
         updated_at: new Date().toISOString(),
       })
       .eq('id', agendamentoId);
@@ -536,12 +569,13 @@ export const buscarTriagensPendentesSecretaria = async (): Promise<{
         .from('triagens')
         .select(
           `
-          id, paciente_id, sintoma_principal, descricao, intensidade_dor,
+          id, paciente_id, dentista_id, sintoma_principal, descricao, intensidade_dor,
           prioridade, status, created_at, updated_at,
-          paciente:profiles!paciente_id(id, nome, email, telefone, foto_url)
+          paciente:profiles!paciente_id(id, nome, email, telefone, foto_url),
+          dentista:profiles!dentista_id(id, nome)
         `
         )
-        .eq('status', 'triagem_pendente_secretaria')
+        .in('status', ['triagem_pendente_secretaria', 'pendente', 'respondido'])
         .order('created_at', { ascending: false }) as any,
       8000
     );
@@ -567,14 +601,15 @@ export const buscarAgendamentosPendentesSecretaria = async (): Promise<{
   try {
     const { data, error } = await withTimeout(
       supabase
-        .from('agendamentos')
+        .from('appointments')
         .select(
           `
-          id, paciente_id, symptoms, urgency, status, created_at, updated_at,
-          paciente:profiles!paciente_id(id, nome, email, telefone, foto_url)
+          id, patient_id, dentist_id, symptoms, urgency, status, created_at, updated_at,
+          paciente:profiles!patient_id(id, nome, email, telefone, foto_url),
+          dentista:profiles!dentist_id(id, nome)
         `
         )
-        .eq('status', 'agendamento_pendente_secretaria')
+        .in('status', ['agendamento_pendente_secretaria', 'solicitado', 'atribuido_dentista'])
         .order('created_at', { ascending: false }) as any,
       8000
     );
@@ -586,6 +621,63 @@ export const buscarAgendamentosPendentesSecretaria = async (): Promise<{
       success: false,
       error: err.message || 'Erro ao buscar agendamentos pendentes',
     };
+  }
+};
+
+/**
+ * Buscar procedimentos pendentes de agendamento (status = pendente no plano de tratamento)
+ */
+export const buscarProcedimentosPendentesSecretaria = async (): Promise<{
+  success: boolean;
+  data?: any[];
+  error?: string;
+}> => {
+  try {
+    // 1. Buscar procedimentos pendentes
+    const { data: procs, error: procsError } = await withTimeout(
+      supabase
+        .from('procedimentos_tratamento')
+        .select('*, plano:planos_tratamento(id, paciente_id, dentista_id)')
+        .eq('status', 'pendente')
+        .order('created_at', { ascending: false }) as any,
+      8000
+    );
+
+    if (procsError) throw procsError;
+    if (!procs || procs.length === 0) return { success: true, data: [] };
+
+    // 2. Enriquecer com dados dos perfis
+    const patientIds = [...new Set(procs.map((p: any) => p.plano?.paciente_id).filter(Boolean))];
+    const { data: profiles, error: profilesError } = await withTimeout(
+      supabase
+        .from('profiles')
+        .select('id, nome, email, telefone, foto_url')
+        .in('id', patientIds) as any,
+      8000
+    );
+
+    if (profilesError) throw profilesError;
+
+    const profilesById = Object.fromEntries((profiles || []).map((p: any) => [p.id, p]));
+
+    // 3. Mapear para o formato ItemPainel esperado pela UI
+    const mapped = procs.map((p: any) => ({
+      id: p.id,
+      patient_id: p.plano?.paciente_id,
+      symptoms: `Tratamento: ${p.descricao}${p.dente ? ` (Dente ${p.dente})` : ''}`,
+      urgency: 'normal',
+      status: 'procedimento_pendente',
+      created_at: p.created_at,
+      updated_at: p.updated_at,
+      paciente: profilesById[p.plano?.paciente_id] || { nome: 'Paciente' },
+      is_procedimento: true,
+      plano_id: p.plano_id,
+      dentista_id: p.plano?.dentista_id
+    }));
+
+    return { success: true, data: mapped };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao buscar procedimentos pendentes' };
   }
 };
 

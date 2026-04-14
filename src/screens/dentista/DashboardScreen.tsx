@@ -21,6 +21,11 @@ import { COLORS, SHADOWS, SIZES } from '../../styles/theme';
 import { PRIORIDADE, STATUS_AGENDAMENTO, STATUS_TRIAGEM, TIPOS_CONSULTA } from '../../utils/constants';
 import { formatRelativeTime } from '../../utils/helpers';
 import { getEspecialidadeConfig, EspecialidadeConfig } from '../../config/specialtyConfig';
+import { 
+  buscarTratamentosFinanceirosDentista, 
+  buildDentistBillingHtml 
+} from '../../services/relatorioService';
+import { exportHtmlAsPdf } from '../../utils/pdfExportUtils';
 
 type Props = BottomTabScreenProps<DentistaTabParamList, 'Dashboard'>;
 type ListaItem = Triagem | Agendamento;
@@ -43,8 +48,11 @@ type PacienteClinico = {
 const CONTADORES_DEFAULT: Contadores = { pendente: 0, urgente: 0, respondido: 0, total: 0, realizados: 0 };
 const PRECO_POR_TIPO: Record<string, number> = { consulta: 25000, avaliacao: 30000, retorno: 15000, urgencia: 45000, raio_x: 20000, panoramico: 35000, profilaxia: 22000, branqueamento: 60000, canal: 90000, ortodontia: 120000, restauracao: 40000 };
 
-const currency = (value: number) =>
-  value.toLocaleString('pt-BR', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 });
+const currency = (value: number | string | undefined) => {
+  const amount = Number(value || 0);
+  if (isNaN(amount)) return '0 Kz';
+  return amount.toLocaleString('pt-AO', { minimumFractionDigits: 0 }).replace(/,/g, '.') + ' Kz';
+};
 
 const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const { profile } = useAuth();
@@ -211,15 +219,15 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     start.setHours(0, 0, 0, 0);
     const weekStart = new Date(start);
     weekStart.setDate(weekStart.getDate() - 6);
-    const agendaSemana = agendamentos.filter((item) => new Date(item.data_agendamento) >= weekStart);
+    const agendaSemana = agendamentos.filter((item) => new Date(item.appointment_date || 0) >= weekStart);
     const realizadosHoje = agendaHoje.filter((item) => item.status === 'realizado');
     const realizadosSemana = agendaSemana.filter((item) => item.status === 'realizado');
     const canceladosSemana = agendaSemana.filter((item) => item.status === 'cancelado');
     const proximos = [...agendaHoje]
-      .filter((item) => ['agendado', 'confirmado'].includes(item.status || '') && new Date(item.data_agendamento) >= now)
-      .sort((a, b) => new Date(a.data_agendamento).getTime() - new Date(b.data_agendamento).getTime())
+      .filter((item) => ['agendado', 'confirmado', 'confirmado_paciente', 'notificado_paciente', 'atribuido_dentista'].includes(item.status || '') && new Date(item.appointment_date || 0) >= now)
+      .sort((a, b) => new Date(a.appointment_date || 0).getTime() - new Date(b.appointment_date || 0).getTime())
       .slice(0, 3);
-    const atrasados = agendaHoje.filter((item) => ['agendado', 'confirmado'].includes(item.status || '') && new Date(item.data_agendamento) < now);
+    const atrasados = agendaHoje.filter((item) => ['agendado', 'confirmado', 'confirmado_paciente', 'notificado_paciente'].includes(item.status || '') && new Date(item.appointment_date || 0) < now);
     const receitaHoje = realizadosHoje.reduce((sum, item) => sum + (PRECO_POR_TIPO[item.tipo || 'consulta'] || 0), 0);
     const receitaSemana = realizadosSemana.reduce((sum, item) => sum + (PRECO_POR_TIPO[item.tipo || 'consulta'] || 0), 0);
     const procedimentosMap = realizadosSemana.reduce((acc, item) => {
@@ -238,8 +246,8 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       receitaHoje,
       receitaSemana,
       faltasSemana: canceladosSemana.length,
-      atendidosHoje: new Set(realizadosHoje.map((item) => item.paciente_id).filter(Boolean)).size,
-      atendidosSemana: new Set(realizadosSemana.map((item) => item.paciente_id).filter(Boolean)).size,
+      atendidosHoje: new Set(realizadosHoje.map((item) => item.patient_id).filter(Boolean)).size,
+      atendidosSemana: new Set(realizadosSemana.map((item) => item.patient_id).filter(Boolean)).size,
       procedimentos,
       taxaFaltas,
     };
@@ -247,13 +255,13 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   const pacienteFoco = useMemo(() => {
     const proximoAgendamento = [...agendaHoje]
-      .sort((a, b) => new Date(a.data_agendamento || 0).getTime() - new Date(b.data_agendamento || 0).getTime())
-      .find((item) => !!item.paciente_id);
+      .sort((a, b) => new Date(a.appointment_date || 0).getTime() - new Date(b.appointment_date || 0).getTime())
+      .find((item) => !!item.patient_id);
 
-    const triagemRelacionada = triagens.find((item) => item.paciente_id === proximoAgendamento?.paciente_id)
+    const triagemRelacionada = triagens.find((item) => item.paciente_id === proximoAgendamento?.patient_id)
       || triagens.find((item) => !!item.paciente_id);
 
-    const pacienteId = triagemRelacionada?.paciente_id || proximoAgendamento?.paciente_id;
+    const pacienteId = triagemRelacionada?.paciente_id || proximoAgendamento?.patient_id;
     const pacienteNome =
       triagemRelacionada?.paciente?.nome ||
       proximoAgendamento?.paciente?.nome ||
@@ -279,10 +287,10 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     });
 
     agendaHoje.forEach((item) => {
-      if (!item.paciente_id || pacientesMap.has(item.paciente_id)) return;
-      pacientesMap.set(item.paciente_id, {
-        pacienteId: item.paciente_id,
-        pacienteNome: item.paciente?.nome || documentosRecentes.find((doc) => doc.pacienteId === item.paciente_id)?.pacienteNome || 'Paciente',
+      if (!item.patient_id || pacientesMap.has(item.patient_id)) return;
+      pacientesMap.set(item.patient_id, {
+        pacienteId: item.patient_id,
+        pacienteNome: item.paciente?.nome || documentosRecentes.find((doc) => doc.pacienteId === item.patient_id)?.pacienteNome || 'Paciente',
       });
     });
 
@@ -365,6 +373,26 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     });
   }, [navigation, pacienteClinicoAtivo, resolverTriagemPaciente]);
 
+  const handleImprimirFaturacao = useCallback(async () => {
+    if (!profile?.id) return;
+    
+    setLoading(true);
+    try {
+      const res = await buscarTratamentosFinanceirosDentista(profile.id);
+      if (!res.success) throw new Error(res.error);
+      
+      const html = buildDentistBillingHtml(profile.nome || 'Dentista', res.data || []);
+      const pdfRes = await exportHtmlAsPdf(html, `faturacao-${profile.nome?.split(' ')[0]}-${new Date().toISOString().split('T')[0]}.pdf`);
+      
+      if (!pdfRes.success) throw new Error(pdfRes.error);
+      Toast.show({ type: 'success', text1: 'Relatório gerado com sucesso' });
+    } catch (error: any) {
+      Toast.show({ type: 'error', text1: 'Erro ao gerar relatório', text2: error.message });
+    } finally {
+      setLoading(false);
+    }
+  }, [profile]);
+
   const gerarPdfDocumento = useCallback(async (tipo: DocumentoTipo | 'historico', pacienteId?: string) => {
     const alvoPacienteId = pacienteId || pacienteClinicoAtivo?.pacienteId;
     if (!alvoPacienteId) {
@@ -392,7 +420,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     if (filtroAtivo === 'todos') {
       const filteredAgendamentos = agendamentos.filter(a => {
         const s = (a.status || '').toLowerCase();
-        return ['agendado', 'confirmado', 'realizado', 'pendente', 'urgente'].includes(s);
+        return ['agendado', 'confirmado', 'realizado', 'pendente', 'urgente', 'atribuido_dentista'].includes(s);
       });
       return [...triagens, ...filteredAgendamentos].sort((a, b) => {
         const aStatus = (a.status || '').toLowerCase();
@@ -449,7 +477,11 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         const isUrg = s === 'urgente' || p === 'urgente' || p === 'alta' || Number((t as any).intensidade_dor || 0) > 6;
         return !hasResp && !isUrg && s === 'pendente';
       });
-      const aPend = agendamentos.filter(a => (a.status || '').toLowerCase() === 'pendente');
+      const aPend = agendamentos.filter(a => {
+        const status = (a.status || '').toLowerCase();
+        const altStatus = ((a as any).agendamento_status || '').toLowerCase();
+        return status === 'solicitado' || altStatus === 'solicitado' || status === 'atribuido_dentista';
+      });
       return [...tPend, ...aPend].sort((a, b) => new Date(b.created_at || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).data_agendamento || 0).getTime());
     }
 
@@ -480,8 +512,8 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   const abrirCaso = (triagem: Triagem) => navigation.getParent<any>()?.navigate('CasoDetalhe', { triagemId: triagem.id });
   const abrirPaciente = (agendamento: Agendamento) => {
-    if (!agendamento.paciente_id) return;
-    navigation.getParent<any>()?.navigate('PacienteHistorico', { pacienteId: agendamento.paciente_id, pacienteNome: agendamento.paciente?.nome });
+    if (!agendamento.patient_id) return;
+    navigation.getParent<any>()?.navigate('PacienteHistorico', { pacienteId: agendamento.patient_id, pacienteNome: agendamento.paciente?.nome });
   };
 
   const handleQuickAction = (screen?: string) => {
@@ -520,7 +552,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.badgeText}>{statusInfo.label}</Text>
             </View>
           </View>
-          <Text style={styles.meta}>{TIPOS_CONSULTA[item.tipo || 'consulta']?.label || 'Consulta'} · {formatRelativeTime(item.data_agendamento)}</Text>
+          <Text style={styles.meta}>{TIPOS_CONSULTA[item.tipo || 'consulta']?.label || 'Consulta'} · {formatRelativeTime(item.appointment_date)}</Text>
         </TouchableOpacity>
       );
     }
@@ -774,12 +806,12 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               <View style={{ flex: 1 }}>
                 <Text style={styles.lineTitle}>{item.paciente?.nome || 'Paciente'}</Text>
                 <Text style={styles.lineMeta}>
-                  {new Date(item.data_agendamento).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {TIPOS_CONSULTA[item.tipo || 'consulta']?.label || 'Consulta'}
+                  {new Date(item.appointment_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {TIPOS_CONSULTA[item.tipo || 'consulta']?.label || 'Consulta'}
                 </Text>
               </View>
               <View style={styles.timeChip}>
                 <Text style={styles.timeChipText}>
-                  {Math.max(0, Math.round((new Date(item.data_agendamento).getTime() - Date.now()) / 60000))} min
+                  {Math.max(0, Math.round((new Date(item.appointment_date).getTime() - Date.now()) / 60000))} min
                 </Text>
               </View>
             </TouchableOpacity>
@@ -803,6 +835,11 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={[styles.finValue, { color: COLORS.primary }]}>{currency(dashboard.receitaSemana)}</Text>
           </View>
         </View>
+        
+        <TouchableOpacity style={styles.printBillingBtn} onPress={() => void handleImprimirFaturacao()}>
+          <Ionicons name="print-outline" size={14} color="white" />
+          <Text style={styles.printBillingBtnText}>Imprimir Relatório de Faturação</Text>
+        </TouchableOpacity>
         <View style={styles.finRow}>
           <View style={styles.finItem}>
             <Text style={styles.finLabel}>Pacientes atendidos</Text>
@@ -878,13 +915,6 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         />
       )}
 
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: COLORS.primary }]}
-        onPress={() => navigation.getParent<any>()?.navigate('CadastrarPaciente')}
-      >
-        <Ionicons name="qr-code-outline" size={20} color={COLORS.textInverse} />
-        <Text style={styles.fabText}>Novo Paciente</Text>
-      </TouchableOpacity>
     </View>
   );
 };
@@ -1143,6 +1173,24 @@ const styles = StyleSheet.create({
   procDot: { width: 8, height: 8, borderRadius: 4 },
   procText: { flex: 1, fontSize: SIZES.fontSm, color: COLORS.textSecondary },
   procCount: { fontSize: SIZES.fontSm, fontWeight: '700', color: COLORS.text },
+
+  printBillingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#7C3AED',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    gap: 8,
+    marginTop: SIZES.md,
+    ...SHADOWS.md,
+  },
+  printBillingBtnText: {
+    color: 'white',
+    fontSize: SIZES.fontSm,
+    fontWeight: '600',
+  },
 
   // Filters
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: SIZES.sm, marginBottom: SIZES.sm, paddingHorizontal: SIZES.md },

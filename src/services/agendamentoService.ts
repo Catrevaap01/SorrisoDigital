@@ -28,16 +28,24 @@ function _handleTableMissing(error: any): string | null {
 
 export interface Agendamento {
   id: string;
-  paciente_id?: string;
-  dentista_id?: string;
-  data_agendamento: string;
-  tipo?: string;
-  observacoes?: string;
+  patient_id?: string;
+  dentist_id?: string;
+  secretary_id?: string;
+  triagem_id?: string;
+  appointment_date?: string;
+  appointment_time?: string;
+  tipo?: string; // Mantido para compatibilidade com o app (referente ao "symptoms" no sql ou tipo virtual)
+  symptoms?: string;
+  urgency?: string;
+  priority?: string;
+  notes?: string;
+  reason?: string;
   status?: string;
-  prioridade?: string;
   created_at?: string;
   updated_at?: string;
+  confirmed_at?: string;
   paciente?: Record<string, any>;
+  dentista?: Record<string, any>;
   [key: string]: any;
 }
 
@@ -51,7 +59,7 @@ const enrichAgendamentosWithPacientes = async (
   agendaBase: Agendamento[]
 ): Promise<Agendamento[]> => {
   const pacienteIds = Array.from(
-    new Set(agendaBase.map((a) => a.paciente_id).filter(Boolean))
+    new Set(agendaBase.map((a) => a.patient_id).filter(Boolean))
   ) as string[];
 
     let pacientesById: Record<string, any> = {};
@@ -68,7 +76,7 @@ const enrichAgendamentosWithPacientes = async (
 
   return agendaBase.map((ag) => ({
     ...ag,
-    paciente: ag.paciente || pacientesById[ag.paciente_id || ''] || undefined,
+    paciente: ag.paciente || pacientesById[ag.patient_id || ''] || undefined,
   }));
 };
 
@@ -80,43 +88,69 @@ export const criarAgendamento = async (
     const dataWithStatus = {
       ...dados,
       status: 'agendamento_pendente_secretaria' as any,
+      symptoms: dados.symptoms || dados.tipo,
     };
 
     const runInsert = async (p: any) => {
-      let res = await supabase.from('agendamentos').insert([p]).select().single();
-      if (res.error && (res.error.code === '42501' || (res.error as any).status === 403)) {
-        const admin = getAdminClient();
-        if (admin) res = await admin.from('agendamentos').insert([p]).select().single();
+      // Remover campos virtuais e garantir campos obrigatórios
+      const { tipo, ...dadosLimpos } = p;
+      
+      const admin = getAdminClient();
+      
+      const payload = {
+        patient_id: dadosLimpos.patient_id,
+        appointment_date: dadosLimpos.appointment_date,
+        appointment_time: dadosLimpos.appointment_time,
+        notes: dadosLimpos.notes || dadosLimpos.observacoes || '',
+        symptoms: dadosLimpos.symptoms || tipo || 'Consulta solicitada',
+        status: dadosLimpos.status || 'agendamento_pendente_secretaria',
+        priority: dadosLimpos.priority || 'normal',
+        urgency: dadosLimpos.urgency || 'normal',
+        triagem_id: dadosLimpos.triagem_id || null,
+        dentist_id: dadosLimpos.dentist_id || null,
+        secretary_id: dadosLimpos.secretary_id || null,
+      };
+
+      console.log('Tentando inserir agendamento:', payload);
+      
+      let res = admin
+        ? await admin.from('appointments').insert([payload]).select().single()
+        : await supabase.from('appointments').insert([payload]).select().single();
+      
+      if (res.error) {
+        console.error('Erro na inserção:', res.error);
       }
       return res;
     };
 
     const { data, error } = await runInsert(dataWithStatus);
 
-    if (error) throw error;
-
-    logger.info('Agendamento criado na fila da secretária', data);
-    return { success: true, data: data as Agendamento };
-  } catch (err: any) {
-    // OFFLINE HANDLING
-    const state = await NetInfo.fetch();
-    if (!state.isConnected || !state.isInternetReachable) {
-      console.log('📡 Offline: Enfileirando criação de agendamento...');
-      await enqueueOfflineAction('criarAgendamento', { dados });
-      return {
-        success: true,
-        data: {
-          id: 'temp-' + Date.now(),
-          ...dados,
-          status: 'agendamento_pendente_secretaria',
-          created_at: new Date().toISOString(),
-          isPendingSync: true,
-        } as any
-      };
+    if (error) {
+      const msg = _handleTableMissing(error) || error.message || 'Erro desconhecido ao salvar no banco';
+      return { success: false, error: msg };
     }
 
-    const mapped = _handleTableMissing(err);
-    const message = mapped || err.message || 'Erro desconhecido';
+    logger.info('Agendamento criado com sucesso', data);
+    return { success: true, data: data as Agendamento };
+  } catch (err: any) {
+    console.error('Erro catch em criarAgendamento:', err);
+    
+    // OFFLINE HANDLING - Só tentamos se for erro de rede provável
+    try {
+      const state = await NetInfo.fetch();
+      if (!state.isConnected) {
+        console.log('📡 Offline: Enfileirando criação de agendamento...');
+        await enqueueOfflineAction('criarAgendamento', { dados });
+        return {
+          success: true,
+          data: { id: 'temp-' + Date.now(), ...dados, status: 'agendamento_pendente_secretaria', isPendingSync: true } as any
+        };
+      }
+    } catch (netErr) {
+      console.warn('Erro ao verificar NetInfo:', netErr);
+    }
+
+    const message = err.message || 'Erro inesperado no servidor';
     return { success: false, error: message };
   }
 };
@@ -136,40 +170,25 @@ export const buscarAgendaDentista = async (
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
 
-    // ✅ TIMEOUT + LIMIT 200 agendamentos  
-    const query = supabase
-      .from('agendamentos')
-      .select('*')
-      .limit(200)
-      .or(`dentista_id.eq.${dentistaId},status.eq.pendente,status.eq.agendado,status.eq.confirmado,status.eq.realizado,status.eq.cancelado`)
-      .gte('data_agendamento', start.toISOString())
-      .lt('data_agendamento', end.toISOString())
-      .order('data_agendamento', { ascending: true });
+    // ✅ TIMEOUT + LIMIT 200 agendamentos - Buscar APENAS agendamentos atribuídos a este dentista
+    // Usar datas em formato YYYY-MM-DD para comparação com DATE fields
+    const startDate = start.toISOString().split('T')[0]; // "2026-04-14"
+    const endDate = end.toISOString().split('T')[0];     // "2026-04-15"
     
-    const [agendaRes, bloqueadosRes] = await Promise.all([
-      withTimeout(query, 12000),
-      supabase
-        .from('agendamentos')
-        .select('paciente_id')
-        .in('status', ['pendente', 'agendado', 'confirmado'])
-        .neq('dentista_id', dentistaId)
-        .gte('data_agendamento', start.toISOString())
-        .lt('data_agendamento', end.toISOString())
-    ]);
+    const query = supabase
+      .from('appointments')
+      .select('*')
+      .eq('dentist_id', dentistaId)
+      .gte('appointment_date', startDate)
+      .lt('appointment_date', endDate)
+      .order('appointment_date', { ascending: true })
+      .limit(200);
+    
+    const agendaRes = await withTimeout(query, 12000);
 
     if (agendaRes.error) throw agendaRes.error;
 
-    let agendaBase = (agendaRes.data || []) as Agendamento[];
-    const pacientesBloqueados = new Set(
-      (bloqueadosRes.data || []).map((b: any) => b.paciente_id).filter(Boolean)
-    );
-
-    agendaBase = agendaBase.filter((ag) => {
-      if (ag.dentista_id === dentistaId) return true;
-      if (!ag.paciente_id) return true;
-      return !pacientesBloqueados.has(ag.paciente_id);
-    });
-    
+    const agendaBase = (agendaRes.data || []) as Agendamento[];
     const agendaEnriquecida = await enrichAgendamentosWithPacientes(agendaBase);
 
     return { success: true, data: agendaEnriquecida };
@@ -190,15 +209,15 @@ export const buscarTodosAgendamentosDentista = async (
   try {
     const [agendaRes, bloqueadosRes] = await Promise.all([
       withTimeout(supabase
-        .from('agendamentos')
+        .from('appointments')
         .select('*')
-        .eq('dentista_id', dentistaId)
-        .order('data_agendamento', { ascending: false }), 10000),
+        .eq('dentist_id', dentistaId)
+        .order('appointment_date', { ascending: false }), 10000),
       withTimeout(supabase
-        .from('agendamentos')
-        .select('paciente_id')
+        .from('appointments')
+        .select('patient_id')
         .in('status', ['pendente', 'agendado', 'confirmado'])
-        .neq('dentista_id', dentistaId), 8000)
+        .neq('dentist_id', dentistaId), 8000)
     ]);
 
     if (agendaRes.error) throw agendaRes.error;
@@ -231,13 +250,17 @@ export const buscarAgendamentosDentistaPorPeriodo = async (
   dataFim: Date
 ): Promise<ServiceResult<Agendamento[]>> => {
   try {
+    // Usar datas em formato YYYY-MM-DD para comparação com DATE fields
+    const startDate = dataInicio.toISOString().split('T')[0];
+    const endDate = dataFim.toISOString().split('T')[0];
+    
     const { data, error } = await withTimeout(supabase
-      .from('agendamentos')
+      .from('appointments')
       .select('*')
-      .eq('dentista_id', dentistaId)
-      .gte('data_agendamento', dataInicio.toISOString())
-      .lt('data_agendamento', dataFim.toISOString())
-      .order('data_agendamento', { ascending: false }), 10000);
+      .eq('dentist_id', dentistaId)
+      .gte('appointment_date', startDate)
+      .lt('appointment_date', endDate)
+      .order('appointment_date', { ascending: false }), 10000);
 
     if (error) throw error;
 
@@ -263,28 +286,31 @@ export const agendarAgendamento = async (
   dentistaId: string
 ): Promise<ServiceResult<Agendamento>> => {
   try {
-    const { data, error } = await supabase
-      .from('agendamentos')
-      .update({ status: 'agendado', dentista_id: dentistaId })
+    const admin = getAdminClient();
+    const client = admin || supabase;
+    
+    const { data, error } = await client
+      .from('appointments')
+      .update({ status: 'atribuido_dentista', dentist_id: dentistaId, updated_at: new Date().toISOString() })
       .eq('id', agendamentoId)
       .select()
       .single();
 
     if (error) throw error;
 
-    if (data?.paciente_id) {
+    if (data?.patient_id) {
       await notificarAgendamentoPaciente(
-        data.paciente_id,
+        data.patient_id,
         'Pré-agendamento realizado',
-        `Sua solicitação foi pré-agendada para ${formatDate(new Date(data.data_agendamento), "dd/MM/yyyy 'às' HH:mm")}.
+        `Sua solicitação foi pré-agendada para ${formatDate(data.appointment_date, "dd/MM/yyyy 'às' HH:mm")}.
         `,
         { agendamento_id: agendamentoId }
       );
       await scheduleAppointmentReminder(
         'Lembrete da consulta',
-        `Sua consulta está prevista para ${formatDate(new Date(data.data_agendamento), "dd/MM/yyyy 'às' HH:mm")}.
+        `Sua consulta está prevista para ${formatDate(data.appointment_date, "dd/MM/yyyy 'às' HH:mm")}.
         `,
-        data.data_agendamento
+        data.appointment_date
       );
     }
 
@@ -318,28 +344,31 @@ export const confirmarAgendamento = async (
   dentistaId: string
 ): Promise<ServiceResult<Agendamento>> => {
   try {
-    const { data, error } = await supabase
-      .from('agendamentos')
-      .update({ status: 'confirmado', dentista_id: dentistaId })
+    const admin = getAdminClient();
+    const client = admin || supabase;
+    
+    const { data, error } = await client
+      .from('appointments')
+      .update({ status: 'confirmado_dentista', dentist_id: dentistaId, confirmed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('id', agendamentoId)
       .select()
       .single();
 
     if (error) throw error;
 
-    if (data?.paciente_id) {
+    if (data?.patient_id) {
       await notificarAgendamentoPaciente(
-        data.paciente_id,
+        data.patient_id,
         'Consulta confirmada',
-        `Seu agendamento foi confirmado para ${formatDate(new Date(data.data_agendamento), "dd/MM/yyyy 'às' HH:mm")}.
+        `Seu agendamento foi confirmado para ${formatDate(data.appointment_date, "dd/MM/yyyy 'às' HH:mm")}.
         `,
         { agendamento_id: agendamentoId }
       );
       await scheduleAppointmentReminder(
         'Lembrete da consulta confirmada',
-        `Sua consulta confirmada é em ${formatDate(new Date(data.data_agendamento), "dd/MM/yyyy 'às' HH:mm")}.
+        `Sua consulta confirmada é em ${formatDate(data.appointment_date, "dd/MM/yyyy 'às' HH:mm")}.
         `,
-        data.data_agendamento
+        data.appointment_date
       );
     }
 
@@ -373,7 +402,7 @@ export const realizarAgendamento = async (
 ): Promise<ServiceResult<Agendamento>> => {
   try {
     const { data, error } = await supabase
-      .from('agendamentos')
+      .from('appointments')
       .update({ status: 'realizado', updated_at: new Date().toISOString() })
       .eq('id', agendamentoId)
       .select()
@@ -429,9 +458,9 @@ export const cancelarAgendamento = async (
 
     const row = Array.isArray(data) ? data[0] : data;
 
-    if (row?.paciente_id) {
+    if (row?.patient_id) {
       await notificarAgendamentoPaciente(
-        row.paciente_id,
+        row.patient_id,
         'Agendamento suspenso',
         'Seu agendamento foi devolvido à fila e será reavaliado pela recepção.',
         { agendamento_id: agendamentoId }
@@ -469,10 +498,10 @@ export const buscarAgendamentosPaciente = async (
   try {
     // Busca agendamentos do paciente
     const { data, error } = await withTimeout(supabase
-      .from('agendamentos')
+      .from('appointments')
       .select('*')
-      .eq('paciente_id', pacienteId)
-      .order('data_agendamento', { ascending: false }), 10000);
+      .eq('patient_id', pacienteId)
+      .order('appointment_date', { ascending: false }), 10000);
 
     if (error) throw error;
 
@@ -515,8 +544,8 @@ const _appendObservacoes = async (
   nota: string
 ): Promise<string | null> => {
   const { data, error } = await supabase
-    .from('agendamentos')
-    .select('observacoes')
+    .from('appointments')
+    .select('notes')
     .eq('id', agendamentoId)
     .single();
 
@@ -524,7 +553,7 @@ const _appendObservacoes = async (
     return nota;
   }
 
-  const textoAtual = data.observacoes || '';
+  const textoAtual = data.notes || '';
   return textoAtual ? `${textoAtual}\n${nota}` : nota;
 };
 
@@ -532,7 +561,7 @@ export const buscarAgendamentosPendentes = async (): Promise<ServiceResult<Agend
   try {
     const { data, error } = await withTimeout(
       supabase
-        .from('agendamentos')
+        .from('appointments')
         .select('*')
         .eq('status', 'pendente')
         .order('created_at', { ascending: false }),
@@ -555,7 +584,7 @@ export const buscarAgendamentoPorId = async (
 ): Promise<ServiceResult<Agendamento>> => {
   try {
     const { data, error } = await supabase
-      .from('agendamentos')
+      .from('appointments')
       .select('*')
       .eq('id', agendamentoId)
       .single();
@@ -584,18 +613,21 @@ export const rejeitarAgendamento = async (
       `Rejeitado pelo dentista: ${motivo}`
     );
 
-    const { data, error } = await supabase
-      .from('agendamentos')
-      .update({ status: 'rejeitado', observacoes })
+    const admin = getAdminClient();
+    const client = admin || supabase;
+    
+    const { data, error } = await client
+      .from('appointments')
+      .update({ status: 'rejeitado_dentista', notes: observacoes, updated_at: new Date().toISOString() })
       .eq('id', agendamentoId)
       .select()
       .single();
 
     if (error) throw error;
 
-    if (data?.paciente_id) {
+    if (data?.patient_id) {
       await notificarAgendamentoPaciente(
-        data.paciente_id,
+        data.patient_id,
         'Agendamento rejeitado',
         'O dentista rejeitou sua consulta. Por favor, aguarde nova resposta do secretário.',
         { agendamento_id: agendamentoId }
@@ -628,30 +660,47 @@ export const sugerirNovoHorario = async (
   nota?: string
 ): Promise<ServiceResult<Agendamento>> => {
   try {
+    // Extrair data e hora do formato ISO
+    // novoHorario vem como "2026-04-14T14:30:00.000Z"
+    const dtObj = new Date(novoHorario);
+    const appointmentDate = novoHorario.split('T')[0]; // "2026-04-14"
+    const appointmentTime = `${String(dtObj.getHours()).padStart(2, '0')}:${String(dtObj.getMinutes()).padStart(2, '0')}`; // "14:30"
+
     const observacoes = await _appendObservacoes(
       agendamentoId,
-      nota || `Novo horário sugerido pelo dentista: ${novoHorario}`
+      nota || `Novo horário sugerido pelo dentista: ${appointmentDate} às ${appointmentTime}`
     );
 
-    const { data, error } = await supabase
-      .from('agendamentos')
-      .update({ status: 'sugerido', data_agendamento: novoHorario, observacoes, dentista_id: dentistaId })
+    const admin = getAdminClient();
+    const client = admin || supabase;
+    
+    const { data, error } = await client
+      .from('appointments')
+      .update({ 
+        status: 'reagendamento_solicitado', 
+        appointment_date: appointmentDate,
+        appointment_time: appointmentTime,
+        notes: observacoes, 
+        dentist_id: dentistaId,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', agendamentoId)
       .select()
       .single();
 
     if (error) throw error;
 
-    if (data?.paciente_id) {
+    if (data?.patient_id) {
+      const formattedDate = `${appointmentDate} às ${appointmentTime}`;
       await notificarAgendamentoPaciente(
-        data.paciente_id,
+        data.patient_id,
         'Novo horário sugerido',
-        `O dentista sugeriu um novo horário para sua consulta: ${formatDate(new Date(novoHorario), "dd/MM/yyyy 'às' HH:mm")}.`,
+        `O dentista sugeriu um novo horário para sua consulta: ${formattedDate}.`,
         { agendamento_id: agendamentoId }
       );
       await scheduleAppointmentReminder(
         'Lembrete do novo horário sugerido',
-        `Você tem uma consulta sugerida para ${formatDate(new Date(novoHorario), "dd/MM/yyyy 'às' HH:mm")}. Confirme ou solicite nova data.`,
+        `Você tem uma consulta sugerida para ${formattedDate}. Confirme ou solicite nova data.`,
         novoHorario
       );
     }

@@ -16,6 +16,11 @@ export interface RelatorioDentista {
   triagensPendentes: number;
   percentualResposta: number;
   dataUltimaAtividade: string | null;
+  // Billing data
+  totalFaturado?: number;
+  totalRecebido?: number;
+  pendenteReceber?: number;
+  totalProcedimentos?: number;
 }
 
 export interface RelatorioGeral {
@@ -25,10 +30,20 @@ export interface RelatorioGeral {
   totalTriagens: number;
   totalConsultas?: number;
   totalMensagens?: number;
+  
+  // Financial metrics from procedimentos_tratamento
+  totalFaturado: number;
+  totalRecebido: number;
+  totalPendente: number;
+  totalProcedimentos: number;
+
+  // Legacy/Estimated metrics
   receitaEstimada?: number;
   receitaRealizada?: number;
+  
   triagensRespondidas: number;
   percentualResposta: number;
+  
   // novos campos para resumo do mês atual
   cadastrosMes?: number;
   dentistasMes?: number;
@@ -43,6 +58,41 @@ export interface ExportResult {
   fileUri?: string;
   error?: string;
 }
+
+/**
+ * Busca itens financeiros detalhados para um dentista especifico
+ */
+export const buscarTratamentosFinanceirosDentista = async (dentistaId: string) => {
+  try {
+    const { data: planos } = await supabase
+      .from('planos_tratamento')
+      .select('id, paciente:profiles(nome)')
+      .eq('dentista_id', dentistaId);
+
+    const planoIds = (planos || []).map((p: any) => p.id);
+    if (planoIds.length === 0) return { success: true, data: [] };
+
+    const { data: procs, error } = await supabase
+      .from('procedimentos_tratamento')
+      .select('*')
+      .in('plano_id', planoIds)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+
+    const items = (procs || []).map((p: any) => {
+      const plano = (planos || []).find((pl: any) => pl.id === p.plano_id);
+      return {
+        ...p,
+        paciente_nome: (plano?.paciente as any)?.[0]?.nome || 'Paciente',
+      };
+    });
+
+    return { success: true, data: items };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
 
 const PRECO_POR_TIPO: Record<string, number> = {
   consulta: 25000,
@@ -135,6 +185,36 @@ export const gerarRelatorioGeral = async (): Promise<{
       return agenda.status === 'realizado' ? sum + valor : sum;
     }, 0);
 
+    // 9. Fetch billing data from procedimentos_tratamento
+    const { data: procedimentos, error: proceduralError } = await supabase
+      .from('procedimentos_tratamento')
+      .select('*, plano:planos_tratamento(dentista_id)');
+
+    if (proceduralError) return { success: false, error: proceduralError.message };
+
+    // Aggregate billing data by dentist
+    const billingByDentist: Record<string, { faturado: number, recebido: number, procedimentos: number }> = {};
+    let totalFaturadoGeral = 0;
+    let totalRecebidoGeral = 0;
+
+    (procedimentos || []).forEach((p: any) => {
+      const dId = p.plano?.dentista_id;
+      const valor = Number(p.valor || 0);
+      const isPago = p.status_financeiro === 'pago';
+
+      totalFaturadoGeral += valor;
+      if (isPago) totalRecebidoGeral += valor;
+
+      if (dId) {
+        if (!billingByDentist[dId]) {
+          billingByDentist[dId] = { faturado: 0, recebido: 0, procedimentos: 0 };
+        }
+        billingByDentist[dId].faturado += valor;
+        if (isPago) billingByDentist[dId].recebido += valor;
+        billingByDentist[dId].procedimentos += 1;
+      }
+    });
+
     const relatoriosDentistas: RelatorioDentista[] = (dentistas || []).map(
       (dentista: any) => {
         const triagensDentista = (triagens || []).filter(
@@ -159,6 +239,8 @@ export const gerarRelatorioGeral = async (): Promise<{
               ).toISOString()
             : null;
 
+        const billing = billingByDentist[dentista.id] || { faturado: 0, recebido: 0, procedimentos: 0 };
+
         return {
           dentista: dentista as DentistaProfile,
           totalTriagens: triagensDentista.length,
@@ -166,6 +248,10 @@ export const gerarRelatorioGeral = async (): Promise<{
           triagensPendentes: triagensDentista.length - respondidas.length,
           percentualResposta: Math.round(percentual),
           dataUltimaAtividade: ultimaAtividade,
+          totalFaturado: billing.faturado,
+          totalRecebido: billing.recebido,
+          pendenteReceber: billing.faturado - billing.recebido,
+          totalProcedimentos: billing.procedimentos,
         };
       }
     );
@@ -200,10 +286,14 @@ export const gerarRelatorioGeral = async (): Promise<{
     const relatorio: RelatorioGeral = {
       totalDentistas: dentistas?.length || 0,
       totalPacientes: Number(totalPacientes || 0),
-      dentistasAtivos: relatoriosDentistas.filter((r) => r.totalTriagens > 0).length,
+      dentistasAtivos: relatoriosDentistas.filter((r) => r.totalTriagens > 0 || (r.totalProcedimentos || 0) > 0).length,
       totalTriagens,
       totalConsultas: Number(consultasCount || 0),
       totalMensagens: Number(mensagensCount || 0),
+      totalFaturado: totalFaturadoGeral,
+      totalRecebido: totalRecebidoGeral,
+      totalPendente: totalFaturadoGeral - totalRecebidoGeral,
+      totalProcedimentos: procedimentos?.length || 0,
       receitaEstimada,
       receitaRealizada,
       triagensRespondidas: totalRespondidas,
@@ -280,6 +370,28 @@ export const gerarRelatorioDentista = async (
     const percentual =
       triagens.length > 0 ? (respondidas.length / triagens.length) * 100 : 0;
 
+    const { data: planosIdsRes } = await supabase
+      .from('planos_tratamento')
+      .select('id')
+      .eq('dentista_id', dentistaId);
+    
+    const planoIds = (planosIdsRes || []).map((p: any) => p.id);
+    let billing = { faturado: 0, recebido: 0, procedimentos: 0 };
+    
+    if (planoIds.length > 0) {
+      const { data: procs } = await supabase
+        .from('procedimentos_tratamento')
+        .select('valor, status_financeiro')
+        .in('plano_id', planoIds);
+      
+      (procs || []).forEach((p: any) => {
+        const valor = Number(p.valor || 0);
+        billing.faturado += valor;
+        if (p.status_financeiro === 'pago') billing.recebido += valor;
+        billing.procedimentos += 1;
+      });
+    }
+
     const estatisticas: RelatorioDentista = {
       dentista: dentista as DentistaProfile,
       totalTriagens: triagens.length,
@@ -287,6 +399,10 @@ export const gerarRelatorioDentista = async (
       triagensPendentes: pendentes.length,
       percentualResposta: Math.round(percentual),
       dataUltimaAtividade: triagens.length > 0 ? triagens[0].updated_at : null,
+      totalFaturado: billing.faturado,
+      totalRecebido: billing.recebido,
+      pendenteReceber: billing.faturado - billing.recebido,
+      totalProcedimentos: billing.procedimentos,
     };
 
     return {
@@ -523,4 +639,192 @@ export const gerarHTMLRelatorio = (relatorio: RelatorioGeral): string => {
  */
 export const imprimirRelatorio = async (html: string): Promise<ExportResult> => {
   return exportHtmlAsPdf(html, `relatorio-geral-${new Date().toISOString().split('T')[0]}.pdf`);
+};
+/**
+ * Converte valor para formato de moeda angolana
+ */
+const formatMoney = (value: number) => {
+  const amount = Number(value || 0);
+  return amount.toLocaleString('pt-AO', { minimumFractionDigits: 0 }).replace(/,/g, '.') + ' Kz';
+};
+
+/**
+ * Gera HTML para relatorio de faturamento de um dentista
+ */
+export const buildDentistBillingHtml = (dentistName: string, items: any[]): string => {
+  const total = items.reduce((sum, item) => sum + Number(item.valor || 0), 0);
+  const pago = items.reduce((sum, item) => sum + (item.status_financeiro === 'pago' ? Number(item.valor || 0) : 0), 0);
+  const pendente = total - pago;
+
+  return `
+    <!DOCTYPE html>
+    <html lang="pt-AO">
+    <head>
+      <meta charset="UTF-8">
+      <title>Relatório de Faturação - ${dentistName}</title>
+      <style>
+        * { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        body { padding: 40px; background: white; color: #1e293b; }
+        .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #7C3AED; padding-bottom: 20px; }
+        h1 { color: #7C3AED; font-size: 28px; }
+        .subtitle { color: #64748b; font-size: 14px; margin-top: 5px; }
+        .summary { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 40px; }
+        .summary-card { flex: 1; background: #f8fafc; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #e2e8f0; }
+        .summary-card h3 { color: #7C3AED; font-size: 22px; margin-bottom: 4px; }
+        .summary-card p { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        table th { background: #7C3AED; color: white; padding: 12px; text-align: left; font-size: 12px; }
+        table td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+        .status { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        .status-pago { background: #dcfce7; color: #166534; }
+        .status-pendente { background: #fee2e2; color: #991b1b; }
+        .footer { text-align: center; margin-top: 40px; color: #94a3b8; font-size: 11px; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Sorriso Digital</h1>
+        <p class="subtitle">Relatório Individual de Faturação</p>
+        <p class="subtitle"><strong>Dr(a). ${dentistName}</strong></p>
+        <p class="subtitle">Gerado em ${new Date().toLocaleDateString('pt-AO')}</p>
+      </div>
+
+      <div class="summary">
+        <div class="summary-card">
+          <h3>${items.length}</h3>
+          <p>Procedimentos</p>
+        </div>
+        <div class="summary-card">
+          <h3>${formatMoney(total)}</h3>
+          <p>Total Faturado</p>
+        </div>
+        <div class="summary-card">
+          <h3>${formatMoney(pago)}</h3>
+          <p>Total Recebido</p>
+        </div>
+        <div class="summary-card">
+          <h3 style="color: ${pendente > 0 ? '#b91c1c' : '#7C3AED'}">${formatMoney(pendente)}</h3>
+          <p>Pendente</p>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Paciente</th>
+            <th>Procedimento</th>
+            <th>Valor</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(item => `
+            <tr>
+              <td>${(item.updated_at || item.data_hora || item.created_at) ? new Date(item.updated_at || item.data_hora || item.created_at).toLocaleDateString('pt-AO') : '---'}</td>
+              <td>${item.paciente_nome || (item.plano?.paciente?.nome) || 'Paciente'}</td>
+              <td>${item.procedimento || item.descricao || item.nome || 'Procedimento'}</td>
+              <td>${formatMoney(item.valor)}</td>
+              <td>
+                <span class="status ${String(item.status_financeiro).toLowerCase() === 'pago' ? 'status-pago' : 'status-pendente'}">
+                  ${String(item.status_financeiro).toLowerCase() === 'pago' ? 'PAGO' : 'PENDENTE'}
+                </span>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <div class="footer">
+        <p>&copy; ${new Date().getFullYear()} Sorriso Digital - Sistema de Gestão Odontológica</p>
+      </div>
+    </body>
+    </html>
+  `;
+};
+
+/**
+ * Gera HTML para relatorio geral de faturamento da clinica
+ */
+export const buildGeneralBillingHtml = (relatorio: RelatorioGeral): string => {
+  return `
+    <!DOCTYPE html>
+    <html lang="pt-AO">
+    <head>
+      <meta charset="UTF-8">
+      <title>Relatório Geral de Faturação - Sorriso Digital</title>
+      <style>
+        * { font-family: Arial, sans-serif; margin: 0; padding: 0; }
+        body { padding: 40px; background: white; color: #1e293b; }
+        .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #7C3AED; padding-bottom: 20px; }
+        h1 { color: #7C3AED; font-size: 28px; }
+        .subtitle { color: #64748b; font-size: 14px; margin-top: 5px; }
+        .summary { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 40px; }
+        .summary-card { flex: 1; background: #f8fafc; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #e2e8f0; }
+        .summary-card h3 { color: #7C3AED; font-size: 22px; margin-bottom: 4px; }
+        .summary-card p { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        table th { background: #7C3AED; color: white; padding: 12px; text-align: left; font-size: 12px; }
+        table td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+        .footer { text-align: center; margin-top: 40px; color: #94a3b8; font-size: 11px; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Sorriso Digital</h1>
+        <p class="subtitle">Relatório Consolidado de Faturação da Clínica</p>
+        <p class="subtitle">Gerado em ${new Date().toLocaleDateString('pt-AO')}</p>
+      </div>
+
+      <div class="summary">
+        <div class="summary-card">
+          <h3>${relatorio.totalProcedimentos}</h3>
+          <p>Total Procedimentos</p>
+        </div>
+        <div class="summary-card">
+          <h3>${formatMoney(relatorio.totalFaturado)}</h3>
+          <p>Total Faturado</p>
+        </div>
+        <div class="summary-card">
+          <h3>${formatMoney(relatorio.totalRecebido)}</h3>
+          <p>Total Recebido</p>
+        </div>
+        <div class="summary-card">
+          <h3 style="color: #b91c1c">${formatMoney(relatorio.totalPendente)}</h3>
+          <p>Total Pendente</p>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Dentista</th>
+            <th>Especialidade</th>
+            <th>Proc.</th>
+            <th>Faturado</th>
+            <th>Recebido</th>
+            <th>Pendente</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${relatorio.dentistas.map(d => `
+            <tr>
+              <td><strong>${d.dentista.nome || '---'}</strong></td>
+              <td>${d.dentista.especialidade || 'Clínica Geral'}</td>
+              <td>${d.totalProcedimentos || 0}</td>
+              <td>${formatMoney(d.totalFaturado || 0)}</td>
+              <td>${formatMoney(d.totalRecebido || 0)}</td>
+              <td>${formatMoney(d.pendenteReceber || 0)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <div class="footer">
+        <p>&copy; ${new Date().getFullYear()} Sorriso Digital - Sistema de Gestão Odontológica</p>
+        <p>Este relatório contém dados sensíveis. Uso restrito à administração da clínica.</p>
+      </div>
+    </body>
+    </html>
+  `;
 };

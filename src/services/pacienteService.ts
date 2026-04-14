@@ -63,6 +63,10 @@ export interface PacienteProfile extends UserProfile {
   observacoes_gerais?: string;
   documentos_urls?: string[];
   temp_password?: string;
+  dentist_id?: string;
+  dentista_id?: string;
+  creator_id?: string;
+  creator_role?: string;
 }
 
 const sanitizePacienteUpdates = (updates: Partial<PacienteProfile>) =>
@@ -96,6 +100,15 @@ const removeMissingSchemaColumns = <T extends Record<string, any>>(
  */
 export const parsePacienteProfile = (p: PacienteProfile): PacienteProfile => {
   if (!p) return p;
+
+  if (!p.dentista_id && p.dentist_id) {
+    p.dentista_id = p.dentist_id;
+  }
+
+  if (!p.dentist_id && p.dentista_id) {
+    p.dentist_id = p.dentista_id;
+  }
+
   const obs = p.observacoes_gerais || '';
 
   if (!p.data_nascimento || p.data_nascimento === '-') {
@@ -390,6 +403,7 @@ export const listarPacientes = async (
   filtro?: {
     nome?: string;
     provincia?: string;
+    dentist_id?: string;
     limit?: number;
   }
 ): Promise<{ success: boolean; data?: PacienteProfile[]; error?: string }> => {
@@ -397,23 +411,64 @@ export const listarPacientes = async (
     const adminClient = getAdminClient();
     const client = adminClient || supabase;
 
-    let query = client
-      .from('profiles')
-      .select('*')
-      .eq('tipo', 'paciente')
-      .order('nome', { ascending: true })
-      .limit(filtro?.limit || 100);
-
-    if (filtro?.nome) {
-      query = query.ilike('nome', `%${filtro.nome}%`);
-    }
-
-    if (filtro?.provincia) {
-      query = query.eq('provincia', filtro.provincia);
-    }
-
     const timeout = 2000;
-    const { data, error } = await withTimeout(query, timeout);
+    const buildBaseQuery = () => {
+      let q = client
+        .from('profiles')
+        .select('*')
+        .eq('tipo', 'paciente')
+        .order('nome', { ascending: true })
+        .limit(filtro?.limit || 100);
+
+      if (filtro?.nome) {
+        q = q.ilike('nome', `%${filtro.nome}%`);
+      }
+
+      if (filtro?.provincia) {
+        q = q.eq('provincia', filtro.provincia);
+      }
+
+      // ✅ Aplicar filtro de dentista se fornecido
+      if (filtro?.dentist_id) {
+        q = q.eq('dentist_id', filtro.dentist_id);
+      }
+
+      return q;
+    };
+
+    const runQuery = async (field?: 'dentist_id' | 'dentista_id') => {
+      let q = buildBaseQuery();
+      // Se houver erro com dentist_id, tentar com dentista_id
+      if (field && filtro?.dentist_id) {
+        q = client
+          .from('profiles')
+          .select('*')
+          .eq('tipo', 'paciente')
+          .eq(field, filtro.dentist_id)
+          .order('nome', { ascending: true })
+          .limit(filtro?.limit || 100);
+        
+        if (filtro?.nome) q = q.ilike('nome', `%${filtro.nome}%`);
+        if (filtro?.provincia) q = q.eq('provincia', filtro.provincia);
+      }
+      return await withTimeout(q, timeout);
+    };
+
+    let { data, error } = await runQuery();
+
+    if (error && filtro?.dentist_id) {
+      const missingColumn = String(error.message || '').toLowerCase().includes('dentist_id')
+        ? 'dentista_id'
+        : String(error.message || '').toLowerCase().includes('dentista_id')
+        ? 'dentist_id'
+        : undefined;
+
+      if (missingColumn) {
+        response = await runQuery(missingColumn as 'dentista_id');
+        data = response.data;
+        error = response.error;
+      }
+    }
 
     if (error) {
       return { success: false, error: error.message };
@@ -512,7 +567,8 @@ export const createPaciente = async (
         nome: data.nome,
         tipo: 'paciente',
         role: 'paciente',
-        dentista_criador: dentistaId,
+        creator_id: dentistaId,
+        creator_role: data.observacoes_gerais?.includes('[SECRETARIA]') ? 'secretario' : 'dentista',
         force_password_change: true, // paciente é obrigado a alterar a senha no primeiro login
       },
     });
@@ -548,6 +604,8 @@ export const createPaciente = async (
       observacoes_gerais: `[DN]: ${data.data_nascimento || '-'} [G]: ${data.genero || '-'} [IDADE]: ${idadeCalculada ?? '-'}${data.observacoes_gerais ? ' ' + data.observacoes_gerais : ''}`.trim(),
       updated_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
+      creator_id: dentistaId,
+      creator_role: data.observacoes_gerais?.includes('[SECRETARIA]') ? 'secretario' : 'dentista',
     };
 
     const { data: profileData, error: profileError } = await upsertPacienteProfile(
@@ -599,8 +657,45 @@ export const createPaciente = async (
 
     return {
       success: false,
-      error: error.message || 'Erro ao criar paciente',
+      error: error.message || 'Erro inesperado ao criar paciente',
     };
+  }
+};
+
+/**
+ * Atribuir um paciente a um dentista específico
+ */
+export const atribuirPacienteAoDentista = async (
+  pacienteId: string,
+  dentistaId: string | null
+): Promise<{ success: boolean; error?: string }> => {
+  const payloadBase = {
+    updated_at: new Date().toISOString(),
+  };
+
+  const tryUpdate = async (field: 'dentist_id' | 'dentista_id') => {
+    return await supabase
+      .from('profiles')
+      .update({
+        ...payloadBase,
+        [field]: dentistaId,
+      })
+      .eq('id', pacienteId);
+  };
+
+  try {
+    let result = await tryUpdate('dentist_id');
+
+    if (result.error && String(result.error.message || '').toLowerCase().includes('dentist_id')) {
+      result = await tryUpdate('dentista_id');
+    }
+
+    if (result.error) throw result.error;
+
+    await clearCache(getCacheKey(pacienteId));
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message || 'Erro ao atribuir dentista' };
   }
 };
 

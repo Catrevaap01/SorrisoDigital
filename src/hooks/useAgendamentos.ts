@@ -10,12 +10,13 @@ import { handleError, HandledError } from '../utils/errorHandler';
 
 export interface Agendamento {
   id: string;
-  paciente_id: string;
-  dentista_id: string;
-  data_agendamento: string;
-  hora_agendamento: string;
-  status?: 'pendente' | 'agendado' | 'confirmado' | 'cancelado' | 'realizado';
-  motivo?: string;
+  patient_id: string;
+  dentist_id: string;
+  appointment_date: string;
+  appointment_time?: string;
+  status?: string;
+  notes?: string;
+  urgency?: string;
   created_at?: string;
   updated_at?: string;
   [key: string]: any;
@@ -45,10 +46,10 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
         setLoading(true);
         setError(null);
 
-        let query = supabase.from('agendamentos').select('*');
+        let query = supabase.from('appointments').select('*');
 
         if (pacienteId) {
-          query = query.eq('paciente_id', pacienteId);
+          query = query.eq('patient_id', pacienteId);
         }
 
         // Aplicar filtros adicionais
@@ -56,7 +57,7 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
           query = query.eq(key, value);
         });
 
-        query = query.order('data_agendamento', { ascending: true });
+        query = query.order('appointment_date', { ascending: true });
 
         const { data, error: queryError } = await query;
 
@@ -85,7 +86,7 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
         setLoading(true);
 
         const { data, error: createError } = await supabase
-          .from('agendamentos')
+          .from('appointments')
           .insert([dados])
           .select()
           .single();
@@ -115,7 +116,7 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
         setLoading(true);
 
         const { data, error: updateError } = await supabase
-          .from('agendamentos')
+          .from('appointments')
           .update(dados)
           .eq('id', id)
           .select()
@@ -146,7 +147,7 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
         setLoading(true);
 
         const { error: deleteError } = await supabase
-          .from('agendamentos')
+          .from('appointments')
           .delete()
           .eq('id', id);
 

@@ -46,6 +46,7 @@ export type AdminTabParamList = {
 export type SecretarioTabParamList = {
   SecretarioDashboard: undefined;
   Agendamentos: undefined;
+  Pacientes: undefined;
   Mensagens:
     | {
         openConversationId?: string;
@@ -60,6 +61,7 @@ export type SecretarioStackParamList = {
   SecretarioTabs: undefined;
   AtribuirDentista: { triagemId: string; especialidadeSugerida?: string };
   AtribuirAgendamento: { agendamentoId: string; especialidadeSugerida?: string };
+  CadastrarPaciente: undefined;
   Settings: undefined;
   Notificacoes: undefined;
   NotificacoesDetalhe: undefined;

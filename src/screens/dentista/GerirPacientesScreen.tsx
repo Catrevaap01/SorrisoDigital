@@ -32,8 +32,10 @@ import {
   listarPacientes,
   resetarSenhaPaciente,
   calcularIdade,
+  atribuirPacienteAoDentista,
   PacienteProfile,
 } from '../../services/pacienteService';
+import { listarDentistasPorEspecialidade } from '../../services/secretarioService';
 import { gerarFichaHistorico } from './gerarFichaHistorico';
 import { gerarFichaCadastroHTML } from '../../services/fichaService';
 import { deleteImage, uploadImage } from '../../services/storageService';
@@ -75,7 +77,7 @@ const EMPTY_FORM: FormData = {
 };
 
 const GerirPacientesScreen: React.FC<Props> = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [pacientes, setPacientes] = useState<PacienteProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -86,17 +88,22 @@ const GerirPacientesScreen: React.FC<Props> = ({ navigation }) => {
   const [uploading, setUploading] = useState(false);
   const [selectedPaciente, setSelectedPaciente] = useState<PacienteProfile | null>(null);
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
+  const [atribuirModalVisible, setAtribuirModalVisible] = useState(false);
+  const [dentistas, setDentistas] = useState<any[]>([]);
+  const [atribuindo, setAtribuindo] = useState(false);
 
   const carregarPacientes = useCallback(async () => {
     setLoading(true);
-    const result = await listarPacientes();
+    // ✅ Apply role-based filtering
+    const filtro = profile?.tipo === 'dentista' ? { dentist_id: user?.id } : {};
+    const result = await listarPacientes(filtro);
     if (result.success && result.data) {
       setPacientes(result.data);
     } else {
       Toast.show({ type: 'error', text1: 'Erro ao carregar pacientes', text2: result.error || 'Tente novamente' });
     }
     setLoading(false);
-  }, []);
+  }, [profile?.tipo, user?.id]);
 
   useEffect(() => {
     void carregarPacientes();
@@ -108,15 +115,25 @@ const GerirPacientesScreen: React.FC<Props> = ({ navigation }) => {
     setRefreshing(false);
   }, [carregarPacientes]);
 
+  const pacientesVisiveis = useMemo(() => {
+    if (profile?.tipo === 'dentista') {
+      return pacientes.filter(
+        (paciente) =>
+          paciente.dentist_id === user?.id || paciente.dentista_id === user?.id
+      );
+    }
+    return pacientes;
+  }, [pacientes, profile?.tipo, user?.id]);
+
   const pacientesFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    if (!termo) return pacientes;
-    return pacientes.filter((paciente) =>
+    if (!termo) return pacientesVisiveis;
+    return pacientesVisiveis.filter((paciente) =>
       [paciente.nome, paciente.email, paciente.telefone].some((valor) =>
         valor?.toLowerCase().includes(termo)
       )
     );
-  }, [busca, pacientes]);
+  }, [busca, pacientesVisiveis]);
 
   const setField = (field: keyof FormData, value: string | string[]) => {
     setFormData((prev) => ({
@@ -199,6 +216,37 @@ if (!formData.nome.trim()) {
     }
   };
 
+  const abrirModalAtribuicao = async (paciente: PacienteProfile) => {
+    setSelectedPaciente(paciente);
+    setLoading(true);
+    const result = await listarDentistasPorEspecialidade();
+    setLoading(false);
+    
+    if (result.success && result.data) {
+      setDentistas(result.data);
+      setAtribuirModalVisible(true);
+    } else {
+      Toast.show({ type: 'error', text1: 'Erro ao carregar dentistas', text2: result.error });
+    }
+  };
+
+  const confirmarAtribuicao = async (dentistaId: string | null) => {
+    if (!selectedPaciente) return;
+    
+    setAtribuindo(true);
+    const result = await atribuirPacienteAoDentista(selectedPaciente.id, dentistaId);
+    setAtribuindo(false);
+    
+    if (result.success) {
+      Toast.show({ type: 'success', text1: 'Atribuição atualizada com sucesso' });
+      setSelectedPaciente((prev) => prev ? { ...prev, dentist_id: dentistaId, dentista_id: dentistaId } : prev);
+      setAtribuirModalVisible(false);
+      await carregarPacientes();
+    } else {
+      Toast.show({ type: 'error', text1: 'Falha na atribuição', text2: result.error });
+    }
+  };
+
   const handleExcluir = (paciente: PacienteProfile) => {
     const confirmar = async () => {
       try {
@@ -267,7 +315,8 @@ if (!formData.nome.trim()) {
         paciente,
         paciente.email || '',
         resetResult.newPassword,
-        user?.user_metadata?.nome || 'Dentista'
+        user?.user_metadata?.nome || 'Dentista',
+        profile?.tipo || 'dentista'
       );
       
       const result = await exportHtmlAsPdf(html, `ficha_${paciente.nome || 'paciente'}.pdf`);
@@ -387,6 +436,21 @@ Toast.show({ type: 'error', text1: 'Falha ao enviar documento', text2: uploadRes
                 )}
               </View>
             )}
+            
+            {/* ✅ Role-based view: Show assigned dentist */}
+            <View style={[styles.detailsRow, { marginTop: 8 }]}>
+              <View style={styles.detailItem}>
+                <Ionicons 
+                  name={item.dentist_id || item.dentista_id ? "checkmark-circle" : "medical-outline"} 
+                  size={14} 
+                  color={item.dentist_id || item.dentista_id ? COLORS.success || '#059669' : COLORS.textLight} 
+                />
+                <Text style={[styles.detailText, { color: item.dentist_id || item.dentista_id ? COLORS.success || '#059669' : COLORS.textLight, fontWeight: item.dentist_id || item.dentista_id ? '700' : '400' }]}> 
+                  {item.dentist_id || item.dentista_id ? 'Paciente atribuído' : 'Sem dentista atribuído'}
+                </Text>
+              </View>
+            </View>
+
             {!!item.temp_password && (
               <View style={styles.tempPassBox}>
                 <Ionicons name="key-outline" size={14} color={COLORS.secondary} />
@@ -399,26 +463,40 @@ Toast.show({ type: 'error', text1: 'Falha ao enviar documento', text2: uploadRes
         </View>
 
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.actionButton} onPress={() => navigation.getParent<any>()?.navigate('PacienteHistorico', { pacienteId: item.id, pacienteNome: item.nome })}>
-            <Ionicons name="time-outline" size={18} color={COLORS.primary} />
-            <Text style={styles.actionText}>Historico</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => abrirModalEdicao(item.id)}>
-            <Ionicons name="create-outline" size={18} color={COLORS.secondary} />
-            <Text style={styles.actionText}>Gerir</Text>
-          </TouchableOpacity>
+          {profile?.tipo !== 'secretario' && (
+            <>
+              <TouchableOpacity style={styles.actionButton} onPress={() => navigation.getParent<any>()?.navigate('PacienteHistorico', { pacienteId: item.id, pacienteNome: item.nome })}>
+                <Ionicons name="time-outline" size={18} color={COLORS.primary} />
+                <Text style={styles.actionText}>Historico</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton} onPress={() => handleImprimirHistorico(item)}>
+                <Ionicons name="print-outline" size={18} color={COLORS.accent} />
+                <Text style={styles.actionText}>Historico</Text>
+              </TouchableOpacity>
+            </>
+          )}
+          {profile?.tipo === 'secretario' && (
+            <TouchableOpacity style={styles.actionButton} onPress={() => abrirModalEdicao(item.id)}>
+              <Ionicons name="create-outline" size={18} color={COLORS.secondary} />
+              <Text style={styles.actionText}>Gerir</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.actionButton} onPress={() => handleImprimirFicha(item)}>
             <Ionicons name="qr-code-outline" size={18} color={COLORS.primary} />
             <Text style={styles.actionText}>Ficha</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => handleImprimirHistorico(item)}>
-            <Ionicons name="print-outline" size={18} color={COLORS.accent} />
-            <Text style={styles.actionText}>Historico</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton} onPress={() => handleExcluir(item)}>
-            <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
-            <Text style={[styles.actionText, { color: COLORS.danger }]}>Excluir</Text>
-          </TouchableOpacity>
+          {profile?.tipo === 'secretario' && (
+            <>
+              <TouchableOpacity style={styles.actionButton} onPress={() => abrirModalAtribuicao(item)}>
+                <Ionicons name="person-add-outline" size={18} color={COLORS.secondary} />
+                <Text style={styles.actionText}>Atribuir</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton} onPress={() => handleExcluir(item)}>
+                <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
+                <Text style={[styles.actionText, { color: COLORS.danger }]}>Excluir</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     );
@@ -453,7 +531,15 @@ Toast.show({ type: 'error', text1: 'Falha ao enviar documento', text2: uploadRes
         renderItem={renderPaciente}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         contentContainerStyle={styles.listContent}
-        ListEmptyComponent={<View style={styles.center}><Text style={styles.emptyText}>Nenhum paciente encontrado</Text></View>}
+        ListEmptyComponent={
+          <View style={styles.center}>
+            <Text style={styles.emptyText}>
+              {profile?.tipo === 'dentista'
+                ? 'Nenhum paciente atribuído a você no momento.'
+                : 'Nenhum paciente encontrado'}
+            </Text>
+          </View>
+        }
       />
 
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={fecharModal}>
@@ -514,10 +600,10 @@ Toast.show({ type: 'error', text1: 'Falha ao enviar documento', text2: uploadRes
                   <TextInput
                     value={formData[field as keyof FormData] as string}
                     onChangeText={(value) => setField(field as keyof FormData, value)}
-                    style={styles.fieldInput}
+                    style={[styles.fieldInput, profile?.tipo !== 'secretario' && styles.fieldInputDisabled]}
                     placeholder={label}
                     placeholderTextColor={COLORS.textLight}
-                    editable={field !== 'email'}
+                    editable={field !== 'email' && profile?.tipo === 'secretario'}
                     keyboardType={field === 'data_nascimento' ? 'number-pad' : 'default'}
                   />
                 </View>
@@ -599,6 +685,61 @@ quietZone={1}
           </View>
         </View>
       </Modal>
+
+      {/* ── Modal de Atribuição de Dentista (Secretaria) ── */}
+      <Modal visible={atribuirModalVisible} transparent animationType="fade" onRequestClose={() => setAtribuirModalVisible(false)}>
+        <View style={styles.qrOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '80%' }]}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Atribuir Dentista</Text>
+                <Text style={[styles.cardSubtitle, { marginTop: 4 }]}>Paciente: {selectedPaciente?.nome}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setAtribuirModalVisible(false)}>
+                <Ionicons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <TouchableOpacity 
+                style={[styles.dentistaSelectItem, !selectedPaciente?.dentist_id && styles.dentistaSelected]} 
+                onPress={() => confirmarAtribuicao(null)}
+              >
+                <View style={styles.dentistaSelectIcon}>
+                  <Ionicons name="close-circle-outline" size={20} color={!selectedPaciente?.dentist_id ? 'white' : COLORS.textSecondary} />
+                </View>
+                <Text style={[styles.dentistaSelectText, !selectedPaciente?.dentist_id && { color: 'white' }]}>Remover Atribuição</Text>
+              </TouchableOpacity>
+
+              {dentistas.map((d) => (
+                <TouchableOpacity 
+                  key={d.id} 
+                  style={[styles.dentistaSelectItem, selectedPaciente?.dentist_id === d.id && styles.dentistaSelected]} 
+                  onPress={() => confirmarAtribuicao(d.id)}
+                  disabled={atribuindo}
+                >
+                  <View style={styles.dentistaSelectInfo}>
+                    <Text style={[styles.dentistaSelectName, selectedPaciente?.dentist_id === d.id && { color: 'white' }]}>
+                      Dr(a). {d.nome}
+                    </Text>
+                    <Text style={[styles.dentistaSelectSub, selectedPaciente?.dentist_id === d.id && { color: 'rgba(255,255,255,0.8)' }]}>
+                      {d.especialidade || 'Clínica Geral'}
+                    </Text>
+                  </View>
+                  {selectedPaciente?.dentist_id === d.id && (
+                    <Ionicons name="checkmark-circle" size={24} color="white" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {atribuindo && (
+              <ActivityIndicator size="small" color={COLORS.secondary} style={{ marginTop: 10 }} />
+            )}
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 };
@@ -684,6 +825,11 @@ const styles = StyleSheet.create({
     paddingVertical: SIZES.md,
     color: COLORS.text,
   },
+  fieldInputDisabled: {
+    backgroundColor: '#F5F7FA',
+    borderColor: '#E4E7EB',
+    color: COLORS.textSecondary,
+  },
   fieldMultiline: { minHeight: 88, textAlignVertical: 'top' },
   documentsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   uploadButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.secondary, borderRadius: SIZES.radiusMd, paddingHorizontal: SIZES.sm, paddingVertical: SIZES.sm },
@@ -700,6 +846,41 @@ const styles = StyleSheet.create({
   qrBox: { backgroundColor: COLORS.surface, padding: SIZES.md, borderRadius: SIZES.radiusMd, marginVertical: SIZES.md },
 qrCodeText: { fontSize: SIZES.fontMd, color: COLORS.text, fontWeight: '700' },
 qrLoading: { color: COLORS.textSecondary, fontSize: SIZES.fontSm },
+dentistaSelectItem: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  padding: 16,
+  borderRadius: 12,
+  backgroundColor: COLORS.background,
+  marginBottom: 10,
+  borderWidth: 1,
+  borderColor: COLORS.border,
+},
+dentistaSelected: {
+  backgroundColor: COLORS.secondary,
+  borderColor: COLORS.secondary,
+},
+dentistaSelectIcon: {
+  marginRight: 12,
+},
+dentistaSelectInfo: {
+  flex: 1,
+},
+dentistaSelectName: {
+  fontSize: 16,
+  fontWeight: '700',
+  color: COLORS.text,
+},
+dentistaSelectSub: {
+  fontSize: 12,
+  color: COLORS.textSecondary,
+  marginTop: 2,
+},
+dentistaSelectText: {
+  fontSize: 16,
+  fontWeight: '600',
+  color: COLORS.textSecondary,
+},
 });
 
 export default GerirPacientesScreen;

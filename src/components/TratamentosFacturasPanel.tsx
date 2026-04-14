@@ -74,47 +74,133 @@ const financialStatus = (status?: string) => {
 };
 
 const buildHtml = (item: TratamentoFinanceiroItem, numero?: string) => `
-  <div style="max-width:760px;margin:0 auto;padding:24px;font-family:Arial,sans-serif;color:#0f172a;">
-    <h1 style="color:#1d4ed8;">Factura de Tratamento</h1>
-    <p><strong>Factura:</strong> ${numero || item.numero_factura || 'Sem numero'}</p>
-    <p><strong>Paciente:</strong> ${item.paciente_nome}</p>
-    <p><strong>Dentista:</strong> ${item.dentista_nome}</p>
-    <p><strong>Especialidade:</strong> ${item.especialidade}</p>
-    <p><strong>Procedimento:</strong> ${item.procedimento}</p>
-    <p><strong>Sessao:</strong> ${item.sessao_numero}</p>
-    <p><strong>Valor:</strong> ${money(item.valor)}</p>
-    <p><strong>Data:</strong> ${formatDateTime(item.data_hora)}</p>
+  <div style="max-width:800px; margin:0 auto; padding:40px; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#334155; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:40px; border-bottom: 2px solid #efeff1; padding-bottom: 20px;">
+      <div style="flex:1;">
+        <h1 style="color:#7C3AED; margin:0; font-size:28px; letter-spacing:-1px;">SORRISO DIGITAL</h1>
+        <p style="margin:5px 0; font-size:14px; color:#64748b;">Clínica Odontológica de Excelência</p>
+        <p style="margin:5px 0; font-size:12px; color:#94a3b8;">Av. Deolinda Rodrigues, Luanda, Angola</p>
+      </div>
+      <div style="text-align:right;">
+        <h2 style="margin:0; color:#1e293b; font-size:18px;">RECIBO / FACTURA</h2>
+        <p style="margin:5px 0; font-weight:bold; color:#7C3AED;"># ${numero || item.numero_factura || 'PROVISÓRIO'}</p>
+        <p style="margin:5px 0; font-size:13px;">Data: ${formatDateTime(new Date().toISOString())}</p>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:40px;">
+      <div>
+        <h3 style="font-size:12px; text-transform:uppercase; color:#94a3b8; margin-bottom:10px; border-bottom:1px solid #f1f5f9;">Dados do Paciente</h3>
+        <p style="margin:4px 0; font-weight:bold; color:#1e293b;">${item.paciente_nome}</p>
+        <p style="margin:4px 0; font-size:13px;">${item.paciente_telefone || 'Telefone não informado'}</p>
+      </div>
+      <div>
+        <h3 style="font-size:12px; text-transform:uppercase; color:#94a3b8; margin-bottom:10px; border-bottom:1px solid #f1f5f9;">Profissional Responsável</h3>
+        <p style="margin:4px 0; font-weight:bold; color:#1e293b;">Dr(a). ${item.dentista_nome}</p>
+        <p style="margin:4px 0; font-size:13px;">Especialidade: ${item.especialidade}</p>
+      </div>
+    </div>
+
+    <table style="width:100%; border-collapse:collapse; margin-bottom:40px;">
+      <thead>
+        <tr style="background-color:#f8fafc;">
+          <th style="text-align:left; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">DESCRIÇÃO DO SERVIÇO</th>
+          <th style="text-align:center; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">SESSÃO</th>
+          <th style="text-align:right; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">VALOR</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9;">
+            <div style="font-weight:bold; color:#1e293b;">${item.procedimento}</div>
+            <div style="font-size:12px; color:#64748b; margin-top:4px;">${item.observacoes || 'Procedimento odontológico realizado.'}</div>
+          </td>
+          <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9; text-align:center;">${item.sessao_numero}</td>
+          <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:bold;">${money(item.valor)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="display:flex; justify-content:flex-end;">
+      <div style="width:250px;">
+        <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f1f5f9;">
+          <span style="color:#64748b;">Subtotal</span>
+          <span style="font-weight:500;">${money(item.valor)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:15px 0;">
+          <span style="font-weight:bold; color:#1e293b; font-size:18px;">TOTAL</span>
+          <span style="font-weight:bold; color:#7C3AED; font-size:18px;">${money(item.valor)}</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:60px; padding-top:20px; border-top:1px solid #f1f5f9; text-align:center; color:#94a3b8; font-size:12px;">
+      <p>Obrigado por confiar no Sorriso Digital. Este documento serve como comprovativo de serviço.</p>
+      <p>Emitido em ${formatDateTime(new Date().toISOString())}</p>
+    </div>
   </div>
 `;
 
 const buildUnifiedHtml = (grupo: GrupoFacturaUnificada, numero?: string) => `
-  <div style="max-width:820px;margin:0 auto;padding:24px;font-family:Arial,sans-serif;color:#0f172a;">
-    <h1 style="color:#1d4ed8;">Factura Unificada de Tratamento</h1>
-    <p><strong>Factura:</strong> ${numero || grupo.items[0]?.numero_factura || 'Sem numero'}</p>
-    <p><strong>Paciente:</strong> ${grupo.paciente_nome}</p>
-    <p><strong>Dentistas:</strong> ${grupo.dentistas.join(', ')}</p>
-    <p><strong>Total de servicos:</strong> ${grupo.items.length}</p>
-    <p><strong>Valor total:</strong> ${money(grupo.total)}</p>
-    <table style="width:100%;border-collapse:collapse;margin-top:20px;">
+  <div style="max-width:800px; margin:0 auto; padding:40px; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#334155; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:40px; border-bottom: 2px solid #efeff1; padding-bottom: 20px;">
+      <div style="flex:1;">
+        <h1 style="color:#7C3AED; margin:0; font-size:28px; letter-spacing:-1px;">SORRISO DIGITAL</h1>
+        <p style="margin:5px 0; font-size:14px; color:#64748b;">Clínica Odontológica de Excelência</p>
+        <p style="margin:5px 0; font-size:12px; color:#94a3b8;">Av. Deolinda Rodrigues, Luanda, Angola</p>
+      </div>
+      <div style="text-align:right;">
+        <h2 style="margin:0; color:#1e293b; font-size:18px;">FACTURA UNIFICADA</h2>
+        <p style="margin:5px 0; font-weight:bold; color:#7C3AED;"># ${numero || 'UNIFICADO'}</p>
+        <p style="margin:5px 0; font-size:13px;">Data: ${formatDateTime(new Date().toISOString())}</p>
+      </div>
+    </div>
+
+    <div style="margin-bottom:40px;">
+      <h3 style="font-size:12px; text-transform:uppercase; color:#94a3b8; margin-bottom:10px; border-bottom:1px solid #f1f5f9;">Dados do Paciente</h3>
+      <p style="margin:4px 0; font-weight:bold; color:#1e293b; font-size:16px;">${grupo.paciente_nome}</p>
+      <p style="margin:4px 0; font-size:13px;">${grupo.paciente_telefone || 'Telefone não informado'}</p>
+    </div>
+
+    <table style="width:100%; border-collapse:collapse; margin-bottom:40px;">
       <thead>
-        <tr>
-          <th style="text-align:left;padding:10px;border-bottom:1px solid #cbd5e1;">Procedimento</th>
-          <th style="text-align:left;padding:10px;border-bottom:1px solid #cbd5e1;">Dentista</th>
-          <th style="text-align:left;padding:10px;border-bottom:1px solid #cbd5e1;">Data</th>
-          <th style="text-align:right;padding:10px;border-bottom:1px solid #cbd5e1;">Valor</th>
+        <tr style="background-color:#f8fafc;">
+          <th style="text-align:left; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">TRATAMENTOS REALIZADOS</th>
+          <th style="text-align:left; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">DENTISTA</th>
+          <th style="text-align:right; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">VALOR</th>
         </tr>
       </thead>
       <tbody>
         ${grupo.items.map((item) => `
           <tr>
-            <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${item.procedimento}</td>
-            <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${item.dentista_nome}</td>
-            <td style="padding:10px;border-bottom:1px solid #e2e8f0;">${formatDateTime(item.data_hora)}</td>
-            <td style="padding:10px;border-bottom:1px solid #e2e8f0;text-align:right;">${money(item.valor)}</td>
+            <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9;">
+              <div style="font-weight:bold; color:#1e293b;">${item.procedimento}</div>
+              <div style="font-size:11px; color:#94a3b8;">Sessão ${item.sessao_numero} • ${formatDateTime(item.data_hora)}</div>
+            </td>
+            <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9; font-size:13px;">Dr(a). ${item.dentista_nome}</td>
+            <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:bold;">${money(item.valor)}</td>
           </tr>
         `).join('')}
       </tbody>
     </table>
+
+    <div style="display:flex; justify-content:flex-end;">
+      <div style="width:250px;">
+        <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f1f5f9;">
+          <span style="color:#64748b;">Serviços (${grupo.items.length})</span>
+          <span style="font-weight:500;">${money(grupo.total)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:15px 0;">
+          <span style="font-weight:bold; color:#1e293b; font-size:18px;">VALOR TOTAL</span>
+          <span style="font-weight:bold; color:#7C3AED; font-size:18px;">${money(grupo.total)}</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:60px; padding-top:20px; border-top:1px solid #f1f5f9; text-align:center; color:#94a3b8; font-size:12px;">
+      <p>Obrigado por escolher o Sorriso Digital. Este é um resumo consolidado de seus tratamentos.</p>
+      <p>Emitido em ${formatDateTime(new Date().toISOString())}</p>
+    </div>
   </div>
 `;
 
@@ -274,6 +360,25 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
     await Linking.openURL(`https://wa.me/${phone}?text=${encodeURIComponent(`Olá ${item.paciente_nome}, procedimento ${item.procedimento} no valor de ${money(item.valor)}.`)}`);
   };
 
+  const handlePrintServico = async (item: TratamentoFinanceiroItem) => {
+    const result = await exportHtmlAsPdf(buildHtml(item), `factura-servico-${item.id}.pdf`);
+    if (!result.success) {
+      Toast.show({ type: 'error', text1: 'Erro ao imprimir serviço', text2: result.error || 'Tente novamente' });
+      return;
+    }
+    Toast.show({ type: 'success', text1: 'Impressão iniciada', text2: 'Serviço pronto para impressão.' });
+  };
+
+  const handlePrintFacturaUnica = async (grupo: GrupoFacturaUnificada) => {
+    const numero = grupo.items.find((item) => item.numero_factura)?.numero_factura;
+    const result = await exportHtmlAsPdf(buildUnifiedHtml(grupo, numero || undefined), `factura-unica-${grupo.paciente_id || grupo.paciente_nome}.pdf`);
+    if (!result.success) {
+      Toast.show({ type: 'error', text1: 'Erro ao imprimir factura única', text2: result.error || 'Tente novamente' });
+      return;
+    }
+    Toast.show({ type: 'success', text1: 'Impressão iniciada', text2: 'Factura única pronta para impressão.' });
+  };
+
   return (
     <>
       <FlatList
@@ -319,6 +424,9 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
                     <TouchableOpacity style={styles.unifyBtn} onPress={() => { setNumeroFactura(''); setGrupoSelecionado(grupo); }}>
                       <Text style={styles.unifyBtnText}>Unificar facturas</Text>
                     </TouchableOpacity>
+                    <TouchableOpacity style={styles.printBtn} onPress={() => void handlePrintFacturaUnica(grupo)}>
+                      <Text style={styles.printBtnText}>Imprimir factura única</Text>
+                    </TouchableOpacity>
                   </View>
                 ))}
               </View>
@@ -340,8 +448,8 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
               </View>
               <View style={styles.actionsRow}>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => { setNumeroFactura(''); setSelected(item); }}><Text style={styles.actionText}>Emitir factura</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => exportHtmlAsPdf(buildHtml(item), `factura-${item.id}.pdf`)}><Text style={styles.actionText}>Gerar PDF</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => exportHtmlAsPdf(buildHtml(item), `factura-${item.id}.pdf`)}><Text style={styles.actionText}>Imprimir</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => exportHtmlAsPdf(buildHtml(item), `factura-servico-${item.id}.pdf`)}><Text style={styles.actionText}>Gerar PDF serviço</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => void handlePrintServico(item)}><Text style={styles.actionText}>Imprimir serviço</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => void marcarPago(item)}><Text style={styles.actionText}>Marcar pago</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => void enviarWhatsapp(item)}><Text style={styles.actionText}>WhatsApp</Text></TouchableOpacity>
               </View>
@@ -400,12 +508,20 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
               <TouchableOpacity style={styles.actionBtn} onPress={() => void unificarFacturas('pago')}><Text style={styles.actionText}>Pago</Text></TouchableOpacity>
             </View>
             {grupoSelecionado && (
-              <TouchableOpacity
-                style={styles.unifiedPdfBtn}
-                onPress={() => exportHtmlAsPdf(buildUnifiedHtml(grupoSelecionado, numeroFactura.trim() || undefined), `factura-unificada-${grupoSelecionado.paciente_id || grupoSelecionado.paciente_nome}.pdf`)}
-              >
-                <Text style={styles.unifiedPdfText}>Gerar PDF unificado</Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  style={styles.unifiedPdfBtn}
+                  onPress={() => exportHtmlAsPdf(buildUnifiedHtml(grupoSelecionado, numeroFactura.trim() || undefined), `factura-unificada-${grupoSelecionado.paciente_id || grupoSelecionado.paciente_nome}.pdf`)}
+                >
+                  <Text style={styles.unifiedPdfText}>Gerar PDF unificado</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.unifiedPdfBtn, styles.printBtn]}
+                  onPress={() => void handlePrintFacturaUnica(grupoSelecionado)}
+                >
+                  <Text style={[styles.unifiedPdfText, styles.printBtnText]}>Imprimir factura única</Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
         </View>
@@ -456,6 +572,8 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, color: COLORS.text },
   unifiedPdfBtn: { marginTop: SPACING.sm, backgroundColor: '#EEF2FF', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, alignItems: 'center' },
   unifiedPdfText: { color: '#3730A3', fontSize: TYPOGRAPHY.sizes.small, fontWeight: TYPOGRAPHY.weights.semiBold },
+  printBtn: { marginTop: SPACING.sm, backgroundColor: '#ECFDF5', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: '#A7F3D0' },
+  printBtnText: { color: '#047857', fontSize: TYPOGRAPHY.sizes.small, fontWeight: TYPOGRAPHY.weights.semiBold },
 });
 
 export default TratamentosFacturasPanel;

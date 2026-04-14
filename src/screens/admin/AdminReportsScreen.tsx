@@ -506,7 +506,10 @@ interface StatCardProps {
 }
 
 const StatCard: React.FC<StatCardProps> = ({ icon, label, valor, cor }) => {
-  const displayValue = valor.toLocaleString('pt-BR');
+  const isFinance = label.toLowerCase().includes('receita');
+  const displayValue = isFinance 
+    ? Number(valor).toLocaleString('pt-AO', { minimumFractionDigits: 0 }).replace(/,/g, '.') + ' Kz'
+    : valor.toLocaleString('pt-AO');
   return (
     <TouchableOpacity style={[styles.statCard, { borderLeftColor: cor }]}> 
       <View style={styles.statContent}>

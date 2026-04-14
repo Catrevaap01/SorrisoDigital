@@ -24,6 +24,7 @@ export interface FilaTriagem {
   descricao?: string;
   intensidade_dor?: number;
   prioridade?: string;
+  status?: string;
   created_at: string;
   paciente?: {
     nome?: string;
@@ -37,6 +38,7 @@ export interface FilaAgendamento {
   id: string;
   paciente_id: string;
   symptoms: string;
+  status?: string;
   urgency: 'baixa' | 'normal' | 'alta' | 'urgente';
   created_at: string;
   paciente?: {
@@ -92,6 +94,9 @@ export const FilaTriagemCard: React.FC<FilaTriagenComponentProps> = ({
     ? `Dor: ${triagem.intensidade_dor || '?'}/10`
     : getPriorityLabel(agendamento.urgency);
 
+  const isAssigned = ['pendente', 'atribuido_dentista', 'respondido', 'completo']
+    .includes(String(item.status || '').toLowerCase());
+
   return (
     <View style={[styles.card, { borderLeftColor: priorityColor }]}>
       <View style={styles.cardHeader}>
@@ -122,32 +127,44 @@ export const FilaTriagemCard: React.FC<FilaTriagenComponentProps> = ({
       )}
 
       <View style={styles.actions}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.rejectButton]}
-          onPress={() => onRejeitar(item)}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color={COLORS.error} />
-          ) : (
-            <>
-              <Ionicons name="close-outline" size={14} color={COLORS.error} />
-              <Text style={[styles.actionButtonText, { color: COLORS.error }]}>Rejeitar</Text>
-            </>
-          )}
-        </TouchableOpacity>
+        {!isAssigned && (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.rejectButton]}
+            onPress={() => onRejeitar(item)}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color={COLORS.error} />
+            ) : (
+              <>
+                <Ionicons name="close-outline" size={14} color={COLORS.error} />
+                <Text style={[styles.actionButtonText, { color: COLORS.error }]}>Rejeitar</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
-          style={[styles.actionButton, styles.acceptButton]}
-          onPress={() => onAtribuir(item)}
-          disabled={isLoading}
+          style={[
+            styles.actionButton,
+            styles.acceptButton,
+            isAssigned && styles.disabledButton,
+          ]}
+          onPress={() => !isAssigned && onAtribuir(item)}
+          disabled={isLoading || isAssigned}
         >
           {isLoading ? (
             <ActivityIndicator size="small" color="white" />
           ) : (
             <>
-              <Ionicons name="checkmark-done-outline" size={14} color="white" />
-              <Text style={styles.actionButtonText}>Atribuir</Text>
+              <Ionicons
+                name={isAssigned ? 'checkmark-done-circle-outline' : 'checkmark-done-outline'}
+                size={14}
+                color="white"
+              />
+              <Text style={styles.actionButtonText}>
+                {isAssigned ? 'Atribuído' : 'Atribuir'}
+              </Text>
             </>
           )}
         </TouchableOpacity>
@@ -323,6 +340,9 @@ const styles = StyleSheet.create({
   },
   acceptButton: {
     backgroundColor: COLORS.success,
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   rejectButton: {
     backgroundColor: COLORS.errorLight,

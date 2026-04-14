@@ -25,8 +25,11 @@ export type TriagemStatus =
 
 export interface TriagemData {
   paciente_id?: string;
+  patient_id?: string; // Aliás para compatibilidade com o padrão appointments
   dentista_id?: string;
+  dentist_id?: string; // Aliás
   secretario_id?: string;
+  secretary_id?: string; // Aliás
   sintoma_principal?: string;
   descricao?: string;
   duracao?: string;
@@ -36,7 +39,9 @@ export interface TriagemData {
   prioridade?: string;
   status?: TriagemStatus;
   data_agendamento?: string;
+  appointment_date?: string; // Aliás
   observacoes?: string;
+  notes?: string; // Aliás
   motivo_recusa?: string;
 }
 

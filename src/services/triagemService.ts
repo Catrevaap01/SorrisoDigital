@@ -11,6 +11,7 @@ import { logger } from '../utils/logger';
 import { handleError, HandledError } from '../utils/errorHandler';
 import { uploadMultipleImages } from './storageService';
 import { obterOuCriarConversa, enviarMensagem } from './messagesService';
+import { atualizarPerfil } from './pacienteService';
 import NetInfo from '@react-native-community/netinfo';
 import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
 
@@ -171,11 +172,11 @@ const enrichTriagens = async (triagensBase: Triagem[]): Promise<Triagem[]> => {
 
   if (pacienteIds.length) {
     enrichmentPromises.push(withTimeout(supabase
-      .from('agendamentos')
+      .from('appointments')
       .select('*')
       .limit(50)
-      .in('paciente_id', pacienteIds)
-      .order('data_agendamento', { ascending: false }) as any, 5000));
+      .in('patient_id', pacienteIds)
+      .order('appointment_date', { ascending: false }) as any, 5000));
   } else {
     enrichmentPromises.push(Promise.resolve({ data: [] }));
   }
@@ -243,7 +244,7 @@ const enrichTriagens = async (triagensBase: Triagem[]): Promise<Triagem[]> => {
     const agendamentos = agendamentosPromise.value.data;
     agendamentosByPacienteId = (agendamentos || []).reduce(
       (acc: Record<string, any[]>, ag: any) => {
-        const pacienteId = ag.paciente_id;
+        const pacienteId = ag.patient_id;
         if (!acc[pacienteId]) acc[pacienteId] = [];
         acc[pacienteId].push(ag);
         return acc;
@@ -438,7 +439,7 @@ export const buscarContadoresDentista = async (
     const [triagensRes, repliesRes, agendamentosRes] = await Promise.all([
       supabase.from('triagens').select('id, status, prioridade, intensidade_dor').eq('dentista_id', dentistaId),
       supabase.from('respostas_triagem').select('triagem_id').eq('dentista_id', dentistaId),
-      supabase.from('agendamentos').select('id, status, prioridade').eq('dentista_id', dentistaId)
+      supabase.from('appointments').select('id, status, priority').eq('dentist_id', dentistaId)
     ]);
 
     if (triagensRes.error) throw triagensRes.error;
@@ -469,7 +470,7 @@ export const buscarContadoresDentista = async (
           if (isUrgente) {
             cont.urgente += 1;
           }
-          if (sLower === 'pendente') {
+          if (sLower === 'pendente' || sLower === 'atribuido_dentista') {
             cont.pendente += 1;
           }
         }
@@ -505,7 +506,7 @@ export const buscarContadoresDentista = async (
       (agendamentosRes.data || []).forEach((a: any) => {
         cont.total += 1;
         const sLower = (a.status || '').toLowerCase();
-        const pLower = (a.prioridade || '').toLowerCase();
+        const pLower = (a.priority || '').toLowerCase();
         
         if (sLower === 'realizado') {
           cont.realizados += 1;
@@ -513,7 +514,7 @@ export const buscarContadoresDentista = async (
           const isUrgente = sLower === 'urgente' || pLower === 'urgente' || pLower === 'alta';
           if (isUrgente) {
             cont.urgente += 1;
-          } else if (sLower === 'pendente') {
+          } else if (sLower === 'pendente' || sLower === 'atribuido_dentista') {
             cont.pendente += 1;
           }
         }
@@ -782,14 +783,32 @@ export const atribuirTriagemADentista = async (
 
     if (error) throw error;
 
-    // Criar conversa entre dentista e paciente automaticamente
     try {
       const { data: tri } = await supabase
         .from('triagens')
         .select('paciente_id')
         .eq('id', triagemId)
         .maybeSingle();
+
       if (tri?.paciente_id) {
+        try {
+          const perfilResult = await atualizarPerfil(tri.paciente_id, {
+            dentist_id: dentistaId,
+            dentista_id: dentistaId,
+          });
+          if (!perfilResult.success) {
+            logger.warn(
+              'Falha ao atualizar perfil do paciente após atribuição de triagem',
+              perfilResult.error
+            );
+          }
+        } catch (profileErr) {
+          logger.warn(
+            'Erro ao atualizar perfil do paciente após atribuição de triagem',
+            profileErr
+          );
+        }
+
         await obterOuCriarConversa(dentistaId, tri.paciente_id);
       }
     } catch (chatErr) {

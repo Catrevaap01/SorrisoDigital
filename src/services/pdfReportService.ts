@@ -20,6 +20,11 @@ const formatDate = (d: string | null | undefined) => {
   }
 };
 
+const formatMoney = (value: number | string | undefined) => {
+  const amount = Number(value || 0);
+  return amount.toLocaleString('pt-AO', { minimumFractionDigits: 0 }).replace(/,/g, '.') + ' Kz';
+};
+
 const CSS_BASE = `
   @page { size: A4; margin: 20mm; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -56,10 +61,12 @@ const buildGeneralHtml = (relatorio: any): string => {
         <td>${d.dentista?.nome || '-'}</td>
         <td>${d.dentista?.especialidade || '-'}</td>
         <td>${d.dentista?.crm || '-'}</td>
-        <td style="text-align:center">${d.totalTriagens}</td>
-        <td style="text-align:center">${d.triagensRespondidas}</td>
-        <td style="text-align:center">${d.triagensPendentes}</td>
-        <td style="text-align:center;font-weight:700">${d.percentualResposta}%</td>
+        <td style="text-align:center">${d.totalTriagens || 0}</td>
+        <td style="text-align:center">${d.triagensRespondidas || 0}</td>
+        <td style="text-align:right">${formatMoney(d.totalFaturado || 0)}</td>
+        <td style="text-align:right">${formatMoney(d.totalRecebido || 0)}</td>
+        <td style="text-align:right; color: #b91c1c">${formatMoney(d.pendenteReceber || 0)}</td>
+        <td style="text-align:center;font-weight:700">${d.percentualResposta || 0}%</td>
       </tr>`
     )
     .join('');
@@ -75,15 +82,14 @@ const buildGeneralHtml = (relatorio: any): string => {
       <div class="kpi"><div class="kpi-value">${relatorio.totalPacientes}</div><div class="kpi-label">Pacientes</div></div>
       <div class="kpi"><div class="kpi-value">${relatorio.dentistasAtivos}</div><div class="kpi-label">Ativos</div></div>
       <div class="kpi"><div class="kpi-value">${relatorio.totalTriagens}</div><div class="kpi-label">Triagens</div></div>
-      <div class="kpi"><div class="kpi-value">${relatorio.totalConsultas || 0}</div><div class="kpi-label">Consultas</div></div>
-      <div class="kpi"><div class="kpi-value">${relatorio.totalMensagens || 0}</div><div class="kpi-label">Mensagens</div></div>
-      <div class="kpi"><div class="kpi-value">${relatorio.percentualResposta}%</div><div class="kpi-label">Taxa Resposta</div></div>
-      <div class="kpi"><div class="kpi-value">${relatorio.cadastrosMes || 0}</div><div class="kpi-label">Cadastros Mês</div></div>
+      <div class="kpi"><div class="kpi-value">${formatMoney(relatorio.totalFaturado)}</div><div class="kpi-label">Faturado</div></div>
+      <div class="kpi"><div class="kpi-value">${formatMoney(relatorio.totalRecebido)}</div><div class="kpi-label">Recebido</div></div>
+      <div class="kpi"><div class="kpi-value" style="color:#b91c1c">${formatMoney(relatorio.totalPendente)}</div><div class="kpi-label">Pendente</div></div>
     </div>
     <div class="section"><h2>Dentistas</h2>
     <table>
       <thead><tr>
-        <th>Nome</th><th>Especialidade</th><th>CRM</th><th>Triagens</th><th>Resp.</th><th>Pend.</th><th>Taxa</th>
+        <th>Nome</th><th>Especialidade</th><th>Triagens</th><th>Resp.</th><th>Faturado</th><th>Recebido</th><th>Pendente</th><th>Taxa</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
@@ -121,6 +127,9 @@ const buildDentistaHtml = (data: any): string => {
       <div class="kpi"><div class="kpi-value">${e.triagensRespondidas}</div><div class="kpi-label">Respondidas</div></div>
       <div class="kpi"><div class="kpi-value">${e.triagensPendentes}</div><div class="kpi-label">Pendentes</div></div>
       <div class="kpi"><div class="kpi-value">${e.percentualResposta}%</div><div class="kpi-label">Taxa Resposta</div></div>
+      <div class="kpi"><div class="kpi-value">${formatMoney(e.totalFaturado)}</div><div class="kpi-label">Faturado</div></div>
+      <div class="kpi"><div class="kpi-value">${formatMoney(e.totalRecebido)}</div><div class="kpi-label">Recebido</div></div>
+      <div class="kpi"><div class="kpi-value" style="color:#b91c1c">${formatMoney(e.pendenteReceber)}</div><div class="kpi-label">Pendente</div></div>
     </div>
     <div class="section"><h2>Triagens</h2>
     <table>

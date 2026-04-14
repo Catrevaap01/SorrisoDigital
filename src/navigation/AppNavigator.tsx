@@ -229,7 +229,7 @@ const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
       name="Pacientes"
       component={GerirPacientesScreen}
       options={({ navigation }) => ({ 
-        title: 'Acompanhamento',
+        title: 'Pacientes',
         headerLeft: () => (
           <Pressable 
             onPress={() => navigation.navigate('Dashboard')}
@@ -258,6 +258,9 @@ const SecretarioTabs: React.FC<TabsProps> = ({ unreadCount }) => (
             break;
           case 'Agendamentos':
             iconName = focused ? 'calendar' : 'calendar-outline';
+            break;
+          case 'Pacientes':
+            iconName = focused ? 'people' : 'people-outline';
             break;
           case 'Mensagens':
             iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
@@ -301,8 +304,13 @@ const SecretarioTabs: React.FC<TabsProps> = ({ unreadCount }) => (
       options={{ title: 'Agendamentos' }}
     />
     <SecretarioTab.Screen
+      name="Pacientes"
+      component={require('../screens/dentista/GerirPacientesScreen').default}
+      options={{ title: 'Pacientes' }}
+    />
+    <SecretarioTab.Screen
       name="Mensagens"
-      component={DentistaMensagensScreen}
+      component={require('../screens/paciente/MensagensScreen').default}
       options={{ title: 'Mensagens' }}
     />
     <SecretarioTab.Screen name="Perfil" component={PerfilScreen} />
@@ -409,15 +417,6 @@ const DentistaStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
         }}
       />
 
-      <DentistaStackNav.Screen
-        name="CadastrarPaciente"
-        component={NovoPacienteScreen}
-        options={{
-          title: 'Cadastrar Paciente',
-          headerStyle: { backgroundColor: COLORS.secondary },
-          headerTintColor: COLORS.textInverse,
-        }}
-      />
 
 
       <DentistaStackNav.Screen
@@ -528,6 +527,15 @@ const SecretarioStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
         component={AtribuirDentistaAgendamentoScreen}
         options={{
           title: 'Pré-agendar Consulta',
+          headerStyle: { backgroundColor: '#7C3AED' },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+      <SecretarioStackNav.Screen
+        name="CadastrarPaciente"
+        component={require('../screens/dentista/NovoPacienteScreen').default}
+        options={{
+          title: 'Novo Paciente',
           headerStyle: { backgroundColor: '#7C3AED' },
           headerTintColor: COLORS.textInverse,
         }}
