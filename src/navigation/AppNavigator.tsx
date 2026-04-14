@@ -310,7 +310,7 @@ const SecretarioTabs: React.FC<TabsProps> = ({ unreadCount }) => (
     />
     <SecretarioTab.Screen
       name="Mensagens"
-      component={require('../screens/paciente/MensagensScreen').default}
+      component={require('../screens/secretario/SecretarioMensagensScreen').default}
       options={{ title: 'Mensagens' }}
     />
     <SecretarioTab.Screen name="Perfil" component={PerfilScreen} />

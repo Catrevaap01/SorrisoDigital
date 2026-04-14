@@ -1177,13 +1177,14 @@ const styles = StyleSheet.create({
   printBillingBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     backgroundColor: '#7C3AED',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 10,
     gap: 8,
     marginTop: SIZES.md,
+    alignSelf: 'flex-start',
     ...SHADOWS.md,
   },
   printBillingBtnText: {

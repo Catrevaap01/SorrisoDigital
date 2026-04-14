@@ -1,22 +1,11 @@
-# Database Rebuild Task - "recostrua o banco de dados para aceitar"
+# TODO - Fix Secretaria Messages Tab
 
-## Status: In Progress
+## Plan Approved
+Secretary messages tab must work like patient/dentist tabs but allow 1:1 convos with BOTH dentists AND patients.
 
-**Approved Plan Summary**: Unified Supabase schema fixing naming (appointments), missing fields (secretary_id), RLS for secretary flow.
-
-### Steps Checklist
-- [x] **Step 1**: Create `docs/SUPABASE_REBUILD_COMPLETE.sql` (complete unified schema)
-- [ ] **Step 2**: Execute SQL in Supabase (Dashboard > SQL Editor > New Query > Paste &amp; Run)
-- [ ] **Step 3**: Verify tables/RLS:
-  ```
-  SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;
-  SELECT * FROM pg_policies WHERE tablename = 'appointments';
-  ```
-- [ ] **Step 4**: Test app:
-  - Login as patient, create appointment/triagem
-  - Check inserts succeed (no RLS errors)
-  - Login as secretary, assign to dentist
-- [ ] **Step 5**: Mark complete, delete/reset if needed
-
-**Next Action**: Run Step 2 after confirming file creation.
-
+## Steps:
+1. [x] Create src/screens/secretario/SecretarioMensagensScreen.tsx (copy DentistaMensagensScreen, add dual dentists+patients new chat modal)
+2. [x] Update src/navigation/AppNavigator.tsx: change Mensagens component to new screen
+3. [ ] Update ConversationsListScreen modal for secretary (load dentists + patients)
+4. [ ] Test secretary login → messages tab → new chat with dentist/patient
+5. [ ] attempt_completion
