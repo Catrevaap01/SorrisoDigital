@@ -269,12 +269,16 @@ const styles = StyleSheet.create({
   },
   filterButton: {
     backgroundColor: COLORS.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: SIZES.radiusLg,
-    marginRight: SIZES.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginRight: 8,
     borderWidth: 1,
     borderColor: COLORS.divider,
+    minWidth: 70,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterButtonActive: {
     backgroundColor: COLORS.primary,
@@ -284,6 +288,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 12,
     fontWeight: '500',
+    textAlign: 'center',
   },
   filterButtonTextActive: {
     color: 'white',
