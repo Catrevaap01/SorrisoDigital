@@ -26,7 +26,7 @@ import {
 } from '../../services/agendamentoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { STATUS_TRIAGEM, RECOMENDACAO, STATUS_AGENDAMENTO, TIPOS_CONSULTA } from '../../utils/constants';
-import { formatDateTime, formatRelativeTime } from '../../utils/helpers';
+import { formatDateTime, formatRelativeTime, formatDate } from '../../utils/helpers';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { PacienteTabParamList } from '../../navigation/types';
 import Loading from '../../components/ui/Loading';
@@ -141,7 +141,7 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
       ? agendamentos
       : agendamentos.filter((a: any) => {
           if (filtroAtivo === 'confirmado') {
-            return a.status === 'confirmado' || a.status === 'agendado';
+            return a.status === 'confirmado_dentista' || a.status === 'confirmado_paciente';
           }
           return a.status === filtroAtivo;
         });
@@ -150,8 +150,8 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     ...triagensFiltradas.map((t: any) => ({ ...t, tipo: 'triagem' })),
     ...agendamentosFiltrados.map((a: any) => ({ ...a, tipo: 'agendamento' })),
   ].sort((a: any, b: any) => {
-    const dataA = a.tipo === 'triagem' ? a.created_at : a.data_agendamento;
-    const dataB = b.tipo === 'triagem' ? b.created_at : b.data_agendamento;
+    const dataA = a.tipo === 'triagem' ? a.created_at : a.appointment_date;
+    const dataB = b.tipo === 'triagem' ? b.created_at : b.appointment_date;
     return new Date(dataB || 0).getTime() - new Date(dataA || 0).getTime();
   });
 
@@ -231,7 +231,7 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
             <Ionicons name={statusInfo.icon as any} size={12} color="#fff" />
             <Text style={styles.statusText}>{statusInfo.label}</Text>
           </View>
-          <Text style={styles.cardData}>{formatRelativeTime(item.data_agendamento)}</Text>
+          <Text style={styles.cardData}>{formatRelativeTime(item.appointment_date)}</Text>
         </View>
 
         {/* Tipo de Consulta */}
@@ -257,20 +257,13 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
           <View style={styles.infoItem}>
             <Ionicons name="calendar" size={14} color={COLORS.textSecondary} />
             <Text style={styles.infoText}>
-              {new Date(item.data_agendamento).toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-              })}
+              {formatDate(item.appointment_date, 'dd/MM/yyyy')}
             </Text>
           </View>
           <View style={styles.infoItem}>
             <Ionicons name="time" size={14} color={COLORS.textSecondary} />
             <Text style={styles.infoText}>
-              {new Date(item.data_agendamento).toLocaleTimeString('pt-BR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              {item.appointment_time || '---'}
             </Text>
           </View>
         </View>
@@ -512,20 +505,13 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
                 <View style={styles.modalColumn}>
                   <Text style={styles.modalLabel}>Data</Text>
                   <Text style={styles.modalValue}>
-                    {new Date(agendamentoSelecionado.data_agendamento).toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                    })}
+                    {formatDate(agendamentoSelecionado.appointment_date, 'dd/MM/yyyy')}
                   </Text>
                 </View>
                 <View style={styles.modalColumn}>
                   <Text style={styles.modalLabel}>Hora</Text>
                   <Text style={styles.modalValue}>
-                    {new Date(agendamentoSelecionado.data_agendamento).toLocaleTimeString('pt-BR', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    {agendamentoSelecionado.appointment_time || '---'}
                   </Text>
                 </View>
               </View>
@@ -537,16 +523,16 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
               </View>
 
               {/* Observações */}
-              {agendamentoSelecionado.observacoes && (
+              {agendamentoSelecionado.notes && (
                 <View style={styles.modalSection}>
                   <Text style={styles.modalLabel}>Observações</Text>
                   <Text style={styles.modalValueMultiline}>
-                    {agendamentoSelecionado.observacoes}
+                    {agendamentoSelecionado.notes}
                   </Text>
                 </View>
               )}
 
-              {['sugerido', 'agendado'].includes(agendamentoSelecionado.status) && (
+              {!['confirmado_dentista', 'confirmado_paciente', 'realizado', 'cancelado', 'rejeitado_dentista'].includes(agendamentoSelecionado.status) && (
                 <View style={styles.modalActions}>
                   <TouchableOpacity
                     style={[styles.modalActionButton, { backgroundColor: COLORS.secondary }]}
