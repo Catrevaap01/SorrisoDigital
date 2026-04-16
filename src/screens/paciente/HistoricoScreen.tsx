@@ -1,0 +1,1288 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  RefreshControl,
+  Image,
+  Modal,
+  ScrollView,
+  Platform,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
+import { useAuth } from '../../contexts/AuthContext';
+import {
+  buscarTriagensPaciente,
+  buscarTriagensDentista,
+  buscarTodasTriagens,
+} from '../../services/triagemService';
+import {
+  buscarAgendamentosPaciente,
+  confirmarAgendamento,
+  cancelarAgendamento,
+} from '../../services/agendamentoService';
+import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
+import { STATUS_TRIAGEM, RECOMENDACAO, STATUS_AGENDAMENTO, TIPOS_CONSULTA } from '../../utils/constants';
+import { formatDateTime, formatRelativeTime } from '../../utils/helpers';
+import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import { PacienteTabParamList } from '../../navigation/types';
+import Loading from '../../components/ui/Loading';
+
+const PRECO_POR_TIPO: Record<string, number> = {
+  consulta: 25000,
+  avaliacao: 30000,
+  retorno: 15000,
+  urgencia: 45000,
+  raio_x: 20000,
+  panoramico: 35000,
+  profilaxia: 22000,
+  branqueamento: 60000,
+  canal: 90000,
+  ortodontia: 120000,
+  restauracao: 40000,
+};
+
+const formatCurrency = (value: number) =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 });
+
+type HistoricoProps = BottomTabScreenProps<PacienteTabParamList, 'Histórico'>;
+
+const HistoricoScreen: React.FC<HistoricoProps> = () => {
+  const { profile } = useAuth();
+  const [triagens, setTriagens] = useState<any[]>([]);
+  const [agendamentos, setAgendamentos] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [processingAgendamentoId, setProcessingAgendamentoId] = useState<string | null>(null);
+  const [filtroAtivo, setFiltroAtivo] = useState<string>('todos');
+  const [modalVisible, setModalVisible] = useState<boolean>(false);
+  const [triagemSelecionada, setTriagemSelecionada] = useState<any | null>(null);
+  const [modalAgendamentoVisible, setModalAgendamentoVisible] = useState<boolean>(false);
+  const [agendamentoSelecionado, setAgendamentoSelecionado] = useState<any | null>(null);
+
+  const carregarTriagens = async () => {
+    if (!profile?.id) return;
+
+    const tipo = profile?.tipo;
+    const result =
+      tipo === 'dentista' || tipo === 'medico'
+        ? await buscarTriagensDentista(profile.id)
+        : tipo === 'admin'
+          ? await buscarTodasTriagens({ status: null })
+          : await buscarTriagensPaciente(profile.id);
+
+    if (result.success) {
+      setTriagens(result.data || []);
+    }
+    setLoading(false);
+  };
+
+  const carregarAgendamentos = async () => {
+    if (!profile?.id) return;
+
+    const result = await buscarAgendamentosPaciente(profile.id);
+    if (result.success) {
+      setAgendamentos(result.data || []);
+    }
+  };
+
+  const carregarDados = async () => {
+    await Promise.all([carregarTriagens(), carregarAgendamentos()]);
+  };
+
+  useEffect(() => {
+    carregarDados();
+  }, [profile]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await carregarDados();
+    setRefreshing(false);
+  }, [profile]);
+
+  const filtros = [
+    { id: 'todos', label: 'Todos', icon: 'grid' },
+    { id: 'pendente', label: 'Pendente', icon: 'time' },
+    { id: 'urgente', label: 'Urgente', icon: 'alert-circle' },
+    { id: 'confirmado', label: 'Confirmado', icon: 'checkmark-circle' },
+    { id: 'realizado', label: 'Realizados', icon: 'checkmark-done' },
+    { id: 'cancelado', label: 'Cancelado', icon: 'close-circle' },
+  ];
+
+  const triagensFiltradas =
+    filtroAtivo === 'todos'
+      ? triagens
+      : triagens.filter((t: any) => {
+          const s = (t.status || '').toLowerCase();
+          const p = (t.prioridade || '').toLowerCase();
+          const isUrgente = s === 'urgente' || p === 'urgente' || p === 'alta' || Number(t.intensidade_dor || 0) > 6;
+          const temResposta = s === 'respondido' || s === 'completo' || (t.respostas && t.respostas.length > 0);
+
+          if (filtroAtivo === 'respondido') {
+            return temResposta;
+          }
+          if (filtroAtivo === 'realizado') {
+            return false;
+          }
+          if (filtroAtivo === 'urgente') {
+            return isUrgente;
+          }
+          if (filtroAtivo === 'pendente') {
+            return !isUrgente && !temResposta && s !== 'realizado' && s !== 'cancelado';
+          }
+          return t.status === filtroAtivo;
+        });
+
+  const agendamentosFiltrados =
+    filtroAtivo === 'todos'
+      ? agendamentos
+      : agendamentos.filter((a: any) => {
+          if (filtroAtivo === 'confirmado') {
+            return a.status === 'confirmado' || a.status === 'agendado';
+          }
+          return a.status === filtroAtivo;
+        });
+
+  const dadosCombinados = [
+    ...triagensFiltradas.map((t: any) => ({ ...t, tipo: 'triagem' })),
+    ...agendamentosFiltrados.map((a: any) => ({ ...a, tipo: 'agendamento' })),
+  ].sort((a: any, b: any) => {
+    const dataA = a.tipo === 'triagem' ? a.created_at : a.data_agendamento;
+    const dataB = b.tipo === 'triagem' ? b.created_at : b.data_agendamento;
+    return new Date(dataB || 0).getTime() - new Date(dataA || 0).getTime();
+  });
+
+  const abrirDetalhes = (triagem: any) => {
+    setTriagemSelecionada(triagem);
+    setModalVisible(true);
+  };
+
+  const abrirDetalhesAgendamento = (agendamento: any) => {
+    setAgendamentoSelecionado(agendamento);
+    setModalAgendamentoVisible(true);
+  };
+
+  const renderTriagem = ({ item }: { item: any }) => {
+    const s = (item.status || '').toLowerCase();
+    const p = (item.prioridade || '').toLowerCase();
+    const isUrg = s === 'urgente' || p === 'urgente' || p === 'alta' || Number(item.intensidade_dor || 0) > 6;
+    const temResposta = s === 'respondido' || s === 'completo' || (item.respostas && item.respostas.length > 0);
+    
+    const effectiveStatus = isUrg
+      ? 'urgente'
+      : temResposta
+        ? 'respondido'
+        : 'pendente';
+          
+    const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
+
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={styles.cardEdu}
+        onPress={() => abrirDetalhes(item)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.cardIconContainer, { backgroundColor: statusInfo.color + '20' }]}>
+          <Ionicons name={statusInfo.icon as any} size={28} color={statusInfo.color} />
+        </View>
+        
+        <View style={styles.cardContent}>
+          <Text style={styles.cardTitulo} numberOfLines={2}>{item.sintoma_principal}</Text>
+          <Text style={styles.cardDescricao} numberOfLines={2}>
+            {item.descricao || (temResposta ? 'Caso analisado pelo dentista' : 'Aguardando análise profissional')}
+          </Text>
+          
+          <View style={styles.cardFooter}>
+            <View style={[styles.categoriaBadge, { backgroundColor: statusInfo.color + '20' }]}>
+              <Text style={[styles.categoriaText, { color: statusInfo.color }]}>
+                {statusInfo.label}
+              </Text>
+            </View>
+            
+            <View style={styles.viewsContainer}>
+              <Ionicons name="time-outline" size={14} color={COLORS.textSecondary} />
+              <Text style={styles.viewsText}>{formatRelativeTime(item.created_at)}</Text>
+            </View>
+          </View>
+        </View>
+
+        <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+      </TouchableOpacity>
+    );
+  };
+
+  const renderAgendamento = ({ item }: { item: any }) => {
+    const statusInfo = STATUS_AGENDAMENTO[item.status] || STATUS_AGENDAMENTO.pendente;
+    const tipoConsulta = TIPOS_CONSULTA[item.tipo] || TIPOS_CONSULTA.consulta;
+
+    return (
+      <TouchableOpacity
+        style={[styles.card, styles.cardAgendamento]}
+        onPress={() => abrirDetalhesAgendamento(item)}
+        activeOpacity={0.7}
+      >
+        {/* Header */}
+        <View style={styles.cardHeader}>
+          <View style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}>
+            <Ionicons name={statusInfo.icon as any} size={12} color="#fff" />
+            <Text style={styles.statusText}>{statusInfo.label}</Text>
+          </View>
+          <Text style={styles.cardData}>{formatRelativeTime(item.data_agendamento)}</Text>
+        </View>
+
+        {/* Tipo de Consulta */}
+        <View style={styles.tipoConsultaRow}>
+          <Ionicons name={tipoConsulta.icon as any} size={20} color={tipoConsulta.color} />
+          <Text style={[styles.tipoConsultaText, { color: tipoConsulta.color }]}>
+            {tipoConsulta.label}
+          </Text>
+        </View>
+
+        {/* Informações do Dentista */}
+        {item.dentista && (
+          <View style={styles.dentistaInfoRow}>
+            <Ionicons name="person" size={14} color={COLORS.textSecondary} />
+            <Text style={styles.dentistaNomeText}>
+              Dr(a). {item.dentista.nome}
+            </Text>
+          </View>
+        )}
+
+        {/* Data e Hora */}
+        <View style={styles.cardInfoRow}>
+          <View style={styles.infoItem}>
+            <Ionicons name="calendar" size={14} color={COLORS.textSecondary} />
+            <Text style={styles.infoText}>
+              {new Date(item.data_agendamento).toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+              })}
+            </Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Ionicons name="time" size={14} color={COLORS.textSecondary} />
+            <Text style={styles.infoText}>
+              {new Date(item.data_agendamento).toLocaleTimeString('pt-BR', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.valorConsulta}>
+          Valor estimado: {formatCurrency(PRECO_POR_TIPO[item.tipo || 'consulta'] || 0)}
+        </Text>
+
+        {/* Observações */}
+        {item.observacoes && (
+          <Text style={styles.cardDescricao} numberOfLines={2}>
+            {item.observacoes}
+          </Text>
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  const renderItem = ({ item }: { item: any }) => {
+    if (item.tipo === 'agendamento') {
+      return renderAgendamento({ item });
+    }
+    return renderTriagem({ item });
+  };
+
+  const handleConfirmarAgendamentoPaciente = async () => {
+    if (!profile?.id) {
+      Toast.show({ type: 'error', text1: 'Erro de autenticação', text2: 'Seu perfil ainda não foi carregado. Tente novamente.' });
+      return;
+    }
+    if (!agendamentoSelecionado?.id || processingAgendamentoId) return;
+    setProcessingAgendamentoId(agendamentoSelecionado.id);
+    const res = await confirmarAgendamento(agendamentoSelecionado.id, profile.id);
+    if (res.success) {
+      Toast.show({ type: 'success', text1: 'Agendamento confirmado', text2: 'O horário foi confirmado com sucesso.' });
+      setModalAgendamentoVisible(false);
+      await carregarDados();
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Erro ao confirmar',
+        text2: (typeof res.error === 'string' ? res.error : res.error?.message) || 'Não foi possível confirmar o agendamento',
+      });
+    }
+    setProcessingAgendamentoId(null);
+  };
+
+  const handleCancelarAgendamentoPaciente = async () => {
+    if (!agendamentoSelecionado?.id || processingAgendamentoId) return;
+    setProcessingAgendamentoId(agendamentoSelecionado.id);
+    const res = await cancelarAgendamento(agendamentoSelecionado.id);
+    if (res.success) {
+      Toast.show({ type: 'info', text1: 'Agendamento cancelado', text2: 'O agendamento voltou para a fila de triagem.' });
+      setModalAgendamentoVisible(false);
+      await carregarDados();
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Erro ao cancelar',
+        text2: (typeof res.error === 'string' ? res.error : res.error?.message) || 'Não foi possível cancelar o agendamento',
+      });
+    }
+    setProcessingAgendamentoId(null);
+  };
+
+  const renderModalDetalhes = () => {
+    if (!triagemSelecionada) return null;
+
+    const statusInfo = STATUS_TRIAGEM[triagemSelecionada.status] || STATUS_TRIAGEM.pendente;
+    const resposta = triagemSelecionada.respostas?.[0];
+    const cor = statusInfo.color;
+
+    return (
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalEduContainer}>
+          {/* Header */}
+          <View style={[styles.modalEduHeader, { backgroundColor: cor }]}>
+            <TouchableOpacity
+              style={styles.modalEduBackButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <Ionicons name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <View style={styles.modalEduHeaderContent}>
+              <View style={styles.modalEduIconContainer}>
+                <Ionicons name={statusInfo.icon as any} size={32} color="#fff" />
+              </View>
+              <Text style={styles.modalEduTitulo}>{triagemSelecionada.sintoma_principal}</Text>
+            </View>
+          </View>
+
+          {/* Conteúdo */}
+          <ScrollView style={styles.modalEduBody} showsVerticalScrollIndicator={false}>
+            {/* Status e Data */}
+            <View style={styles.modalEduMetaRow}>
+              <View style={[styles.categoriaBadge, { backgroundColor: cor + '20' }]}>
+                <Text style={{ color: cor, fontWeight: 'bold' }}>{statusInfo.label}</Text>
+              </View>
+              <Text style={styles.cardData}>{formatDateTime(triagemSelecionada.created_at)}</Text>
+            </View>
+
+            {triagemSelecionada.descricao && (
+              <Text style={styles.modalEduDescricao}>{triagemSelecionada.descricao}</Text>
+            )}
+
+            {/* Detalhes do Caso */}
+            <View style={styles.modalEduInfoGrid}>
+              <View style={styles.modalEduInfoItem}>
+                <Text style={styles.modalEduInfoLabel}>Intensidade da Dor</Text>
+                <Text style={[styles.modalEduInfoValue, Number(triagemSelecionada.intensidade_dor) >= 8 && { color: COLORS.danger }]}>
+                  {triagemSelecionada.intensidade_dor}/10
+                </Text>
+              </View>
+              {triagemSelecionada.duracao && (
+                <View style={styles.modalEduInfoItem}>
+                  <Text style={styles.modalEduInfoLabel}>Duração</Text>
+                  <Text style={styles.modalEduInfoValue}>{triagemSelecionada.duracao}</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Imagens */}
+            {triagemSelecionada.imagens && (Array.isArray(triagemSelecionada.imagens) ? triagemSelecionada.imagens.length > 0 : typeof triagemSelecionada.imagens === 'string') && (
+              <View style={styles.modalEduSection}>
+                <Text style={styles.modalEduSectionTitle}>Fotos do Caso ({Array.isArray(triagemSelecionada.imagens) ? triagemSelecionada.imagens.length : 1})</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }}>
+                  {(Array.isArray(triagemSelecionada.imagens) ? triagemSelecionada.imagens : [triagemSelecionada.imagens]).map((uri: string, index: number) => (
+                    <Image key={index} source={{ uri }} style={styles.modalEduImage} />
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* Resposta do Dentista */}
+            {resposta && (
+              <View style={styles.modalEduSection}>
+                <Text style={[styles.modalEduSectionTitle, { color: COLORS.secondary }]}>Avaliação do Profissional</Text>
+                <View style={styles.modalEduRespostaCard}>
+                  <View style={styles.modalEduDentistaRow}>
+                    <Ionicons name="person-circle" size={40} color={COLORS.secondary} />
+                    <View style={{ marginLeft: 12 }}>
+                      <Text style={styles.modalEduDentistaNome}>
+                        Dr(a). {resposta.dentista?.nome || 'Dentista'}
+                      </Text>
+                      <Text style={styles.modalEduDentistaSub}>Cirurgião Dentista</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.modalEduOrientacaoBox}>
+                    <Text style={styles.modalEduOrientacaoLabel}>Orientação:</Text>
+                    <Text style={styles.modalEduOrientacaoValue}>{resposta.orientacao}</Text>
+                  </View>
+
+                  {resposta.recomendacao && (
+                    <View style={[styles.modalEduRecomendacaoBox, { backgroundColor: COLORS.secondary + '10' }]}>
+                      <Text style={{ color: COLORS.secondary, fontWeight: 'bold' }}>Recomendação:</Text>
+                      <Text style={{ marginLeft: 6 }}>{resposta.recomendacao}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
+
+            <View style={styles.modalEduAviso}>
+              <Ionicons name="information-circle" size={18} color={COLORS.primary} />
+              <Text style={styles.modalEduAvisoText}>
+                Esta triagem é um suporte inicial. Em caso de dor persistente ou emergência, 
+                procure imediatamente uma clínica para avaliação presencial.
+              </Text>
+            </View>
+
+            <View style={{ height: 100 }} />
+          </ScrollView>
+        </View>
+      </Modal>
+    );
+  };
+
+  const renderModalDetalhesAgendamento = () => {
+    if (!agendamentoSelecionado) return null;
+
+    const statusInfo = STATUS_AGENDAMENTO[agendamentoSelecionado.status] || STATUS_AGENDAMENTO.pendente;
+    const tipoConsulta = TIPOS_CONSULTA[agendamentoSelecionado.tipo] || TIPOS_CONSULTA.consulta;
+
+    return (
+      <Modal
+        visible={modalAgendamentoVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setModalAgendamentoVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Detalhes do Agendamento</Text>
+              <TouchableOpacity
+                onPress={() => setModalAgendamentoVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {/* Status */}
+              <View style={[styles.modalStatusBadge, { backgroundColor: statusInfo.color }]}>
+                <Ionicons name={statusInfo.icon as any} size={16} color="#fff" />
+                <Text style={styles.modalStatusText}>{statusInfo.label}</Text>
+              </View>
+
+              {/* Tipo de Consulta */}
+              <View style={styles.modalSection}>
+                <Text style={styles.modalLabel}>Tipo de Consulta</Text>
+                <View style={styles.tipoConsultaRow}>
+                  <Ionicons name={tipoConsulta.icon as any} size={24} color={tipoConsulta.color} />
+                  <Text style={[styles.tipoConsultaText, { color: tipoConsulta.color, marginLeft: SIZES.sm }]}>
+                    {tipoConsulta.label}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Informações do Dentista */}
+              {agendamentoSelecionado.dentista && (
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalLabel}>Dentista</Text>
+                  <Text style={styles.modalValue}>
+                    Dr(a). {agendamentoSelecionado.dentista.nome}
+                    {agendamentoSelecionado.dentista.especialidade && ` - ${agendamentoSelecionado.dentista.especialidade}`}
+                  </Text>
+                </View>
+              )}
+
+              {/* Data e Hora */}
+              <View style={styles.modalRow}>
+                <View style={styles.modalColumn}>
+                  <Text style={styles.modalLabel}>Data</Text>
+                  <Text style={styles.modalValue}>
+                    {new Date(agendamentoSelecionado.data_agendamento).toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    })}
+                  </Text>
+                </View>
+                <View style={styles.modalColumn}>
+                  <Text style={styles.modalLabel}>Hora</Text>
+                  <Text style={styles.modalValue}>
+                    {new Date(agendamentoSelecionado.data_agendamento).toLocaleTimeString('pt-BR', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.modalSection}>
+                <Text style={styles.modalLabel}>Valor estimado</Text>
+                <Text style={styles.modalValue}>
+                  {formatCurrency(PRECO_POR_TIPO[agendamentoSelecionado.tipo || 'consulta'] || 0)}
+                </Text>
+              </View>
+
+              {/* Observações */}
+              {agendamentoSelecionado.observacoes && (
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalLabel}>Observações</Text>
+                  <Text style={styles.modalValueMultiline}>
+                    {agendamentoSelecionado.observacoes}
+                  </Text>
+                </View>
+              )}
+
+              {['sugerido', 'agendado'].includes(agendamentoSelecionado.status) && (
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[styles.modalActionButton, { backgroundColor: COLORS.secondary }]}
+                    onPress={handleConfirmarAgendamentoPaciente}
+                    disabled={processingAgendamentoId === agendamentoSelecionado.id}
+                  >
+                    <Text style={styles.modalActionButtonText}>
+                      {processingAgendamentoId === agendamentoSelecionado.id ? 'Aguarde...' : 'Confirmar horário'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalActionButton, { backgroundColor: COLORS.danger }]}
+                    onPress={handleCancelarAgendamentoPaciente}
+                    disabled={processingAgendamentoId === agendamentoSelecionado.id}
+                  >
+                    <Text style={styles.modalActionButtonText}>
+                      {processingAgendamentoId === agendamentoSelecionado.id ? 'Aguarde...' : 'Cancelar agendamento'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Aviso */}
+              <View style={styles.modalAviso}>
+                <Ionicons name="information-circle" size={16} color={COLORS.accent} />
+                <Text style={styles.modalAvisoText}>
+                  Em caso de dúvidas ou necessidade de remarcar, entre em contato conosco.
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.centerContainer}>
+        <Loading />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      {/* Filtros */}
+      <View style={styles.filtrosContainer}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtrosList}
+        >
+          {filtros.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[
+                styles.filtroButton,
+                filtroAtivo === item.id && styles.filtroButtonActive,
+              ]}
+              onPress={() => setFiltroAtivo(item.id)}
+            >
+              <Ionicons 
+                name={item.icon as any} 
+                size={18} 
+                color={filtroAtivo === item.id ? COLORS.textInverse : COLORS.primary} 
+              />
+              <Text
+                style={[
+                  styles.filtroText,
+                  filtroAtivo === item.id && styles.filtroTextActive,
+                ]}
+              >
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Lista de dados combinados (triagens + agendamentos) */}
+      {dadosCombinados.length === 0 ? (
+        <View style={styles.centerContainer}>
+          <Ionicons name="document-text-outline" size={64} color={COLORS.textSecondary} />
+          <Text style={styles.emptyTitle}>Nenhum registro encontrado</Text>
+          <Text style={styles.emptySubtitle}>
+            Seus agendamentos e triagens aparecerão aqui
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={dadosCombinados}
+          keyExtractor={(item: any, index: number) => `${item.tipo}-${item.id}-${index}`}
+          renderItem={renderItem}
+          contentContainerStyle={[
+            styles.lista,
+            Platform.OS === 'web' && styles.webLista,
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[COLORS.primary]}
+            />
+          }
+        />
+      )}
+
+      {/* Modais */}
+      {renderModalDetalhes()}
+      {renderModalDetalhesAgendamento()}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  filtrosContainer: {
+    backgroundColor: COLORS.surface,
+    paddingVertical: SIZES.sm,
+    ...SHADOWS.sm,
+  },
+  filtrosList: {
+    paddingHorizontal: SIZES.md,
+  },
+  filtroButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SIZES.md,
+    paddingVertical: SIZES.sm,
+    borderRadius: SIZES.radiusFull,
+    backgroundColor: '#E3F2FD',
+    marginRight: SIZES.sm,
+  },
+  filtroButtonActive: {
+    backgroundColor: COLORS.primary,
+  },
+  filtroText: {
+    marginLeft: SIZES.xs,
+    fontSize: SIZES.fontSm,
+    color: COLORS.primary,
+    fontWeight: '500',
+  },
+  filtroTextActive: {
+    color: COLORS.textInverse,
+    fontWeight: 'bold',
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: SIZES.xl,
+  },
+  emptyTitle: {
+    fontSize: SIZES.fontLg,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginTop: SIZES.md,
+  },
+  emptySubtitle: {
+    fontSize: SIZES.fontMd,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SIZES.xs,
+  },
+  lista: {
+    padding: SIZES.md,
+  },
+  webLista: {
+    maxWidth: 900,
+    width: '100%',
+    alignSelf: 'center',
+    paddingTop: SIZES.lg,
+    paddingBottom: 100,
+  },
+  card: {
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.md,
+    marginBottom: SIZES.md,
+    ...SHADOWS.sm,
+  },
+  cardEdu: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    marginBottom: SIZES.sm,
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    ...SHADOWS.sm,
+  },
+  cardIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cardContent: {
+    flex: 1,
+    marginLeft: SIZES.md,
+    marginRight: SIZES.sm,
+  },
+  cardTitulo: {
+    fontSize: SIZES.fontMd,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  cardDescricao: {
+    fontSize: SIZES.fontMd,
+    color: COLORS.textSecondary,
+    marginBottom: SIZES.sm,
+  },
+  valorConsulta: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    marginTop: SIZES.xs,
+    marginBottom: SIZES.sm,
+    fontWeight: '600',
+  },
+  categoriaBadge: {
+    paddingHorizontal: SIZES.sm,
+    paddingVertical: 2,
+    borderRadius: SIZES.radiusSm,
+  },
+  categoriaText: {
+    fontSize: SIZES.fontXs,
+    fontWeight: '600',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: SIZES.sm,
+  },
+  viewsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  viewsText: {
+    fontSize: SIZES.fontXs,
+    color: COLORS.textSecondary,
+    marginLeft: 4,
+  },
+  // Modal Edu Styles
+  modalEduContainer: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  modalEduHeader: {
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: SIZES.lg,
+    paddingHorizontal: SIZES.md,
+  },
+  modalEduBackButton: {
+    marginBottom: SIZES.md,
+  },
+  modalEduHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalEduIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalEduTitulo: {
+    flex: 1,
+    fontSize: SIZES.fontXl,
+    fontWeight: 'bold',
+    color: COLORS.textInverse,
+    marginLeft: SIZES.md,
+  },
+  modalEduBody: {
+    flex: 1,
+    padding: SIZES.md,
+  },
+  modalEduMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SIZES.md,
+  },
+  modalEduDescricao: {
+    fontSize: SIZES.fontMd,
+    color: COLORS.textSecondary,
+    fontStyle: 'italic',
+    marginBottom: SIZES.md,
+    lineHeight: 22,
+  },
+  modalEduInfoGrid: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    ...SHADOWS.sm,
+    marginBottom: SIZES.md,
+  },
+  modalEduInfoItem: {
+    flex: 1,
+  },
+  modalEduInfoLabel: {
+    fontSize: SIZES.fontXs,
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  modalEduInfoValue: {
+    fontSize: SIZES.fontMd,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  modalEduSection: {
+    marginTop: SIZES.lg,
+  },
+  modalEduSectionTitle: {
+    fontSize: SIZES.fontLg,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: SIZES.sm,
+  },
+  modalEduImage: {
+    width: 150,
+    height: 150,
+    borderRadius: SIZES.radiusMd,
+    marginRight: SIZES.sm,
+  },
+  modalEduRespostaCard: {
+    backgroundColor: COLORS.surface,
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    ...SHADOWS.sm,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.secondary,
+  },
+  modalEduDentistaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SIZES.md,
+  },
+  modalEduDentistaNome: {
+    fontSize: SIZES.fontMd,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  modalEduDentistaSub: {
+    fontSize: SIZES.fontXs,
+    color: COLORS.textSecondary,
+  },
+  modalEduOrientacaoBox: {
+    marginBottom: SIZES.md,
+  },
+  modalEduOrientacaoLabel: {
+    fontSize: SIZES.fontXs,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  modalEduOrientacaoValue: {
+    fontSize: SIZES.fontMd,
+    color: COLORS.text,
+    lineHeight: 22,
+  },
+  modalEduRecomendacaoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: SIZES.sm,
+    borderRadius: SIZES.radiusSm,
+  },
+  modalEduAviso: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#E3F2FD',
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    marginTop: SIZES.xl,
+  },
+  modalEduAvisoText: {
+    flex: 1,
+    marginLeft: SIZES.sm,
+    fontSize: SIZES.fontSm,
+    color: COLORS.primary,
+    lineHeight: 18,
+  },
+  cardAgendamento: {
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.primary,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SIZES.sm,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SIZES.sm,
+    paddingVertical: 4,
+    borderRadius: SIZES.radiusFull,
+  },
+  statusText: {
+    color: COLORS.textInverse,
+    fontSize: SIZES.fontXs,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  cardData: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+  },
+  cardSintoma: {
+    fontSize: SIZES.fontLg,
+    fontWeight: 'bold',
+    color: COLORS.text,
+    marginBottom: SIZES.xs,
+  },
+  tipoConsultaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SIZES.sm,
+  },
+  tipoConsultaText: {
+    fontSize: SIZES.fontLg,
+    fontWeight: 'bold',
+    marginLeft: SIZES.sm,
+  },
+  dentistaInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SIZES.sm,
+  },
+  dentistaNomeText: {
+    fontSize: SIZES.fontMd,
+    color: COLORS.text,
+    marginLeft: SIZES.xs,
+  },
+  cardInfoRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+    paddingTop: SIZES.sm,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: SIZES.md,
+    marginBottom: SIZES.xs,
+  },
+  infoText: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    marginLeft: 4,
+  },
+  respostaPreview: {
+    backgroundColor: '#F5FEF9',
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    marginTop: SIZES.md,
+    borderLeftWidth: 3,
+    borderLeftColor: COLORS.secondary,
+  },
+  respostaHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  respostaHeaderText: {
+    fontSize: SIZES.fontSm,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+    marginLeft: 6,
+  },
+  recomendacaoDestaque: {
+    fontSize: SIZES.fontXs,
+    fontWeight: '600',
+    color: '#2E7D32',
+    marginBottom: 4,
+  },
+  respostaTexto: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
+    alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
+  },
+  modalContent: {
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: SIZES.radiusXl,
+    borderTopRightRadius: SIZES.radiusXl,
+    borderBottomLeftRadius: Platform.OS === 'web' ? SIZES.radiusXl : 0,
+    borderBottomRightRadius: Platform.OS === 'web' ? SIZES.radiusXl : 0,
+    maxHeight: '90%',
+    width: Platform.OS === 'web' ? '100%' : undefined,
+    maxWidth: Platform.OS === 'web' ? 600 : undefined,
+    paddingBottom: SIZES.xl,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: SIZES.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  modalTitle: {
+    fontSize: SIZES.fontXl,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  modalStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: SIZES.md,
+    paddingVertical: SIZES.xs,
+    borderRadius: SIZES.radiusFull,
+    marginHorizontal: SIZES.md,
+    marginTop: SIZES.md,
+  },
+  modalStatusText: {
+    color: COLORS.textInverse,
+    fontWeight: 'bold',
+    marginLeft: SIZES.xs,
+  },
+  modalSection: {
+    paddingHorizontal: SIZES.md,
+    marginTop: SIZES.md,
+  },
+  modalRow: {
+    flexDirection: 'row',
+    paddingHorizontal: SIZES.md,
+    marginTop: SIZES.md,
+  },
+  modalColumn: {
+    flex: 1,
+  },
+  modalLabel: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  modalValue: {
+    fontSize: SIZES.fontMd,
+    color: COLORS.text,
+    fontWeight: '500',
+  },
+  modalValueMultiline: {
+    fontSize: SIZES.fontMd,
+    color: COLORS.text,
+    lineHeight: 22,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: SIZES.sm,
+    marginTop: SIZES.md,
+  },
+  modalActionButton: {
+    flex: 1,
+    paddingVertical: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    alignItems: 'center',
+  },
+  modalActionButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: SIZES.fontSm,
+  },
+  dorAlta: {
+    color: COLORS.danger,
+    fontWeight: 'bold',
+  },
+  modalImage: {
+    width: 120,
+    height: 120,
+    borderRadius: SIZES.radiusMd,
+    marginRight: SIZES.sm,
+    marginTop: SIZES.sm,
+  },
+  respostaBox: {
+    backgroundColor: '#E8F5E9',
+    marginHorizontal: SIZES.md,
+    marginTop: SIZES.lg,
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.secondary,
+  },
+  respostaBoxHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SIZES.sm,
+  },
+  respostaBoxTitle: {
+    fontSize: SIZES.fontMd,
+    fontWeight: 'bold',
+    color: COLORS.secondary,
+    marginLeft: SIZES.sm,
+  },
+  dentistaNome: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textSecondary,
+    marginBottom: SIZES.sm,
+  },
+  respostaBoxText: {
+    fontSize: SIZES.fontMd,
+    color: COLORS.text,
+    lineHeight: 22,
+  },
+  recomendacaoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: SIZES.md,
+    paddingVertical: SIZES.sm,
+    borderRadius: SIZES.radiusMd,
+    marginTop: SIZES.md,
+  },
+  recomendacaoText: {
+    fontWeight: 'bold',
+    marginLeft: SIZES.sm,
+  },
+  observacoesBox: {
+    backgroundColor: 'rgba(255,255,255,0.5)',
+    padding: SIZES.sm,
+    borderRadius: SIZES.radiusSm,
+    marginTop: SIZES.md,
+  },
+  observacoesLabel: {
+    fontSize: SIZES.fontSm,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  observacoesText: {
+    fontSize: SIZES.fontMd,
+    color: COLORS.text,
+  },
+  modalAviso: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFF3E0',
+    marginHorizontal: SIZES.md,
+    marginTop: SIZES.lg,
+    padding: SIZES.md,
+    borderRadius: SIZES.radiusMd,
+  },
+  modalAvisoText: {
+    flex: 1,
+    marginLeft: SIZES.sm,
+    fontSize: SIZES.fontSm,
+    color: '#E65100',
+    lineHeight: 18,
+  },
+  modalSectionResposta: {
+    backgroundColor: '#F0F9F4',
+    borderColor: '#C8E6C9',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+    marginHorizontal: 16,
+  },
+  modalSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalSectionTitle: {
+    fontSize: SIZES.fontMd,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  dentistaInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  modalDentistaNome: {
+    fontSize: SIZES.fontMd,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  modalDentistaSub: {
+    fontSize: SIZES.fontXs,
+    color: COLORS.textSecondary,
+  },
+  recomendacaoBox: {
+    backgroundColor: '#E8F5E9',
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 12,
+  },
+  recomendacaoLabel: {
+    fontSize: 10,
+    textTransform: 'uppercase',
+    color: '#2E7D32',
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  recomendacaoValor: {
+    fontSize: SIZES.fontMd,
+    fontWeight: 'bold',
+    color: COLORS.text,
+  },
+  orientacaoBox: {
+    padding: 4,
+  },
+  orientacaoLabel: {
+    fontSize: 10,
+    textTransform: 'uppercase',
+    color: COLORS.textSecondary,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  orientacaoValue: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.text,
+    lineHeight: 20,
+  },
+});
+
+export default HistoricoScreen;
