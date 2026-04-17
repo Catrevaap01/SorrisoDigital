@@ -28,7 +28,7 @@ import {
 } from '../../services/agendamentoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { STATUS_TRIAGEM, RECOMENDACAO, STATUS_AGENDAMENTO, TIPOS_CONSULTA } from '../../utils/constants';
-import { formatDateTime, formatRelativeTime } from '../../utils/helpers';
+import { formatDateTime, formatRelativeTime, formatDate } from '../../utils/helpers';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { PacienteTabParamList } from '../../navigation/types';
 import Loading from '../../components/ui/Loading';
@@ -119,42 +119,42 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     filtroAtivo === 'todos'
       ? triagens
       : triagens.filter((t: any) => {
-          const s = (t.status || '').toLowerCase();
-          const p = (t.prioridade || '').toLowerCase();
-          const isUrgente = s === 'urgente' || p === 'urgente' || p === 'alta' || Number(t.intensidade_dor || 0) > 6;
-          const temResposta = s === 'respondido' || s === 'completo' || (t.respostas && t.respostas.length > 0);
+        const s = (t.status || '').toLowerCase();
+        const p = (t.prioridade || '').toLowerCase();
+        const isUrgente = s === 'urgente' || p === 'urgente' || p === 'alta' || Number(t.intensidade_dor || 0) > 6;
+        const temResposta = s === 'respondido' || s === 'completo' || (t.respostas && t.respostas.length > 0);
 
-          if (filtroAtivo === 'respondido') {
-            return temResposta;
-          }
-          if (filtroAtivo === 'realizado') {
-            return false;
-          }
-          if (filtroAtivo === 'urgente') {
-            return isUrgente;
-          }
-          if (filtroAtivo === 'pendente') {
-            return !isUrgente && !temResposta && s !== 'realizado' && s !== 'cancelado';
-          }
-          return t.status === filtroAtivo;
-        });
+        if (filtroAtivo === 'respondido') {
+          return temResposta;
+        }
+        if (filtroAtivo === 'realizado') {
+          return false;
+        }
+        if (filtroAtivo === 'urgente') {
+          return isUrgente;
+        }
+        if (filtroAtivo === 'pendente') {
+          return !isUrgente && !temResposta && s !== 'realizado' && s !== 'cancelado';
+        }
+        return t.status === filtroAtivo;
+      });
 
   const agendamentosFiltrados =
     filtroAtivo === 'todos'
       ? agendamentos
       : agendamentos.filter((a: any) => {
-          if (filtroAtivo === 'confirmado') {
-            return a.status === 'confirmado' || a.status === 'agendado';
-          }
-          return a.status === filtroAtivo;
-        });
+        if (filtroAtivo === 'confirmado') {
+          return a.status === 'confirmado_dentista' || a.status === 'confirmado_paciente';
+        }
+        return a.status === filtroAtivo;
+      });
 
   const dadosCombinados = [
     ...triagensFiltradas.map((t: any) => ({ ...t, tipo: 'triagem' })),
     ...agendamentosFiltrados.map((a: any) => ({ ...a, tipo: 'agendamento' })),
   ].sort((a: any, b: any) => {
-    const dataA = a.tipo === 'triagem' ? a.created_at : (a.appointment_date || a.data_agendamento);
-    const dataB = b.tipo === 'triagem' ? b.created_at : (b.appointment_date || b.data_agendamento);
+    const dataA = a.tipo === 'triagem' ? a.created_at : a.appointment_date;
+    const dataB = b.tipo === 'triagem' ? b.created_at : b.appointment_date;
     return new Date(dataB || 0).getTime() - new Date(dataA || 0).getTime();
   });
 
@@ -167,7 +167,7 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     setValorEstimadoPlano(null);
     setAgendamentoSelecionado(agendamento);
     setModalAgendamentoVisible(true);
-    
+
     // Fetch estimated value asynchronously
     if (profile?.id && agendamento.patient_id) {
       const { estimado } = await buscarValorEstimadoPlano(agendamento.patient_id, agendamento.triagem_id);
@@ -182,13 +182,13 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     const p = (item.prioridade || '').toLowerCase();
     const isUrg = s === 'urgente' || p === 'urgente' || p === 'alta' || Number(item.intensidade_dor || 0) > 6;
     const temResposta = s === 'respondido' || s === 'completo' || (item.respostas && item.respostas.length > 0);
-    
+
     const effectiveStatus = isUrg
       ? 'urgente'
       : temResposta
         ? 'respondido'
         : 'pendente';
-          
+
     const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
 
     return (
@@ -201,20 +201,20 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
         <View style={[styles.cardIconContainer, { backgroundColor: statusInfo.color + '20' }]}>
           <Ionicons name={statusInfo.icon as any} size={28} color={statusInfo.color} />
         </View>
-        
+
         <View style={styles.cardContent}>
           <Text style={styles.cardTitulo} numberOfLines={2}>{item.sintoma_principal}</Text>
           <Text style={styles.cardDescricao} numberOfLines={2}>
             {item.descricao || (temResposta ? 'Caso analisado pelo dentista' : 'Aguardando análise profissional')}
           </Text>
-          
+
           <View style={styles.cardFooter}>
             <View style={[styles.categoriaBadge, { backgroundColor: statusInfo.color + '20' }]}>
               <Text style={[styles.categoriaText, { color: statusInfo.color }]}>
                 {statusInfo.label}
               </Text>
             </View>
-            
+
             <View style={styles.viewsContainer}>
               <Ionicons name="time-outline" size={14} color={COLORS.textSecondary} />
               <Text style={styles.viewsText}>{formatRelativeTime(item.created_at)}</Text>
@@ -243,9 +243,7 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
             <Ionicons name={statusInfo.icon as any} size={12} color="#fff" />
             <Text style={styles.statusText}>{statusInfo.label}</Text>
           </View>
-          <Text style={styles.cardData}>
-            {item.appointment_date ? formatRelativeTime(item.appointment_date) : '--'}
-          </Text>
+          <Text style={styles.cardData}>{formatRelativeTime(item.appointment_date)}</Text>
         </View>
 
         {/* Tipo de Consulta */}
@@ -271,30 +269,13 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
           <View style={styles.infoItem}>
             <Ionicons name="calendar" size={14} color={COLORS.textSecondary} />
             <Text style={styles.infoText}>
-              {item.appointment_date ? new Date(item.appointment_date).toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-              }) : new Date(item.data_agendamento).toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-              })}
+              {formatDate(item.appointment_date, 'dd/MM/yyyy')}
             </Text>
           </View>
           <View style={styles.infoItem}>
             <Ionicons name="time" size={14} color={COLORS.textSecondary} />
             <Text style={styles.infoText}>
-              {item.appointment_time || item.appointment_date ? 
-                (item.appointment_time || new Date(item.appointment_date).toLocaleTimeString('pt-BR', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })) : 
-                new Date(item.data_agendamento).toLocaleTimeString('pt-BR', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })
-              }
+              {item.appointment_time || '---'}
             </Text>
           </View>
         </View>
@@ -377,15 +358,15 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
 
   const handleRejeitarSugestao = async () => {
     if (!agendamentoSelecionado?.id) return;
-    
+
     setProcessingAgendamentoId(agendamentoSelecionado.id);
-    
+
     const res = await rejeitarSugestaoPaciente(agendamentoSelecionado.id);
     if (res.success) {
-      Toast.show({ 
-        type: 'info', 
-        text1: 'Sugestão rejeitada', 
-        text2: 'A sugestão de horário foi rejeitada e voltou para a fila com seu horário original.' 
+      Toast.show({
+        type: 'info',
+        text1: 'Sugestão rejeitada',
+        text2: 'A sugestão de horário foi rejeitada e voltou para a fila com seu horário original.'
       });
       setModalAgendamentoVisible(false);
       await carregarDados();
@@ -504,7 +485,7 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
             <View style={styles.modalEduAviso}>
               <Ionicons name="information-circle" size={18} color={COLORS.primary} />
               <Text style={styles.modalEduAvisoText}>
-                Esta triagem é um suporte inicial. Em caso de dor persistente ou emergência, 
+                Esta triagem é um suporte inicial. Em caso de dor persistente ou emergência,
                 procure imediatamente uma clínica para avaliação presencial.
               </Text>
             </View>
@@ -574,34 +555,15 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
               {/* Data e Hora */}
               <View style={styles.modalRow}>
                 <View style={styles.modalColumn}>
-                  <Text style={styles.modalLabel}>Data {agendamentoSelecionado.status === 'reagendamento_solicitado' ? 'Sugerida ⭐' : ''}</Text>
-                  <Text style={[
-                    styles.modalValue,
-                    agendamentoSelecionado.status === 'reagendamento_solicitado' && styles.modalValueSugerido
-                  ]}>
-                    {agendamentoSelecionado.status === 'reagendamento_solicitado' && agendamentoSelecionado.suggested_date 
-                      ? new Date(agendamentoSelecionado.suggested_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                      : new Date(agendamentoSelecionado.appointment_date || agendamentoSelecionado.data_agendamento).toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: '2-digit',
-                      year: 'numeric',
-                    })}
+                  <Text style={styles.modalLabel}>Data</Text>
+                  <Text style={styles.modalValue}>
+                    {formatDate(agendamentoSelecionado.appointment_date, 'dd/MM/yyyy')}
                   </Text>
                 </View>
                 <View style={styles.modalColumn}>
-                  <Text style={styles.modalLabel}>Hora {agendamentoSelecionado.status === 'reagendamento_solicitado' ? 'Sugerida' : ''}</Text>
-                  <Text style={[
-                    styles.modalValue,
-                    agendamentoSelecionado.status === 'reagendamento_solicitado' && styles.modalValueSugerido
-                  ]}>
-                    {agendamentoSelecionado.status === 'reagendamento_solicitado' && agendamentoSelecionado.suggested_date
-                      ? new Date(agendamentoSelecionado.suggested_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-                      : agendamentoSelecionado.appointment_time 
-                        ? agendamentoSelecionado.appointment_time 
-                        : new Date(agendamentoSelecionado.appointment_date || agendamentoSelecionado.data_agendamento).toLocaleTimeString('pt-BR', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                  <Text style={styles.modalLabel}>Hora</Text>
+                  <Text style={styles.modalValue}>
+                    {agendamentoSelecionado.appointment_time || '---'}
                   </Text>
                 </View>
               </View>
@@ -614,16 +576,16 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
               </View>
 
               {/* Observações */}
-              {agendamentoSelecionado.observacoes && (
+              {agendamentoSelecionado.notes && (
                 <View style={styles.modalSection}>
                   <Text style={styles.modalLabel}>Observações</Text>
                   <Text style={styles.modalValueMultiline}>
-                    {agendamentoSelecionado.observacoes}
+                    {agendamentoSelecionado.notes}
                   </Text>
                 </View>
               )}
 
-              {['sugerido', 'agendado', 'reagendamento_solicitado'].includes(agendamentoSelecionado.status) && (
+              {!['confirmado_dentista', 'confirmado_paciente', 'realizado', 'cancelado', 'rejeitado_dentista'].includes(agendamentoSelecionado.status) && (
                 <View style={styles.modalActions}>
                   {agendamentoSelecionado.status === 'reagendamento_solicitado' || agendamentoSelecionado.status === 'sugerido' ? (
                     <>
@@ -686,8 +648,8 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     <View style={styles.container}>
       {/* Filtros */}
       <View style={styles.filtrosContainer}>
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filtrosList}
         >
@@ -700,10 +662,10 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
               ]}
               onPress={() => setFiltroAtivo(item.id)}
             >
-              <Ionicons 
-                name={item.icon as any} 
-                size={18} 
-                color={filtroAtivo === item.id ? COLORS.textInverse : COLORS.primary} 
+              <Ionicons
+                name={item.icon as any}
+                size={18}
+                color={filtroAtivo === item.id ? COLORS.textInverse : COLORS.primary}
               />
               <Text
                 style={[
