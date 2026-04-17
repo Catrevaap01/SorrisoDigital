@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Platform,
@@ -36,6 +36,7 @@ import { atribuirAgendamentoAoDentista } from '../../services/secretarioService'
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 import { formatRelativeTime } from '../../utils/helpers';
 import { exportHtmlAsPdf } from '../../utils/pdfExportUtils';
+import { supabase } from '../../config/supabase';
 
 type Props = BottomTabScreenProps<SecretarioTabParamList, 'SecretarioDashboard'>;
 
@@ -107,12 +108,24 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     }, [carregarPainel])
   );
 
+  // REALTIME: auto-refresh when appointments, triagens or procedures change
+  useEffect(() => {
+    const channel = supabase
+      .channel('secretaria-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamentos' }, () => { void carregarPainel(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'triagens' }, () => { void carregarPainel(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'procedimentos_tratamento' }, () => { void carregarPainel(); })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleImprimirFaturacaoGeral = useCallback(async () => {
     if (!relatorioGeral) {
       Toast.show({ type: 'info', text1: 'Carregando dados', text2: 'Aguarde o carregamento do relatório geral.' });
       return;
     }
-    const html = buildGeneralBillingHtml(relatorioGeral);
+    const html = buildGeneralBillingHtml(relatorioGeral, profile?.nome);
     const result = await exportHtmlAsPdf(html, `faturacao-geral-${new Date().toISOString().split('T')[0]}.pdf`);
     if (!result.success) {
       Toast.show({ type: 'error', text1: 'Erro ao imprimir', text2: result.error || 'Tente novamente' });
@@ -128,7 +141,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
         Toast.show({ type: 'info', text1: 'Sem procedimentos', text2: `${dentista.dentista.nome} não tem procedimentos registrados.` });
         return;
       }
-      const html = buildDentistBillingHtml(dentista.dentista.nome, itemsDentista);
+      const html = buildDentistBillingHtml(dentista.dentista.nome, itemsDentista, profile?.nome);
       const result = await exportHtmlAsPdf(html, `faturacao-${dentista.dentista.nome}-${new Date().toISOString().split('T')[0]}.pdf`);
       if (!result.success) {
         Toast.show({ type: 'error', text1: 'Erro ao imprimir', text2: result.error || 'Tente novamente' });
@@ -318,11 +331,22 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
     const agendamentos = agendamentosOrdenados.map((item: any): ItemPainel => {
       const tipo: ItemPainel['tipo'] = item.is_procedimento ? 'procedimento' : 'agendamento';
+      let desc = item.symptoms || item.notes || 'Solicitação de consulta';
+      
+      // Se tiver data agendada, incluir na descrição para o dashboard
+      if (item.appointment_date) {
+        const dataStr = formatDate(item.appointment_date);
+        const horaStr = item.appointment_time ? item.appointment_time.substring(0, 5) : '';
+        desc = `${dataStr}${horaStr ? ' as ' + horaStr : ''} - ${desc}`;
+      } else if (item.suggested_date) {
+        desc = `${formatDateTime(item.suggested_date)} - ${desc}`;
+      }
+
       return {
         id: `${tipo}-${item.id}`,
         tipo,
         titulo: item.paciente?.nome || 'Paciente sem nome',
-        descricao: item.symptoms || 'Solicitação de consulta',
+        descricao: desc,
         created_at: item.created_at,
         prioridade: String(item.urgency || 'normal'),
         raw: item,
@@ -404,37 +428,37 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const metricas = useMemo(
     () => [
       {
-        label: 'Novas solicitações',
-        value: filas.contadores.total,
-        icon: 'mail-unread-outline',
-        color: '#6D28D9',
-      },
-      {
-        label: 'Triagens',
-        value: filas.contadores.triagensNovas,
-        icon: 'pulse-outline',
-        color: '#0F766E',
-      },
-      {
-        label: 'Agenda',
-        value: filas.contadores.agendamentosNovos,
-        icon: 'calendar-outline',
-        color: '#2563EB',
-      },
-      {
-        label: 'Alertas',
-        value: alertas.length,
-        icon: 'warning-outline',
+        label: 'Aguardando Factura',
+        value: relatorioGeral?.aguardandoFatura || 0,
+        icon: 'document-text-outline',
         color: '#DC2626',
       },
       {
-        label: 'Retornos',
-        value: retornos.length,
-        icon: 'return-up-back-outline',
-        color: '#D97706',
+        label: 'Receita Hoje',
+        value: formatCurrency(relatorioGeral?.receitaHoje || 0),
+        icon: 'cash-outline',
+        color: '#059669',
+      },
+      {
+        label: 'Receita Semana',
+        value: formatCurrency(relatorioGeral?.receitaSemana || 0),
+        icon: 'cash-outline',
+        color: '#059669',
+      },
+      {
+        label: 'Pacientes Hoje',
+        value: relatorioGeral?.pacientesHoje || 0,
+        icon: 'people-outline',
+        color: '#7C3AED',
+      },
+      {
+        label: 'Taxa Falta',
+        value: `${relatorioGeral?.taxaFaltas || 0}%`,
+        icon: 'alert-circle-outline',
+        color: '#DC2626',
       },
     ],
-    [alertas.length, filas.contadores.agendamentosNovos, filas.contadores.total, filas.contadores.triagensNovas, retornos.length]
+    [relatorioGeral]
   );
 
   const relatorioMetrics = useMemo(() => {
@@ -444,19 +468,19 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
         label: 'Total Faturado',
         value: formatCurrency(relatorioGeral.totalFaturado),
         icon: 'receipt-outline',
-        color: '#2563EB',
+        color: '#059669',
       },
       {
         label: 'Total Recebido',
         value: formatCurrency(relatorioGeral.totalRecebido),
         icon: 'cash-outline',
-        color: '#10B981',
+        color: '#059669',
       },
       {
         label: 'Aguardando',
         value: formatCurrency(relatorioGeral.totalPendente),
         icon: 'time-outline',
-        color: '#F59E0B',
+        color: '#DC2626',
       },
       {
         label: 'Procedimentos',
@@ -741,6 +765,13 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity 
+              style={styles.messageButtonHeader} 
+              onPress={() => (navigation as any).navigate('Mensagens')}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={18} color="#6D28D9" />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
               style={styles.primaryActionButton} 
               onPress={() => (navigation as any).navigate('CadastrarPaciente')}
             >
@@ -851,8 +882,10 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
                       </View>
                       <View style={styles.dentistActions}>
                         <View style={styles.billingSubStats}>
-                           <Text style={styles.billingSubStat}>Pago: {formatCurrency(item.totalRecebido)}</Text>
-                           <Text style={[styles.billingSubStat, { color: (item.pendenteReceber || 0) > 0 ? '#B91C1C' : '#059669' }]}>
+                           <Text style={[styles.billingSubStat, { color: '#059669', fontWeight: 'bold' }]}>
+                             Pago: {formatCurrency(item.totalRecebido)}
+                           </Text>
+                           <Text style={[styles.billingSubStat, { color: (item.pendenteReceber || 0) > 0 ? '#B91C1C' : '#64748b' }]}>
                              Pendente: {formatCurrency(item.pendenteReceber)}
                            </Text>
                         </View>
@@ -875,11 +908,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
                   <Text style={styles.cardSubtitle}>Relatório consolidado de toda faturação, recebimentos e pendências.</Text>
                 </View>
               </View>
-              <TouchableOpacity style={styles.printGeneralBtn} onPress={() => void handleImprimirFaturacaoGeral()}>
-                <Ionicons name="print-outline" size={16} color="white" />
-                <Text style={styles.printGeneralBtnText}>Imprimir relatório geral de faturação</Text>
-              </TouchableOpacity>
-              <View style={styles.billingMetricsRow}>
+                            <View style={styles.billingMetricsRow}>
                 <View style={styles.billingMetricItem}>
                   <Text style={styles.billingMetricLabel}>Procedimentos</Text>
                   <Text style={styles.billingMetricValue}>{relatorioGeral?.totalProcedimentos || 0}</Text>
@@ -890,14 +919,22 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
                 <View style={styles.billingMetricItem}>
                   <Text style={styles.billingMetricLabel}>Total Recebido</Text>
-                  <Text style={styles.billingMetricValue}>{formatCurrency(totalArrecadado)}</Text>
+                  <Text style={[styles.billingMetricValue, { color: '#059669' }]}>{formatCurrency(totalArrecadado)}</Text>
                 </View>
                 <View style={styles.billingMetricItem}>
                   <Text style={styles.billingMetricLabel}>Total Pendente</Text>
-                  <Text style={styles.billingMetricValue}>{formatCurrency(totalAguardando)}</Text>
+                  <Text style={[styles.billingMetricValue, { color: (totalAguardando || 0) > 0 ? '#B91C1C' : '#1e293b' }]}>{formatCurrency(totalAguardando)}</Text>
                 </View>
               </View>
             </View>
+            
+            <View style={{ marginBottom: SPACING.md }}>
+              <TouchableOpacity style={styles.printGeneralBtn} onPress={() => void handleImprimirFaturacaoGeral()}>
+                <Ionicons name="print-outline" size={16} color="white" />
+                <Text style={styles.printGeneralBtnText}>Imprimir Relatório</Text>
+              </TouchableOpacity>
+            </View>
+
             <TratamentosFacturasPanel items={tratamentosFinanceiros} loading={financeiroLoading} onRefresh={carregarFinanceiro} />
           </>
         )}
@@ -969,6 +1006,16 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: TYPOGRAPHY.sizes.small,
     fontWeight: '700',
+  },
+  messageButtonHeader: {
+    backgroundColor: '#F3F0FF',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
   },
   refreshButtonHeader: {
     flexDirection: 'row',
@@ -1330,12 +1377,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#7C3AED',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: SPACING.md,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignSelf: 'flex-start',
   },
   printGeneralBtnText: {
     color: 'white',

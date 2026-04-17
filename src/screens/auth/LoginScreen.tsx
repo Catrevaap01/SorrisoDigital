@@ -158,6 +158,21 @@ export default function LoginScreen({
                   Esqueceu a senha?
                 </Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Welcome')}
+                style={{ marginTop: SPACING.md, alignItems: 'center' }}
+              >
+                <Text
+                  style={{
+                    color: COLORS.textSecondary,
+                    fontSize: TYPOGRAPHY.sizes.small,
+                    textDecorationLine: 'underline',
+                  }}
+                >
+                  Voltar à tela inicial
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>

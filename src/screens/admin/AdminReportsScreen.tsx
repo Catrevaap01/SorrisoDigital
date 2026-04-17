@@ -20,6 +20,7 @@ import { gerarRelatorioGeral } from '../../services/relatorioService';
 import {
   exportarRelatorioDentistaPdf,
   exportarRelatorioGeralPdf,
+  exportarRelatorioSecretarioPdf,
 } from '../../services/pdfReportService';
 
 interface ReportStats {
@@ -28,11 +29,13 @@ interface ReportStats {
   totalPacientes: number;
   totalConsultas: number;
   totalMensagens: number;
+  totalSecretarios: number;
   receitaEstimada: number;
   receitaRealizada: number;
   cadastrosMesAtual: number;
   dentistasMesAtual: number;
   pacientesMesAtual: number;
+  secretariosMesAtual: number;
 }
 
 interface DentistaResumo {
@@ -43,15 +46,23 @@ interface DentistaResumo {
   triagensRespondidas: number;
 }
 
+interface SecretarioResumo {
+  id: string;
+  nome: string;
+  email: string;
+}
+
 interface AdminReportStatsRpc {
   total_cadastros: number;
   total_dentistas: number;
   total_pacientes: number;
   total_consultas: number;
   total_mensagens: number;
+  total_secretarios?: number;
   cadastros_mes_atual?: number;
   dentistas_mes_atual?: number;
   pacientes_mes_atual?: number;
+  secretarios_mes_atual?: number;
 }
 
 const normalizeTipo = (value?: string | null) =>
@@ -78,10 +89,15 @@ const buildMonthlyStats = (profiles: any[]) => {
     return tipo === 'dentista' || tipo === 'medico';
   }).length;
 
+  const secretariosMes = profilesThisMonth.filter(
+    (p: any) => normalizeTipo(p?.tipo) === 'secretario'
+  ).length;
+
   return {
-    cadastrosMesAtual: pacientesMes + dentistasMes,
+    cadastrosMesAtual: pacientesMes + dentistasMes + secretariosMes,
     dentistasMesAtual: dentistasMes,
     pacientesMesAtual: pacientesMes,
+    secretariosMesAtual: secretariosMes,
   };
 };
 
@@ -94,188 +110,91 @@ const AdminReportsScreen: React.FC = () => {
     totalPacientes: 0,
     totalConsultas: 0,
     totalMensagens: 0,
+    totalSecretarios: 0,
     receitaEstimada: 0,
     receitaRealizada: 0,
     cadastrosMesAtual: 0,
     dentistasMesAtual: 0,
     pacientesMesAtual: 0,
+    secretariosMesAtual: 0,
   });
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingPdf, setLoadingPdf] = useState<string | null>(null);
   const [dentistasResumo, setDentistasResumo] = useState<DentistaResumo[]>([]);
-  const [secretarios, setSecretarios] = useState<any[]>([]);
-  const [novoSecretario, setNovoSecretario] = useState({ nome: '', email: '', telefone: '', password: '' });
-  const [registering, setRegistering] = useState(false);
+  const [secretariosResumo, setSecretariosResumo] = useState<SecretarioResumo[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void carregarEstatisticas();
+    }, [])
+  );
 
   const carregarEstatisticas = async () => {
     setLoading(true);
     try {
-      const { data: rpcData, error: rpcError } = await supabase.rpc('admin_report_stats');
-      let usedRpc = false;
+      const result = await gerarRelatorioGeral();
+      
+      if (result.success && result.data) {
+        const d = result.data;
+        
+        // Total Geral = Soma de todos os perfis (dentistas + pacientes + secretarios)
+        const totalGeral = d.totalDentistas + d.totalPacientes + (d.totalSecretarios || 0);
+        
+        // Cadastros no Mes = Soma dos cadastros do mes
+        const dentistasMes = d.dentistasMes || 0;
+        const pacientesMes = d.pacientesMes || 0;
+        const secretariosMes = d.secretariosMes || 0;
+        const totalMes = dentistasMes + pacientesMes + secretariosMes;
 
-      if (!rpcError && rpcData) {
-        const row: AdminReportStatsRpc = Array.isArray(rpcData) ? rpcData[0] : rpcData;
-        if (row) {
-          let monthStats = {
-            cadastrosMesAtual: Number(row.cadastros_mes_atual || 0),
-            dentistasMesAtual: Number(row.dentistas_mes_atual || 0),
-            pacientesMesAtual: Number(row.pacientes_mes_atual || 0),
-          };
+        setStats({
+          totalCadastros: totalGeral,
+          totalDentistas: d.totalDentistas,
+          totalPacientes: d.totalPacientes,
+          totalSecretarios: d.totalSecretarios || 0,
+          totalConsultas: d.totalConsultas || 0,
+          totalMensagens: d.totalMensagens || 0,
+          receitaEstimada: d.receitaEstimada || 0,
+          receitaRealizada: d.receitaRealizada || 0,
+          cadastrosMesAtual: totalMes,
+          dentistasMesAtual: dentistasMes,
+          pacientesMesAtual: pacientesMes,
+          secretariosMesAtual: secretariosMes,
+        });
 
-          if (
-            row.cadastros_mes_atual === undefined ||
-            row.dentistas_mes_atual === undefined ||
-            row.pacientes_mes_atual === undefined
-          ) {
-            const { data: perfisMesBase, error: perfisMesError } = await supabase
-              .from('profiles')
-              .select('tipo, created_at');
-
-            if (!perfisMesError && perfisMesBase) {
-              monthStats = buildMonthlyStats(perfisMesBase);
-            }
-          }
-
-            const totalCadastros = Number(row.total_cadastros || 0);
-            const totalDentistas = Number(row.total_dentistas || 0);
-            const totalPacientes = Number(row.total_pacientes || 0);
-            setStats({
-              totalCadastros,
-              totalDentistas,
-              totalPacientes,
-              totalConsultas: Number(row.total_consultas || 0),
-              totalMensagens: Number(row.total_mensagens || 0),
-              receitaEstimada: 0,
-              receitaRealizada: 0,
-              cadastrosMesAtual: totalCadastros,
-              dentistasMesAtual: monthStats.dentistasMesAtual,
-              pacientesMesAtual: monthStats.pacientesMesAtual,
-            });
-          usedRpc = true;
-        }
-      }
-
-      if (!usedRpc) {
-        const [
-          { data: perfis, error: perfisError },
-          { data: mensagens, error: mensagensError },
-          { data: consultas, error: consultasError },
-        ] = await Promise.all([
-          supabase.from('profiles').select('id, tipo, created_at'),
-          supabase.from('messages').select('id'),
-          supabase.from('agendamentos').select('id'),
-        ]);
-
-      if (perfisError) throw perfisError;
-      if (mensagensError) throw mensagensError;
-      if (consultasError) throw consultasError;
-
-      const perfisList = perfis || [];
-      const totalPacientes = perfisList.filter((p: any) => normalizeTipo(p?.tipo) === 'paciente').length;
-      const totalDentistas = perfisList.filter((p: any) => {
-        const tipo = normalizeTipo(p?.tipo);
-        return tipo === 'dentista' || tipo === 'medico';
-      }).length;
-      const totalCadastros = totalDentistas + totalPacientes;
-      const monthStats = buildMonthlyStats(perfisList);
-
-      setStats({
-        totalCadastros,
-        totalDentistas,
-        totalPacientes,
-        totalConsultas: (consultas || []).length,
-        totalMensagens: (mensagens || []).length,
-        receitaEstimada: 0,
-        receitaRealizada: 0,
-        cadastrosMesAtual: totalCadastros,
-        dentistasMesAtual: monthStats.dentistasMesAtual,
-        pacientesMesAtual: monthStats.pacientesMesAtual,
-      });
-      }
-
-      void gerarRelatorioGeral().then((relatorio) => {
-        if (!relatorio.success || !relatorio.data) return;
         setDentistasResumo(
-          relatorio.data.dentistas.map((d) => ({
-            id: d.dentista.id,
-            nome: d.dentista.nome || 'Dentista',
-            especialidade: d.dentista.especialidade,
-            totalTriagens: d.totalTriagens,
-            triagensRespondidas: d.triagensRespondidas,
+          d.dentistas.map((dr) => ({
+            id: dr.dentista.id,
+            nome: dr.dentista.nome || 'Dentista',
+            especialidade: dr.dentista.especialidade,
+            totalTriagens: dr.totalTriagens,
+            triagensRespondidas: dr.triagensRespondidas,
           }))
         );
-        if (typeof relatorio.data.receitaEstimada === 'number') {
-          setStats((prev) => ({ ...prev, receitaEstimada: relatorio.data.receitaEstimada || 0 }));
-        }
-        if (typeof relatorio.data.receitaRealizada === 'number') {
-          setStats((prev) => ({ ...prev, receitaRealizada: relatorio.data.receitaRealizada || 0 }));
-        }
-      }).catch(() => {});
 
-      await carregarSecretarios();
-    } catch (error) {
+        setSecretariosResumo(
+          (d.secretarios || []).map((sec: any) => ({
+            id: sec.id,
+            nome: sec.nome || 'Secretário',
+            email: sec.email || '',
+          }))
+        );
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Erro ao carregar estatísticas',
+          text2: result.error || 'Falha ao processar dados',
+        });
+      }
+    } catch (error: any) {
       Toast.show({
         type: 'error',
-        text1: 'Erro ao carregar estatisticas',
-        text2: 'Verifique as politicas RLS',
+        text1: 'Erro inesperado',
+        text2: error.message || 'Falha na conexão',
       });
     } finally {
       setLoading(false);
     }
-  };
-
-  const carregarSecretarios = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, nome, email, telefone, created_at')
-        .eq('tipo', 'secretario')
-        .order('created_at', { ascending: false });
-      if (!error) {
-        setSecretarios(data || []);
-      }
-    } catch (err) {
-      console.warn('Erro ao carregar secretários', err);
-    }
-  };
-
-  const handleCadastrarSecretario = async () => {
-    if (!novoSecretario.nome.trim() || !novoSecretario.email.trim() || !novoSecretario.password.trim()) {
-      Toast.show({
-        type: 'error',
-        text1: 'Preencha os campos obrigatórios',
-      });
-      return;
-    }
-
-    setRegistering(true);
-    const result = await authService.adminCreateUser(novoSecretario.email.trim(), novoSecretario.password, {
-      nome: novoSecretario.nome.trim(),
-      tipo: 'secretario',
-      role: 'secretario',
-      telefone: novoSecretario.telefone.trim(),
-      provincia: '',
-      emailConfirm: true,
-    });
-    setRegistering(false);
-
-    if (result.success) {
-      Toast.show({
-        type: 'success',
-        text1: 'Secretário cadastrado',
-        text2: 'A conta de recepção foi criada com sucesso.',
-      });
-      setNovoSecretario({ nome: '', email: '', telefone: '', password: '' });
-      await carregarSecretarios();
-      return;
-    }
-
-    Toast.show({
-      type: 'error',
-      text1: 'Erro ao cadastrar secretário',
-      text2: result.error?.message || 'Tente novamente mais tarde.',
-    });
   };
 
   const handleRefresh = async () => {
@@ -322,6 +241,25 @@ const AdminReportsScreen: React.FC = () => {
     });
   };
 
+  const handleExportarSecretario = async (secretarioId: string) => {
+    setLoadingPdf(secretarioId);
+    const result = await exportarRelatorioSecretarioPdf(secretarioId);
+    setLoadingPdf(null);
+    if (!result.success) {
+      Toast.show({
+        type: 'error',
+        text1: 'Erro ao exportar PDF',
+        text2: result.error || 'Falha ao gerar relatório do secretário',
+      });
+      return;
+    }
+    Toast.show({
+      type: 'success',
+      text1: 'PDF gerado',
+      text2: 'Relatório do secretário pronto',
+    });
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -344,6 +282,7 @@ const AdminReportsScreen: React.FC = () => {
             <StatCard icon="people-circle" label="Total Geral" valor={stats.totalCadastros} cor={COLORS.danger} />
             <StatCard icon="person-circle" label="Total de Dentistas" valor={stats.totalDentistas} cor={COLORS.secondary} />
             <StatCard icon="people" label="Total de Pacientes" valor={stats.totalPacientes} cor={COLORS.primary} />
+            <StatCard icon="briefcase" label="Total de Secretários" valor={stats.totalSecretarios} cor="#8B5CF6" />
             <StatCard icon="mail" label="Total de Mensagens" valor={stats.totalMensagens} cor={COLORS.info} />
             <StatCard icon="calendar" label="Consultas" valor={stats.totalConsultas} cor={COLORS.warning} />
             <StatCard icon="cash-outline" label="Receita estimada" valor={stats.receitaEstimada} cor={COLORS.success || COLORS.secondary} />
@@ -351,79 +290,28 @@ const AdminReportsScreen: React.FC = () => {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Cadastro de Secretária / Recepção</Text>
-
-            <View style={styles.formRow}>
-              <TextInput
-                style={styles.input}
-                placeholder="Nome"
-                placeholderTextColor={COLORS.textSecondary}
-                value={novoSecretario.nome}
-                onChangeText={(text) => setNovoSecretario((prev) => ({ ...prev, nome: text }))}
-              />
-            </View>
-            <View style={styles.formRow}>
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                placeholderTextColor={COLORS.textSecondary}
-                value={novoSecretario.email}
-                onChangeText={(text) => setNovoSecretario((prev) => ({ ...prev, email: text }))}
-              />
-            </View>
-            <View style={styles.formRow}>
-              <TextInput
-                style={styles.input}
-                placeholder="Telefone"
-                keyboardType="phone-pad"
-                placeholderTextColor={COLORS.textSecondary}
-                value={novoSecretario.telefone}
-                onChangeText={(text) => setNovoSecretario((prev) => ({ ...prev, telefone: text }))}
-              />
-            </View>
-            <View style={styles.formRow}>
-              <TextInput
-                style={styles.input}
-                placeholder="Senha"
-                secureTextEntry
-                placeholderTextColor={COLORS.textSecondary}
-                value={novoSecretario.password}
-                onChangeText={(text) => setNovoSecretario((prev) => ({ ...prev, password: text }))}
-              />
-            </View>
-            <TouchableOpacity
-              style={[styles.exportButton, { backgroundColor: COLORS.secondary }]}
-              onPress={handleCadastrarSecretario}
-              disabled={registering}
-            >
-              {registering ? (
-                <ActivityIndicator color={COLORS.textInverse} />
-              ) : (
-                <Text style={styles.exportButtonText}>Cadastrar Secretária / Recepção</Text>
-              )}
-            </TouchableOpacity>
-
-            {secretarios.length > 0 && (
-              <View style={[styles.resumoCard, { marginTop: SPACING.md }]}> 
-                <View style={styles.resumoRow}>
-                  <Text style={styles.resumoLabel}>Total de Secretários</Text>
-                  <Text style={styles.resumoValue}>{secretarios.length}</Text>
-                </View>
-                <View style={styles.section}>
-                  {secretarios.map((sec) => (
-                    <View style={styles.secretarioRow} key={sec.id}>
-                      <View>
-                        <Text style={styles.secretarioName}>{sec.nome || 'Sem nome'}</Text>
-                        <Text style={styles.secretarioMeta}>{sec.email}</Text>
-                        {sec.telefone ? <Text style={styles.secretarioMeta}>{sec.telefone}</Text> : null}
-                      </View>
-                    </View>
-                  ))}
-                </View>
+            <Text style={styles.sectionTitle}>Resumo do Mês Atual</Text>
+            <View style={styles.resumoCard}>
+              <View style={styles.resumoRow}>
+                <Text style={styles.resumoLabel}>Total do mês </Text>
+                <Text style={styles.resumoValue}>{stats.cadastrosMesAtual}</Text>
               </View>
-            )}
+              <View style={styles.resumoDivider} />
+              <View style={styles.resumoRow}>
+                <Text style={styles.resumoLabel}>Dentistas cadastrados</Text>
+                <Text style={styles.resumoValue}>{stats.dentistasMesAtual}</Text>
+              </View>
+              <View style={styles.resumoDivider} />
+              <View style={styles.resumoRow}>
+                <Text style={styles.resumoLabel}>Pacientes cadastrados</Text>
+                <Text style={styles.resumoValue}>{stats.pacientesMesAtual}</Text>
+              </View>
+              <View style={styles.resumoDivider} />
+              <View style={styles.resumoRow}>
+                <Text style={styles.resumoLabel}>Secretários cadastrados</Text>
+                <Text style={styles.resumoValue}>{stats.secretariosMesAtual}</Text>
+              </View>
+            </View>
           </View>
 
           <View style={styles.section}>
@@ -461,7 +349,30 @@ const AdminReportsScreen: React.FC = () => {
                   ) : (
                     <>
                       <Ionicons name="document-text-outline" size={18} color={COLORS.primary} />
-                      <Text style={styles.dentistaPdfButtonText}>Imprimir</Text>
+                      <Text style={styles.dentistaPdfButtonText}>Imprimir dentista</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            {secretariosResumo.map((s) => (
+              <View style={styles.dentistaRow} key={`sec-${s.id}`}>
+                <View style={styles.dentistaInfo}>
+                  <Text style={styles.dentistaNome}>{s.nome} (Secretário)</Text>
+                  <Text style={styles.dentistaMeta}>{s.email}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.dentistaPdfButton}
+                  onPress={() => handleExportarSecretario(s.id)}
+                  disabled={loadingPdf === s.id}
+                >
+                  {loadingPdf === s.id ? (
+                    <ActivityIndicator size="small" color={COLORS.primary} />
+                  ) : (
+                    <>
+                      <Ionicons name="document-text-outline" size={18} color={COLORS.primary} />
+                      <Text style={styles.dentistaPdfButtonText}>Imprimir secretário</Text>
                     </>
                   )}
                 </TouchableOpacity>

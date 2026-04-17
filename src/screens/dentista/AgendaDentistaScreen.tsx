@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   FlatList,
+  Platform,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -44,49 +46,53 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
   const { profile } = useAuth();
   const [dataSelecionada, setDataSelecionada] = useState(new Date());
   const [agendamentos, setAgendamentos] = useState([]);
+  const [planoValores, setPlanoValores] = useState<Record<string, number>>({}); // patientId -> valor concluido
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [sugestaoAbertaPara, setSugestaoAbertaPara] = useState<string | null>(null);
   const [sugestaoData, setSugestaoData] = useState(new Date());
   const [sugestaoHorario, setSugestaoHorario] = useState('08:00');
 
-  // Gerar dias do mês atual
+  // Buscar valores de plano de tratamento concluídos para cada paciente
+  const carregarValoresPlano = async (ags: any[]) => {
+    const pacienteIds = [...new Set(ags.map(a => a.patient_id || a.paciente?.id).filter(Boolean))];
+    if (pacienteIds.length === 0) return;
+    
+    // Otimizado: seleciona apenas o que é necessário para calcular o valor total
+    const { data } = await supabase
+      .from('planos_tratamento')
+      .select('paciente_id, procedimentos_tratamento(valor)')
+      .in('paciente_id', pacienteIds)
+      .eq('status', 'concluido');
+      
+    const mapa: Record<string, number> = {};
+    (data || []).forEach((plano: any) => {
+      const pid = plano.paciente_id;
+      const valorTotal = (plano.procedimentos_tratamento || []).reduce((s: number, p: any) => s + Number(p.valor || 0), 0);
+      if (valorTotal > 0) mapa[pid] = valorTotal;
+    });
+    setPlanoValores(mapa);
+  };
+
+  // Gerar dias do mês selecionado (apenas mês atual)
   const gerarMes = () => {
     const dias = [];
-    const hoje = new Date();
-    const ano = hoje.getFullYear();
-    const mes = hoje.getMonth();
+    const ano = dataSelecionada.getFullYear();
+    const mes = dataSelecionada.getMonth();
     const primeiroDia = new Date(ano, mes, 1);
     const ultimoDia = new Date(ano, mes + 1, 0);
     const diaSemanaInicio = primeiroDia.getDay();
 
-    // Adicionar dias do mês anterior para completar a semana
-    const mesAnterior = new Date(ano, mes, 0);
-    for (let i = diaSemanaInicio - 1; i >= 0; i--) {
-      const dia = new Date(mesAnterior);
-      dia.setDate(mesAnterior.getDate() - i);
-      dias.push({ ...dia, isMesAtual: false });
-    }
-
-    // Adicionar todos os dias do mês atual
+    // Adicionar apenas dias do mês atual
     for (let i = 1; i <= ultimoDia.getDate(); i++) {
       const dia = new Date(ano, mes, i);
-      dias.push({ ...dia, isMesAtual: true });
-    }
-
-    // Adicionar dias do próximo mês para completar a última semana
-    const proximoMes = new Date(ano, mes + 1, 1);
-    const diasRestantes = 42 - dias.length; // 6 semanas * 7 dias
-    for (let i = 0; i < diasRestantes; i++) {
-      const dia = new Date(proximoMes);
-      dia.setDate(proximoMes.getDate() + i);
-      dias.push({ ...dia, isMesAtual: false });
+      dias.push({ date: dia, isMesAtual: true });
     }
 
     return dias;
   };
 
-  const diasMes = gerarMes();
+  const diasMes = useMemo(() => gerarMes(), [dataSelecionada]);
 
   const carregarAgendamentos = async () => {
     if (!profile?.id) {
@@ -95,16 +101,35 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     }
     setLoading(true);
     
-    // Ensure we're using the correct date without timezone issues
-    const dataParaBusca = new Date(dataSelecionada);
-    dataParaBusca.setHours(0, 0, 0, 0); // Set to midnight to avoid timezone issues
+    const ano = dataSelecionada.getFullYear();
+    const mes = String(dataSelecionada.getMonth() + 1).padStart(2, '0');
+    const dia = String(dataSelecionada.getDate()).padStart(2, '0');
+    const dataParaBusca = `${ano}-${mes}-${dia}`;
     
     const result = await buscarAgendaDentista(profile.id, dataParaBusca);
     if (result.success) {
       setAgendamentos(result.data);
+      await carregarValoresPlano(result.data || []);
     }
     setLoading(false);
   };
+
+  // REALTIME: Subscribe to appointment changes for this dentist
+  useEffect(() => {
+    if (!profile?.id) return;
+    const channel = supabase
+      .channel(`agenda-dentista-${profile.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'appointments',
+        filter: `dentist_id=eq.${profile.id}`,
+      }, () => {
+        void carregarAgendamentos();
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [profile?.id]);
 
   useEffect(() => {
     carregarAgendamentos();
@@ -112,11 +137,13 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
 
   const formatarDia = (diaData) => {
     const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-    // Ensure diaData is a Date object
-    const dataObj = new Date(diaData);
+    // Get the Date object from the new structure
+    const dataObj = diaData.date || diaData;
+    // Ensure dataObj is a Date object
+    const data = new Date(dataObj);
     // Create date at midnight to avoid timezone issues
-    const data = new Date(dataObj.getFullYear(), dataObj.getMonth(), dataObj.getDate());
-    data.setHours(0, 0, 0, 0);
+    const dataNormalizada = new Date(data.getFullYear(), data.getMonth(), data.getDate());
+    dataNormalizada.setHours(0, 0, 0, 0);
     
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
@@ -125,30 +152,45 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     selecionada.setHours(0, 0, 0, 0);
     
     return {
-      diaSemana: dias[data.getDay()],
-      dia: data.getDate(),
-      isHoje: data.getTime() === hoje.getTime(),
-      isSelecionado: data.getTime() === selecionada.getTime(),
+      diaSemana: dias[dataNormalizada.getDay()],
+      dia: dataNormalizada.getDate(),
+      isHoje: dataNormalizada.getTime() === hoje.getTime(),
+      isSelecionado: dataNormalizada.getTime() === selecionada.getTime(),
       isMesAtual: diaData.isMesAtual !== false,
     };
   };
 
   const selecionarDia = (dia) => {
     if (dia.isMesAtual) {
-      // Ensure dia is a Date object
-      const diaObj = new Date(dia);
+      // Get the Date object from the new structure
+      const diaObj = dia.date || dia;
+      // Ensure diaObj is a Date object
+      const data = new Date(diaObj);
       // Create date at midnight to avoid timezone issues
-      const novaData = new Date(diaObj.getFullYear(), diaObj.getMonth(), diaObj.getDate());
+      const novaData = new Date(data.getFullYear(), data.getMonth(), data.getDate());
       novaData.setHours(0, 0, 0, 0);
       setDataSelecionada(novaData);
     }
+  };
+
+  const mudarMes = (direcao: number) => {
+    const novaData = new Date(dataSelecionada);
+    novaData.setMonth(novaData.getMonth() + direcao);
+    novaData.setDate(1); // Reset to first day of month
+    setDataSelecionada(novaData);
+  };
+
+  const irParaHoje = () => {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    setDataSelecionada(hoje);
   };
 
   const renderDiaCalendar = ({ item }) => {
     const formatacao = formatarDia(item);
     return (
       <TouchableOpacity
-        key={item.getDate()}
+        key={formatacao.dia}
         style={[
           styles.diaCalendar,
           !formatacao.isMesAtual && styles.diaForaMes,
@@ -213,8 +255,210 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       .padStart(2, '0')} ${sugestaoHorario}`;
   };
 
+  
+  const handleImprimirRelatorioGeralFaturacao = async () => {
+    try {
+      // Importar a função de exportação PDF
+      const { exportHtmlAsPdf } = await import('../../utils/pdfExportUtils');
+      
+      // Filtrar todos os agendamentos realizados do dentista
+      const realizadosTodos = agendamentos.filter(a => 
+        a.dentist_id === profileId && 
+        a.status === 'realizado'
+      );
+      
+      if (realizadosTodos.length === 0) {
+        Toast.show({ 
+          type: 'info', 
+          text1: 'Sem dados', 
+          text2: 'Não há consultas realizadas para gerar relatório geral.' 
+        });
+        return;
+      }
+      
+      // Calcular totais gerais
+      const totalFaturado = realizadosTodos.reduce((total, item) => {
+        const preco = PRECO_POR_TIPO[item.tipo || 'consulta'] || 0;
+        return total + preco;
+      }, 0);
+      
+      const totalRecebido = realizadosTodos.reduce((total, item) => {
+        return total + (item.valor_pago || 0);
+      }, 0);
+      
+      const totalPendente = totalFaturado - totalRecebido;
+      
+      // Agrupar por data
+      const agrupadosPorData = realizadosTodos.reduce((acc: Record<string, any[]>, item: any) => {
+        const data = formatDate(item.appointment_date, 'dd/MM/yyyy');
+        if (!acc[data]) {
+          acc[data] = [];
+        }
+        acc[data].push(item);
+        return acc;
+      }, {} as Record<string, any[]>);
+      
+      // Gerar HTML do relatório
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Relatório Geral de Faturação</title>
+          <style>
+            @page { margin: 1cm; }
+            @media print {
+              body { padding: 0; }
+              .no-print { display: none; }
+            }
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .title { font-size: 24px; font-weight: bold; color: #333; }
+            .subtitle { font-size: 16px; color: #666; margin-top: 5px; }
+            .summary { background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+            .summary-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+            .summary-label { font-weight: bold; }
+            .summary-value { font-weight: bold; color: #333; }
+            .total-row { border-top: 2px solid #333; padding-top: 10px; margin-top: 10px; }
+            .date-section { margin-bottom: 30px; }
+            .date-title { font-size: 18px; font-weight: bold; color: #7C3AED; margin-bottom: 10px; border-bottom: 2px solid #7C3AED; padding-bottom: 5px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
+            .status-pago { color: #4CAF50; font-weight: bold; }
+            .status-pendente { color: #F59E0B; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="title">Relatório Geral de Faturação</div>
+            <div class="subtitle">Dr(a). ${profile?.nome || 'Dentista'}</div>
+            <div class="subtitle">Período: Todos os agendamentos realizados</div>
+            <div class="subtitle" style="margin-top: 10px; font-size: 11px; color: #7C3AED;">
+              Emitido por: ${profile?.nome || 'Dentista'}
+            </div>
+          </div>
+          
+          <div class="summary">
+            <div class="summary-row">
+              <span class="summary-label">Total de Consultas:</span>
+              <span class="summary-value">${realizadosTodos.length}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Total Faturado:</span>
+              <span class="summary-value">${formatCurrency(totalRecebido)}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Total Recebido:</span>
+              <span class="summary-value">${formatCurrency(totalRecebido)}</span>
+            </div>
+            <div class="summary-row total-row">
+              <span class="summary-label">Total Pendente:</span>
+              <span class="summary-value" style="color: ${totalPendente > 0 ? '#dc2626' : '#16a34a'}">
+                ${formatCurrency(totalPendente)}
+              </span>
+            </div>
+          </div>
+          
+           ${(() => {
+            return Object.entries(agrupadosPorData).map(([data, itens]) => {
+              const rowsHtml = (itens as any[]).map((item: any) => {
+                const preco = PRECO_POR_TIPO[item.tipo || 'consulta'] || 0;
+                const recebido = item.valor_pago || 0;
+                const divida = preco - recebido;
+                const status = recebido >= preco ? 'pago' : 'pendente';
+                
+                return `
+                  <tr>
+                    <td>${item.appointment_time || '--:--'}</td>
+                    <td>${item.paciente?.nome || item.patient_name || 'Paciente'}</td>
+                    <td>${TIPOS_CONSULTA[item.tipo]?.label || item.tipo || 'consulta'}</td>
+                    <td style="color:#16a34a; font-weight:bold;">${formatCurrency(recebido)}</td>
+                    <td style="color: ${divida > 0 ? '#dc2626' : '#16a34a'}">${formatCurrency(divida)}</td>
+                    <td class="status-${status}">
+                      ${status === 'pago' ? 'Pago' : `Pendente: ${formatCurrency(divida)}`}
+                    </td>
+                  </tr>
+                `;
+              }).join('');
+
+              return `
+                <div class="date-section">
+                  <div class="date-title">${data}</div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Hora</th>
+                        <th>Paciente</th>
+                        <th>Tipo</th>
+                        <th>Valor Pago</th>
+                        <th>Dívida</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${rowsHtml}
+                    </tbody>
+                  </table>
+                </div>
+              `;
+            }).join('');
+          })()}
+          
+          <div style="margin-top: 30px; text-align: center; color: #666; font-size: 12px;">
+            Relatório gerado em ${new Date().toLocaleString('pt-BR')}
+          </div>
+        </body>
+        </html>
+      `;
+      
+      const result = await exportHtmlAsPdf(htmlContent, `relatorio-geral-faturacao-${formatDate(new Date(), 'dd-MM-yyyy')}`);
+      
+      if (result.success) {
+        Toast.show({ 
+          type: 'success', 
+          text1: 'Relatório gerado', 
+          text2: 'Relatório geral de faturação gerado com sucesso!' 
+        });
+      } else {
+        Toast.show({ 
+          type: 'error', 
+          text1: 'Erro ao gerar relatório', 
+          text2: result.error || 'Tente novamente' 
+        });
+      }
+    } catch (error) {
+      Toast.show({ 
+        type: 'error', 
+        text1: 'Erro ao imprimir relatório', 
+        text2: 'Não foi possível gerar o relatório geral de faturação.' 
+      });
+    }
+  };
+
   const renderAgendamento = ({ item }) => {
-    const hora = formatDate(item.appointment_date, 'HH:mm') || '--:--';
+    // Ocultar agendamentos pendentes apenas se não estiverem atribuídos a ninguém (pool geral)
+    // No painel do dentista, se chegou no buscarAgendaDentista, já está atribuído a ele
+    if (item.status === 'pendente' && !item.dentist_id) {
+      return null;
+    }
+    
+    // Usar data sugerida se existir, senão usar data original
+    const dataBase = item.suggested_date || item.appointment_date;
+    const isSuggested = !!item.suggested_date;
+
+    // Extrair hora com segurança: 
+    // Prioridade para appointment_time, se for 00:00 e houver sugestão, tenta a sugestão
+    let hora = item.appointment_time?.substring(0, 5) || '--:--';
+    
+    // Se a hora for 00:00 ou padrão, e houver uma string ISO com tempo em dataBase, usa ela
+    if ((hora === '--:--' || hora === '00:00') && typeof dataBase === 'string' && dataBase.includes('T')) {
+      const timePart = dataBase.split('T')[1]?.substring(0, 5);
+      if (timePart) hora = timePart;
+    }
+
+    const dataCompleta = formatDate(dataBase) || '--/--/----';
+    const isDataSugerida = !!item.suggested_date;
 
     // Obter label do tipo de consulta
     const tipoLabel = TIPOS_CONSULTA[item.tipo]?.label || item.tipo;
@@ -261,7 +505,35 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         Toast.show({ type: 'success', text1: 'Agendamento confirmado' });
         await carregarAgendamentos();
         setProcessingId(null);
-        handleAbrirPaciente();
+        
+        if (Platform.OS !== 'web') {
+          Alert.alert(
+            'Agendamento Confirmado',
+            'Deseja preencher o Plano de Tratamento e definir o valor para este paciente?',
+            [
+              { text: 'Agora não', onPress: handleAbrirPaciente, style: 'cancel' },
+              { text: 'Sim, preencher plano', onPress: () => {
+                navigation.navigate('PlanoTratamento' as any, {
+                  pacienteId: item.paciente?.id,
+                  pacienteNome: item.paciente?.nome,
+                  triagemId: item.triagem_id || null // Passamos a triagem associada
+                });
+              }}
+            ]
+          );
+        } else {
+          // No web
+          const irParaPlano = window.confirm('Agendamento confirmado!\nDeseja preencher o Plano de Tratamento e definir o valor para este paciente agora?');
+          if (irParaPlano) {
+            navigation.navigate('PlanoTratamento' as any, {
+              pacienteId: item.paciente?.id,
+              pacienteNome: item.paciente?.nome,
+              triagemId: item.triagem_id || null
+            });
+          } else {
+            handleAbrirPaciente();
+          }
+        }
         return;
       }
       setProcessingId(null);
@@ -300,13 +572,19 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       setProcessingId(item.id);
       
       try {
-        // Accept the suggested date and automatically assign dentist
+        // Extrair hora da sugestão se disponível
+        let suggestedTime = item.appointment_time;
+        if (typeof item.suggested_date === 'string' && item.suggested_date.includes('T')) {
+          suggestedTime = item.suggested_date.split('T')[1].substring(0, 8);
+        }
+
         const { error: updateError } = await supabase
-          .from('agendamentos')
+          .from('appointments') // Use appointments instead of agendamentos
           .update({ 
             appointment_date: item.suggested_date,
+            appointment_time: suggestedTime,
             status: 'confirmado_dentista',
-            dentist_id: profileId, // Automatically assign this dentist
+            dentist_id: profileId,
             suggested_date: null,
             suggested_by: null
           })
@@ -344,7 +622,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       try {
         // Reject the suggested date and send back to secretary
         const { error: updateError } = await supabase
-          .from('agendamentos')
+          .from('appointments')
           .update({ 
             status: 'pendente', // Send back to pending for secretary
             dentist_id: null, // Remove dentist assignment
@@ -406,6 +684,33 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       }
     };
 
+    const notificarSecretarioRejeitamento = async (agendamento: any) => {
+      try {
+        // Create notification for secretary
+        const { error } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: null, // Will be filtered by RLS for secretaries
+            title: 'Data Rejeitada',
+            message: `Dentista rejeitou data para ${agendamento.paciente?.nome}`,
+            type: 'date_rejected',
+            data: {
+              appointment_id: agendamento.id,
+              patient_id: agendamento.patient_id,
+              dentist_id: profileId,
+              rejected_date: agendamento.suggested_date
+            },
+            created_at: new Date().toISOString()
+          });
+          
+        if (error) {
+          console.warn('Erro ao notificar secretário:', error);
+        }
+      } catch (error) {
+        console.warn('Erro ao criar notificação:', error);
+      }
+    };
+
     const handleAbrirSugestao = () => {
       setSugestaoAbertaPara(item.id);
       setSugestaoData(new Date());
@@ -441,7 +746,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         
         // Then update appointment status to send it back to secretary
         const { error: updateError } = await supabase
-          .from('agendamentos')
+          .from('appointments')
           .update({ 
             status: 'pendente', // Send back to pending for secretary
             dentist_id: null, // Remove dentist assignment
@@ -602,18 +907,81 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       });
     };
 
+    const handleImprimirRecibo = async (item: any) => {
+      try {
+        // Importar a função de exportação PDF
+        const { exportHtmlAsPdf } = await import('../../utils/pdfExportUtils');
+        
+        const html = `
+          <div style="max-width:600px; margin:0 auto; padding:40px; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#334155; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
+            <div style="text-align:center; margin-bottom:40px;">
+              <h1 style="color:#7C3AED; margin:0; font-size:24px;">RECIBO DE PAGAMENTO</h1>
+              <p style="margin:5px 0; font-size:14px; color:#64748b;">Sorriso Digital - Clínica Odontológica</p>
+            </div>
+            
+            <div style="margin-bottom:30px;">
+              <h3 style="font-size:12px; text-transform:uppercase; color:#94a3b8; margin-bottom:10px;">Dados do Paciente</h3>
+              <p style="margin:4px 0; font-weight:bold; color:#1e293b;">${item.paciente?.nome || 'Paciente'}</p>
+              <p style="margin:4px 0; font-size:13px; color:#64748b;">Telefone: ${item.paciente?.telefone || 'Não informado'}</p>
+            </div>
+            
+            <div style="margin-bottom:30px;">
+              <h3 style="font-size:12px; text-transform:uppercase; color:#94a3b8; margin-bottom:10px;">Detalhes do Pagamento</h3>
+              <p style="margin:4px 0; color:#1e293b;">Procedimento: ${item.tipo || 'Consulta'}</p>
+              <p style="margin:4px 0; color:#1e293b;">Valor Total: ${formatCurrency(PRECO_POR_TIPO[item.tipo || 'consulta'] || 0)}</p>
+              <p style="margin:4px 0; color:#16a34a; font-weight:bold;">Valor Pago: ${formatCurrency(item.valor_pago || 0)}</p>
+              <p style="margin:4px 0; color:#dc2626;">Dívida Restante: ${formatCurrency((PRECO_POR_TIPO[item.tipo || 'consulta'] || 0) - (item.valor_pago || 0))}</p>
+            </div>
+            
+            <div style="margin-top:60px; padding-top:20px; border-top:1px solid #f1f5f9; text-align:center; color:#94a3b8; font-size:12px;">
+              <p>Recibo emitido em ${formatDate(new Date().toISOString(), "dd/MM/yyyy 'às' HH:mm")}</p>
+              <p>Obrigado por confiar no Sorriso Digital.</p>
+            </div>
+          </div>
+        `;
+        
+        const result = await exportHtmlAsPdf(html, `recibo-pagamento-${item.id}.pdf`);
+        if (result.success) {
+          Toast.show({ type: 'success', text1: 'Recibo gerado', text2: 'Recibo de pagamento pronto para impressão.' });
+        } else {
+          Toast.show({ type: 'error', text1: 'Erro ao gerar recibo', text2: result.error || 'Tente novamente' });
+        }
+      } catch (error) {
+        Toast.show({ type: 'error', text1: 'Erro ao imprimir recibo', text2: 'Não foi possível gerar o recibo.' });
+      }
+    };
+
     return (
       <View style={styles.agendamentoCard}>
         <View style={styles.horaContainer}>
           <Text style={styles.horaText}>{hora}</Text>
         </View>
 
-        <TouchableOpacity style={styles.agendamentoInfo} activeOpacity={(item.status === 'confirmado_dentista' || item.status === 'atribuido_dentista') ? 1 : 0.8} onPress={(item.status === 'confirmado_dentista' || item.status === 'atribuido_dentista') ? undefined : handleAbrirPaciente}>
+        {/*Handle opening patient when confirmed -> goes to PlanoTratamento; when not confirmed -> PacienteHistorico */}
+        <TouchableOpacity 
+          style={styles.agendamentoInfo} 
+          activeOpacity={0.8} 
+          onPress={() => {
+            if (!item.paciente?.id) return;
+            if (item.status === 'confirmado_dentista' || item.status === 'realizado') {
+              navigation.navigate('PlanoTratamento' as any, {
+                pacienteId: item.paciente.id,
+                pacienteNome: item.paciente.nome,
+              });
+            } else {
+              handleAbrirPaciente();
+            }
+          }}
+        >
           <View>
-            <Text style={styles.pacienteNome}>
+            <Text style={[styles.pacienteNome, (item.status === 'confirmado_dentista' || item.status === 'realizado') && { color: COLORS.primary, textDecorationLine: 'underline' }]}>
               {item.paciente?.nome || item.patient_name || 'Paciente'}
             </Text>
             <Text style={styles.tipoConsulta}>{tipoLabel}</Text>
+            <Text style={[styles.dataText, isDataSugerida && styles.dataSugerida]}>
+              {dataCompleta}
+              {isDataSugerida && ' (Sugerida)'}
+            </Text>
             {item.paciente?.telefone && (
               <Text style={styles.telefone}>
                 <Ionicons name="call-outline" size={12} /> {item.paciente.telefone}
@@ -624,19 +992,50 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
                 {item.notes || item.observacoes}
               </Text>
             )}
-            <Text style={styles.valorLabel}>
-              Valor estimado: {formatCurrency(PRECO_POR_TIPO[item.tipo || 'consulta'] || 0)}
-            </Text>
-            {(item.valor_pago || item.valor_pendente) && (
-              <View style={styles.pagamentoContainer}>
-                <Text style={styles.pagamentoLabel}>
-                  Pago: {formatCurrency(item.valor_pago || 0)}
+            {/* Show real plano value if concluded, otherwise estimated price */}
+            {(() => {
+              const patientId = item.patient_id || item.paciente?.id;
+              const valorPlano = patientId ? planoValores[patientId] : undefined;
+              const valorPadrao = PRECO_POR_TIPO[item.tipo || 'consulta'] || 0;
+              const valorMostrar = valorPlano ?? valorPadrao;
+              const labelValor = valorPlano ? 'Valor da consulta (plano concluído)' : 'Valor estimado';
+              return (
+                <Text style={[styles.valorLabel, valorPlano && { color: COLORS.secondary || '#059669', fontWeight: 'bold' }]}>
+                  {labelValor}: {formatCurrency(valorMostrar)}
                 </Text>
-                <Text style={styles.pagamentoLabel}>
-                  Pendente: {formatCurrency(item.valor_pendente || 0)}
-                </Text>
-              </View>
-            )}
+              );
+            })()}
+            {(() => {
+              const patientId = item.patient_id || item.paciente?.id;
+              const valorReferencia = (patientId && planoValores[patientId]) || (PRECO_POR_TIPO[item.tipo || 'consulta'] || 0);
+              const pago = item.valor_pago || 0;
+              const divida = valorReferencia - pago;
+              
+              if (pago > 0) {
+                return (
+                  <View style={styles.pagamentoContainer}>
+                    <Text style={styles.pagamentoLabel}>
+                      Pago: {formatCurrency(pago)}
+                    </Text>
+                    {divida > 0 && (
+                      <Text style={styles.pagamentoLabel}>
+                        Dívida: {formatCurrency(divida)}
+                      </Text>
+                    )}
+                    {divida <= 0 && (
+                      <TouchableOpacity 
+                        style={styles.reciboButton}
+                        onPress={() => handleImprimirRecibo(item)}
+                      >
+                        <Ionicons name="receipt" size={14} color={COLORS.textInverse} />
+                        <Text style={styles.reciboButtonText}>Imprimir Recibo</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              }
+              return null;
+            })()}
           </View>
           {(item.status === 'confirmado_dentista' || item.status === 'atribuido_dentista') && (
             <View style={{ marginLeft: 16, justifyContent: 'center', alignItems: 'center' }}>
@@ -649,30 +1048,64 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
 
         <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(item.status) }]} />
         
-        {item.status === 'reagendamento_solicitado' && item.suggested_date && (
-          <View style={styles.suggestedDateContainer}>
-            <Text style={styles.suggestedDateLabel}>Data sugerida pelo paciente:</Text>
-            <Text style={styles.suggestedDateValue}>
-              {formatDate(new Date(item.suggested_date), "dd/MM/yyyy 'às' HH:mm")}
-            </Text>
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.rescheduleButton]} 
-              onPress={handleReagendarSugestao} 
-              disabled={processingId === item.id}
-            >
-              <Ionicons name="checkmark-circle" size={16} color={COLORS.textInverse} />
-              <Text style={styles.actionButtonText}>Aceitar e Reagendar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.actionButton, { backgroundColor: COLORS.danger }]}
-              onPress={handleRejeitarSugestao}
-              disabled={processingId === item.id}
-            >
-              <Ionicons name="close-circle" size={16} color={COLORS.textInverse} />
-              <Text style={styles.actionButtonText}>Rejeitar Data</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+{item.status === 'reagendamento_solicitado' && item.suggested_date && (
+  <View style={styles.sugestaoContainer}>
+    <Text style={styles.sugestaoLabel}>
+      Data sugerida pelo paciente:
+    </Text>
+
+    <Text style={styles.sugestaoValue}>
+      {item.suggested_date ? 
+        (() => {
+          const dataSugerida = new Date(item.suggested_date);
+          return dataSugerida && !isNaN(dataSugerida.getTime()) 
+            ? dataSugerida.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              })
+            : 'Data inválida';
+        })()
+        : 'Data não informada'
+      }
+    </Text>
+
+    <TouchableOpacity
+      style={[styles.actionButton, styles.rescheduleButton]}
+      onPress={handleReagendarSugestao}
+      disabled={processingId === item.id}
+    >
+      <Ionicons
+        name="checkmark-circle"
+        size={16}
+        color={COLORS.textInverse}
+      />
+      <Text style={styles.actionButtonText}>
+        Aceitar e Reagendar
+      </Text>
+    </TouchableOpacity>
+
+    <TouchableOpacity
+      style={[
+        styles.actionButton,
+        { backgroundColor: COLORS.danger },
+      ]}
+      onPress={handleRejeitarSugestao}
+      disabled={processingId === item.id}
+    >
+      <Ionicons
+        name="close-circle"
+        size={16}
+        color={COLORS.textInverse}
+      />
+      <Text style={styles.actionButtonText}>
+        Rejeitar Data
+      </Text>
+    </TouchableOpacity>
+  </View>
+)}
         
         {(item.status === 'atribuido_dentista' || item.status === 'reagendamento_solicitado' || item.status === 'confirmado_dentista') && (
           <View style={styles.actionRow}>
@@ -712,10 +1145,10 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
             )}
             {item.status === 'confirmado_dentista' && (
               <>
-                {(!item.valor_pago || item.valor_pago < (PRECO_POR_TIPO[item.tipo || 'consulta'] || 0)) && (
+                {false && (
                   <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: COLORS.warning }]}
-                    onPress={() => handlePagamentoParcial(item)}
+                    onPress={() => handlePagamentoParcial()}
                     disabled={processingId === item.id}
                   >
                     <Ionicons name="wallet-outline" size={16} color={COLORS.textInverse} />
@@ -822,43 +1255,76 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
   };
 
   const profileId = profile?.id;
-  const pendentesDoDia = agendamentos.filter((a) => 
-    a.dentist_id === profileId &&
-    (a.status === 'solicitado' || a.status === 'atribuido_dentista')
-  );
+  // Criar data no formato YYYY-MM-DD sem timezone para comparação correta
+  const ano = dataSelecionada.getFullYear();
+  const mes = String(dataSelecionada.getMonth() + 1).padStart(2, '0');
+  const dia = String(dataSelecionada.getDate()).padStart(2, '0');
+  const dataSelecionadaStr = `${ano}-${mes}-${dia}`;
+  
   const meusAgendadosDoDia = agendamentos.filter(
     (a) =>
       a.dentist_id === profileId &&
-      (a.status === 'reagendamento_solicitado' || a.status === 'atribuido_dentista')
+      ['atribuido_dentista', 'pendente', 'agendado', 'solicitado', 'agendamento_pendente_secretaria'].includes(a.status) &&
+      (a.appointment_date === dataSelecionadaStr || (typeof a.appointment_date === 'string' && a.appointment_date.startsWith(dataSelecionadaStr)))
   );
   const meusConfirmadosDoDia = agendamentos.filter(
     (a) =>
       a.dentist_id === profileId &&
-      (a.status === 'confirmado_dentista' || a.status === 'confirmado_paciente' || a.status === 'notificado_paciente')
+      ['confirmado_dentista', 'confirmado_paciente', 'notificado_paciente'].includes(a.status) &&
+      (a.appointment_date === dataSelecionadaStr || (typeof a.appointment_date === 'string' && a.appointment_date.startsWith(dataSelecionadaStr)))
   );
   const realizadosDoDia = agendamentos.filter(
     (a) =>
       a.dentist_id === profileId &&
-      a.status === 'realizado'
+      a.status === 'realizado' &&
+      (a.appointment_date === dataSelecionadaStr || (typeof a.appointment_date === 'string' && a.appointment_date.startsWith(dataSelecionadaStr)))
   );
   const canceladosDoDia = agendamentos.filter(
-    (a) => a.status === 'cancelado' && (!a.dentist_id || a.dentist_id === profileId)
+    (a) => 
+      a.status === 'cancelado' && 
+      (!a.dentist_id || a.dentist_id === profileId) &&
+      (a.appointment_date === dataSelecionadaStr || (typeof a.appointment_date === 'string' && a.appointment_date.startsWith(dataSelecionadaStr)))
   );
 
   return (
     <View style={styles.container}>
       {/* Calendário Mensal */}
       <View style={styles.calendarContainer}>
-        <Text style={styles.mesAnoText}>
-          {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-        </Text>
+        <View style={styles.calendarHeader}>
+          <TouchableOpacity 
+            style={styles.navButton} 
+            onPress={() => mudarMes(-1)}
+          >
+            <Ionicons name="chevron-back" size={24} color={COLORS.primary} />
+          </TouchableOpacity>
+          
+          <View style={styles.monthYearContainer}>
+            <Text style={styles.mesAnoText}>
+              {dataSelecionada.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+            </Text>
+            <TouchableOpacity 
+              style={styles.todayButton} 
+              onPress={irParaHoje}
+            >
+              <Text style={styles.todayButtonText}>Hoje</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <TouchableOpacity 
+            style={styles.navButton} 
+            onPress={() => mudarMes(1)}
+          >
+            <Ionicons name="chevron-forward" size={24} color={COLORS.primary} />
+          </TouchableOpacity>
+        </View>
+        
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.diasScrollContainer}
         >
           {diasMes.map((dia, index) => (
-            renderDiaCalendar({ item: dia, key: index })
+            renderDiaCalendar({ item: dia })
           ))}
         </ScrollView>
       </View>
@@ -869,7 +1335,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
           {formatDate(dataSelecionada, "EEEE, dd 'de' MMMM")}
         </Text>
         <Text style={styles.totalAgendamentos}>
-          {agendamentos.length} agendamento(s) no dia
+          {agendamentos.length} agendamento(s) no dia {dataSelecionada.getDate()}
         </Text>
       </View>
 
@@ -958,6 +1424,7 @@ const styles = StyleSheet.create({
   diasScrollContainer: {
     flexDirection: 'row',
     paddingHorizontal: SIZES.sm,
+    gap: 8,
   },
   calendarContainer: {
     backgroundColor: COLORS.surface,
@@ -981,9 +1448,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 8,
     alignItems: 'center',
-    minWidth: 40,
-    minHeight: 60,
+    minWidth: 44,
+    minHeight: 64,
     justifyContent: 'center',
+    marginHorizontal: 5,
   },
   diaForaMes: {
     opacity: 0.3,
@@ -1113,6 +1581,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textTransform: 'capitalize',
   },
+  dataText: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.primary,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  dataSugerida: {
+    color: COLORS.warning,
+    fontStyle: 'italic',
+  },
   telefone: {
     fontSize: SIZES.fontSm,
     color: COLORS.textSecondary,
@@ -1139,6 +1617,22 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginBottom: 2,
   },
+  reciboButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.success,
+    paddingHorizontal: SIZES.sm,
+    paddingVertical: SIZES.xs,
+    borderRadius: SIZES.radiusSm,
+    marginTop: SIZES.sm,
+    alignSelf: 'flex-start',
+    gap: SIZES.xs / 2,
+  },
+  reciboButtonText: {
+    fontSize: SIZES.fontSm,
+    color: COLORS.textInverse,
+    fontWeight: '600',
+  },
   statusIndicator: {
     width: 4,
   },
@@ -1164,6 +1658,74 @@ const styles = StyleSheet.create({
   legendaText: {
     fontSize: SIZES.fontSm,
     color: COLORS.textSecondary,
+  },
+  // Estilos faltantes para o calendário
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SIZES.md,
+    paddingVertical: SIZES.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  navButton: {
+    padding: SIZES.sm,
+    borderRadius: SIZES.radiusSm,
+  },
+  monthYearContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SIZES.sm,
+  },
+  headerButtonsContainer: {
+    flexDirection: 'row',
+    gap: SIZES.xs,
+  },
+  reportButton: {
+    backgroundColor: COLORS.secondary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SIZES.sm,
+    paddingVertical: SIZES.xs,
+    borderRadius: SIZES.radiusSm,
+    gap: SIZES.xs / 2,
+  },
+  reportButtonText: {
+    color: COLORS.textInverse,
+    fontSize: SIZES.fontSm,
+    fontWeight: '600',
+  },
+  todayButton: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SIZES.sm,
+    paddingVertical: SIZES.xs,
+    borderRadius: SIZES.radiusSm,
+  },
+  todayButtonText: {
+    color: COLORS.textInverse,
+    fontSize: SIZES.fontSm,
+    fontWeight: '600',
+  },
+  sugestaoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.warning + '20',
+    paddingHorizontal: SIZES.sm,
+    paddingVertical: SIZES.xs,
+    borderRadius: SIZES.radiusSm,
+    marginTop: SIZES.xs,
+  },
+  sugestaoLabel: {
+    fontSize: SIZES.fontXs,
+    color: COLORS.warning,
+    fontWeight: '600',
+    marginRight: SIZES.xs,
+  },
+  sugestaoValue: {
+    fontSize: SIZES.fontXs,
+    color: COLORS.warning,
+    fontWeight: '600',
   },
   // ações de confirmar/cancelar
   actionRow: {
@@ -1249,18 +1811,6 @@ const styles = StyleSheet.create({
     minWidth: 108,
   },
   actionButtonText: {
-    marginLeft: SIZES.xs,
-    color: COLORS.textInverse,
-    fontSize: SIZES.fontSm,
-    fontWeight: '700',
-  },
-  suggestedDateContainer: {
-    backgroundColor: '#FFF3CD',
-    borderLeftWidth: 4,
-    borderLeftColor: '#FFC107',
-    padding: 12,
-    marginVertical: 8,
-    borderRadius: 4,
   },
   suggestedDateLabel: {
     fontSize: 12,
@@ -1275,7 +1825,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   rescheduleButton: {
-    backgroundColor: '#28A745',
+    backgroundColor: COLORS.warning,
+  },
+  reportGeneralButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#7C3AED',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  reportGeneralButtonText: {
+    color: 'white',
+    fontSize: SIZES.fontSm,
+    fontWeight: '600',
   },
 });
 

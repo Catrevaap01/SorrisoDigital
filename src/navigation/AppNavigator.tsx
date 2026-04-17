@@ -29,6 +29,7 @@ import {
   RootStackParamList,
 } from './types';
 
+import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ChangePasswordScreen from '../screens/auth/ChangePasswordScreen';
@@ -701,9 +702,10 @@ const AppNavigator: React.FC = () => {
   };
 
   return (
-    <Stack.Navigator id="RootStack" screenOptions={{ headerShown: false }}>
+    <Stack.Navigator id="RootStack" screenOptions={{ headerShown: false }} initialRouteName={!user ? 'Welcome' : undefined}>
       {!user ? (
         <>
+          <Stack.Screen name="Welcome" component={WelcomeScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
           <Stack.Screen

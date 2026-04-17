@@ -36,7 +36,7 @@ import {
 } from '../../services/dentistaService';
 import { authService } from '../../services/authService';
 import { validators } from '../../utils/validators';
-import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
+import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
 
 const ESPECIALIDADES_DENTISTA = [
   'Ortodontia',
@@ -558,18 +558,6 @@ const AdminDashboardScreen: React.FC = () => {
           >
             <Ionicons name="add-circle" size={28} color={COLORS.primary} />
           </Pressable>
-        </View>
-      </View>
-
-      {/* Stats Cards */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{dentistas.length}</Text>
-          <Text style={styles.statLabel}>Total de Dentistas</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>0</Text>
-          <Text style={styles.statLabel}>Total de Pacientes</Text>
         </View>
       </View>
 
@@ -1397,35 +1385,7 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.h3,
     color: COLORS.text,
     marginTop: SPACING.md,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    marginBottom: SPACING.md,
-    ...SHADOWS.sm,
-  },
-  statCard: {
-    backgroundColor: COLORS.background,
-    borderRadius: 8,
-    padding: SPACING.md,
-    alignItems: 'center',
-    minWidth: 120,
-    flex: 1,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: COLORS.primary,
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
+    marginBottom: SPACING.sm,
   },
   emptySubtext: {
     fontSize: TYPOGRAPHY.sizes.body,

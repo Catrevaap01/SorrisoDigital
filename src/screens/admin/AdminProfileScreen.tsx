@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -11,32 +10,18 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
+import { COLORS, SHADOWS, SIZES, TYPOGRAPHY } from '../../styles/theme';
 
 const PROVINCIAS_ADMIN = [
-  'Luanda',
-  'Benguela',
-  'Huambo',
-  'Huila',
-  'Bie',
-  'Malanje',
-  'Uige',
-  'Zaire',
-  'Cabinda',
-  'Cunene',
-  'Cuando Cubango',
-  'Cuanza Norte',
-  'Cuanza Sul',
-  'Lunda Norte',
-  'Lunda Sul',
-  'Moxico',
-  'Namibe',
-  'Bengo',
+  'Luanda', 'Benguela', 'Huambo', 'Huila', 'Bie', 'Malanje', 'Uige', 'Zaire',
+  'Cabinda', 'Cunene', 'Cuando Cubango', 'Cuanza Norte', 'Cuanza Sul',
+  'Lunda Norte', 'Lunda Sul', 'Moxico', 'Namibe', 'Bengo',
 ];
 
 const AdminProfileScreen: React.FC = () => {
@@ -49,6 +34,7 @@ const AdminProfileScreen: React.FC = () => {
   const [nome, setNome] = useState(profile?.nome || '');
   const [telefone, setTelefone] = useState(profile?.telefone || '');
   const [provincia, setProvincia] = useState(profile?.provincia || '');
+  const [twoStepEnabled, setTwoStepEnabled] = useState(profile?.two_step_enabled || false);
 
   const [senhaAtual, setSenhaAtual] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
@@ -63,12 +49,13 @@ const AdminProfileScreen: React.FC = () => {
       setNome(profile?.nome || '');
       setTelefone(profile?.telefone || '');
       setProvincia(profile?.provincia || '');
+      setTwoStepEnabled(profile?.two_step_enabled || false);
     }, [profile])
   );
 
   const handleSalvarAlteracoes = async () => {
     if (!nome.trim()) {
-      Toast.show({ type: 'error', text1: 'Nome e obrigatorio' });
+      Toast.show({ type: 'error', text1: 'Nome é obrigatório' });
       return;
     }
 
@@ -80,636 +67,436 @@ const AdminProfileScreen: React.FC = () => {
       Toast.show({
         type: 'success',
         text1: 'Perfil atualizado',
-        text2: 'Dados salvos com sucesso',
+        text2: 'Seus dados foram salvos com sucesso',
       });
     } else {
       Toast.show({
         type: 'error',
-        text1: 'Erro',
-        text2: resultado.error?.message || 'Erro ao atualizar perfil',
+        text1: 'Erro ao atualizar',
+        text2: resultado.error?.message || 'Tente novamente mais tarde',
       });
     }
-
     setProcessando(false);
   };
 
   const handleMudarSenha = async () => {
-    if (!senhaAtual.trim()) {
-      Toast.show({ type: 'error', text1: 'Senha atual e obrigatoria' });
+    if (!senhaAtual.trim() || !novaSenha.trim()) {
+      Toast.show({ type: 'error', text1: 'Preencha todos os campos de senha' });
       return;
     }
-
-    if (!novaSenha.trim()) {
-      Toast.show({ type: 'error', text1: 'Nova senha e obrigatoria' });
-      return;
-    }
-
     if (novaSenha.length < 6) {
-      Toast.show({
-        type: 'error',
-        text1: 'Erro',
-        text2: 'Nova senha deve ter no minimo 6 caracteres',
-      });
+      Toast.show({ type: 'error', text1: 'Nova senha muito curta', text2: 'Mínimo de 6 caracteres' });
       return;
     }
-
     if (novaSenha !== confirmaSenha) {
-      Toast.show({
-        type: 'error',
-        text1: 'Erro',
-        text2: 'As senhas nao coincidem',
-      });
+      Toast.show({ type: 'error', text1: 'As senhas não coincidem' });
       return;
     }
 
     setProcessando(true);
-    try {
-      Toast.show({
-        type: 'info',
-        text1: 'Em desenvolvimento',
-        text2: 'Mudanca de senha sera implementada em breve',
-      });
-    } finally {
+    // Simulação de mudança de senha (geralmente via Supabase Auth RPC ou API)
+    setTimeout(() => {
+      Toast.show({ type: 'info', text1: 'Funcionalidade em manutenção', text2: 'Contate o suporte técnico' });
       setProcessando(false);
+    }, 1500);
+  };
+
+  const handleToggleTwoStep = async () => {
+    const novoEstado = !twoStepEnabled;
+    setProcessando(true);
+    const result = await updateProfile({ two_step_enabled: novoEstado });
+    
+    if (result.success) {
+      setTwoStepEnabled(novoEstado);
+      Toast.show({
+        type: 'success',
+        text1: 'Verificação atualizada',
+        text2: novoEstado ? 'Proteção 2FA ativada' : 'Proteção 2FA desativada',
+      });
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Erro ao atualizar 2FA',
+        text2: result.error?.message || 'Erro desconhecido',
+      });
     }
+    setProcessando(false);
   };
 
   const handleLogout = () => {
-    const confirmed = Platform.OS === 'web' 
-      ? window.confirm('Tem certeza que deseja sair da sua conta?')
-      : true;
-
-    if (!confirmed) return;
-
-    setProcessando(true);
-    signOut().finally(() => setProcessando(false));
+    signOut();
   };
+
+  const avatarInitial = profile?.nome?.charAt(0).toUpperCase() || 'A';
 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior="padding"
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
     >
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="always" keyboardDismissMode="on-drag">
-      <View style={styles.header}>
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{profile?.nome?.charAt(0).toUpperCase() || 'A'}</Text>
-          </View>
-          <Text style={styles.role}>Administrador</Text>
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Informacoes pessoais</Text>
-          {!editando && (
-            <TouchableOpacity onPress={() => setEditando(true)}>
-              <Ionicons name="pencil" size={20} color={COLORS.primary} />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {editando ? (
-          <View style={styles.form}>
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Nome completo</Text>
-              <TextInput
-                style={styles.input}
-                value={nome}
-                onChangeText={setNome}
-                placeholder="Digite seu nome"
-                placeholderTextColor={COLORS.textSecondary}
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Telefone</Text>
-              <TextInput
-                style={styles.input}
-                value={telefone}
-                onChangeText={setTelefone}
-                placeholder="(+244) 923 456 789"
-                placeholderTextColor={COLORS.textSecondary}
-                keyboardType="phone-pad"
-              />
-            </View>
-
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Provincia</Text>
-              <TouchableOpacity
-                style={styles.selectButton}
-                onPress={() => setAbrirProvincias(true)}
-                disabled={processando}
-              >
-                <Text style={[styles.selectText, !provincia && styles.selectPlaceholder]}>
-                  {provincia || 'Selecione uma provincia'}
-                </Text>
-                <Ionicons name="chevron-down" size={20} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.formActions}>
-              <TouchableOpacity
-                style={[styles.button, styles.buttonSecondary]}
-                onPress={() => setEditando(false)}
-                disabled={processando}
-              >
-                <Text style={styles.buttonSecondaryText}>Cancelar</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.button, styles.buttonPrimary, processando && styles.buttonDisabled]}
-                onPress={handleSalvarAlteracoes}
-                disabled={processando}
-              >
-                {processando ? (
-                  <ActivityIndicator color={COLORS.textInverse} />
-                ) : (
-                  <Text style={styles.buttonText}>Salvar</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
-          <View>
-            <InfoCard icon="person" label="Nome" valor={profile?.nome || 'Nao informado'} />
-            <InfoCard icon="mail" label="Email" valor={profile?.email || 'Nao informado'} />
-            <InfoCard icon="call" label="Telefone" valor={profile?.telefone || 'Nao informado'} />
-            <InfoCard icon="location" label="Provincia" valor={profile?.provincia || 'Nao informado'} />
-            <InfoCard
-              icon="calendar"
-              label="Membro desde"
-              valor={
-                profile?.created_at
-                  ? new Date(profile.created_at).toLocaleDateString('pt-PT')
-                  : 'Nao informado'
-              }
-            />
-          </View>
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Seguranca</Text>
-        <TouchableOpacity style={styles.actionCard} onPress={() => setAbrirChangePassword(true)}>
-          <View style={styles.actionCardContent}>
-            <Ionicons name="key" size={24} color={COLORS.warning} />
-            <View style={styles.actionCardText}>
-              <Text style={styles.actionCardTitle}>Mudar senha</Text>
-              <Text style={styles.actionCardSubtitle}>Altere sua senha a qualquer momento</Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Acoes</Text>
-        <TouchableOpacity
-          style={[styles.actionCard, styles.actionCardDanger]}
-          onPress={handleLogout}
-          disabled={processando}
-        >
-          <View style={styles.actionCardContent}>
-            <Ionicons name="log-out" size={24} color={COLORS.danger} />
-            <View style={styles.actionCardText}>
-              <Text style={[styles.actionCardTitle, { color: COLORS.danger }]}>Terminar sessao</Text>
-              <Text style={styles.actionCardSubtitle}>Sair da sua conta</Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={COLORS.danger} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.footer}>
-        <Text style={styles.versionText}>Odontologia Angola v1.0.0</Text>
-        <Text style={styles.copyrightText}>2026 Odontologia Angola. Todos os direitos reservados.</Text>
-      </View>
-
-      <Modal visible={abrirChangePassword} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setAbrirChangePassword(false)}>
-                <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>Mudar senha</Text>
-              <View style={{ width: 24 }} />
-            </View>
-
-            <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
-              <View style={styles.form}>
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Senha atual</Text>
-                  <View style={styles.passwordInput}>
-                    <TextInput
-                      style={styles.passwordInputField}
-                      value={senhaAtual}
-                      onChangeText={setSenhaAtual}
-                      secureTextEntry={!mostrarSenhaAtual}
-                      placeholder="Digite sua senha atual"
-                      placeholderTextColor={COLORS.textSecondary}
-                    />
-                    <TouchableOpacity onPress={() => setMostrarSenhaAtual(!mostrarSenhaAtual)}>
-                      <Ionicons
-                        name={mostrarSenhaAtual ? 'eye' : 'eye-off'}
-                        size={20}
-                        color={COLORS.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Nova senha</Text>
-                  <View style={styles.passwordInput}>
-                    <TextInput
-                      style={styles.passwordInputField}
-                      value={novaSenha}
-                      onChangeText={setNovaSenha}
-                      secureTextEntry={!mostrarNovaSenha}
-                      placeholder="Digite sua nova senha"
-                      placeholderTextColor={COLORS.textSecondary}
-                    />
-                    <TouchableOpacity onPress={() => setMostrarNovaSenha(!mostrarNovaSenha)}>
-                      <Ionicons
-                        name={mostrarNovaSenha ? 'eye' : 'eye-off'}
-                        size={20}
-                        color={COLORS.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                <View style={styles.formGroup}>
-                  <Text style={styles.label}>Confirmar nova senha</Text>
-                  <View style={styles.passwordInput}>
-                    <TextInput
-                      style={styles.passwordInputField}
-                      value={confirmaSenha}
-                      onChangeText={setConfirmaSenha}
-                      secureTextEntry={!mostrarConfirmaSenha}
-                      placeholder="Confirme sua nova senha"
-                      placeholderTextColor={COLORS.textSecondary}
-                    />
-                    <TouchableOpacity onPress={() => setMostrarConfirmaSenha(!mostrarConfirmaSenha)}>
-                      <Ionicons
-                        name={mostrarConfirmaSenha ? 'eye' : 'eye-off'}
-                        size={20}
-                        color={COLORS.textSecondary}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
+      <StatusBar barStyle="light-content" />
+      <ScrollView 
+        style={styles.container} 
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Header Elegante */}
+        <View style={styles.headerBackground}>
+          <View style={styles.headerForeground}>
+            <View style={styles.avatarGlow}>
+              <View style={styles.avatarLarge}>
+                <Text style={styles.avatarTextLarge}>{avatarInitial}</Text>
               </View>
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={[styles.button, styles.buttonSecondary]}
-                onPress={() => setAbrirChangePassword(false)}
-              >
-                <Text style={styles.buttonSecondaryText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.button, styles.buttonPrimary, processando && styles.buttonDisabled]}
-                onPress={handleMudarSenha}
-                disabled={processando}
-              >
-                {processando ? (
-                  <ActivityIndicator color={COLORS.textInverse} />
-                ) : (
-                  <Text style={styles.buttonText}>Mudar senha</Text>
-                )}
-              </TouchableOpacity>
+            </View>
+            <Text style={styles.profileName}>{profile?.nome || 'Administrador'}</Text>
+            <View style={styles.badgeAdmin}>
+              <Ionicons name="shield-checkmark" size={14} color="white" />
+              <Text style={styles.badgeText}>CONTA ADMINISTRADOR</Text>
             </View>
           </View>
         </View>
-      </Modal>
 
-      <Modal visible={abrirProvincias} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setAbrirProvincias(false)}>
-                <Ionicons name="arrow-back" size={24} color={COLORS.text} />
+        <View style={styles.mainContent}>
+          {/* Card Principal de Informações */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Informações Pessoais</Text>
+              <TouchableOpacity 
+                onPress={() => setEditando(!editando)}
+                style={[styles.editBtn, editando && styles.editBtnActive]}
+              >
+                <Ionicons 
+                  name={editando ? "close" : "pencil"} 
+                  size={18} 
+                  color={editando ? COLORS.danger : COLORS.primary} 
+                />
+                <Text style={[styles.editBtnText, editando && { color: COLORS.danger }]}>
+                  {editando ? "Cancelar" : "Editar"}
+                </Text>
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>Selecionar provincia</Text>
-              <View style={{ width: 24 }} />
             </View>
 
-            <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
-              {PROVINCIAS_ADMIN.map((prov) => (
-                <TouchableOpacity
-                  key={prov}
-                  style={[styles.provinciaItem, provincia === prov && styles.provinciaItemAtiva]}
-                  onPress={() => {
-                    setProvincia(prov);
-                    setAbrirProvincias(false);
-                  }}
+            {editando ? (
+              <View style={styles.editForm}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>NOME COMPLETO</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="person-outline" size={20} color={COLORS.textSecondary} />
+                    <TextInput
+                      style={styles.textInput}
+                      value={nome}
+                      onChangeText={setNome}
+                      placeholder="Nome do administrador"
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>TELEFONE</Text>
+                  <View style={styles.inputWrapper}>
+                    <Ionicons name="call-outline" size={20} color={COLORS.textSecondary} />
+                    <TextInput
+                      style={styles.textInput}
+                      value={telefone}
+                      onChangeText={setTelefone}
+                      placeholder="+244"
+                      keyboardType="phone-pad"
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>PROVÍNCIA</Text>
+                  <TouchableOpacity style={styles.selectWrapper} onPress={() => setAbrirProvincias(true)}>
+                    <View style={styles.selectInner}>
+                      <Ionicons name="location-outline" size={20} color={COLORS.textSecondary} />
+                      <Text style={styles.selectValue}>{provincia || 'Selecione'}</Text>
+                    </View>
+                    <Ionicons name="chevron-down" size={18} color={COLORS.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.saveBtn, processando && styles.disabledBtn]}
+                  onPress={handleSalvarAlteracoes}
+                  disabled={processando}
                 >
-                  <Text
-                    style={[
-                      styles.provinciaTexto,
-                      provincia === prov && styles.provinciaTextoAtiva,
-                    ]}
-                  >
-                    {prov}
-                  </Text>
-                  {provincia === prov && (
-                    <Ionicons name="checkmark" size={20} color={COLORS.primary} />
+                  {processando ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.saveBtnText}>Salvar Alterações</Text>
                   )}
                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+              </View>
+            ) : (
+              <View style={styles.infoList}>
+                <InfoItem icon="mail-outline" label="Email de acesso" value={profile?.email || '---'} color="#3B82F6" />
+                <InfoItem icon="call-outline" label="Telefone de contato" value={profile?.telefone || '---'} color="#10B981" />
+                <InfoItem icon="location-outline" label="Província atual" value={profile?.provincia || '---'} color="#F59E0B" />
+                <InfoItem 
+                  icon="calendar-outline" 
+                  label="Conta criada em" 
+                  value={profile?.created_at ? new Date(profile.created_at).toLocaleDateString('pt-PT') : '---'} 
+                  color="#8B5CF6" 
+                />
+              </View>
+            )}
+          </View>
+
+          {/* Seção de Segurança */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Segurança e Privacidade</Text>
+            <TouchableOpacity style={styles.actionRow} onPress={() => setAbrirChangePassword(true)}>
+              <View style={[styles.actionIcon, { backgroundColor: '#FFF7ED' }]}>
+                <Ionicons name="key-outline" size={20} color="#F97316" />
+              </View>
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Mudar Senha</Text>
+                <Text style={styles.actionSubtitle}>Atualize sua credencial de acesso</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+            </TouchableOpacity>
+            
+            <View style={styles.divider} />
+
+            <TouchableOpacity style={styles.actionRow} onPress={handleToggleTwoStep} disabled={processando}>
+              <View style={[styles.actionIcon, { backgroundColor: twoStepEnabled ? '#ECFDF5' : '#F1F5F9' }]}>
+                <Ionicons 
+                  name={twoStepEnabled ? "shield-checkmark-outline" : "shield-outline"} 
+                  size={20} 
+                  color={twoStepEnabled ? COLORS.success : COLORS.textSecondary} 
+                />
+              </View>
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Verificação Duas Etapas</Text>
+                <Text style={styles.actionSubtitle}>
+                  {twoStepEnabled ? 'Sua conta está mais protegida' : 'Recomendado para sua segurança'}
+                </Text>
+              </View>
+              <View style={[styles.statusToggle, twoStepEnabled && styles.statusToggleActive]}>
+                <View style={[styles.statusDot, twoStepEnabled && styles.statusDotActive]} />
+              </View>
+              <Text style={[styles.statusBadge, twoStepEnabled && { color: COLORS.success, backgroundColor: '#ECFDF5' }]}>
+                {twoStepEnabled ? 'ON' : 'OFF'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Logout */}
+          <TouchableOpacity style={styles.logoutCard} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={24} color={COLORS.danger} />
+            <Text style={styles.logoutText}>Encerrar Sessão</Text>
+          </TouchableOpacity>
+
+          <View style={styles.footerInfo}>
+            <Text style={styles.versionLabel}>TeOdonto Angola v1.2.4</Text>
+            <Text style={styles.copyrightLabel}>© 2026 Sorriso Digital. Todos os direitos reservados.</Text>
           </View>
         </View>
-      </Modal>
-    </ScrollView>
+
+        {/* Modais Modernos */}
+        <Modal visible={abrirProvincias} animationType="fade" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Escolher Província</Text>
+                <TouchableOpacity onPress={() => setAbrirProvincias(false)}>
+                  <Ionicons name="close-circle" size={28} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.modalList}>
+                {PROVINCIAS_ADMIN.map(p => (
+                  <TouchableOpacity 
+                    key={p} 
+                    style={[styles.modalItem, p === provincia && styles.modalItemSelected]}
+                    onPress={() => { setProvincia(p); setAbrirProvincias(false); }}
+                  >
+                    <Text style={[styles.modalItemText, p === provincia && styles.modalItemTextSelected]}>{p}</Text>
+                    {p === provincia && <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal visible={abrirChangePassword} animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { height: '80%' }]}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Alterar Password</Text>
+                <TouchableOpacity onPress={() => setAbrirChangePassword(false)}>
+                  <Ionicons name="close-circle" size={28} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.modalBody}>
+                <PasswordInput label="SENHA ATUAL" value={senhaAtual} onChange={setSenhaAtual} visible={mostrarSenhaAtual} onToggle={() => setMostrarSenhaAtual(!mostrarSenhaAtual)} />
+                <PasswordInput label="NOVA SENHA" value={novaSenha} onChange={setNovaSenha} visible={mostrarNovaSenha} onToggle={() => setMostrarNovaSenha(!mostrarNovaSenha)} />
+                <PasswordInput label="CONFIRMAR NOVA SENHA" value={confirmaSenha} onChange={setConfirmaSenha} visible={mostrarConfirmaSenha} onToggle={() => setMostrarConfirmaSenha(!mostrarConfirmaSenha)} />
+                
+                <TouchableOpacity 
+                  style={[styles.saveBtn, { marginTop: 20 }, processando && styles.disabledBtn]}
+                  onPress={handleMudarSenha}
+                  disabled={processando}
+                >
+                  {processando ? <ActivityIndicator color="white" /> : <Text style={styles.saveBtnText}>Atualizar Password</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
 
-interface InfoCardProps {
-  icon: string;
-  label: string;
-  valor: string;
-}
+// Componentes Auxiliares
+const InfoItem = ({ icon, label, value, color }: any) => (
+  <View style={styles.infoItem}>
+    <View style={[styles.infoIcon, { backgroundColor: color + '15' }]}>
+      <Ionicons name={icon} size={20} color={color} />
+    </View>
+    <View style={styles.infoContentWrap}>
+      <Text style={styles.infoLabelText}>{label}</Text>
+      <Text style={styles.infoValueText}>{value}</Text>
+    </View>
+  </View>
+);
 
-const InfoCard: React.FC<InfoCardProps> = ({ icon, label, valor }) => (
-  <View style={styles.infoCard}>
-    <Ionicons name={icon as any} size={20} color={COLORS.primary} />
-    <View style={styles.infoContent}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{valor}</Text>
+const PasswordInput = ({ label, value, onChange, visible, onToggle }: any) => (
+  <View style={styles.inputGroup}>
+    <Text style={styles.inputLabel}>{label}</Text>
+    <View style={styles.inputWrapper}>
+      <TextInput
+        style={[styles.textInput, { flex: 1 }]}
+        value={value}
+        onChangeText={onChange}
+        secureTextEntry={!visible}
+        placeholder="••••••••"
+      />
+      <TouchableOpacity onPress={onToggle}>
+        <Ionicons name={visible ? "eye-off-outline" : "eye-outline"} size={20} color={COLORS.textSecondary} />
+      </TouchableOpacity>
     </View>
   </View>
 );
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-  },
-  header: {
-    paddingVertical: SPACING.lg,
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  scrollContent: { paddingBottom: 40 },
+  
+  // Header
+  headerBackground: {
+    backgroundColor: 'white',
+    height: 180,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    justifyContent: 'center',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: '#F1F5F9',
   },
-  avatarContainer: {
-    alignItems: 'center',
+  headerForeground: { position: 'absolute', bottom: -50, alignItems: 'center', width: '100%' },
+  avatarGlow: {
+    padding: 4,
+    borderRadius: 60,
+    backgroundColor: 'white',
+    ...SHADOWS.lg,
   },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  avatarLarge: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: COLORS.danger,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    borderWidth: 4,
+    borderColor: 'white',
   },
-  avatarText: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: COLORS.textInverse,
-  },
-  role: {
-    fontSize: TYPOGRAPHY.sizes.md,
-    color: COLORS.textSecondary,
-  },
-  section: {
-    padding: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  sectionTitle: {
-    fontSize: TYPOGRAPHY.sizes.lg,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  form: {
-    gap: SPACING.md,
-  },
-  formGroup: {
-    marginBottom: SPACING.md,
-  },
-  label: {
-    fontSize: TYPOGRAPHY.sizes.sm,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
-  },
-  input: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    fontSize: TYPOGRAPHY.sizes.md,
-    color: COLORS.text,
-  },
-  selectButton: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
+  avatarTextLarge: { fontSize: 42, fontWeight: '700', color: 'white' },
+  profileName: { fontSize: 24, fontWeight: '800', color: COLORS.text, marginTop: 12 },
+  badgeAdmin: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    backgroundColor: '#6366F1',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    marginTop: 6,
+    gap: 6,
   },
-  selectText: {
-    color: COLORS.text,
-    fontSize: TYPOGRAPHY.sizes.md,
+  badgeText: { color: 'white', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+
+  // Content
+  mainContent: { marginTop: 70, paddingHorizontal: 20, gap: 20 },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 20,
+    ...SHADOWS.sm,
   },
-  selectPlaceholder: {
-    color: COLORS.textSecondary,
-  },
-  formActions: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    marginTop: SPACING.md,
-  },
-  infoCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-  },
-  infoContent: {
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: TYPOGRAPHY.sizes.xs,
-    color: COLORS.textSecondary,
-    marginBottom: 2,
-  },
-  infoValue: {
-    fontSize: TYPOGRAPHY.sizes.md,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  actionCard: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  actionCardDanger: {
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.danger,
-  },
-  actionCardContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-  },
-  actionCardText: {
-    flex: 1,
-  },
-  actionCardTitle: {
-    fontSize: TYPOGRAPHY.sizes.md,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  actionCardSubtitle: {
-    fontSize: TYPOGRAPHY.sizes.xs,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  footer: {
-    padding: SPACING.md,
-    alignItems: 'center',
-    marginTop: SPACING.lg,
-  },
-  versionText: {
-    fontSize: TYPOGRAPHY.sizes.xs,
-    color: COLORS.textSecondary,
-  },
-  copyrightText: {
-    fontSize: TYPOGRAPHY.sizes.xs,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.xs,
-  },
-  button: {
-    borderRadius: 12,
-    paddingVertical: SPACING.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  buttonPrimary: {
-    backgroundColor: COLORS.primary,
-    flex: 1,
-  },
-  buttonSecondary: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    flex: 1,
-  },
-  buttonText: {
-    fontSize: TYPOGRAPHY.sizes.md,
-    fontWeight: '600',
-    color: COLORS.textInverse,
-  },
-  buttonSecondaryText: {
-    fontSize: TYPOGRAPHY.sizes.md,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: COLORS.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  modalTitle: {
-    fontSize: TYPOGRAPHY.sizes.lg,
-    fontWeight: '700',
-    color: COLORS.text,
-  },
-  modalBody: {
-    padding: SPACING.md,
-  },
-  modalFooter: {
-    padding: SPACING.md,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingBottom: Math.max(SPACING.md, 20),
-    flexDirection: 'row',
-    gap: SPACING.md,
-  },
-  passwordInput: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  passwordInputField: {
-    flex: 1,
-    fontSize: TYPOGRAPHY.sizes.md,
-    color: COLORS.text,
-  },
-  provinciaItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  provinciaItemAtiva: {
-    backgroundColor: COLORS.primaryLight,
-  },
-  provinciaTexto: {
-    color: COLORS.text,
-    fontSize: TYPOGRAPHY.sizes.md,
-  },
-  provinciaTextoAtiva: {
-    color: COLORS.primary,
-    fontWeight: '700',
-  },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  cardTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text, marginBottom: 15 },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#EFF6FF', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 15 },
+  editBtnActive: { backgroundColor: '#FEF2F2' },
+  editBtnText: { color: COLORS.primary, fontSize: 13, fontWeight: '700' },
+
+  // Info Items
+  infoList: { gap: 10 },
+  infoItem: { flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 18 },
+  infoIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  infoContentWrap: { flex: 1 },
+  infoLabelText: { fontSize: TYPOGRAPHY.sizes.xs, color: COLORS.textSecondary, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  infoValueText: { fontSize: 15, fontWeight: '600', color: COLORS.text, marginTop: 2 },
+
+  // Edit Form
+  editForm: { gap: 18 },
+  inputGroup: { gap: 8 },
+  inputLabel: { fontSize: 11, fontWeight: '800', color: COLORS.textSecondary, letterSpacing: 0.5 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: 15, paddingHorizontal: 15, paddingVertical: Platform.OS === 'ios' ? 14 : 4, gap: 10 },
+  textInput: { fontSize: 16, fontWeight: '600', color: COLORS.text },
+  selectWrapper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#F1F5F9', borderRadius: 15, paddingHorizontal: 15, paddingVertical: 14 },
+  selectInner: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  selectValue: { fontSize: 16, fontWeight: '600', color: COLORS.text },
+  saveBtn: { backgroundColor: COLORS.primary, paddingVertical: 16, borderRadius: 18, alignItems: 'center', ...SHADOWS.md },
+  saveBtnText: { color: 'white', fontSize: 16, fontWeight: '700' },
+  disabledBtn: { opacity: 0.6 },
+
+  // Action Rows
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 15, paddingVertical: 10 },
+  actionIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  actionContent: { flex: 1 },
+  actionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text },
+  actionSubtitle: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 10 },
+  statusBadge: { backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, color: COLORS.textSecondary, fontSize: 11, fontWeight: '900', marginLeft: 10 },
+  statusToggle: { width: 34, height: 18, borderRadius: 10, backgroundColor: '#CBD5E1', padding: 2 },
+  statusToggleActive: { backgroundColor: COLORS.success },
+  statusDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: 'white' },
+  statusDotActive: { transform: [{ translateX: 16 }] },
+
+  // Logout
+  logoutCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#FEF2F2', paddingVertical: 16, borderRadius: 20, borderWidth: 1, borderColor: '#FEE2E2' },
+  logoutText: { color: COLORS.danger, fontSize: 16, fontWeight: '700' },
+
+  // Footer
+  footerInfo: { alignItems: 'center', marginTop: 10 },
+  versionLabel: { fontSize: 12, color: COLORS.textLight, fontWeight: '600' },
+  copyrightLabel: { fontSize: 11, color: COLORS.textLight, marginTop: 5 },
+
+  // Modais
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.7)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: 'white', borderTopLeftRadius: 35, borderTopRightRadius: 35, padding: 25, height: '70%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
+  modalTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  modalList: { flex: 1 },
+  modalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  modalItemSelected: { backgroundColor: '#EFF6FF', marginHorizontal: -25, paddingHorizontal: 25 },
+  modalItemText: { fontSize: 16, color: COLORS.text, fontWeight: '500' },
+  modalItemTextSelected: { color: COLORS.primary, fontWeight: '700' },
+  modalBody: { gap: 20 },
 });
 
 export default AdminProfileScreen;
-

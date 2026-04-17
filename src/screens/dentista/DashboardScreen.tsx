@@ -18,7 +18,7 @@ import {
   exportarPrescricaoPdf,
 } from '../../services/pdfReportService';
 import { COLORS, SHADOWS, SIZES } from '../../styles/theme';
-import { PRIORIDADE, STATUS_AGENDAMENTO, STATUS_TRIAGEM, TIPOS_CONSULTA } from '../../utils/constants';
+import { PRIORIDADE, STATUS_AGENDAMENTO, STATUS_TRIAGEM, TIPOS_CONSULTA, APPOINTMENT_STATUS } from '../../utils/constants';
 import { formatRelativeTime } from '../../utils/helpers';
 import { getEspecialidadeConfig, EspecialidadeConfig } from '../../config/specialtyConfig';
 import { 
@@ -59,6 +59,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const [triagens, setTriagens] = useState<Triagem[]>([]);
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [agendaHoje, setAgendaHoje] = useState<Agendamento[]>([]);
+  const [procedimentosFin, setProcedimentosFin] = useState<any[]>([]);
   const [contadores, setContadores] = useState<Contadores>(CONTADORES_DEFAULT);
   const [documentosRecentes, setDocumentosRecentes] = useState<DocumentoRecente[]>([]);
   const [tratamentosPendentes, setTratamentosPendentes] = useState(0);
@@ -78,88 +79,61 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   const carregarDocumentacaoClinica = useCallback(async () => {
     if (!profile?.id) return;
 
-    const [anamnesesRes, planosRes, prescricoesRes, planosIdsRes, prescricoesCountRes] = await Promise.all([
+    const [anamnesesRes, planosRes, prescricoesRes, prescricoesCountRes] = await Promise.all([
       supabase
         .from('anamneses')
-        .select('id, paciente_id, updated_at, created_at')
-        .eq('dentista_id', profile?.id)
+        .select('id, paciente_id, updated_at, created_at, paciente:profiles!paciente_id(nome)')
+        .eq('dentista_id', profile.id)
         .order('updated_at', { ascending: false })
-        .limit(8),
+        .limit(6),
       supabase
         .from('planos_tratamento')
-        .select('id, paciente_id, updated_at, created_at')
-        .eq('dentista_id', profile?.id)
+        .select('id, paciente_id, updated_at, created_at, paciente:profiles!paciente_id(nome)')
+        .eq('dentista_id', profile.id)
         .order('updated_at', { ascending: false })
-        .limit(8),
+        .limit(6),
       supabase
         .from('prescricoes')
-        .select('id, paciente_id, created_at')
-        .eq('dentista_id', profile?.id)
+        .select('id, paciente_id, created_at, paciente:profiles!paciente_id(nome)')
+        .eq('dentista_id', profile.id)
         .order('created_at', { ascending: false })
-        .limit(8),
-      supabase
-        .from('planos_tratamento')
-        .select('id')
-        .eq('dentista_id', profile?.id),
+        .limit(6),
       supabase
         .from('prescricoes')
         .select('id', { count: 'exact', head: true })
-        .eq('dentista_id', profile?.id),
+        .eq('dentista_id', profile.id),
     ]);
 
-    const planos = planosRes.data || [];
-    const planoIds = (planosIdsRes.data || []).map((item: any) => item.id).filter(Boolean);
-    let procedimentosPendentes = 0;
+    const anamnesesRaw = anamnesesRes.data || [];
+    const planosRaw = planosRes.data || [];
+    const prescricoesRaw = prescricoesRes.data || [];
 
-    if (planoIds.length > 0) {
-      const procRes = await supabase
-        .from('procedimentos_tratamento')
-        .select('id, status, plano_id')
-        .in('plano_id', planoIds);
-      procedimentosPendentes = (procRes.data || []).filter(
-        (item: any) => !['concluido', 'cancelado'].includes(String(item.status || '').toLowerCase())
-      ).length;
-    }
+    const getPatientName = (item: any) => {
+      const p = item.paciente;
+      if (Array.isArray(p)) return p[0]?.nome || 'Paciente';
+      return (p as any)?.nome || 'Paciente';
+    };
 
-    const pacienteIds = Array.from(
-      new Set(
-        [
-          ...(anamnesesRes.data || []).map((item: any) => item.paciente_id),
-          ...planos.map((item: any) => item.paciente_id),
-          ...(prescricoesRes.data || []).map((item: any) => item.paciente_id),
-        ].filter(Boolean)
-      )
-    ) as string[];
-
-    let pacientesById: Record<string, string> = {};
-    if (pacienteIds.length > 0) {
-      const pacientesRes = await supabase
-        .from('profiles')
-        .select('id, nome')
-        .in('id', pacienteIds);
-      pacientesById = Object.fromEntries((pacientesRes.data || []).map((item: any) => [item.id, item.nome || 'Paciente']));
-    }
-
-    const recentes: DocumentoRecente[] = [
-      ...(anamnesesRes.data || []).map((item: any) => ({
+    const docsRecentesArray: DocumentoRecente[] = [
+      ...anamnesesRaw.map((item: any) => ({
         id: `anamnese-${item.id}`,
         tipo: 'anamnese' as const,
         pacienteId: item.paciente_id,
-        pacienteNome: pacientesById[item.paciente_id] || 'Paciente',
+        pacienteNome: getPatientName(item),
         data: item.updated_at || item.created_at,
       })),
-      ...planos.map((item: any) => ({
+      ...planosRaw.map((item: any) => ({
         id: `plano-${item.id}`,
         tipo: 'plano' as const,
         pacienteId: item.paciente_id,
-        pacienteNome: pacientesById[item.paciente_id] || 'Paciente',
+        pacienteNome: getPatientName(item),
         data: item.updated_at || item.created_at,
       })),
-      ...(prescricoesRes.data || []).map((item: any) => ({
+      ...prescricoesRaw.map((item: any) => ({
         id: `prescricao-${item.id}`,
         tipo: 'prescricao' as const,
         pacienteId: item.paciente_id,
-        pacienteNome: pacientesById[item.paciente_id] || 'Paciente',
+        pacienteNome: getPatientName(item),
         data: item.created_at,
       })),
     ]
@@ -167,8 +141,21 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       .sort((a, b) => new Date(b.data || 0).getTime() - new Date(a.data || 0).getTime())
       .slice(0, 6);
 
-    setDocumentosRecentes(recentes);
-    setTratamentosPendentes(procedimentosPendentes);
+    let pendentesCount = 0;
+    const { data: pIds } = await supabase.from('planos_tratamento').select('id').eq('dentista_id', profile.id);
+    const planoIds = (pIds || []).map(p => p.id);
+    
+    if (planoIds.length > 0) {
+      const { count } = await supabase
+        .from('procedimentos_tratamento')
+        .select('id', { count: 'exact', head: true })
+        .in('plano_id', planoIds)
+        .not('status', 'in', '("concluido","cancelado")');
+      pendentesCount = count || 0;
+    }
+
+    setDocumentosRecentes(docsRecentesArray);
+    setTratamentosPendentes(pendentesCount);
     setPrescricoesEmitidas(prescricoesCountRes.count || 0);
   }, [profile?.id]);
 
@@ -183,17 +170,19 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     inicioSemana.setDate(inicioSemana.getDate() - 30); // Últimos 30 dias
     fimSemana.setDate(fimSemana.getDate() + 60); // Próximos 60 dias
 
-    const [contResult, triResult, agResult, hojeResult] = await Promise.all([
-      buscarContadoresDentista(profile?.id).catch(e => ({ success: false, data: CONTADORES_DEFAULT, error: e.message })),
-      buscarTriagensDentista(profile?.id).catch(e => ({ success: false, data: [], error: e.message })),
-      buscarAgendamentosDentistaPorPeriodo(profile?.id, inicioSemana, fimSemana).catch(e => ({ success: false, data: [], error: e.message })),
-      buscarAgendaDentista(profile?.id, new Date()).catch(e => ({ success: false, data: [], error: e.message }))
+    const [contResult, triResult, agResult, hojeResult, finResult] = await Promise.all([
+      buscarContadoresDentista(profile.id).catch(e => ({ success: false, data: CONTADORES_DEFAULT, error: e.message })),
+      buscarTriagensDentista(profile.id, { minimal: true, limit: 20 }).catch(e => ({ success: false, data: [], error: e.message })),
+      buscarAgendamentosDentistaPorPeriodo(profile.id, inicioSemana, fimSemana).catch(e => ({ success: false, data: [], error: e.message })),
+      buscarAgendaDentista(profile.id, new Date()).catch(e => ({ success: false, data: [], error: e.message })),
+      buscarTratamentosFinanceirosDentista(profile.id, { limit: 10 }).catch(e => ({ success: false, data: [], error: e.message }))
     ]);
 
     setContadores(contResult.success ? contResult.data ?? CONTADORES_DEFAULT : CONTADORES_DEFAULT);
     setTriagens(triResult.success ? triResult.data ?? [] : []);
     setAgendamentos(agResult.success ? agResult.data ?? [] : []);
     setAgendaHoje(hojeResult.success ? hojeResult.data ?? [] : []);
+    setProcedimentosFin(finResult.success ? finResult.data ?? [] : []);
 
     const errors = [contResult, triResult, agResult, hojeResult].filter(r => !r.success).length;
     if (errors > 0) {
@@ -213,6 +202,19 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     setRefreshing(false);
   }, [carregarDados]);
 
+  // REALTIME: auto-update dashboard when triagens or appointments change
+  useEffect(() => {
+    if (!profile?.id) return;
+    const channel = supabase
+      .channel(`dashboard-dentista-${profile.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'triagens', filter: `dentista_id=eq.${profile.id}` }, () => { void carregarDados(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamentos', filter: `dentist_id=eq.${profile.id}` }, () => { void carregarDados(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'procedimentos_tratamento' }, () => { void carregarDados(); })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
+
   const dashboard = useMemo(() => {
     const now = new Date();
     const start = new Date();
@@ -228,8 +230,25 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       .sort((a, b) => new Date(a.appointment_date || 0).getTime() - new Date(b.appointment_date || 0).getTime())
       .slice(0, 3);
     const atrasados = agendaHoje.filter((item) => ['agendado', 'confirmado', 'confirmado_paciente', 'notificado_paciente'].includes(item.status || '') && new Date(item.appointment_date || 0) < now);
-    const receitaHoje = realizadosHoje.reduce((sum, item) => sum + (PRECO_POR_TIPO[item.tipo || 'consulta'] || 0), 0);
-    const receitaSemana = realizadosSemana.reduce((sum, item) => sum + (PRECO_POR_TIPO[item.tipo || 'consulta'] || 0), 0);
+    
+    // Obter real receita hoje e semana usando pagamentos parciais / total
+    const getPago = (p: any) => Number(p.valor_pago !== undefined && p.valor_pago !== null ? p.valor_pago : (p.status_financeiro === 'pago' ? (p.valor || 0) : 0));
+    
+    const pagosHoje = procedimentosFin.filter(p => {
+      if (!p.updated_at && !p.data_hora && !p.created_at) return false;
+      const d = new Date(p.updated_at || p.data_hora || p.created_at);
+      return d.toDateString() === now.toDateString() && getPago(p) > 0;
+    });
+    
+    const pagosSemana = procedimentosFin.filter(p => {
+      if (!p.updated_at && !p.data_hora && !p.created_at) return false;
+      const d = new Date(p.updated_at || p.data_hora || p.created_at);
+      return d >= weekStart && getPago(p) > 0;
+    });
+
+    const receitaHoje = pagosHoje.reduce((sum, item) => sum + getPago(item), 0);
+    const receitaSemana = pagosSemana.reduce((sum, item) => sum + getPago(item), 0);
+
     const procedimentosMap = realizadosSemana.reduce((acc, item) => {
       const tipo = item.tipo || 'consulta';
       acc[tipo] = (acc[tipo] || 0) + 1;
@@ -251,7 +270,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       procedimentos,
       taxaFaltas,
     };
-  }, [agendaHoje, agendamentos]);
+  }, [agendaHoje, agendamentos, procedimentosFin]);
 
   const pacienteFoco = useMemo(() => {
     const proximoAgendamento = [...agendaHoje]
@@ -346,74 +365,22 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     return data?.id;
   }, [triagens]);
 
-  const removerAtribuicao = useCallback(async (pacienteId: string) => {
-    try {
-      // Remove from triagens (set dentista_id to null)
-      const { error: triagemError } = await supabase
-        .from('triagens')
-        .update({ dentista_id: null })
-        .eq('paciente_id', pacienteId)
-        .eq('dentista_id', profile?.id);
-
-      // Remove from agendamentos (set dentist_id to null)
-      const { error: agendamentoError } = await supabase
-        .from('agendamentos')
-        .update({ dentist_id: null })
-        .eq('patient_id', pacienteId)
-        .eq('dentist_id', profile?.id);
-
-      if (triagemError || agendamentoError) {
-        Toast.show({
-          type: 'error',
-          text1: 'Erro ao remover atribuição',
-          text2: 'Tente novamente.',
-        });
-        return;
-      }
-
-      Toast.show({
-        type: 'success',
-        text1: 'Atribuição removida',
-        text2: 'Paciente desvinculado com sucesso.',
-      });
-      
-      // Refresh data
-      onRefresh?.();
-    } catch (error) {
-      Toast.show({
-        type: 'error',
-        text1: 'Erro ao remover atribuição',
-        text2: 'Tente novamente.',
-      });
-    }
-  }, [profile?.id, onRefresh]);
-
   const abrirModuloClinico = useCallback(async (screen: 'Anamnese' | 'PlanoTratamento' | 'Prescricao') => {
-    // Check if there's any patient assigned by secretary (triagem or agendamento)
-    const pacienteAtribuido = pacientesClinicos.length > 0 ? pacientesClinicos[0] : null;
-    
-    if (!pacienteAtribuido?.pacienteId && !pacienteClinicoAtivo?.pacienteId) {
-      Toast.show({
-        type: 'info',
-        text1: 'Nenhum paciente selecionado',
-        text2: 'Escolha o paciente antes de abrir o modulo clinico.',
-      });
+    // Se não há paciente selecionado, tentar usar o paciente foco automaticamente
+    const pacienteParaUsar = pacienteClinicoAtivo || (
+      pacienteFoco.pacienteId ? {
+        pacienteId: pacienteFoco.pacienteId,
+        pacienteNome: pacienteFoco.pacienteNome,
+        triagemId: pacienteFoco.triagemId,
+      } : null
+    );
+
+    if (!pacienteParaUsar?.pacienteId) {
+      // Não mostrar mensagem se não houver pacientes disponíveis
       return;
     }
 
-    // Use assigned patient if no patient is actively selected
-    const pacienteAtivo = pacienteClinicoAtivo?.pacienteId ? pacienteClinicoAtivo : pacienteAtribuido;
-    
-    if (!pacienteAtivo?.pacienteId) {
-      Toast.show({
-        type: 'info',
-        text1: 'Nenhum paciente disponível',
-        text2: 'Nenhum paciente atribuído encontrado.',
-      });
-      return;
-    }
-
-    const triagemId = pacienteAtivo.triagemId || await resolverTriagemPaciente(pacienteAtivo.pacienteId);
+    const triagemId = pacienteParaUsar.triagemId || await resolverTriagemPaciente(pacienteParaUsar.pacienteId);
     if (!triagemId) {
       Toast.show({
         type: 'info',
@@ -425,20 +392,29 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
 
     navigation.getParent<any>()?.navigate(screen, {
       triagemId,
-      pacienteId: pacienteAtivo.pacienteId,
-      pacienteNome: pacienteAtivo.pacienteNome,
+      pacienteId: pacienteParaUsar.pacienteId,
+      pacienteNome: pacienteParaUsar.pacienteNome,
     });
-  }, [navigation, pacienteClinicoAtivo, pacientesClinicos, resolverTriagemPaciente]);
+  }, [navigation, pacienteClinicoAtivo, pacienteFoco, resolverTriagemPaciente]);
 
   const handleImprimirFaturacao = useCallback(async () => {
     if (!profile?.id) return;
     
+    // Se já temos os dados carregados recentemente, usamos eles em vez de buscar denovo
+    if (procedimentosFin && procedimentosFin.length > 0 && !refreshing) {
+       const html = buildDentistBillingHtml(profile.nome || 'Dentista', procedimentosFin, profile.nome);
+       void exportHtmlAsPdf(html, `faturacao-${profile.nome?.split(' ')[0]}-${new Date().toISOString().split('T')[0]}.pdf`);
+       Toast.show({ type: 'success', text1: 'Relatórios gerados (dados rápidos)' });
+       return;
+    }
+
     setLoading(true);
     try {
-      const res = await buscarTratamentosFinanceirosDentista(profile?.id);
+      // Busca completa para o relatório de impressão (sem limite)
+      const res = await buscarTratamentosFinanceirosDentista(profile.id);
       if (!res.success) throw new Error(res.error);
       
-      const html = buildDentistBillingHtml(profile.nome || 'Dentista', res.data || []);
+      const html = buildDentistBillingHtml(profile.nome || 'Dentista', res.data || [], profile.nome);
       const pdfRes = await exportHtmlAsPdf(html, `faturacao-${profile.nome?.split(' ')[0]}-${new Date().toISOString().split('T')[0]}.pdf`);
       
       if (!pdfRes.success) throw new Error(pdfRes.error);
@@ -448,7 +424,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
-  }, [profile]);
+  }, [profile, procedimentosFin, refreshing]);
 
   const gerarPdfDocumento = useCallback(async (tipo: DocumentoTipo | 'historico', pacienteId?: string) => {
     const alvoPacienteId = pacienteId || pacienteClinicoAtivo?.pacienteId;
@@ -491,8 +467,8 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         if (aIsUrgente && !bIsUrgente) return -1;
         if (!aIsUrgente && bIsUrgente) return 1;
 
-        return new Date(b.created_at || (b as any).data_agendamento).getTime() -
-          new Date(a.created_at || (a as any).data_agendamento).getTime();
+        return new Date(b.created_at || (b as any).appointment_date || (b as any).data_agendamento).getTime() -
+          new Date(a.created_at || (a as any).appointment_date || (a as any).data_agendamento).getTime();
       });
     }
 
@@ -504,7 +480,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         const isReal = s === 'realizado' || as === 'realizado';
         return hasResp && !isReal;
       });
-      return tResp.sort((a, b) => new Date(b.created_at || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).data_agendamento || 0).getTime());
+      return tResp.sort((a, b) => new Date(b.created_at || (b as any).appointment_date || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).appointment_date || (a as any).data_agendamento || 0).getTime());
     }
 
     if (filtroAtivo === 'urgente') {
@@ -523,7 +499,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         const isReal = s === 'realizado' || as === 'realizado';
         return isUrg && !isReal;
       });
-      return [...tUrg, ...aUrg].sort((a, b) => new Date(b.created_at || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).data_agendamento || 0).getTime());
+      return [...tUrg, ...aUrg].sort((a, b) => new Date(b.created_at || (b as any).appointment_date || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).appointment_date || (a as any).data_agendamento || 0).getTime());
     }
 
     if (filtroAtivo === 'pendente') {
@@ -532,14 +508,11 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         const p = (t.prioridade || '').toLowerCase();
         const hasResp = (t.respostas && t.respostas.length > 0) || s === 'respondido';
         const isUrg = s === 'urgente' || p === 'urgente' || p === 'alta' || Number((t as any).intensidade_dor || 0) > 6;
-        return !hasResp && !isUrg && s === 'pendente';
+        // Apenas triagens pendentes atribuídas ao dentista
+        return !hasResp && !isUrg && s === 'pendente' && t.dentista_id === profile?.id;
       });
-      const aPend = agendamentos.filter(a => {
-        const status = (a.status || '').toLowerCase();
-        const altStatus = ((a as any).agendamento_status || '').toLowerCase();
-        return status === 'solicitado' || altStatus === 'solicitado' || status === 'atribuido_dentista';
-      });
-      return [...tPend, ...aPend].sort((a, b) => new Date(b.created_at || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).data_agendamento || 0).getTime());
+      // Não incluir agendas de consulta no filtro pendente
+      return tPend.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
     }
 
     // filtroAtivo === 'realizados'
@@ -548,7 +521,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       const as = ((a as any).agendamento_status || '').toLowerCase();
       return s === 'realizado' || as === 'realizado';
     });
-    return aReal.sort((a, b) => new Date((b as any).data_agendamento || 0).getTime() - new Date((a as any).data_agendamento || 0).getTime());
+    return aReal.sort((a, b) => new Date((b as any).appointment_date || (b as any).data_agendamento || 0).getTime() - new Date((a as any).appointment_date || (a as any).data_agendamento || 0).getTime());
   }, [triagens, agendamentos, filtroAtivo]);
 
   const casosPendentes = useMemo(() => {
@@ -557,15 +530,15 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         const status = (t.status || 'pendente').toLowerCase();
         const prio = (t.prioridade || 'normal').toLowerCase();
         const respondido = (t.respostas && t.respostas.length > 0) || status === 'respondido';
-        // Apenas casos urgentes ou de alta prioridade que NÃO foram respondidos
-        const isUrgente = status === 'urgente' || prio === 'urgente' || prio === 'alta' || Number((t as any).intensidade_dor || 0) > 6;
-        return !respondido && isUrgente;
+        // Apenas triagens pendentes atribuídas ao dentista (não urgentes)
+        const isAtribuida = t.dentista_id === profile?.id;
+        return !respondido && isAtribuida && status === 'pendente';
       })
       .sort((a, b) => {
         return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
       })
       .slice(0, 5);
-  }, [triagens]);
+  }, [triagens, profile?.id]);
 
   const abrirCaso = (triagem: Triagem) => navigation.getParent<any>()?.navigate('CasoDetalhe', { triagemId: triagem.id });
   const abrirPaciente = (agendamento: Agendamento) => {
@@ -584,8 +557,8 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const renderListItem = ({ item }: { item: ListaItem }) => {
-    // Garantir que não confundimos uma Triagem (que pode ter data_agendamento preenchida) com um Agendamento
-    if ('data_agendamento' in item && !('sintoma_principal' in item)) {
+    // Garantir que não confundimos uma Triagem com um Agendamento
+    if (('appointment_date' in item || 'data_agendamento' in item) && !('sintoma_principal' in item)) {
       const agendamento = item as Agendamento;
       const statusLower = (agendamento.status || 'pendente').toLowerCase();
       const prioLower = ((agendamento as any).prioridade || 'normal').toLowerCase();
@@ -599,7 +572,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           ? 'realizado'
           : statusLower;
 
-      const statusInfo = (effectiveStatus === 'urgente' ? STATUS_TRIAGEM.urgente : (STATUS_AGENDAMENTO[effectiveStatus] || STATUS_AGENDAMENTO.pendente));
+      const statusInfo = (effectiveStatus === 'urgente' ? STATUS_TRIAGEM.urgente : (APPOINTMENT_STATUS[effectiveStatus] || APPOINTMENT_STATUS.pendente || STATUS_AGENDAMENTO[effectiveStatus] || STATUS_AGENDAMENTO.pendente));
       return (
         <TouchableOpacity style={styles.card} onPress={() => abrirPaciente(item as Agendamento)}>
           <View style={styles.cardRow}>
@@ -652,7 +625,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.responseHeader}>
               <Ionicons name="person-circle-outline" size={16} color={COLORS.success} />
               <Text style={styles.responseTextDentista}>
-                Dr(a). {ultimaResposta.dentista?.nome?.split(' ')[0] || profile?.nome?.split(' ')[0] || 'Dentista'}
+                Dr(a). {ultimaResposta.dentista?.nome?.split(' ')[0] || 'Dentista'}
               </Text>
             </View>
             <View style={styles.responseMain}>
@@ -684,8 +657,8 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
           </View>
           <View style={styles.specInfo}>
             <Text style={styles.specGreeting}>Olá, Dr(a). {profile?.nome?.split(' ')[0] || 'Dentista'}</Text>
-            <Text style={styles.specLabel}>{profile?.especialidade || specConfig.label}</Text>
-            <Text style={styles.specDesc}>{profile?.descricao || specConfig.descricao}</Text>
+            <Text style={styles.specLabel}>{specConfig.label}</Text>
+            <Text style={styles.specDesc}>{specConfig.descricao}</Text>
           </View>
         </View>
       </View>
@@ -709,26 +682,46 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       {/* Metrics Grid */}
       <View style={styles.grid}>
         <View style={styles.metric}>
-          <Text style={[styles.metricValue, { color: COLORS.primary }]}>{agendaHoje.length}</Text>
-          <Text style={styles.metricLabel}>Consultas hoje</Text>
+          <Text style={[styles.metricValue, { color: COLORS.success }]}>{dashboard.atendidosSemana}</Text>
+          <Text style={styles.metricLabel}>Atendidos na semana</Text>
         </View>
         <View style={styles.metric}>
           <Text style={[styles.metricValue, { color: contadores.pendente > 0 ? COLORS.danger : COLORS.primary }]}>
             {contadores.pendente}
           </Text>
-          <Text style={styles.metricLabel}>Pacientes em espera</Text>
+          <Text style={styles.metricLabel}>Casos em espera</Text>
         </View>
         <View style={styles.metric}>
           <Text style={[styles.metricValue, { color: tratamentosPendentes > 0 ? '#C2410C' : COLORS.primary }]}>
             {tratamentosPendentes}
           </Text>
-          <Text style={styles.metricLabel}>Tratamentos pendentes</Text>
+          <Text style={styles.metricLabel}>Tratamentos ativos</Text>
         </View>
         <View style={styles.metric}>
           <Text style={[styles.metricValue, { color: '#BE185D' }]}>{prescricoesEmitidas}</Text>
-          <Text style={styles.metricLabel}>Prescrições emitidas</Text>
+          <Text style={styles.metricLabel}>Prescrições</Text>
         </View>
       </View>
+
+      {/* Triagens Atribuídas */}
+      {casosPendentes.length > 0 && (
+        <View style={styles.block}>
+          <View style={styles.blockHeader}>
+            <Ionicons name="notifications-outline" size={18} color={COLORS.danger} />
+            <Text style={styles.blockTitle}>Novas triagens atribuídas</Text>
+          </View>
+          <Text style={styles.blockSubtext}>Você tem {casosPendentes.length} novos casos aguardando sua análise inicial.</Text>
+          {casosPendentes.map((item) => (
+            <TouchableOpacity key={item.id} style={styles.line} onPress={() => abrirCaso(item)}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.lineTitle}>{item.paciente?.nome || 'Paciente'}</Text>
+                <Text style={styles.lineMeta}>{item.sintoma_principal || 'Triagem geral'} · {formatRelativeTime(item.created_at)}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       <View style={styles.block}>
         <View style={styles.blockHeader}>
@@ -746,22 +739,15 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             {pacientesClinicos.map((item) => {
               const ativo = item.pacienteId === pacienteClinicoAtivo?.pacienteId;
               return (
-                <View key={item.pacienteId} style={[styles.patientChipContainer, ativo && styles.patientChipContainerActive]}>
-                  <TouchableOpacity
-                    style={[styles.patientChip, ativo && styles.patientChipActive]}
-                    onPress={() => setPacienteSelecionadoId(item.pacienteId)}
-                  >
-                    <Text style={[styles.patientChipText, ativo && styles.patientChipTextActive]}>
-                      {item.pacienteNome}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.removeAssignmentBtn}
-                    onPress={() => removerAtribuicao(item.pacienteId)}
-                  >
-                    <Ionicons name="close-circle" size={16} color={COLORS.danger} />
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity
+                  key={item.pacienteId}
+                  style={[styles.patientChip, ativo && styles.patientChipActive]}
+                  onPress={() => setPacienteSelecionadoId(item.pacienteId)}
+                >
+                  <Text style={[styles.patientChipText, ativo && styles.patientChipTextActive]}>
+                    {item.pacienteNome}
+                  </Text>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -883,51 +869,24 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
         )}
       </View>
 
-      {/* Financeiro */}
+      {/* Pacientes Atendidos */}
       <View style={styles.block}>
         <View style={styles.blockHeader}>
-          <Ionicons name="stats-chart" size={18} color={COLORS.primary} />
-          <Text style={styles.blockTitle}>Financeiro e indicadores</Text>
+          <Ionicons name="people-outline" size={20} color={COLORS.primary} />
+          <Text style={styles.blockTitle}>Resumo de Atendimentos</Text>
         </View>
         <View style={styles.finRow}>
+          {dashboard.atendidosHoje > 0 && (
+            <View style={styles.finItem}>
+              <Text style={styles.finLabelUpper}>ATENDIDOS HOJE</Text>
+              <Text style={[styles.finValue, { color: COLORS.success }]}>{dashboard.atendidosHoje}</Text>
+            </View>
+          )}
           <View style={styles.finItem}>
-            <Text style={styles.finLabel}>Receita hoje</Text>
-            <Text style={[styles.finValue, { color: COLORS.primary }]}>{currency(dashboard.receitaHoje)}</Text>
-          </View>
-          <View style={styles.finItem}>
-            <Text style={styles.finLabel}>Receita semana</Text>
-            <Text style={[styles.finValue, { color: COLORS.primary }]}>{currency(dashboard.receitaSemana)}</Text>
+            <Text style={styles.finLabelUpper}>ATENDIDOS NA SEMANA</Text>
+            <Text style={[styles.finValue, { color: COLORS.primary }]}>{dashboard.atendidosSemana}</Text>
           </View>
         </View>
-        
-        <TouchableOpacity style={styles.printBillingBtn} onPress={() => void handleImprimirFaturacao()}>
-          <Ionicons name="print-outline" size={14} color="white" />
-          <Text style={styles.printBillingBtnText}>Imprimir Relatório de Faturação</Text>
-        </TouchableOpacity>
-        <View style={styles.finRow}>
-          <View style={styles.finItem}>
-            <Text style={styles.finLabel}>Pacientes atendidos</Text>
-            <Text style={styles.finDetail}>{dashboard.atendidosHoje} hoje / {dashboard.atendidosSemana} semana</Text>
-          </View>
-          <View style={styles.finItem}>
-            <Text style={styles.finLabel}>Taxa de faltas</Text>
-            <Text style={[styles.finDetail, dashboard.taxaFaltas > 20 ? { color: COLORS.danger } : {}]}>
-              {dashboard.taxaFaltas.toFixed(0)}% ({dashboard.faltasSemana} faltas)
-            </Text>
-          </View>
-        </View>
-        {dashboard.procedimentos.length > 0 && (
-          <View style={styles.procSection}>
-            <Text style={styles.procTitle}>Procedimentos mais realizados</Text>
-            {dashboard.procedimentos.map(([tipo, total]) => (
-              <View key={tipo} style={styles.procRow}>
-                <View style={[styles.procDot, { backgroundColor: COLORS.primary }]} />
-                <Text style={styles.procText}>{TIPOS_CONSULTA[tipo]?.label || tipo}</Text>
-                <Text style={styles.procCount}>{total}</Text>
-              </View>
-            ))}
-          </View>
-        )}
       </View>
 
       {/* Filtros */}
@@ -1063,38 +1022,25 @@ const styles = StyleSheet.create({
     gap: SIZES.sm,
     marginBottom: SIZES.md,
   },
-  patientChipContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    marginRight: 8,
-    marginBottom: 8,
-    ...SHADOWS.sm,
-  },
-  patientChipContainerActive: {
-    backgroundColor: COLORS.primary,
-  },
   patientChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: SIZES.radiusFull,
+    borderWidth: 1,
+    borderColor: '#D7E0EA',
+    backgroundColor: '#FFFFFF',
   },
   patientChipActive: {
-    backgroundColor: 'transparent',
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
   },
   patientChipText: {
-    fontSize: SIZES.fontSm,
     color: COLORS.text,
+    fontSize: SIZES.fontSm,
     fontWeight: '700',
   },
   patientChipTextActive: {
     color: COLORS.textInverse,
-  },
-  removeAssignmentBtn: {
-    marginLeft: 4,
-    padding: 2,
   },
   patientSelectionHint: {
     fontSize: SIZES.fontSm,
@@ -1240,10 +1186,25 @@ const styles = StyleSheet.create({
 
   // Financeiro
   finRow: { flexDirection: 'row', gap: SIZES.sm, marginBottom: SIZES.sm },
-  finItem: { flex: 1 },
+  finItem: { flex: 1, paddingVertical: 4 },
+  printContainer: { 
+    alignItems: 'flex-end', 
+    width: '100%', 
+    marginBottom: SIZES.lg, 
+    marginTop: SIZES.sm,
+    zIndex: 10 
+  },
   finLabel: { fontSize: SIZES.fontXs + 1, color: COLORS.textSecondary, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  finValue: { fontSize: SIZES.fontLg, fontWeight: '700', marginTop: 2 },
-  finDetail: { fontSize: SIZES.fontSm, color: COLORS.text, marginTop: 2 },
+  finLabelUpper: { 
+    fontSize: 10, 
+    fontWeight: '600', 
+    color: '#64748B', 
+    textTransform: 'uppercase', 
+    letterSpacing: 0.5,
+    marginBottom: 4
+  },
+  finValue: { fontSize: SIZES.fontLg, fontWeight: '700', marginTop: 0 },
+  finDetail: { fontSize: SIZES.fontSm, color: COLORS.text, marginTop: 0, fontWeight: '500' },
   procSection: { marginTop: SIZES.sm, paddingTop: SIZES.sm, borderTopWidth: 1, borderTopColor: COLORS.divider },
   procTitle: { fontSize: SIZES.fontSm, fontWeight: '700', color: COLORS.text, marginBottom: 6 },
   procRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
@@ -1254,14 +1215,12 @@ const styles = StyleSheet.create({
   printBillingBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     backgroundColor: '#7C3AED',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     gap: 8,
-    marginTop: SIZES.md,
-    alignSelf: 'flex-start',
     ...SHADOWS.md,
   },
   printBillingBtnText: {

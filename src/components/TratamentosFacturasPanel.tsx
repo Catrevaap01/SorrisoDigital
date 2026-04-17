@@ -23,17 +23,14 @@ import { formatDateTime } from '../utils/helpers';
 
 const formatCurrency = (value: number | string | undefined) => {
   const amount = Number(value || 0);
-  if (isNaN(amount)) return 'AOA 0';
-  return 'AOA ' + amount.toLocaleString('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  if (isNaN(amount)) return '0 Kz';
+  return amount.toLocaleString('pt-AO', { minimumFractionDigits: 0 }).replace(/,/g, '.') + ' Kz';
 };
 
 type Props = {
   items: TratamentoFinanceiroItem[];
   loading?: boolean;
   onRefresh: () => void | Promise<void>;
-  dentistId?: string; // Filter to show only this dentist's plans
-  enableFiltering?: boolean; // Enable advanced filtering
-  enableUnifiedPrinting?: boolean; // Enable unified invoice printing
 };
 
 type FiltroFinanceiro = 'todos' | 'aguardando_factura' | 'pendente' | 'pago' | 'parcial';
@@ -65,6 +62,8 @@ const FILTROS: Array<{ key: FiltroFinanceiro; label: string }> = [
   { key: 'pago', label: 'Pago' },
 ];
 
+const money = (value: number) => `${Number(value || 0).toLocaleString('pt-AO')} Kz`;
+
 const clinicalStatus = (status?: string) => {
   const value = String(status || '').toLowerCase();
   if (value === 'concluido') return { label: 'Concluido', bg: '#DCFCE7', text: '#166534' };
@@ -74,74 +73,56 @@ const clinicalStatus = (status?: string) => {
 
 const financialStatus = (status?: string) => {
   const value = String(status || '').toLowerCase();
-  if (value === 'aguardando_factura') return { label: 'Aguardando factura', bg: '#FFF7ED', text: '#C2410C' };
-  if (value === 'pendente') return { label: 'Pendente', bg: '#FEF3C7', text: '#92400E' };
-  if (value === 'parcial') return { label: 'Parcial', bg: '#E0E7FF', text: '#4338CA' };
+  if (value === 'aguardando_factura') return { label: 'Aguardando factura', bg: '#FEE2E2', text: '#DC2626' };
+  if (value === 'pendente') return { label: 'Pendente', bg: '#FEE2E2', text: '#DC2626' };
+  if (value === 'parcial') return { label: 'Parcial', bg: '#FEF3C7', text: '#92400E' };
   if (value === 'pago') return { label: 'Pago', bg: '#DCFCE7', text: '#166534' };
   return { label: 'Sem factura', bg: '#E5E7EB', text: '#475569' };
 };
 
 const buildHtml = (item: TratamentoFinanceiroItem, numero?: string) => `
   <div style="max-width:800px; margin:0 auto; padding:40px; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#334155; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:40px; border-bottom: 2px solid #efeff1; padding-bottom: 20px;">
-      <div style="flex:1;">
-        <h1 style="color:#7C3AED; margin:0; font-size:28px; letter-spacing:-1px;">SORRISO DIGITAL</h1>
-        <p style="margin:5px 0; font-size:14px; color:#64748b;">Clínica Odontológica de Excelência</p>
-        <p style="margin:5px 0; font-size:12px; color:#94a3b8;">Av. Deolinda Rodrigues, Luanda, Angola</p>
-      </div>
-      <div style="text-align:right;">
-        <h2 style="margin:0; color:#1e293b; font-size:18px;">RECIBO / FACTURA</h2>
-        <p style="margin:5px 0; font-weight:bold; color:#7C3AED;"># ${numero || item.numero_factura || 'PROVISÓRIO'}</p>
-        <p style="margin:5px 0; font-size:13px;">Data: ${formatDateTime(new Date().toISOString())}</p>
-      </div>
+    <div style="text-align:center; margin-bottom:40px; border-bottom:2px solid #f1f5f9; padding-bottom:20px;">
+      <h1 style="margin:0; color:#1e293b; font-size:28px; font-weight:700;">SORRISO DIGITAL CLÍNICA DENTÁRIA</h1>
+      <p style="margin:8px 0 0 0; color:#64748b; font-size:14px;">Relatório de Serviço Individual</p>
     </div>
-
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:40px;">
-      <div>
-        <h3 style="font-size:12px; text-transform:uppercase; color:#94a3b8; margin-bottom:10px; border-bottom:1px solid #f1f5f9;">Dados do Paciente</h3>
-        <p style="margin:4px 0; font-weight:bold; color:#1e293b;">${item.paciente_nome}</p>
-        <p style="margin:4px 0; font-size:13px;">${item.paciente_telefone || 'Telefone não informado'}</p>
-      </div>
-      <div>
-        <h3 style="font-size:12px; text-transform:uppercase; color:#94a3b8; margin-bottom:10px; border-bottom:1px solid #f1f5f9;">Profissional Responsável</h3>
-        <p style="margin:4px 0; font-weight:bold; color:#1e293b;">Dr(a). ${item.dentista_nome}</p>
-        <p style="margin:4px 0; font-size:13px;">Especialidade: ${item.especialidade}</p>
-      </div>
+    <div style="margin-bottom:30px;">
+      <h2 style="margin:0 0 15px 0; color:#1e293b; font-size:18px; font-weight:600; border-bottom:1px solid #e2e8f0; padding-bottom:8px;">Dados do Paciente</h2>
+      <p style="margin:6px 0; color:#475569;"><strong>Nome:</strong> ${item.paciente_nome}</p>
     </div>
-
+    
     <table style="width:100%; border-collapse:collapse; margin-bottom:40px;">
       <thead>
         <tr style="background-color:#f8fafc;">
-          <th style="text-align:left; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">DESCRIÇÃO DO SERVIÇO</th>
-          <th style="text-align:center; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">SESSÃO</th>
-          <th style="text-align:right; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">VALOR</th>
+          <th style="text-align:left; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">TRATAMENTO REALIZADO</th>
+          <th style="text-align:right; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">VALOR PAGO</th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9;">
             <div style="font-weight:bold; color:#1e293b;">${item.procedimento}</div>
-            <div style="font-size:12px; color:#64748b; margin-top:4px;">${item.observacoes || 'Procedimento odontológico realizado.'}</div>
           </td>
-          <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9; text-align:center;">${item.sessao_numero}</td>
-          <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:bold;">${formatCurrency(item.valor)}</td>
+          <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:bold;">${money(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0))}</td>
         </tr>
       </tbody>
     </table>
 
-        <div style="display:flex; justify-content:flex-end;">
-      <div style="width:250px;">
-        <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f1f5f9;">
-          <span style="color:#64748b;">Subtotal</span>
-          <span style="font-weight:500;">${formatCurrency(item.valor)}</span>
-        </div>
+    <div style="display:flex; justify-content:flex-end;">
+      <div style="width:300px;">
         <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f1f5f9;">
           <span style="color:#64748b;">Valor Pago</span>
-          <span style="font-weight:500; color: #166534;">${formatCurrency(item.valor_pago || 0)}</span>
+          <span style="font-weight:500;">${money(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0))}</span>
         </div>
+        ${Number(item.valor || 0) - Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0)) > 0 ? `
+        <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f1f5f9;">
+          <span style="color:#64748b;">Dívida Pendente</span>
+          <span style="font-weight:500; color:#DC2626;">${money(Number(item.valor || 0) - Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0)))}</span>
+        </div>
+        ` : ''}
         <div style="display:flex; justify-content:space-between; padding:15px 0;">
-          <span style="font-weight:bold; color:#1e293b; font-size:18px;">TOTAL RECEBIDO</span>
-          <span style="font-weight:bold; color:#7C3AED; font-size:18px;">${formatCurrency(item.valor_pago || 0)}</span>
+          <span style="font-weight:bold; color:#1e293b; font-size:18px;">VALOR TOTAL DA CONSULTA</span>
+          <span style="font-weight:bold; color:#7C3AED; font-size:18px;">${money(item.valor)}</span>
         </div>
       </div>
     </div>
@@ -177,9 +158,8 @@ const buildUnifiedHtml = (grupo: GrupoFacturaUnificada, numero?: string) => `
     <table style="width:100%; border-collapse:collapse; margin-bottom:40px;">
       <thead>
         <tr style="background-color:#f8fafc;">
-          <th style="text-align:left; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">TRATAMENTOS REALIZADOS</th>
-          <th style="text-align:left; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">DENTISTA</th>
-          <th style="text-align:right; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">VALOR</th>
+          <th style="text-align:left; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">TRATAMENTO REALIZADO</th>
+          <th style="text-align:right; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">VALOR PAGO</th>
         </tr>
       </thead>
       <tbody>
@@ -187,24 +167,28 @@ const buildUnifiedHtml = (grupo: GrupoFacturaUnificada, numero?: string) => `
           <tr>
             <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9;">
               <div style="font-weight:bold; color:#1e293b;">${item.procedimento}</div>
-              <div style="font-size:11px; color:#94a3b8;">Sessão ${item.sessao_numero} • ${formatDateTime(item.data_hora)}</div>
             </td>
-            <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9; font-size:13px;">Dr(a). ${item.dentista_nome}</td>
-            <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:bold;">${formatCurrency(item.valor)}</td>
+            <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:bold;">${money(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0))}</td>
           </tr>
         `).join('')}
       </tbody>
     </table>
 
     <div style="display:flex; justify-content:flex-end;">
-      <div style="width:250px;">
+      <div style="width:300px;">
         <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f1f5f9;">
-          <span style="color:#64748b;">Serviços (${grupo.items.length})</span>
-          <span style="font-weight:500;">${formatCurrency(grupo.total)}</span>
+          <span style="color:#64748b;">Valor Pago dos Serviços (${grupo.items.length})</span>
+          <span style="font-weight:500;">${money(grupo.items.reduce((sum, item) => sum + Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0)), 0))}</span>
         </div>
+        ${grupo.items.reduce((sum, item) => sum + (Number(item.valor || 0) - Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0))), 0) > 0 ? `
+        <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f1f5f9;">
+          <span style="color:#64748b;">Dívida Pendente Consolidada</span>
+          <span style="font-weight:500; color:#DC2626;">${money(grupo.items.reduce((sum, item) => sum + (Number(item.valor || 0) - Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0))), 0))}</span>
+        </div>
+        ` : ''}
         <div style="display:flex; justify-content:space-between; padding:15px 0;">
-          <span style="font-weight:bold; color:#1e293b; font-size:18px;">VALOR TOTAL</span>
-          <span style="font-weight:bold; color:#7C3AED; font-size:18px;">${formatCurrency(grupo.total)}</span>
+          <span style="font-weight:bold; color:#1e293b; font-size:18px;">VALOR TOTAL (BRUTO)</span>
+          <span style="font-weight:bold; color:#7C3AED; font-size:18px;">${money(grupo.total)}</span>
         </div>
       </div>
     </div>
@@ -216,130 +200,74 @@ const buildUnifiedHtml = (grupo: GrupoFacturaUnificada, numero?: string) => `
   </div>
 `;
 
-const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh, dentistId, enableFiltering = true, enableUnifiedPrinting = true }) => {
+const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }) => {
   const [filtro, setFiltro] = useState<FiltroFinanceiro>('todos');
   const [selected, setSelected] = useState<TratamentoFinanceiroItem | null>(null);
   const [grupoSelecionado, setGrupoSelecionado] = useState<GrupoFacturaUnificada | null>(null);
   const [numeroFactura, setNumeroFactura] = useState('');
-  const [partialPaymentModal, setPartialPaymentModal] = useState(false);
-  const [partialAmount, setPartialAmount] = useState('');
-  const [selectedForPartial, setSelectedForPartial] = useState<TratamentoFinanceiroItem | null>(null);
-  const [pacienteFilter, setPacienteFilter] = useState('');
-  const [dentistaFilter, setDentistaFilter] = useState('');
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [modalPagamentoParcial, setModalPagamentoParcial] = useState(false);
+  const [valorPagamentoParcial, setValorPagamentoParcial] = useState('');
+  const [itemPagamentoParcial, setItemPagamentoParcial] = useState<TratamentoFinanceiroItem | null>(null);
 
   const resumo = useMemo(() => {
     const today = new Date().toDateString();
+    const itemsFiltered = items;
     
-    // Filter items by dentist if dentistId is provided
-    const itemsFiltered = dentistId 
-      ? items.filter((item) => item.dentista_id === dentistId)
-      : items;
+    // Helper for payment calculation
+    const getPago = (p: any) => Number(p.valor_pago !== undefined && p.valor_pago !== null ? p.valor_pago : (p.status_financeiro === 'pago' ? (p.valor || 0) : 0));
+
+    // Calculate today's revenue (only paid amounts)
+    const receitaHoje = itemsFiltered
+      .filter(item => {
+        const dStr = (item.pago_em || item.factura_emitida_em || item.updated_at);
+        return dStr && new Date(dStr).toDateString() === today && getPago(item) > 0;
+      })
+      .reduce((sum, item) => sum + getPago(item), 0);
     
-    // Buscar valores pagos de planos de tratamento
-    const buscarValoresPlanosPagos = async () => {
-      try {
-        // Buscar planos de tratamento com pagamentos
-        const { data: planosPagos, error } = await supabase
-          .from('planos_tratamento')
-          .select(`
-            id,
-            paciente_id,
-            dentista_id,
-            valor_total,
-            valor_pago,
-            valor_pendente,
-            created_at,
-            updated_at
-          `)
-          .eq('dentista_id', dentistId || '')
-          .in('valor_pago', 'is', 'not', 'null')
-          .order('updated_at', { ascending: false });
-        
-        if (!error && planosPagos) {
-          // Adicionar valores dos planos ao resumo
-          const totalPlanosPagos = planosPagos.reduce((sum, plano) => {
-            return sum + Number(plano.valor_pago || 0);
-          }, 0);
-          
-          const totalPlanosPendentes = planosPagos.reduce((sum, plano) => {
-            const valorTotal = Number(plano.valor_total || 0);
-            const valorPago = Number(plano.valor_pago || 0);
-            const valorPendente = valorTotal - valorPago;
-            return sum + Math.max(0, valorPendente);
-          }, 0);
-          
-          return {
-            totalPlanosPagos,
-            totalPlanosPendentes
-          };
-        }
-        
-        return { totalPlanosPagos: 0, totalPlanosPendentes: 0 };
-      } catch (err) {
-        console.warn('Erro ao buscar valores de planos pagos:', err);
-        return { totalPlanosPagos: 0, totalPlanosPendentes: 0 };
-      }
-    };
+    // Calculate week's revenue (only paid amounts)
+    const umaSemanaAtras = new Date();
+    umaSemanaAtras.setHours(0,0,0,0);
+    umaSemanaAtras.setDate(umaSemanaAtras.getDate() - 7);
+    const receitaSemana = itemsFiltered
+      .filter(item => {
+        const dStr = (item.pago_em || item.factura_emitida_em || item.updated_at);
+        if (!dStr) return false;
+        const dataPay = new Date(dStr);
+        return dataPay >= umaSemanaAtras && getPago(item) > 0;
+      })
+      .reduce((sum, item) => sum + getPago(item), 0);
+    
+    // Count patients attended today
+    const pacientesAtendidosHoje = new Set(
+      itemsFiltered
+        .filter(item => item.factura_emitida_em && new Date(item.factura_emitida_em).toDateString() === today)
+        .map(item => item.paciente_id)
+    ).size;
+    
+    // Calculate attendance rate
+    const totalPacientesDia = new Set(itemsFiltered.filter(item => item.factura_emitida_em).map(item => item.paciente_id)).size;
+    const taxaFalta = totalPacientesDia > 0 ? ((totalPacientesDia - pacientesAtendidosHoje) / totalPacientesDia) * 100 : 0;
     
     return {
       planosAtivos: new Set(itemsFiltered.filter((item) => item.status_clinico !== 'cancelado').map((item) => item.plano_id)).size,
       aguardando: itemsFiltered.filter((item) => item.status_financeiro === 'aguardando_factura').length,
       facturasHoje: itemsFiltered.filter((item) => item.factura_emitida_em && new Date(item.factura_emitida_em).toDateString() === today).length,
       pendentes: itemsFiltered.filter((item) => ['aguardando_factura', 'pendente', 'parcial'].includes(item.status_financeiro)).length,
-      valorTotal: itemsFiltered.reduce((sum, item) => sum + Number(item.valor || 0), 0),
-      valorPago: itemsFiltered.reduce((sum, item) => sum + Number(item.valor_pago || 0), 0), // Only show valor_pago
-      valorPendente: itemsFiltered.reduce((sum, item) => {
-        const valorTotal = Number(item.valor || 0);
-        const valorPago = Number(item.valor_pago || 0);
-        const valorPendente = valorTotal - valorPago;
-        return sum + Math.max(0, valorPendente); // Show amount still owed
-      }, 0),
-      // Valores de planos de tratamento já pagos
-      valorPlanosPagos: buscarValoresPlanosPagos().then(result => result.totalPlanosPagos || 0),
-      valorPlanosPendentes: buscarValoresPlanosPagos().then(result => result.totalPlanosPendentes || 0),
+      receitaHoje,
+      receitaSemana,
+      pacientesAtendidosHoje,
+      taxaFalta,
     };
-  }, [items, dentistId]);
+  }, [items]);
 
-  const filtered = useMemo(() => {
-    let filteredItems = items;
-    
-    // Filter by dentist if dentistId is provided
-    if (dentistId) {
-      filteredItems = filteredItems.filter((item) => item.dentista_id === dentistId);
-    }
-    
-    // Apply financial status filter
-    if (filtro !== 'todos') {
-      filteredItems = filteredItems.filter((item) => item.status_financeiro === filtro);
-    }
-    
-    // Apply advanced filters if enabled
-    if (enableFiltering) {
-      if (pacienteFilter) {
-        filteredItems = filteredItems.filter((item) => 
-          item.paciente_nome.toLowerCase().includes(pacienteFilter.toLowerCase())
-        );
-      }
-      if (dentistaFilter) {
-        filteredItems = filteredItems.filter((item) => 
-          item.dentista_nome.toLowerCase().includes(dentistaFilter.toLowerCase())
-        );
-      }
-    }
-    
-    return filteredItems;
-  }, [filtro, items, dentistId, pacienteFilter, dentistaFilter, enableFiltering]);
+  const filtered = useMemo(() => (
+    filtro === 'todos' ? items : items.filter((item) => item.status_financeiro === filtro)
+  ), [filtro, items]);
 
   const historico = useMemo<HistoricoFinanceiroAgrupado[]>(() => {
     const grupos = new Map<string, HistoricoFinanceiroAgrupado>();
 
-    // Filter items by dentist if dentistId is provided
-    const itemsFiltered = dentistId 
-      ? items.filter((item) => item.dentista_id === dentistId)
-      : items;
-
-    itemsFiltered
+    items
       .filter((item) => item.numero_factura || item.pago_em)
       .forEach((item) => {
         const chave = item.numero_factura ? `factura:${item.numero_factura}` : `item:${item.id}`;
@@ -347,7 +275,7 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh, 
         const existente = grupos.get(chave);
 
         if (existente) {
-          existente.total += Number(item.valor || 0);
+          existente.total += Number(item.valor_pago || 0);
           existente.quantidade_servicos += 1;
           if (item.procedimento && !existente.procedimentos.includes(item.procedimento)) {
             existente.procedimentos.push(item.procedimento);
@@ -363,7 +291,7 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh, 
           paciente_nome: item.paciente_nome,
           numero_factura: item.numero_factura || null,
           data_referencia: dataReferencia,
-          total: Number(item.valor || 0),
+          total: Number(item.valor_pago || 0),
           quantidade_servicos: 1,
           procedimentos: item.procedimento ? [item.procedimento] : [],
         });
@@ -372,17 +300,12 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh, 
     return Array.from(grupos.values())
       .sort((a, b) => new Date(b.data_referencia).getTime() - new Date(a.data_referencia).getTime())
       .slice(0, 8);
-  }, [items, dentistId]);
+  }, [items]);
 
   const gruposUnificaveis = useMemo(() => {
     const grupos = new Map<string, GrupoFacturaUnificada>();
 
-    // Filter items by dentist if dentistId is provided
-    const itemsFiltered = dentistId 
-      ? items.filter((item) => item.dentista_id === dentistId)
-      : items;
-
-    itemsFiltered.forEach((item) => {
+    items.forEach((item) => {
       const chave = item.paciente_id || item.paciente_nome;
       const existente = grupos.get(chave);
 
@@ -406,9 +329,9 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh, 
     });
 
     return Array.from(grupos.values())
-      .filter((grupo) => grupo.items.length > 1 && grupo.dentistas.length > 1 && grupo.items.every((item) => item.dentista_id === dentistId))
-      .sort((a, b) => a.paciente_nome.localeCompare(b.paciente_nome));
-  }, [items, dentistId]);
+      .filter((grupo) => grupo.items.length > 1 && grupo.dentistas.length > 1)
+      .sort((a, b) => b.total - a.total);
+  }, [items]);
 
   const emitirFactura = async (status: 'pendente' | 'parcial' | 'pago') => {
     if (!selected) return;
@@ -451,7 +374,7 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh, 
     Toast.show({
       type: 'success',
       text1: 'Factura unificada emitida',
-      text2: `${grupoSelecionado.paciente_nome} • ${formatCurrency(grupoSelecionado.total)}`,
+      text2: `${grupoSelecionado.paciente_nome} • ${money(grupoSelecionado.total)}`,
     });
     setGrupoSelecionado(null);
     setNumeroFactura('');
@@ -471,50 +394,63 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh, 
     }
   };
 
-  const openPartialPaymentModal = (item: TratamentoFinanceiroItem) => {
-    setSelectedForPartial(item);
-    setPartialAmount('');
-    setPartialPaymentModal(true);
-  };
-
-  const processPartialPayment = async () => {
-    if (!selectedForPartial || !partialAmount || Number(partialAmount) <= 0) {
-      Toast.show({ type: 'error', text1: 'Valor inválido', text2: 'Digite um valor maior que zero' });
+  const processarPagamentoParcial = async () => {
+    if (!itemPagamentoParcial || !valorPagamentoParcial) {
+      Toast.show({ type: 'error', text1: 'Erro', text2: 'Preencha o valor do pagamento' });
       return;
     }
 
-    const valorTotal = Number(selectedForPartial.valor || 0);
-    const valorPago = Number(partialAmount);
+    const valor = Number(valorPagamentoParcial);
+    const valorTotal = Number(itemPagamentoParcial.valor || 0);
+    const valorPagoAtual = Number(itemPagamentoParcial.valor_pago || 0);
+    const novoValorPago = valorPagoAtual + valor;
+
+    if (valor <= 0 || valor > valorTotal) {
+      Toast.show({ type: 'error', text1: 'Erro', text2: 'Valor de pagamento inválido' });
+      return;
+    }
+
+    const status = novoValorPago >= valorTotal ? 'pago' : 'parcial';
     
-    if (valorPago >= valorTotal) {
-      Toast.show({ type: 'error', text1: 'Valor excede o total', text2: 'Use "Marcar pago" para pagamento completo' });
-      return;
-    }
-
-    const result = await atualizarFinanceiroProcedimento(selectedForPartial.id, {
-      status_financeiro: 'parcial',
-      valor_pago: valorPago,
-      valor_pendente: valorTotal - valorPago,
-      pago_parcial_em: new Date().toISOString(),
-      factura_emitida_em: selectedForPartial.factura_emitida_em || new Date().toISOString(),
-      numero_factura: selectedForPartial.numero_factura || `FT-${Date.now().toString().slice(-6)}`,
+    const result = await atualizarFinanceiroProcedimento(itemPagamentoParcial.id, {
+      status_financeiro: status,
+      valor_pago: novoValorPago,
+      pago_em: status === 'pago' ? new Date().toISOString() : (itemPagamentoParcial.pago_em || new Date().toISOString()),
+      factura_emitida_em: itemPagamentoParcial.factura_emitida_em || new Date().toISOString(),
+      numero_factura: itemPagamentoParcial.numero_factura || `FT-${Date.now().toString().slice(-6)}`,
     });
-    
+
     if (result.success) {
-      Toast.show({ type: 'success', text1: 'Pagamento parcial registrado', text2: `${formatCurrency(valorPago)} pago, ${formatCurrency(valorTotal - valorPago)} pendente` });
-      setPartialPaymentModal(false);
-      setSelectedForPartial(null);
-      setPartialAmount('');
+      Toast.show({ type: 'success', text1: 'Pagamento parcial processado' });
+      setModalPagamentoParcial(false);
+      setValorPagamentoParcial('');
+      setItemPagamentoParcial(null);
       onRefresh();
     } else {
-      Toast.show({ type: 'error', text1: 'Erro ao registrar pagamento', text2: result.error || 'Tente novamente' });
+      Toast.show({ type: 'error', text1: 'Erro', text2: result.error || 'Tente novamente' });
+    }
+  };
+
+  const abrirModalPagamentoParcial = (item: TratamentoFinanceiroItem) => {
+    setItemPagamentoParcial(item);
+    setValorPagamentoParcial('');
+    setModalPagamentoParcial(true);
+  };
+
+  const emitirFacturaPagamento = async (item: TratamentoFinanceiroItem) => {
+    const html = buildHtml(item);
+    const result = await exportHtmlAsPdf(html, `factura-pagamento-${item.id}.pdf`);
+    if (result.success) {
+      Toast.show({ type: 'success', text1: 'Factura de pagamento emitida' });
+    } else {
+      Toast.show({ type: 'error', text1: 'Erro', text2: result.error || 'Tente novamente' });
     }
   };
 
   const enviarWhatsapp = async (item: TratamentoFinanceiroItem) => {
     if (!item.paciente_telefone) return Toast.show({ type: 'info', text1: 'Paciente sem telefone' });
     const phone = item.paciente_telefone.replace(/\D/g, '');
-    await Linking.openURL(`https://wa.me/${phone}?text=${encodeURIComponent(`Olá ${item.paciente_nome}, procedimento ${item.procedimento} no valor de ${formatCurrency(item.valor)}.`)}`);
+    await Linking.openURL(`https://wa.me/${phone}?text=${encodeURIComponent(`Olá ${item.paciente_nome}, procedimento ${item.procedimento} no valor de ${money(item.valor)}.`)}`);
   };
 
   const handlePrintServico = async (item: TratamentoFinanceiroItem) => {
@@ -539,24 +475,35 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh, 
   return (
     <>
       <FlatList
-        data={filtered}
+        data={filtro === 'pago' ? [] : filtered}
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={!!loading} onRefresh={onRefresh} />}
         contentContainerStyle={styles.content}
         ListHeaderComponent={
           <View>
-            <View style={styles.metricsRow}>
-              {[
-                ['Planos ativos', resumo.planosAtivos],
-                ['Aguardando factura', resumo.aguardando],
-                ['Facturas emitidas hoje', resumo.facturasHoje],
-                ['Pagamentos pendentes', resumo.pendentes],
-              ].map(([label, value]) => (
-                <View key={String(label)} style={styles.metricCard}>
-                  <Text style={styles.metricValue}>{value}</Text>
-                  <Text style={styles.metricLabel}>{label}</Text>
+            <View style={styles.metricsContainer}>
+              <View style={styles.metricsRow}>
+                <View style={styles.metricCard}>
+                  <Text style={styles.metricValue}>{resumo.aguardando}</Text>
+                  <Text style={styles.metricLabel}>Aguardando Factura</Text>
                 </View>
-              ))}
+                <View style={styles.metricCard}>
+                  <Text style={styles.metricValue}>{formatCurrency(resumo.receitaHoje)}</Text>
+                  <Text style={styles.metricLabel}>Receita Hoje</Text>
+                </View>
+                <View style={styles.metricCard}>
+                  <Text style={styles.metricValue}>{formatCurrency(resumo.receitaSemana)}</Text>
+                  <Text style={styles.metricLabel}>Receita Semana</Text>
+                </View>
+                <View style={styles.metricCard}>
+                  <Text style={styles.metricValue}>{resumo.pacientesAtendidosHoje}</Text>
+                  <Text style={styles.metricLabel}>Pacientes Hoje</Text>
+                </View>
+                <View style={styles.metricCard}>
+                  <Text style={styles.metricValue}>{resumo.taxaFalta.toFixed(1)}%</Text>
+                  <Text style={styles.metricLabel}>Taxa Falta</Text>
+                </View>
+              </View>
             </View>
 
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersRow}>
@@ -565,45 +512,18 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh, 
                   <Text style={[styles.filterText, filtro === item.key && styles.filterTextActive]}>{item.label}</Text>
                 </TouchableOpacity>
               ))}
-              {enableFiltering && (
-                <TouchableOpacity 
-                  style={[styles.filterChip, showAdvancedFilters && styles.filterChipActive]} 
-                  onPress={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                >
-                  <Text style={[styles.filterText, showAdvancedFilters && styles.filterTextActive]}>Filtros</Text>
-                </TouchableOpacity>
-              )}
             </ScrollView>
-            
-            {enableFiltering && showAdvancedFilters && (
-              <View style={styles.advancedFilters}>
-                <TextInput
-                  style={styles.filterInput}
-                  placeholder="Filtrar por paciente..."
-                  value={pacienteFilter}
-                  onChangeText={setPacienteFilter}
-                  placeholderTextColor={COLORS.textSecondary}
-                />
-                <TextInput
-                  style={styles.filterInput}
-                  placeholder="Filtrar por dentista..."
-                  value={dentistaFilter}
-                  onChangeText={setDentistaFilter}
-                  placeholderTextColor={COLORS.textSecondary}
-                />
-              </View>
-            )}
 
-            {enableUnifiedPrinting && gruposUnificaveis.length > 0 && (
+            {gruposUnificaveis.length > 0 && (
               <View style={styles.unifiedCard}>
                 <Text style={styles.unifiedTitle}>Facturas unificadas por paciente</Text>
-                <Text style={styles.unifiedSubtitle}>Pacientes com múltiplas consultas podem receber uma factura unificada com valor total.</Text>
+                <Text style={styles.unifiedSubtitle}>Pacientes atendidos por dois ou mais dentistas podem receber uma unica factura com o valor total somado.</Text>
                 {gruposUnificaveis.map((grupo) => (
                   <View key={grupo.paciente_id || grupo.paciente_nome} style={styles.unifiedRow}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.unifiedPatient}>{grupo.paciente_nome}</Text>
                       <Text style={styles.unifiedMeta}>{grupo.dentistas.join(' • ')}</Text>
-                      <Text style={styles.unifiedMeta}>{grupo.items.length} servicos • {formatCurrency(grupo.total)}</Text>
+                      <Text style={styles.unifiedMeta}>{grupo.items.length} servicos • {money(grupo.total)}</Text>
                     </View>
                     <TouchableOpacity style={styles.unifyBtn} onPress={() => { setNumeroFactura(''); setGrupoSelecionado(grupo); }}>
                       <Text style={styles.unifyBtnText}>Unificar facturas</Text>
@@ -622,20 +542,32 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh, 
           const financial = financialStatus(item.status_financeiro);
           return (
             <View style={styles.card}>
-              <Text style={styles.patient}>{item.paciente_nome}</Text>
-              <Text style={styles.meta}>Dr(a). {item.dentista_nome} • {item.especialidade}</Text>
+              <View style={styles.cardHeader}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.patient}>{item.paciente_nome}</Text>
+                  <Text style={styles.meta}>Dr(a). {item.dentista_nome} • {item.especialidade}</Text>
+                </View>
+              </View>
+              
               <Text style={styles.procedure}>{item.procedimento}</Text>
-              <Text style={styles.meta}>Sessao {item.sessao_numero} • {formatCurrency(item.valor)} • {formatDateTime(item.data_hora)}</Text>
+              <Text style={styles.meta}>{formatDateTime(item.data_hora)}</Text>
+              
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentText}>Valor Já Pago: {money(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0))}</Text>
+                <Text style={[styles.paymentText, { color: COLORS.danger }]}>
+                  Saldo Devedor: {money(Number(item.valor || 0) - Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0)))}
+                </Text>
+              </View>
               <View style={styles.statusRow}>
                 <View style={[styles.statusChip, { backgroundColor: clinical.bg }]}><Text style={[styles.statusText, { color: clinical.text }]}>Clinico: {clinical.label}</Text></View>
                 <View style={[styles.statusChip, { backgroundColor: financial.bg }]}><Text style={[styles.statusText, { color: financial.text }]}>Financeiro: {financial.label}</Text></View>
               </View>
               <View style={styles.actionsRow}>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => { setNumeroFactura(''); setSelected(item); }}><Text style={styles.actionText}>Emitir factura</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => exportHtmlAsPdf(buildHtml(item), `factura-servico-${item.id}.pdf`)}><Text style={styles.actionText}>Gerar PDF serviço</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => abrirModalPagamentoParcial(item)}><Text style={styles.actionText}>Pagamento Parcial</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => emitirFacturaPagamento(item)}><Text style={styles.actionText}>Fatura pago</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => void handlePrintServico(item)}><Text style={styles.actionText}>Imprimir serviço</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => void marcarPago(item)}><Text style={styles.actionText}>Marcar pago</Text></TouchableOpacity>
-                <TouchableOpacity style={[styles.actionBtn, styles.partialBtn]} onPress={() => openPartialPaymentModal(item)}><Text style={styles.actionText}>Pagamento parcial</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.actionBtn} onPress={() => void enviarWhatsapp(item)}><Text style={styles.actionText}>WhatsApp</Text></TouchableOpacity>
               </View>
             </View>
@@ -657,12 +589,12 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh, 
                     </Text>
                   )}
                 </View>
-                <Text style={styles.historyValue}>{formatCurrency(item.total)}</Text>
+                <Text style={styles.historyValue}>{money(item.total)}</Text>
               </View>
             ))}
           </View>
         }
-        ListEmptyComponent={<View style={styles.footerCard}><Text style={styles.empty}>Nenhum procedimento encontrado.</Text></View>}
+        ListEmptyComponent={filtro === 'pago' ? null : <View style={styles.footerCard}><Text style={styles.empty}>Nenhum procedimento encontrado.</Text></View>}
       />
 
       <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}>
@@ -679,12 +611,57 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh, 
         </View>
       </Modal>
 
+      <Modal visible={modalPagamentoParcial} transparent animationType="fade" onRequestClose={() => setModalPagamentoParcial(false)}>
+        <View style={styles.overlay}>
+          <View style={styles.mediumModalCard}>
+            <Text style={styles.modalTitle}>Pagamento Parcial</Text>
+            {itemPagamentoParcial && (
+              <>
+                <Text style={styles.modalSubtitle}>
+                  Paciente: {itemPagamentoParcial.paciente_nome}
+                </Text>
+                <Text style={styles.modalSubtitle}>
+                  Serviço: {itemPagamentoParcial.procedimento}
+                </Text>
+                <Text style={styles.modalSubtitle}>
+                  Valor Total: {money(itemPagamentoParcial.valor)}
+                </Text>
+                {itemPagamentoParcial.valor_pago && (
+                  <Text style={styles.modalSubtitle}>
+                  Valor Já Pago: {money(itemPagamentoParcial.valor_pago)}
+                </Text>
+                )}
+                <Text style={styles.modalSubtitle}>
+                  Saldo Devedor: {money(Number(itemPagamentoParcial.valor || 0) - Number(itemPagamentoParcial.valor_pago || 0))}
+                </Text>
+                <TextInput 
+                  style={styles.input} 
+                  value={valorPagamentoParcial} 
+                  onChangeText={setValorPagamentoParcial} 
+                  placeholder="Valor do pagamento" 
+                  placeholderTextColor={COLORS.textSecondary}
+                  keyboardType="numeric"
+                />
+                <View style={styles.actionsRow}>
+                  <TouchableOpacity style={[styles.actionBtn, { backgroundColor: COLORS.secondary }]} onPress={processarPagamentoParcial}>
+                    <Text style={styles.actionText}>Processar Pagamento</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.actionBtn, { backgroundColor: COLORS.danger }]} onPress={() => setModalPagamentoParcial(false)}>
+                    <Text style={styles.actionText}>Cancelar</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       <Modal visible={!!grupoSelecionado} transparent animationType="fade" onRequestClose={() => setGrupoSelecionado(null)}>
         <View style={styles.overlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Unificar facturas</Text>
             <Text style={styles.unifiedSubtitle}>
-              {grupoSelecionado ? `${grupoSelecionado.paciente_nome} • ${grupoSelecionado.items.length} servicos • ${formatCurrency(grupoSelecionado.total)}` : ''}
+              {grupoSelecionado ? `${grupoSelecionado.paciente_nome} • ${grupoSelecionado.items.length} servicos • ${money(grupoSelecionado.total)}` : ''}
             </Text>
             <TextInput style={styles.input} value={numeroFactura} onChangeText={setNumeroFactura} placeholder="Numero da factura unificada" placeholderTextColor={COLORS.textSecondary} />
             <View style={styles.actionsRow}>
@@ -711,38 +688,6 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh, 
           </View>
         </View>
       </Modal>
-
-      <Modal visible={partialPaymentModal} transparent animationType="fade" onRequestClose={() => setPartialPaymentModal(false)}>
-        <View style={styles.overlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Pagamento Parcial</Text>
-            {selectedForPartial && (
-              <>
-                <Text style={styles.partialInfo}>Paciente: {selectedForPartial.paciente_nome}</Text>
-                <Text style={styles.partialInfo}>Procedimento: {selectedForPartial.procedimento}</Text>
-                <Text style={styles.partialInfo}>Valor total: {formatCurrency(selectedForPartial.valor)}</Text>
-                <Text style={styles.partialInfo}>Valor pendente: {formatCurrency(selectedForPartial.valor_pendente || selectedForPartial.valor)}</Text>
-              </>
-            )}
-            <TextInput 
-              style={styles.input} 
-              value={partialAmount} 
-              onChangeText={setPartialAmount} 
-              placeholder="Valor do pagamento parcial" 
-              keyboardType="numeric"
-              placeholderTextColor={COLORS.textSecondary} 
-            />
-            <View style={styles.actionsRow}>
-              <TouchableOpacity style={[styles.actionBtn, styles.cancelBtn]} onPress={() => setPartialPaymentModal(false)}>
-                <Text style={styles.actionText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionBtn, styles.confirmBtn]} onPress={processPartialPayment}>
-                <Text style={styles.actionText}>Confirmar Pagamento</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </>
   );
 };
@@ -751,13 +696,8 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 32 },
   metricsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md, marginBottom: SPACING.md },
   metricCard: { flexGrow: 1, minWidth: 150, backgroundColor: COLORS.surface, borderRadius: 18, padding: SPACING.md, ...SHADOWS.sm },
-  primaryMetric: { backgroundColor: COLORS.primary },
-  successMetric: { backgroundColor: COLORS.success },
-  warningMetric: { backgroundColor: COLORS.warning },
-  infoMetric: { backgroundColor: COLORS.info },
-  metricHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  metricValue: { fontSize: 24, fontWeight: TYPOGRAPHY.weights.bold, color: '#ffffff', textAlign: 'center' },
-  metricLabel: { marginTop: 4, fontSize: TYPOGRAPHY.sizes.small, color: '#ffffff', textAlign: 'center', fontWeight: '600' },
+  metricValue: { fontSize: 28, fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.text },
+  metricLabel: { marginTop: 4, fontSize: TYPOGRAPHY.sizes.small, color: COLORS.textSecondary },
   filtersRow: { gap: SPACING.sm, paddingBottom: SPACING.md },
   unifiedCard: { backgroundColor: COLORS.surface, borderRadius: 20, padding: SPACING.md, marginBottom: SPACING.md, borderWidth: 1, borderColor: '#E5E7EB', ...SHADOWS.sm },
   unifiedTitle: { fontSize: TYPOGRAPHY.sizes.h4, fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.text },
@@ -781,6 +721,51 @@ const styles = StyleSheet.create({
   actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.md },
   actionBtn: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
   actionText: { color: COLORS.text, fontSize: TYPOGRAPHY.sizes.small, fontWeight: TYPOGRAPHY.weights.semiBold },
+  paymentInfo: { marginTop: 12, padding: 12, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#F1F5F9' },
+  paymentText: { fontSize: 13, color: '#059669', fontWeight: '700' },
+  debtText: { fontSize: 13, color: '#DC2626', fontWeight: '700', marginTop: 4 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
+  faturadoBadge: { backgroundColor: '#F0FDF4', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#DCFCE7' },
+  faturadoLabel: { fontSize: 11, color: '#166534', fontWeight: '500' },
+  faturadoValue: { fontWeight: '700' },
+  metricsContainer: { marginBottom: SPACING.md },
+  reportButtonContainer: { 
+    position: 'absolute', 
+    right: 0, 
+    top: 0, 
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  reportButton: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: COLORS.primary, 
+    paddingHorizontal: SPACING.md, 
+    paddingVertical: SPACING.sm, 
+    borderRadius: 12,
+    ...SHADOWS.sm 
+  },
+  reportButtonText: { 
+    color: COLORS.textInverse, 
+    fontSize: TYPOGRAPHY.sizes.small, 
+    fontWeight: TYPOGRAPHY.weights.semiBold,
+    marginLeft: SPACING.xs 
+  },
+  mediumModalCard: { 
+    backgroundColor: COLORS.surface, 
+    borderRadius: 20, 
+    padding: SPACING.lg, 
+    width: '90%', 
+    maxWidth: 400,
+    maxHeight: '80%',
+    ...SHADOWS.lg 
+  },
+  modalSubtitle: { 
+    fontSize: TYPOGRAPHY.sizes.small, 
+    color: COLORS.textSecondary, 
+    marginBottom: SPACING.sm 
+  },
   footerCard: { backgroundColor: COLORS.surface, borderRadius: 20, padding: SPACING.md, borderWidth: 1, borderColor: '#E5E7EB', ...SHADOWS.sm },
   footerTitle: { fontSize: TYPOGRAPHY.sizes.h4, fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.text, marginBottom: SPACING.sm },
   historyRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingVertical: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
@@ -796,28 +781,6 @@ const styles = StyleSheet.create({
   unifiedPdfText: { color: '#3730A3', fontSize: TYPOGRAPHY.sizes.small, fontWeight: TYPOGRAPHY.weights.semiBold },
   printBtn: { marginTop: SPACING.sm, backgroundColor: '#ECFDF5', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: '#A7F3D0' },
   printBtnText: { color: '#047857', fontSize: TYPOGRAPHY.sizes.small, fontWeight: TYPOGRAPHY.weights.semiBold },
-  partialBtn: { backgroundColor: '#FEF3C7', borderColor: '#F59E0B', borderWidth: 1 },
-  partialInfo: { fontSize: TYPOGRAPHY.sizes.small, color: COLORS.textSecondary, marginBottom: 4 },
-  cancelBtn: { backgroundColor: '#FEE2E2', borderColor: '#B91C1C' },
-  confirmBtn: { backgroundColor: '#DCFCE7', borderColor: '#166534' },
-  advancedFilters: { 
-    backgroundColor: COLORS.surface, 
-    padding: SPACING.sm, 
-    marginBottom: SPACING.md, 
-    borderRadius: 12,
-    ...SHADOWS.sm 
-  },
-  filterInput: { 
-    backgroundColor: '#F8FAFC', 
-    borderWidth: 1, 
-    borderColor: '#E2E8F0', 
-    borderRadius: 8, 
-    paddingHorizontal: 12, 
-    paddingVertical: 8, 
-    color: COLORS.text,
-    marginBottom: 8,
-    fontSize: TYPOGRAPHY.sizes.small
-  },
 });
 
 export default TratamentosFacturasPanel;

@@ -599,13 +599,13 @@ export const deletarDentista = async (id: string): Promise<{
     }
 
     const { error: agendamentosUpdateError } = await supabase
-      .from('agendamentos')
+      .from('appointments')
       .update({
-        dentista_id: null,
+        dentist_id: null,
         status: 'pendente',
         updated_at: new Date().toISOString(),
       })
-      .eq('dentista_id', id);
+      .eq('dentist_id', id);
     if (agendamentosUpdateError && !isNoRowsError(agendamentosUpdateError)) {
       return { success: false, error: agendamentosUpdateError.message };
     }

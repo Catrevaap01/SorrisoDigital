@@ -40,7 +40,7 @@ import { gerarFichaHistorico } from './gerarFichaHistorico';
 import { gerarFichaCadastroHTML } from '../../services/fichaService';
 import { deleteImage, uploadImage } from '../../services/storageService';
 import { COLORS, SHADOWS, SIZES, SPACING, TYPOGRAPHY } from '../../styles/theme';
-import { formatBirthDateInput } from '../../utils/helpers';
+import { formatBirthDateInput, formatDate } from '../../utils/helpers';
 
 const safeShadow = SHADOWS?.sm || {};
 
@@ -417,7 +417,7 @@ Toast.show({ type: 'error', text1: 'Falha ao enviar documento', text2: uploadRes
                 {!!item.data_nascimento && (
                   <View style={styles.detailItem}>
                     <Ionicons name="calendar-outline" size={12} color={COLORS.textSecondary} />
-                    <Text style={styles.detailText}>DN: {item.data_nascimento}</Text>
+                    <Text style={styles.detailText}>DN: {formatDate(item.data_nascimento)}</Text>
                   </View>
                 )}
                 {!!item.genero && (

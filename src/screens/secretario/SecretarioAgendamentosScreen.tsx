@@ -14,9 +14,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { SecretarioTabParamList } from '../../navigation/types';
-import { Agendamento } from '../../services/agendamentoService';
+import { Agendamento, enrichAgendamentosComValorPlano } from '../../services/agendamentoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
-import { formatDateTime } from '../../utils/helpers';
+import { formatDate, formatDateTime } from '../../utils/helpers';
 import { supabase } from '../../config/supabase';
 
 type Props = BottomTabScreenProps<SecretarioTabParamList, 'Agendamentos'>;
@@ -25,8 +25,15 @@ type TabKey = 'pendentes' | 'encaminhados' | 'retornos' | 'historico';
 type AgendaItem = Agendamento & {
   urgency?: string;
   symptoms?: string;
+  valor_estimado_plano?: number;
   paciente?: { nome?: string; telefone?: string; email?: string } | null;
   dentista?: { nome?: string; especialidade?: string } | null;
+};
+
+const PRECO_POR_TIPO: Record<string, number> = {
+  consulta: 25000, avaliacao: 30000, retorno: 15000, urgencia: 45000,
+  raio_x: 20000, panoramico: 35000, profilaxia: 22000, branqueamento: 60000,
+  canal: 90000, ortodontia: 120000, restauracao: 40000,
 };
 
 const TABS: Array<{ key: TabKey; label: string }> = [
@@ -126,7 +133,8 @@ const SecretarioAgendamentosScreen: React.FC<Props> = ({ navigation }) => {
         );
       }
 
-      setAgendamentos(finalAgendas);
+      const enrichedFinal = await enrichAgendamentosComValorPlano(finalAgendas);
+      setAgendamentos(enrichedFinal);
     } catch (err) {
       console.error('Erro ao carregar agendamentos:', err);
       setAgendamentos([]);
@@ -227,7 +235,31 @@ const SecretarioAgendamentosScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.metaText}>{getAppointmentType(item)}</Text>
           <Text style={styles.metaDot}>•</Text>
           <Text style={styles.metaText}>
-            {item.appointment_date ? formatDateTime(item.appointment_date) : 'Sem horario'}
+            {(() => {
+              const dataBase = item.appointment_date || item.suggested_date;
+              if (!dataBase) return 'Sem horário';
+              
+              let hora = '';
+              
+              // Se tiver appointment_time, usa ele (preferencial)
+              if (item.appointment_time) {
+                hora = item.appointment_time.substring(0, 5);
+              } 
+              // Se não tiver mas a data for ISO com T, extrai a hora
+              else if (typeof dataBase === 'string' && dataBase.includes('T')) {
+                const parts = dataBase.split('T');
+                if (parts[1]) hora = parts[1].substring(0, 5);
+              }
+              
+              // Se ainda assim for 00:00 ou vazia, e tiver suggested_date, tenta extrair de lá
+              if ((!hora || hora === '00:00') && item.suggested_date && item.suggested_date.includes('T')) {
+                const parts = item.suggested_date.split('T');
+                if (parts[1]) hora = parts[1].substring(0, 5);
+              }
+
+              return `${formatDate(dataBase)}${hora && hora !== '00:00' ? ` as ${hora}` : ''}`;
+            })()}
+            {item.status === 'reagendamento_solicitado' && <Text style={{ color: '#F59E0B' }}> ⭐ Sugerido</Text>}
           </Text>
           <View style={[styles.urgencyBadge, { backgroundColor: urgencyTone.bg }]}>
             <Text style={[styles.urgencyText, { color: urgencyTone.text }]}>{urgencyTone.label}</Text>
@@ -239,6 +271,11 @@ const SecretarioAgendamentosScreen: React.FC<Props> = ({ navigation }) => {
             {item.paciente?.telefone || 'Sem telefone'}
             {item.dentista?.nome ? ` • Dr(a). ${item.dentista.nome}` : ''}
           </Text>
+          {item.valor_estimado_plano && item.valor_estimado_plano > 0 ? (
+            <Text style={styles.contactText}>Estimativa plano: {item.valor_estimado_plano.toLocaleString('pt-AO')} Kz</Text>
+          ) : (
+            <Text style={styles.contactText}>Estimativa: {(PRECO_POR_TIPO[item.tipo || 'consulta'] || 0).toLocaleString('pt-AO')} Kz</Text>
+          )}
           <TouchableOpacity 
             style={[
               styles.primaryAction, 

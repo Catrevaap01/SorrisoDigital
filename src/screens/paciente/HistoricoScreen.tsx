@@ -21,8 +21,10 @@ import {
 } from '../../services/triagemService';
 import {
   buscarAgendamentosPaciente,
-  confirmarAgendamento,
   cancelarAgendamento,
+  updateAgendamento,
+  rejeitarSugestaoPaciente,
+  buscarValorEstimadoPlano,
 } from '../../services/agendamentoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { STATUS_TRIAGEM, RECOMENDACAO, STATUS_AGENDAMENTO, TIPOS_CONSULTA } from '../../utils/constants';
@@ -62,6 +64,7 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
   const [triagemSelecionada, setTriagemSelecionada] = useState<any | null>(null);
   const [modalAgendamentoVisible, setModalAgendamentoVisible] = useState<boolean>(false);
   const [agendamentoSelecionado, setAgendamentoSelecionado] = useState<any | null>(null);
+  const [valorEstimadoPlano, setValorEstimadoPlano] = useState<number | null>(null);
 
   const carregarTriagens = async () => {
     if (!profile?.id) return;
@@ -150,8 +153,8 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     ...triagensFiltradas.map((t: any) => ({ ...t, tipo: 'triagem' })),
     ...agendamentosFiltrados.map((a: any) => ({ ...a, tipo: 'agendamento' })),
   ].sort((a: any, b: any) => {
-    const dataA = a.tipo === 'triagem' ? a.created_at : a.data_agendamento;
-    const dataB = b.tipo === 'triagem' ? b.created_at : b.data_agendamento;
+    const dataA = a.tipo === 'triagem' ? a.created_at : (a.appointment_date || a.data_agendamento);
+    const dataB = b.tipo === 'triagem' ? b.created_at : (b.appointment_date || b.data_agendamento);
     return new Date(dataB || 0).getTime() - new Date(dataA || 0).getTime();
   });
 
@@ -160,9 +163,18 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     setModalVisible(true);
   };
 
-  const abrirDetalhesAgendamento = (agendamento: any) => {
+  const abrirDetalhesAgendamento = async (agendamento: any) => {
+    setValorEstimadoPlano(null);
     setAgendamentoSelecionado(agendamento);
     setModalAgendamentoVisible(true);
+    
+    // Fetch estimated value asynchronously
+    if (profile?.id && agendamento.patient_id) {
+      const { estimado } = await buscarValorEstimadoPlano(agendamento.patient_id, agendamento.triagem_id);
+      if (estimado > 0) {
+        setValorEstimadoPlano(estimado);
+      }
+    }
   };
 
   const renderTriagem = ({ item }: { item: any }) => {
@@ -231,7 +243,9 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
             <Ionicons name={statusInfo.icon as any} size={12} color="#fff" />
             <Text style={styles.statusText}>{statusInfo.label}</Text>
           </View>
-          <Text style={styles.cardData}>{formatRelativeTime(item.data_agendamento)}</Text>
+          <Text style={styles.cardData}>
+            {item.appointment_date ? formatRelativeTime(item.appointment_date) : '--'}
+          </Text>
         </View>
 
         {/* Tipo de Consulta */}
@@ -257,7 +271,11 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
           <View style={styles.infoItem}>
             <Ionicons name="calendar" size={14} color={COLORS.textSecondary} />
             <Text style={styles.infoText}>
-              {new Date(item.data_agendamento).toLocaleDateString('pt-BR', {
+              {item.appointment_date ? new Date(item.appointment_date).toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+              }) : new Date(item.data_agendamento).toLocaleDateString('pt-BR', {
                 day: '2-digit',
                 month: '2-digit',
                 year: 'numeric',
@@ -267,15 +285,21 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
           <View style={styles.infoItem}>
             <Ionicons name="time" size={14} color={COLORS.textSecondary} />
             <Text style={styles.infoText}>
-              {new Date(item.data_agendamento).toLocaleTimeString('pt-BR', {
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
+              {item.appointment_time || item.appointment_date ? 
+                (item.appointment_time || new Date(item.appointment_date).toLocaleTimeString('pt-BR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })) : 
+                new Date(item.data_agendamento).toLocaleTimeString('pt-BR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              }
             </Text>
           </View>
         </View>
         <Text style={styles.valorConsulta}>
-          Valor estimado: {formatCurrency(PRECO_POR_TIPO[item.tipo || 'consulta'] || 0)}
+          Valor estimado: {valorEstimadoPlano && valorEstimadoPlano > 0 ? formatCurrency(valorEstimadoPlano) : formatCurrency(PRECO_POR_TIPO[item.tipo || 'consulta'] || 0)}
         </Text>
 
         {/* Observações */}
@@ -302,7 +326,23 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
     }
     if (!agendamentoSelecionado?.id || processingAgendamentoId) return;
     setProcessingAgendamentoId(agendamentoSelecionado.id);
-    const res = await confirmarAgendamento(agendamentoSelecionado.id, profile.id);
+
+    // Patient confirms the appointment (or suggested reschedule)
+    const novoStatus = agendamentoSelecionado.status === 'reagendamento_solicitado'
+      ? 'confirmado_dentista'
+      : 'confirmado_paciente';
+
+    const updatePayload: Record<string, any> = { status: novoStatus };
+
+    if (agendamentoSelecionado.status === 'reagendamento_solicitado' && agendamentoSelecionado.suggested_date) {
+      const dtObj = new Date(agendamentoSelecionado.suggested_date);
+      updatePayload.appointment_date = agendamentoSelecionado.suggested_date.split('T')[0];
+      updatePayload.appointment_time = `${String(dtObj.getHours()).padStart(2, '0')}:${String(dtObj.getMinutes()).padStart(2, '0')}`;
+      updatePayload.suggested_date = null;
+      updatePayload.suggested_by = null;
+    }
+
+    const res = await updateAgendamento(agendamentoSelecionado.id, updatePayload);
     if (res.success) {
       Toast.show({ type: 'success', text1: 'Agendamento confirmado', text2: 'O horário foi confirmado com sucesso.' });
       setModalAgendamentoVisible(false);
@@ -311,7 +351,7 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
       Toast.show({
         type: 'error',
         text1: 'Erro ao confirmar',
-        text2: (typeof res.error === 'string' ? res.error : res.error?.message) || 'Não foi possível confirmar o agendamento',
+        text2: (typeof res.error === 'string' ? res.error : (res.error as any)?.message) || 'Não foi possível confirmar o agendamento',
       });
     }
     setProcessingAgendamentoId(null);
@@ -330,6 +370,30 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
         type: 'error',
         text1: 'Erro ao cancelar',
         text2: (typeof res.error === 'string' ? res.error : res.error?.message) || 'Não foi possível cancelar o agendamento',
+      });
+    }
+    setProcessingAgendamentoId(null);
+  };
+
+  const handleRejeitarSugestao = async () => {
+    if (!agendamentoSelecionado?.id) return;
+    
+    setProcessingAgendamentoId(agendamentoSelecionado.id);
+    
+    const res = await rejeitarSugestaoPaciente(agendamentoSelecionado.id);
+    if (res.success) {
+      Toast.show({ 
+        type: 'info', 
+        text1: 'Sugestão rejeitada', 
+        text2: 'A sugestão de horário foi rejeitada e voltou para a fila com seu horário original.' 
+      });
+      setModalAgendamentoVisible(false);
+      await carregarDados();
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Erro ao rejeitar',
+        text2: (typeof res.error === 'string' ? res.error : res.error?.message) || 'Não foi possível rejeitar a sugestão',
       });
     }
     setProcessingAgendamentoId(null);
@@ -510,9 +574,14 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
               {/* Data e Hora */}
               <View style={styles.modalRow}>
                 <View style={styles.modalColumn}>
-                  <Text style={styles.modalLabel}>Data</Text>
-                  <Text style={styles.modalValue}>
-                    {new Date(agendamentoSelecionado.data_agendamento).toLocaleDateString('pt-BR', {
+                  <Text style={styles.modalLabel}>Data {agendamentoSelecionado.status === 'reagendamento_solicitado' ? 'Sugerida ⭐' : ''}</Text>
+                  <Text style={[
+                    styles.modalValue,
+                    agendamentoSelecionado.status === 'reagendamento_solicitado' && styles.modalValueSugerido
+                  ]}>
+                    {agendamentoSelecionado.status === 'reagendamento_solicitado' && agendamentoSelecionado.suggested_date 
+                      ? new Date(agendamentoSelecionado.suggested_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                      : new Date(agendamentoSelecionado.appointment_date || agendamentoSelecionado.data_agendamento).toLocaleDateString('pt-BR', {
                       day: '2-digit',
                       month: '2-digit',
                       year: 'numeric',
@@ -520,9 +589,16 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
                   </Text>
                 </View>
                 <View style={styles.modalColumn}>
-                  <Text style={styles.modalLabel}>Hora</Text>
-                  <Text style={styles.modalValue}>
-                    {new Date(agendamentoSelecionado.data_agendamento).toLocaleTimeString('pt-BR', {
+                  <Text style={styles.modalLabel}>Hora {agendamentoSelecionado.status === 'reagendamento_solicitado' ? 'Sugerida' : ''}</Text>
+                  <Text style={[
+                    styles.modalValue,
+                    agendamentoSelecionado.status === 'reagendamento_solicitado' && styles.modalValueSugerido
+                  ]}>
+                    {agendamentoSelecionado.status === 'reagendamento_solicitado' && agendamentoSelecionado.suggested_date
+                      ? new Date(agendamentoSelecionado.suggested_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+                      : agendamentoSelecionado.appointment_time 
+                        ? agendamentoSelecionado.appointment_time 
+                        : new Date(agendamentoSelecionado.appointment_date || agendamentoSelecionado.data_agendamento).toLocaleTimeString('pt-BR', {
                       hour: '2-digit',
                       minute: '2-digit',
                     })}
@@ -532,7 +608,8 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
               <View style={styles.modalSection}>
                 <Text style={styles.modalLabel}>Valor estimado</Text>
                 <Text style={styles.modalValue}>
-                  {formatCurrency(PRECO_POR_TIPO[agendamentoSelecionado.tipo || 'consulta'] || 0)}
+                  {valorEstimadoPlano && valorEstimadoPlano > 0 ? formatCurrency(valorEstimadoPlano) : formatCurrency(PRECO_POR_TIPO[agendamentoSelecionado.tipo || 'consulta'] || 0)}
+                  {valorEstimadoPlano && valorEstimadoPlano > 0 ? ' (Plano de Tratamento)' : ''}
                 </Text>
               </View>
 
@@ -546,26 +623,40 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
                 </View>
               )}
 
-              {['sugerido', 'agendado'].includes(agendamentoSelecionado.status) && (
+              {['sugerido', 'agendado', 'reagendamento_solicitado'].includes(agendamentoSelecionado.status) && (
                 <View style={styles.modalActions}>
-                  <TouchableOpacity
-                    style={[styles.modalActionButton, { backgroundColor: COLORS.secondary }]}
-                    onPress={handleConfirmarAgendamentoPaciente}
-                    disabled={processingAgendamentoId === agendamentoSelecionado.id}
-                  >
-                    <Text style={styles.modalActionButtonText}>
-                      {processingAgendamentoId === agendamentoSelecionado.id ? 'Aguarde...' : 'Confirmar horário'}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modalActionButton, { backgroundColor: COLORS.danger }]}
-                    onPress={handleCancelarAgendamentoPaciente}
-                    disabled={processingAgendamentoId === agendamentoSelecionado.id}
-                  >
-                    <Text style={styles.modalActionButtonText}>
-                      {processingAgendamentoId === agendamentoSelecionado.id ? 'Aguarde...' : 'Cancelar agendamento'}
-                    </Text>
-                  </TouchableOpacity>
+                  {agendamentoSelecionado.status === 'reagendamento_solicitado' || agendamentoSelecionado.status === 'sugerido' ? (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.modalActionButton, { backgroundColor: COLORS.secondary }]}
+                        onPress={handleConfirmarAgendamentoPaciente}
+                        disabled={processingAgendamentoId === agendamentoSelecionado.id}
+                      >
+                        <Text style={styles.modalActionButtonText}>
+                          {processingAgendamentoId === agendamentoSelecionado.id ? 'Aguarde...' : 'Confirmar sugestão'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.modalActionButton, { backgroundColor: COLORS.danger, marginTop: SIZES.sm }]}
+                        onPress={() => void handleRejeitarSugestao()}
+                        disabled={processingAgendamentoId === agendamentoSelecionado.id}
+                      >
+                        <Text style={styles.modalActionButtonText}>
+                          {processingAgendamentoId === agendamentoSelecionado.id ? 'Aguarde...' : 'Rejeitar sugestão'}
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity
+                      style={[styles.modalActionButton, { backgroundColor: COLORS.secondary }]}
+                      onPress={handleConfirmarAgendamentoPaciente}
+                      disabled={processingAgendamentoId === agendamentoSelecionado.id}
+                    >
+                      <Text style={styles.modalActionButtonText}>
+                        {processingAgendamentoId === agendamentoSelecionado.id ? 'Aguarde...' : 'Confirmar horário'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
 
@@ -1106,6 +1197,10 @@ const styles = StyleSheet.create({
     fontSize: SIZES.fontMd,
     color: COLORS.text,
     fontWeight: '500',
+  },
+  modalValueSugerido: {
+    color: COLORS.warning,
+    fontWeight: '600',
   },
   modalValueMultiline: {
     fontSize: SIZES.fontMd,

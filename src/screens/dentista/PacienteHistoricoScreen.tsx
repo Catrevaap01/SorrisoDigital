@@ -13,7 +13,7 @@ import { buscarTriagensPaciente, Triagem } from '../../services/triagemService';
 import { buscarPaciente, PacienteProfile, calcularIdade } from '../../services/pacienteService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { STATUS_TRIAGEM } from '../../utils/constants';
-import { formatRelativeTime } from '../../utils/helpers';
+import { formatRelativeTime, formatDate } from '../../utils/helpers';
 import { exportarHistoricoPacientePdf } from '../../services/pdfReportService';
 import Toast from 'react-native-toast-message';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -116,7 +116,7 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Text style={styles.infoText}>
               <Text style={styles.infoLabel}>Nascimento: </Text>
-              {paciente.data_nascimento}
+              {formatDate(paciente.data_nascimento)}
             </Text>
             <Text style={[styles.infoText, { color: COLORS.secondary, fontWeight: 'bold' }]}>
               ({calcularIdade(paciente.data_nascimento)} anos)

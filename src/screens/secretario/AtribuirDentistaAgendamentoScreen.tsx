@@ -19,7 +19,7 @@ import { listarDentistasPorEspecialidade, atribuirAgendamentoAoDentista } from '
 import { buscarAgendamentoPorId, Agendamento } from '../../services/agendamentoService';
 import { DentistaProfile } from '../../services/dentistaService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
-import { formatDateTime } from '../../utils/helpers';
+import { formatDate, formatDateTime } from '../../utils/helpers';
 
 type Props = NativeStackScreenProps<SecretarioStackParamList, 'AtribuirAgendamento'>;
 
@@ -139,7 +139,13 @@ const AtribuirDentistaAgendamentoScreen: React.FC<Props> = ({ route, navigation 
       <View style={styles.infoBox}>
         <Text style={styles.infoTitle}>Solicitação do paciente</Text>
         <Text style={styles.infoText}>Paciente: {agendamento?.paciente?.nome || '—'}</Text>
-        <Text style={styles.infoText}>Data preferida: {agendamento?.appointment_date ? formatDateTime(agendamento.appointment_date) : '—'}</Text>
+        <Text style={styles.infoText}>
+          Data preferida: {agendamento?.appointment_date ? (
+            agendamento.appointment_time 
+              ? `${formatDate(agendamento.appointment_date)} as ${agendamento.appointment_time.substring(0, 5)}`
+              : formatDateTime(agendamento.appointment_date)
+          ) : '—'}
+        </Text>
         {agendamento?.notes ? (
           <Text style={styles.infoText}>Motivo: {agendamento.notes}</Text>
         ) : null}

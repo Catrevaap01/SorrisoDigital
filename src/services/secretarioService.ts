@@ -187,14 +187,12 @@ export interface TratamentoFinanceiroItem {
   sessao_numero: number;
   valor: number;
   valor_pago?: number;
-  valor_pendente?: number;
   data_hora: string;
   status_clinico: string;
   status_financeiro: StatusFinanceiroProcedimento;
   numero_factura?: string | null;
   factura_emitida_em?: string | null;
   pago_em?: string | null;
-  pago_parcial_em?: string | null;
   observacoes?: string | null;
 }
 
@@ -224,6 +222,7 @@ const COLUNAS_OPCIONAIS_PROCEDIMENTOS = [
   'numero_factura',
   'factura_emitida_em',
   'pago_em',
+  'valor_pago',
 ];
 
 const isMissingColumnError = (error: any) =>
@@ -327,7 +326,7 @@ export const obterEstatisticasSecretario =
           supabase
             .from('appointments')
             .select('id, status')
-            .in('status', ['agendamento_pendente_secretaria', 'solicitado']) as any,
+            .in('status', ['agendamento_pendente_secretaria']) as any,
           8000
         ),
       ]);
@@ -772,6 +771,7 @@ export const buscarTratamentosFinanceirosSecretaria = async (): Promise<{
         numero_factura: item.numero_factura || null,
         factura_emitida_em: item.factura_emitida_em || null,
         pago_em: item.pago_em || null,
+        valor_pago: item.valor_pago || 0,
         observacoes: item.observacoes || null,
       };
     });
@@ -792,9 +792,7 @@ export const atualizarFinanceiroProcedimento = async (
     numero_factura: string | null;
     factura_emitida_em: string | null;
     pago_em: string | null;
-    valor_pago?: number;
-    valor_pendente?: number;
-    pago_parcial_em?: string | null;
+    valor_pago: number | null;
   }>
 ): Promise<{ success: boolean; error?: string }> => {
   try {

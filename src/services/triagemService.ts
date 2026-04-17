@@ -138,8 +138,12 @@ const provinciaNameFromId = (id?: number): string | undefined => {
   return PROVINCIAS_STATIC_ORDER[id - 1];
 };
 
-const enrichTriagens = async (triagensBase: Triagem[]): Promise<Triagem[]> => {
+const enrichTriagens = async (
+  triagensBase: Triagem[], 
+  options: { minimal?: boolean } = {}
+): Promise<Triagem[]> => {
   if (!triagensBase.length) return triagensBase;
+  const { minimal = false } = options;
 
   const triagens = triagensBase.map((t) => ({ ...t }));
   const triagemIds = triagens.map((t) => t.id).filter(Boolean);
@@ -149,17 +153,23 @@ const enrichTriagens = async (triagensBase: Triagem[]): Promise<Triagem[]> => {
 
   // PARALLEL: All enrichment queries with Promise.allSettled (web perf fix)
   const enrichmentPromises = [];
+  
+  // No modo minimal, só queremos o nome do paciente
+  const patientSelect = minimal 
+    ? 'id, nome' 
+    : 'id, nome, email, telefone, provincia_id, historico_medico, alergias, medicamentos_atuais';
+
   if (pacienteIds.length) {
     enrichmentPromises.push(withTimeout(supabase
       .from('profiles')
-      .select('id, nome, email, telefone, provincia_id, historico_medico, alergias, medicamentos_atuais')
-      .limit(50)
+      .select(patientSelect)
+      .limit(100)
       .in('id', pacienteIds) as any, 5000));
   } else {
     enrichmentPromises.push(Promise.resolve({ data: [] }));
   }
 
-  if (triagemIds.length) {
+  if (triagemIds.length && !minimal) {
     enrichmentPromises.push(withTimeout(supabase
       .from('respostas_triagem')
       .select('*')
@@ -170,7 +180,7 @@ const enrichTriagens = async (triagensBase: Triagem[]): Promise<Triagem[]> => {
     enrichmentPromises.push(Promise.resolve({ data: [] }));
   }
 
-  if (pacienteIds.length) {
+  if (pacienteIds.length && !minimal) {
     enrichmentPromises.push(withTimeout(supabase
       .from('appointments')
       .select('*')
@@ -408,22 +418,27 @@ export const buscarTriagensPaciente = async (
 };
 
 export const buscarTriagensDentista = async (
-  dentistaId: string
+  dentistaId: string,
+  options: { minimal?: boolean; limit?: number } = {}
 ): Promise<ServiceResult<Triagem[]>> => {
   try {
-    const { data, error } = await withTimeout(supabase
+    let query = supabase
       .from('triagens')
       .select('*')
-      .limit(200)
-      .eq('dentista_id', dentistaId)
-      .order('created_at', { ascending: false }) as any, 6000);
+      .eq('dentista_id', dentistaId);
 
-    if (error) {
-      console.error('❌ buscarTriagensDentista error:', error);
-      throw error;
-    }
-    const normalized = ((data || []) as any[]).map((item: any) => normalizeTriagemRecord(item));
-    return { success: true, data: await enrichTriagens(normalized) };
+    if (options.limit) query = query.limit(options.limit);
+    else query = query.limit(100);
+
+    const { data, error } = await withTimeout(
+      query.order('created_at', { ascending: false }) as any, 
+      6000
+    );
+
+    if (error) throw error;
+    const normalized = ((data || []) as any[]).map(normalizeTriagemRecord);
+    const enriched = await enrichTriagens(normalized, { minimal: options.minimal });
+    return { success: true, data: enriched };
   } catch (err) {
     const handled = handleError(err, 'triagemService.buscarTriagensDentista');
     return { success: false, error: handled };
@@ -506,18 +521,11 @@ export const buscarContadoresDentista = async (
       (agendamentosRes.data || []).forEach((a: any) => {
         cont.total += 1;
         const sLower = (a.status || '').toLowerCase();
-        const pLower = (a.priority || '').toLowerCase();
         
         if (sLower === 'realizado') {
           cont.realizados += 1;
-        } else {
-          const isUrgente = sLower === 'urgente' || pLower === 'urgente' || pLower === 'alta';
-          if (isUrgente) {
-            cont.urgente += 1;
-          } else if (sLower === 'pendente' || sLower === 'atribuido_dentista') {
-            cont.pendente += 1;
-          }
         }
+        // Agendamentos não devem somar no pendente ou urgente das triagens
       });
     }
 

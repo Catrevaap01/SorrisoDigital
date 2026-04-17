@@ -10,6 +10,14 @@ import { ptBR } from 'date-fns/locale';
  */
 export const formatDate = (date: string | Date, pattern: string = 'dd/MM/yyyy'): string => {
   if (!date) return '';
+  
+  // Se for uma string puramente de data (YYYY-MM-DD), evitar shift de timezone
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const [year, month, day] = date.split('-').map(Number);
+    const localDate = new Date(year, month - 1, day);
+    return format(localDate, pattern, { locale: ptBR });
+  }
+
   const parsedDate = typeof date === 'string' ? parseISO(date) : date;
   if (!isValid(parsedDate)) {
     return typeof date === 'string' ? date : '';

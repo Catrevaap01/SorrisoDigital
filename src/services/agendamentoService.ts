@@ -162,18 +162,26 @@ registerSyncHandler('criarAgendamento', async (payload: { dados: any }) => {
 
 export const buscarAgendaDentista = async (
   dentistaId: string,
-  date: Date
+  date: Date | string
 ): Promise<ServiceResult<Agendamento[]>> => {
   try {
-    const start = new Date(date);
+    // Garantir uso correto da data recebida
+    let start: Date;
+    if (typeof date === 'string' && (date as string).length === 10) {
+      const [y, m, d] = (date as string).split('-').map(Number);
+      start = new Date(y, m - 1, d);
+    } else {
+      start = new Date(date);
+    }
     start.setHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setDate(end.getDate() + 1);
 
     // ✅ TIMEOUT + LIMIT 200 agendamentos - Buscar APENAS agendamentos atribuídos a este dentista
-    // Usar datas em formato YYYY-MM-DD para comparação com DATE fields
-    const startDate = start.toISOString().split('T')[0]; // "2026-04-14"
-    const endDate = end.toISOString().split('T')[0];     // "2026-04-15"
+    // Usar datas em formato YYYY-MM-DD para comparação com DATE fields, resolvendo em timezone local
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const startDate = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
+    const endDate = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
     
     const query = supabase
       .from('appointments')
@@ -250,9 +258,12 @@ export const buscarAgendamentosDentistaPorPeriodo = async (
   dataFim: Date
 ): Promise<ServiceResult<Agendamento[]>> => {
   try {
-    // Usar datas em formato YYYY-MM-DD para comparação com DATE fields
-    const startDate = dataInicio.toISOString().split('T')[0];
-    const endDate = dataFim.toISOString().split('T')[0];
+    // Usar datas em formato YYYY-MM-DD para comparação com DATE fields via timezone local
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const getLocalYYYYMMDD = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    
+    const startDate = getLocalYYYYMMDD(dataInicio);
+    const endDate = getLocalYYYYMMDD(dataFim);
     
     const { data, error } = await withTimeout(supabase
       .from('appointments')
@@ -653,6 +664,35 @@ registerSyncHandler('rejeitarAgendamento', async (payload: any) => {
   return rejeitarAgendamento(payload.agendamentoId, payload.motivo);
 });
 
+export const rejeitarSugestaoPaciente = async (
+  agendamentoId: string
+): Promise<ServiceResult<Agendamento>> => {
+  try {
+    const admin = getAdminClient();
+    const client = admin || supabase;
+    
+    const { data, error } = await client
+      .from('appointments')
+      .update({ 
+        status: 'pendente',
+        dentist_id: null,
+        suggested_date: null,
+        suggested_by: null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', agendamentoId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { success: true, data: data as Agendamento };
+  } catch (err: any) {
+    const mapped = _handleTableMissing(err);
+    return { success: false, error: mapped || err.message };
+  }
+};
+
 export const sugerirNovoHorario = async (
   agendamentoId: string,
   dentistaId: string,
@@ -677,11 +717,11 @@ export const sugerirNovoHorario = async (
     const { data, error } = await client
       .from('appointments')
       .update({ 
-        status: 'reagendamento_solicitado', 
-        appointment_date: appointmentDate,
-        appointment_time: appointmentTime,
+        status: 'reagendamento_solicitado', // Keep old date until patient confirms
         notes: observacoes, 
         dentist_id: dentistaId,
+        suggested_by: dentistaId,
+        suggested_date: novoHorario,
         updated_at: new Date().toISOString()
       })
       .eq('id', agendamentoId)
@@ -695,7 +735,7 @@ export const sugerirNovoHorario = async (
       await notificarAgendamentoPaciente(
         data.patient_id,
         'Novo horário sugerido',
-        `O dentista sugeriu um novo horário para sua consulta: ${formattedDate}.`,
+        `O dentista sugeriu um novo horário para sua consulta: ${formattedDate}. Por favor, confirme para reagendar.`,
         { agendamento_id: agendamentoId }
       );
       await scheduleAppointmentReminder(
@@ -723,3 +763,119 @@ export const sugerirNovoHorario = async (
 registerSyncHandler('sugerirNovoHorario', async (payload: any) => {
   return sugerirNovoHorario(payload.agendamentoId, payload.dentistaId, payload.novoHorario, payload.nota);
 });
+
+export const buscarValorEstimadoPlano = async (
+  pacienteId: string,
+  triagemId?: string
+): Promise<{ estimado: number; concluido: number }> => {
+  try {
+    let query = supabase
+      .from('planos_tratamento')
+      .select('id')
+      .eq('paciente_id', pacienteId);
+      
+    if (triagemId) {
+      query = query.eq('triagem_id', triagemId);
+    }
+    
+    // Pegar o plano mais recente
+    const { data: planos } = await query.order('created_at', { ascending: false }).limit(1);
+
+    if (!planos || planos.length === 0) {
+      return { estimado: 0, concluido: 0 };
+    }
+
+    const planoId = planos[0].id;
+
+    // Buscar procedimentos
+    const { data: procedimentos } = await supabase
+      .from('procedimentos_tratamento')
+      .select('valor, status')
+      .eq('plano_id', planoId);
+
+    if (!procedimentos || procedimentos.length === 0) {
+      return { estimado: 0, concluido: 0 };
+    }
+
+    let estimado = 0;
+    let concluido = 0;
+
+    procedimentos.forEach((p: any) => {
+      const v = parseFloat(p.valor) || 0;
+      estimado += v;
+      if (p.status === 'concluido') {
+        concluido += v;
+      }
+    });
+
+    return { estimado, concluido };
+  } catch (err) {
+    console.error('Erro ao buscar valor estimado do plano:', err);
+    return { estimado: 0, concluido: 0 };
+  }
+};
+
+export const enrichAgendamentosComValorPlano = async (agendamentos: Agendamento[]): Promise<Agendamento[]> => {
+  if (!agendamentos.length) return [];
+  try {
+    const pacienteIds = [...new Set(agendamentos.map(a => a.patient_id).filter(Boolean))];
+    if (!pacienteIds.length) return agendamentos;
+
+    const { data: planos } = await supabase
+      .from('planos_tratamento')
+      .select('id, paciente_id')
+      .in('paciente_id', pacienteIds);
+
+    if (!planos || planos.length === 0) return agendamentos;
+
+    const planoIds = planos.map(p => p.id);
+    const { data: procedimentos } = await supabase
+      .from('procedimentos_tratamento')
+      .select('plano_id, valor, status')
+      .in('plano_id', planoIds);
+
+    const procs = procedimentos || [];
+    
+    return agendamentos.map(agen => {
+      if (!agen.patient_id) return agen;
+      const pacientePlanos = planos.filter(p => p.paciente_id === agen.patient_id);
+      if (!pacientePlanos.length) return agen;
+
+      // Pegamos todos os procedimentos deste paciente (através dos planos)
+      const pIds = pacientePlanos.map(p => p.id);
+      const mProcs = procs.filter(p => pIds.includes(p.plano_id));
+      
+      let estimado = 0;
+      for (const p of mProcs) {
+        estimado += parseFloat(p.valor) || 0;
+      }
+      
+      if (estimado > 0) {
+        return { ...agen, valor_estimado_plano: estimado };
+      }
+      return agen;
+    });
+  } catch (err) {
+    console.warn('Erro ao enriquecer com valor de plano', err);
+    return agendamentos;
+  }
+};
+
+/**
+ * Atualiza campos arbitrários de um agendamento (uso paciente/interno)
+ */
+export const updateAgendamento = async (
+  agendamentoId: string,
+  payload: Partial<Record<string, any>>
+): Promise<ServiceResult<null>> => {
+  try {
+    const { error } = await supabase
+      .from('appointments')
+      .update({ ...payload, updated_at: new Date().toISOString() })
+      .eq('id', agendamentoId);
+    if (error) throw error;
+    return { success: true, data: null };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Erro ao actualizar agendamento' };
+  }
+};

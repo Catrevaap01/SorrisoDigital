@@ -318,21 +318,7 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
         </View>
       )}
 
-      {/* Botão Agendar */}
-      <TouchableOpacity
-        style={[styles.agendarButton, loading && styles.buttonDisabled]}
-        onPress={handleAgendar}
-        disabled={loading}
-      >
-        {loading ? (
-          <Text style={styles.agendarButtonText}>Agendando...</Text>
-        ) : (
-          <>
-            <Ionicons name="checkmark-circle" size={22} color={COLORS.textInverse} />
-            <Text style={styles.agendarButtonText}>Confirmar Agendamento</Text>
-          </>
-        )}
-      </TouchableOpacity>
+      {/* Botão Agendar - Removido conforme solicitado */}
 
       {/* Aviso */}
       <View style={styles.avisoContainer}>

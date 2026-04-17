@@ -1,4 +1,5 @@
 export type AuthStackParamList = {
+  Welcome: undefined;
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined; // somente pacientes podem usar
@@ -108,6 +109,7 @@ export type AdminStackParamList = {
 };
 
 export type RootStackParamList = {
+  Welcome: undefined;
   Login: undefined;
   Register: undefined;
   ForgotPassword: undefined;

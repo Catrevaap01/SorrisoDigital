@@ -460,13 +460,13 @@ export const listarPacientes = async (
       const missingColumn = String(error.message || '').toLowerCase().includes('dentist_id')
         ? 'dentista_id'
         : String(error.message || '').toLowerCase().includes('dentista_id')
-        ? 'dentista_id'
+        ? 'dentist_id'
         : undefined;
 
       if (missingColumn) {
-        const fallbackResult = await runQuery(missingColumn as 'dentista_id');
-        data = fallbackResult.data;
-        error = fallbackResult.error;
+        const response = await runQuery(missingColumn as 'dentista_id');
+        data = response.data;
+        error = response.error;
       }
     }
 
@@ -725,7 +725,7 @@ export const deletarPaciente = async (
     const deletePromises: Promise<any>[] = [
       Promise.resolve(adminClient.from('messages').delete().eq('sender_id', pacienteId)),
       Promise.resolve(adminClient.from('notificacoes').delete().eq('usuario_id', pacienteId)),
-      Promise.resolve(adminClient.from('agendamentos').delete().eq('paciente_id', pacienteId)),
+      Promise.resolve(adminClient.from('appointments').delete().eq('patient_id', pacienteId)),
       Promise.resolve(adminClient.from('triagens').delete().eq('paciente_id', pacienteId)),
       Promise.resolve(adminClient.from('conversations').delete().or(`participant_1_id.eq.${pacienteId},participant_2_id.eq.${pacienteId}`)),
     ];
