@@ -38,17 +38,6 @@
     "plugins": [
       "expo-secure-store"
     ],
-    "jsEngine": "jsc",
-    "bundleIdPattern": "com.company.appname",
-    "packagerOpts": {
-      "config": "metro.config.js",
-      "assetExts": [
-        "ttf",
-        "otf",
-        "woff",
-        "woff2"
-      ]
-    },
     "extra": {
       "APP_URL": "https://teodontoangola.vercel.app",
       "SUPABASE_URL": "https://yyscwmcghokyzhtcluif.supabase.co",

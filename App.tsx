@@ -13,17 +13,7 @@ import { processOfflineQueue } from './src/services/offlineSyncService';
 import AppNavigator from './src/navigation/AppNavigator';
 import { SHADOWS } from './src/styles/theme';
 
-// Silenciar avisos de depreciação e otimizar compilação
-LogBox.ignoreLogs([
-  'Warning:...',
-  'console.warn',
-  'shadow* style props are deprecated',
-  'props.pointerEvents is deprecated',
-  'componentWillReceiveProps',
-  'componentWillMount',
-  'Each child in a list should have a unique "key" prop',
-]);
-
+// Silenciar avisos de depreciação do React Native Web que vêm de bibliotecas externas
 if (Platform.OS === 'web') {
   const warn = console.warn;
   console.warn = (...args) => {
