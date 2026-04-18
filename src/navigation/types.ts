@@ -69,6 +69,7 @@ export type SecretarioStackParamList = {
   Privacidade: undefined;
   TermosUso: undefined;
   Ajuda: undefined;
+  PacienteHistorico: { pacienteId: string; pacienteNome?: string };
 };
 
 export type PacienteStackParamList = {

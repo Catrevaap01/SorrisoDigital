@@ -94,7 +94,7 @@ export const FilaTriagemCard: React.FC<FilaTriagenComponentProps> = ({
     ? `Dor: ${triagem.intensidade_dor || '?'}/10`
     : getPriorityLabel(agendamento.urgency);
 
-  const isAssigned = ['pendente', 'atribuido_dentista', 'respondido', 'completo']
+  const isAssigned = ['atribuido_dentista', 'respondido', 'completo']
     .includes(String(item.status || '').toLowerCase());
 
   return (

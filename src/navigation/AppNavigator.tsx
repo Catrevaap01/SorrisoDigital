@@ -8,10 +8,11 @@ import {
   Platform,
 } from 'react-native';
 
-const ActivityIndicator: React.ComponentType<any> = _ActivityIndicator || (() => null);
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+
+const ActivityIndicator: React.ComponentType<any> = _ActivityIndicator || (() => null);
 
 import { useAuth } from '../contexts/AuthContext';
 import { COLORS } from '../styles/theme';
@@ -50,6 +51,7 @@ import PacienteHistoricoScreen from '../screens/dentista/PacienteHistoricoScreen
 import DentistaMensagensScreen from '../screens/dentista/DentistaMensagensScreen';
 import NovoPacienteScreen from '../screens/dentista/NovoPacienteScreen';
 import GerirPacientesScreen from '../screens/dentista/GerirPacientesScreen';
+import AgendaDentistaScreen from '../screens/dentista/AgendaDentistaScreen';
 import AdminNavigator from './AdminNavigator';
 import SecretarioDashboardScreen from '../screens/secretario/SecretarioDashboardScreen';
 import SecretarioAgendamentosScreen from '../screens/secretario/SecretarioAgendamentosScreen';
@@ -59,18 +61,6 @@ import AnamneseScreen from '../screens/dentista/AnamneseScreen';
 import PlanoTratamentoScreen from '../screens/dentista/PlanoTratamentoScreen';
 import PrescricaoScreen from '../screens/dentista/PrescricaoScreen';
 
-let AgendaDentistaScreen: React.ComponentType<any>;
-try {
-  AgendaDentistaScreen = require('../screens/dentista/AgendaDentistaScreen').default;
-} catch (e) {
-  AgendaDentistaScreen = function AgendaFallback() {
-    return (
-      <View style={styles.center}>
-        <Text>AgendaDentistaScreen nao encontrada.</Text>
-      </View>
-    );
-  };
-}
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -413,8 +403,8 @@ const DentistaStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
         component={PacienteHistoricoScreen}
         options={{
           title: 'Histórico do Paciente',
-          headerStyle: { backgroundColor: COLORS.secondary },
-          headerTintColor: COLORS.textInverse,
+          headerStyle: { backgroundColor: COLORS.secondary || '#43A047' },
+          headerTintColor: '#fff',
         }}
       />
 
@@ -542,12 +532,21 @@ const SecretarioStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
         }}
       />
       <SecretarioStackNav.Screen
+        name="PacienteHistorico"
+        component={PacienteHistoricoScreen}
+        options={{
+          title: 'Histórico do Paciente',
+          headerStyle: { backgroundColor: '#7C3AED' },
+          headerTintColor: '#fff',
+        }}
+      />
+      <SecretarioStackNav.Screen
         name="Settings"
         component={require('../screens/paciente/SettingsScreen').default}
         options={{
           title: 'Configurações',
           headerStyle: { backgroundColor: '#7C3AED' },
-          headerTintColor: COLORS.textInverse,
+          headerTintColor: '#fff',
         }}
       />
     </SecretarioStackNav.Navigator>

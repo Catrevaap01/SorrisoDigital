@@ -20,6 +20,7 @@ import useFilasSecretaria from '../../hooks/useFilasSecretaria';
 import FilasList from '../../components/FilasList';
 import TratamentosFacturasPanel from '../../components/TratamentosFacturasPanel';
 import AssignmentModal from '../../components/AssignmentModal';
+import PacienteDetalhesModal from '../../components/PacienteDetalhesModal';
 import {
   buscarTratamentosFinanceirosSecretaria,
   recusarTriagem,
@@ -629,6 +630,14 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     tipo: 'triagem' as 'triagem' | 'agendamento',
   });
 
+  // Modal Detalhes do Paciente
+  const [modalDetalhes, setModalDetalhes] = useState({
+    visible: false,
+    pacienteId: '',
+    tipo: 'triagem' as 'triagem' | 'agendamento' | 'procedimento',
+    itemData: null as any,
+  });
+
   const carregarFinanceiro = useCallback(async () => {
     setFinanceiroLoading(true);
     const result = await buscarTratamentosFinanceirosSecretaria();
@@ -667,7 +676,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
   useEffect(() => {
     const channel = supabase
       .channel('secretaria-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamentos' }, () => { void carregarPainel(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => { void carregarPainel(); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'triagens' }, () => { void carregarPainel(); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'procedimentos_tratamento' }, () => { void carregarPainel(); })
       .subscribe();
@@ -772,7 +781,9 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     const confirmar = async () => {
       try {
         setRelatorioLoading(true);
-        const result = await removerAtribuicaoItem(item.raw.id, item.tipo === 'triagem' ? 'triagem' : 'agendamento');
+        // Mapear 'procedimento' para 'agendamento' para o serviço, pois ambos estão na tabela de appointments
+        const tipoServico = item.tipo === 'triagem' ? 'triagem' : 'agendamento';
+        const result = await removerAtribuicaoItem(item.raw.id, tipoServico);
         setRelatorioLoading(false);
 
         if (result.success) {
@@ -981,7 +992,10 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     itensCombinados.filter(item => {
       const s = (item.raw.status || '').toLowerCase();
       // Se não está no status inicial e tem um dentista vinculado, está atribuído
-      return s !== 'triagem_pendente_secretaria' && s !== 'agendamento_pendente_secretaria' && s !== 'solicitado' && (item.raw.dentista_id || item.raw.dentista?.id);
+      return s !== 'triagem_pendente_secretaria' && 
+             s !== 'agendamento_pendente_secretaria' && 
+             s !== 'solicitado' && 
+             (item.raw.dentista_id || item.raw.dentista?.id || item.raw.dentist_id || item.raw.dentist?.id);
     }),
     [itensCombinados]
   );
@@ -1175,7 +1189,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.board}>
         {/* SECÇÃO A: NÃO ATRIBUÍDOS */}
-        <View style={[styles.card, { borderColor: '#DC2626', borderTopWidth: 4 }]}>
+        <View style={[styles.card, { borderColor: '#DC2626', borderTopWidth: 4, flex: isMobile ? 0 : 1, width: isMobile ? '100%' : 'auto' }]}>
           <View style={styles.cardHeaderRow}>
             <View>
               <Text style={[styles.cardTitle, { color: '#DC2626' }]}>NÃO ATRIBUÍDOS</Text>
@@ -1192,10 +1206,18 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
             itensNaoAtribuidos.map((item) => (
               <View key={item.id} style={styles.listItem}>
                 <View style={styles.listItemTop}>
-                  <View style={styles.patientBlock}>
+                  <TouchableOpacity 
+                    style={styles.patientBlock}
+                    onPress={() => setModalDetalhes({
+                      visible: true,
+                      pacienteId: item.raw?.paciente_id || item.raw?.patient_id,
+                      tipo: item.tipo,
+                      itemData: item.raw
+                    })}
+                  >
                     <Text style={styles.patientLabel}>PACIENTE</Text>
                     <Text style={styles.listItemTitle}>{item.titulo}</Text>
-                  </View>
+                  </TouchableOpacity>
                   <TouchableOpacity 
                     style={styles.atribuirPrincipalBtn}
                     onPress={() => item.tipo === 'triagem' ? handleAtribuirTriagem(item.raw) : handleAtribuirAgendamento(item.raw)}
@@ -1220,7 +1242,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
         </View>
 
         {/* SECÇÃO B: ATRIBUÍDOS */}
-        <View style={[styles.card, { borderColor: '#059669', borderTopWidth: 4 }]}>
+        <View style={[styles.card, { borderColor: '#059669', borderTopWidth: 4, flex: isMobile ? 0 : 1, width: isMobile ? '100%' : 'auto' }]}>
           <View style={styles.cardHeaderRow}>
             <View>
               <Text style={[styles.cardTitle, { color: '#059669' }]}>ATRIBUÍDOS</Text>
@@ -1245,7 +1267,15 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
                   <View style={styles.dentistGroupItems}>
                     {items.map((it: any) => (
                         <View key={it.id} style={styles.assignedPatientItem}>
-                          <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                          <TouchableOpacity 
+                            style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                            onPress={() => setModalDetalhes({
+                              visible: true,
+                              pacienteId: it.raw?.paciente_id || it.raw?.patient_id,
+                              tipo: it.tipo,
+                              itemData: it.raw
+                            })}
+                          >
                             <View style={styles.assignedPatientPoint} />
                             <Text style={styles.assignedPatientName}>{it.titulo}</Text>
                             <View style={styles.assignedBadge}>
@@ -1254,7 +1284,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
                               </View>
                               {renderBadge(it.tipo)}
                             </View>
-                          </View>
+                          </TouchableOpacity>
                           
                           {/* Botão Remover Atribuição (apenas se não foi respondido) */}
                           {['atribuido_dentista', 'aguardando_dentista', 'pendente', 'solicitado'].includes((it.raw.status || '').toLowerCase()) && (
@@ -1600,6 +1630,16 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
               ? modalAtribuicao.item?.sintoma_principal 
               : modalAtribuicao.item?.symptoms
           }
+        />
+        <PacienteDetalhesModal
+          visible={modalDetalhes.visible}
+          onClose={() => setModalDetalhes({ ...modalDetalhes, visible: false })}
+          pacienteId={modalDetalhes.pacienteId}
+          itemTipo={modalDetalhes.tipo}
+          itemData={modalDetalhes.itemData}
+          onVerHistorico={(id, nome) => {
+            navigation.navigate('PacienteHistorico' as any, { pacienteId: id, pacienteNome: nome });
+          }}
         />
       </View>
     </ScrollView>
