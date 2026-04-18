@@ -426,7 +426,7 @@ export const buildDentistBillingHtml = (dentistName: string, items: any[], issue
               : (item.status_financeiro === 'pago' ? vTotal : 0));
             const divida = vTotal - vPago;
             const statusFin = item.status_financeiro || (vPago >= vTotal ? 'pago' : vPago > 0 ? 'parcial' : 'pendente');
-            const dataRef = item.appointment_date || item.updated_at || item.created_at;
+            const dataRef = item.data_hora || item.appointment_date || item.updated_at || item.created_at;
             const dataStr = dataRef
               ? (typeof dataRef === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dataRef) 
                   ? dataRef.split('-').reverse().join('/') 
