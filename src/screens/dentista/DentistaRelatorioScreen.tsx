@@ -21,6 +21,7 @@ import { buscarPaciente, listarPacientes } from '../../services/pacienteService'
 import { exportHtmlAsPdf } from '../../utils/pdfExportUtils';
 import Loading from '../../components/ui/Loading';
 import { gerarFichaHistorico } from './gerarFichaHistorico';
+import { buscarTratamentosFinanceirosDentista } from '../../services/relatorioService';
 
 interface PacienteListItem {
   id: string;
@@ -111,45 +112,103 @@ const DentistaRelatorioScreen: React.FC = () => {
         return data.getMonth() === agora.getMonth() && data.getFullYear() === agora.getFullYear();
       }).length;
 
+      // Buscar dados de faturação
+      const faturacaoRes = await buscarTratamentosFinanceirosDentista(profile?.id);
+      const itemsFinanceiros = faturacaoRes.success ? (faturacaoRes.data || []) : [];
+      
+      // Calcular totais de faturação
+      let totalFaturado = 0;
+      let totalRecebido = 0;
+      itemsFinanceiros.forEach((item: any) => {
+        const valor = Number(item.valor || 0);
+        const valorPago = Number(item.valor_pago || 0);
+        totalFaturado += valor;
+        totalRecebido += valorPago;
+      });
+      const totalPendente = totalFaturado - totalRecebido;
+
+      // Função para formatar valores em Kwanzas
+      const formatarMoeda = (valor: number): string => {
+        return new Intl.NumberFormat('pt-AO', {
+          style: 'currency',
+          currency: 'AOA',
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(valor);
+      };
+
       const html = `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="utf-8">
-          <title>Relatório de Consultas - Dr(a). ${profile?.nome || 'Dentista'}</title>
+          <title>Relatório Completo - Dr(a). ${profile?.nome || 'Dentista'}</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; color: #333; line-height: 1.4; }
-            h1 { color: #1E88E5; text-align: center; }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; padding: 20px; color: #333; line-height: 1.4; background: white; }
+            h1 { color: #1E88E5; text-align: center; font-size: 24px; margin-bottom: 30px; }
+            h2 { color: #1E88E5; font-size: 16px; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #1E88E5; padding-bottom: 8px; }
             .info { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; }
-            .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
-            .stat-card { background: #e3f2fd; padding: 15px; border-radius: 8px; text-align: center; }
-            .stat-number { font-size: 24px; font-weight: bold; color: #1E88E5; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+            .info p { margin: 5px 0; font-size: 13px; }
+            .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin: 20px 0; }
+            .stat-card { background: #e3f2fd; padding: 15px; border-radius: 8px; text-align: center; border-left: 4px solid #1E88E5; }
+            .stat-number { font-size: 22px; font-weight: bold; color: #1E88E5; }
+            .stat-label { font-size: 12px; color: #666; margin-top: 5px; }
+            
+            /* Relatório de Faturação */
+            .billing-section { margin-top: 30px; page-break-inside: avoid; }
+            .billing-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 15px 0; }
+            .billing-card { padding: 15px; border-radius: 8px; text-align: center; color: white; font-weight: bold; }
+            .billing-total { background: #4CAF50; }
+            .billing-recebido { background: #2196F3; }
+            .billing-pendente { background: #FF9800; }
+            .billing-value { font-size: 20px; margin-bottom: 5px; }
+            .billing-label { font-size: 12px; opacity: 0.9; }
+            
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 11px; }
             th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
             th { background: #1E88E5; color: white; font-weight: bold; }
             tr:nth-child(even) { background: #f9f9f9; }
-            @media print { body { margin: 0; padding: 10px; } }
+            .status { padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: bold; }
+            .status.pago { background: #c8e6c9; color: #1b5e20; }
+            .status.parcial { background: #fff9c4; color: #f57f17; }
+            .status.pendente { background: #ffcdd2; color: #b71c1c; }
+            .text-right { text-align: right; }
+            .text-center { text-align: center; }
+            .currency { font-family: 'Courier New', monospace; }
+            
+            .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; text-align: center; font-size: 11px; color: #999; }
+            @media print { body { margin: 0; padding: 10px; } h2 { page-break-after: avoid; } }
           </style>
         </head>
         <body>
-          <h1>🦷 Odontologia Angola - Relatório de Consultas</h1>
+          <h1>🦷 Sorriso Digital - Relatório Completo do Dentista</h1>
+          
+          <!-- Seção de Informações do Dentista -->
           <div class="info">
             <p><strong>Dentista:</strong> ${profile?.nome || 'N/D'}</p>
+            <p><strong>CRM:</strong> ${profile?.crm || 'N/D'}</p>
             <p><strong>Especialidade:</strong> ${profile?.especialidade || 'N/D'}</p>
-            <p><strong>Total Consultas:</strong> ${totalConsultas}</p>
-            <p><strong>Consultas este mês:</strong> ${consultasMes}</p>
             <p><strong>Gerado em:</strong> ${new Date().toLocaleString('pt-AO')}</p>
           </div>
+
+          <!-- Seção 1: Estatísticas de Consultas -->
+          <h2>📋 Estatísticas de Consultas</h2>
           <div class="stats">
             <div class="stat-card">
               <div class="stat-number">${totalConsultas}</div>
-              <div>Total Consultas</div>
+              <div class="stat-label">Total de Consultas</div>
             </div>
             <div class="stat-card">
               <div class="stat-number">${consultasMes}</div>
-              <div>Este Mês</div>
+              <div class="stat-label">Consultas Este Mês</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-number">${agendamentos.length > 0 ? Math.round((consultasMes / totalConsultas) * 100) : 0}%</div>
+              <div class="stat-label">% Este Mês</div>
             </div>
           </div>
+
           <table>
             <thead>
               <tr>
@@ -164,17 +223,87 @@ const DentistaRelatorioScreen: React.FC = () => {
                 <tr>
                   <td>${ag.paciente?.nome || 'N/D'}</td>
                   <td>${new Date(ag.data_agendamento).toLocaleString('pt-AO')}</td>
-                  <td>${ag.status || 'Pendente'}</td>
+                  <td class="text-center">${ag.status || 'Pendente'}</td>
                   <td>${ag.tipo || 'Consulta'}</td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
-          ${agendamentos.length > 50 ? '<p style="text-align:center; font-style:italic; color:#666;">... e mais ' + (agendamentos.length - 50) + ' registros</p>' : ''}
+          ${agendamentos.length > 50 ? '<p style="text-align:center; font-style:italic; color:#666; margin-top: 10px;">... e mais ' + (agendamentos.length - 50) + ' registros</p>' : ''}
+
+          <!-- Seção 2: Relatório de Faturação -->
+          <div class="billing-section">
+            <h2>💰 Relatório de Faturação</h2>
+            
+            <div class="billing-summary">
+              <div class="billing-card billing-total">
+                <div class="billing-value currency">${formatarMoeda(totalFaturado)}</div>
+                <div class="billing-label">Total Faturado</div>
+              </div>
+              <div class="billing-card billing-recebido">
+                <div class="billing-value currency">${formatarMoeda(totalRecebido)}</div>
+                <div class="billing-label">Total Recebido</div>
+              </div>
+              <div class="billing-card billing-pendente">
+                <div class="billing-value currency">${formatarMoeda(totalPendente)}</div>
+                <div class="billing-label">Pendente</div>
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Paciente</th>
+                  <th>Procedimento</th>
+                  <th class="text-right">Valor Total</th>
+                  <th class="text-right">Valor Pago</th>
+                  <th class="text-right">Dívida</th>
+                  <th class="text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsFinanceiros.slice(0, 100).map((item: any) => {
+                  const vTotal = Number(item.valor || 0);
+                  const vPago = Number(item.valor_pago || 0);
+                  const divida = vTotal - vPago;
+                  const statusFin = item.status_financeiro || (vPago >= vTotal ? 'pago' : vPago > 0 ? 'parcial' : 'pendente');
+                  const dataRef = item.appointment_date || item.updated_at || item.created_at;
+                  const dataStr = dataRef
+                    ? (typeof dataRef === 'string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(dataRef) 
+                        ? dataRef.split('-').reverse().join('/') 
+                        : new Date(dataRef).toLocaleDateString('pt-AO'))
+                    : '---';
+                  const nomeProcedimento = item.procedimento || item.descricao || 'Procedimento';
+                  const statusLabel = statusFin === 'pago' ? 'PAGO' : statusFin === 'parcial' ? 'PARCIAL' : 'PENDENTE';
+                  const statusClass = statusFin === 'pago' ? 'pago' : statusFin === 'parcial' ? 'parcial' : 'pendente';
+                  
+                  return `
+                    <tr>
+                      <td>${dataStr}</td>
+                      <td>${item.paciente_nome || 'Paciente'}</td>
+                      <td>${nomeProcedimento}</td>
+                      <td class="text-right currency">${formatarMoeda(vTotal)}</td>
+                      <td class="text-right currency" style="color:#16a34a;font-weight:bold">${formatarMoeda(vPago)}</td>
+                      <td class="text-right currency" style="color:${divida > 0 ? '#b91c1c' : '#16a34a'}">${formatarMoeda(divida)}</td>
+                      <td class="text-center"><span class="status ${statusClass}">${statusLabel}</span></td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+            ${itemsFinanceiros.length > 100 ? '<p style="text-align:center; font-style:italic; color:#666; margin-top: 10px;">... e mais ' + (itemsFinanceiros.length - 100) + ' registros</p>' : ''}
+            ${itemsFinanceiros.length === 0 ? '<p style="text-align:center; color:#999; margin-top: 10px;">Nenhum procedimento registrado</p>' : ''}
+          </div>
+
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} Sorriso Digital - Sistema de Gestão Odontológica</p>
+            <p>Documento gerado automaticamente pelo sistema</p>
+          </div>
         </body>
         </html>`;
 
-      const result = await exportHtmlAsPdf(html, `relatorio-consultas-${profile?.nome || 'dentista'}.pdf`);
+      const result = await exportHtmlAsPdf(html, `relatorio-completo-${profile?.nome || 'dentista'}.pdf`);
       
       if (!result.success) {
         throw new Error(result.error);
@@ -192,6 +321,132 @@ const DentistaRelatorioScreen: React.FC = () => {
         text1: '❌ Erro ao gerar PDF',
         text2: error.message || 'Tente novamente'
       });
+    } finally {
+      setGerandoPdf(false);
+    }
+  };
+
+  const gerarPdfFaturacao = async () => {
+    setGerandoPdf(true);
+    try {
+      const faturacaoRes = await buscarTratamentosFinanceirosDentista(profile?.id);
+      const itemsFinanceiros = faturacaoRes.success ? (faturacaoRes.data || []) : [];
+      
+      let totalFaturado = 0;
+      let totalRecebido = 0;
+      itemsFinanceiros.forEach((item: any) => {
+        const valor = Number(item.valor || 0);
+        const valorPago = Number(item.valor_pago || 0);
+        totalFaturado += valor;
+        totalRecebido += valorPago;
+      });
+      const totalPendente = totalFaturado - totalRecebido;
+
+      const formatarMoeda = (valor: number): string => {
+        return new Intl.NumberFormat('pt-AO', {
+          style: 'currency',
+          currency: 'AOA',
+          minimumFractionDigits: 0,
+        }).format(valor);
+      };
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Facturação - Dr(a). ${profile?.nome || 'Dentista'}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: Arial, sans-serif; padding: 20px; color: #333; background: white; }
+            h1 { color: #10B981; text-align: center; font-size: 24px; margin-bottom: 20px; }
+            .info { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 13px; }
+            
+            .billing-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 15px 0; }
+            .billing-card { padding: 15px; border-radius: 8px; text-align: center; color: white; font-weight: bold; }
+            .billing-total { background: #4CAF50; }
+            .billing-recebido { background: #10B981; }
+            .billing-pendente { background: #FF9800; }
+            .billing-value { font-size: 20px; margin-bottom: 5px; }
+            .billing-label { font-size: 12px; opacity: 0.9; }
+            
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 11px; }
+            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+            th { background: #10B981; color: white; font-weight: bold; }
+            tr:nth-child(even) { background: #f9f9f9; }
+            .status { padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: bold; }
+            .status.pago { background: #D1FAE5; color: #065F46; }
+            .status.parcial { background: #FEF3C7; color: #92400E; }
+            .status.pendente { background: #FEE2E2; color: #991B1B; }
+            .text-right { text-align: right; }
+            .currency { font-family: monospace; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <h1>💰 Relatório de Faturação</h1>
+          <div class="info">
+            <p><strong>Médico(a):</strong> ${profile?.nome || 'N/D'}</p>
+            <p><strong>Gerado em:</strong> ${new Date().toLocaleString('pt-AO')}</p>
+          </div>
+
+          <div class="billing-summary">
+            <div class="billing-card billing-total">
+              <div class="billing-value currency">${formatarMoeda(totalFaturado)}</div>
+              <div class="billing-label">Total Faturado</div>
+            </div>
+            <div class="billing-card billing-recebido">
+              <div class="billing-value currency">${formatarMoeda(totalRecebido)}</div>
+              <div class="billing-label">Total Recebido</div>
+            </div>
+            <div class="billing-card billing-pendente">
+              <div class="billing-value currency">${formatarMoeda(totalPendente)}</div>
+              <div class="billing-label">Pendente</div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Paciente</th>
+                <th>Procedimento</th>
+                <th class="text-right">Total</th>
+                <th class="text-right">Pago</th>
+                <th class="text-right">Dívida</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsFinanceiros.length === 0 ? '<tr><td colspan="7" style="text-align:center">Sem registos financeiros encontrados</td></tr>' : itemsFinanceiros.map((item: any) => {
+                const vTotal = Number(item.valor || 0);
+                const vPago = Number(item.valor_pago || 0);
+                const divida = vTotal - vPago;
+                const statusFin = item.status_financeiro || (vPago >= vTotal ? 'pago' : vPago > 0 ? 'parcial' : 'pendente');
+                const dataRef = item.appointment_date || item.updated_at || item.created_at;
+                const dataStr = dataRef ? new Date(dataRef).toLocaleDateString('pt-AO') : '---';
+                const statusLabel = statusFin === 'pago' ? 'PAGO' : statusFin === 'parcial' ? 'PARCIAL' : 'PENDENTE';
+                return `
+                  <tr>
+                    <td>${dataStr}</td>
+                    <td>${item.paciente_nome || 'Paciente'}</td>
+                    <td>${item.procedimento || 'Procedimento'}</td>
+                    <td class="text-right currency">${formatarMoeda(vTotal)}</td>
+                    <td class="text-right currency" style="color:#059669">${formatarMoeda(vPago)}</td>
+                    <td class="text-right currency" style="color:${divida > 0 ? '#DC2626' : '#059669'}">${formatarMoeda(divida)}</td>
+                    <td><span class="status ${statusFin}">${statusLabel}</span></td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </body>
+        </html>`;
+
+      const result = await exportHtmlAsPdf(html, `faturacao-${profile?.nome || 'dentista'}.pdf`);
+      if (!result.success) throw new Error(result.error);
+      Toast.show({ type: 'success', text1: '✅ Facturação gerada!' });
+    } catch (error: any) {
+      Toast.show({ type: 'error', text1: '❌ Erro no PDF', text2: error.message });
     } finally {
       setGerandoPdf(false);
     }
@@ -247,11 +502,7 @@ const DentistaRelatorioScreen: React.FC = () => {
         }
         contentContainerStyle={styles.contentContainerStyle}
       >
-        <View style={styles.header}>
-          <Ionicons name="document-text" size={32} color={COLORS.primary} />
-          <Text style={styles.headerTitle}>Meus Relatórios</Text>
-          <Text style={styles.headerSubtitle}>Consultas, fichas e estatísticas</Text>
-        </View>
+
 
         {error && (
           <View style={styles.errorContainer}>
@@ -287,6 +538,23 @@ const DentistaRelatorioScreen: React.FC = () => {
         <View style={styles.cardsContainer}>
           <TouchableOpacity 
             style={[styles.card, styles.cardElevated]}
+            onPress={gerarPdfFaturacao}
+            activeOpacity={0.8}
+            disabled={gerandoPdf}
+          >
+            <View style={[styles.cardIcon, { backgroundColor: '#D1FAE5' }]}>
+              <Ionicons name="cash-outline" size={32} color="#10B981" />
+            </View>
+            <Text style={styles.cardTitle}>Relatório de Faturação</Text>
+            <Text style={styles.cardDescription}>Valores faturados, recebidos e pendentes da operação</Text>
+            <View style={styles.cardFooter}>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
+              <Text style={styles.cardFooterText}>Gestão Financeira</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.card, styles.cardElevated]}
             onPress={() => setShowPacienteModal(true)}
             activeOpacity={0.8}
             disabled={gerandoPdf}
@@ -303,7 +571,7 @@ const DentistaRelatorioScreen: React.FC = () => {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={[styles.card, styles.cardElevated]}
+            style={[styles.card, styles.cardElevated, { marginTop: Platform.OS === 'web' ? 0 : SIZES.lg }]}
             onPress={gerarPdfAgendamentos}
             activeOpacity={0.8}
             disabled={gerandoPdf}

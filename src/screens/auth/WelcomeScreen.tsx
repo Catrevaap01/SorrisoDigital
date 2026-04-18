@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ImageBackground } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, ImageBackground, ScrollView, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -26,7 +26,8 @@ const WelcomeScreen: React.FC = () => {
       resizeMode="cover"
     >
       <View style={styles.overlay} />
-      <View style={styles.container}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
         
         {/* Logo e Título */}
@@ -63,7 +64,8 @@ const WelcomeScreen: React.FC = () => {
           <Text style={styles.footerText}>© 2026 Sorriso Digital</Text>
           <Text style={styles.footerText}>Todos os direitos reservados</Text>
         </View>
-      </View>
+        </ScrollView>
+      </SafeAreaView>
     </ImageBackground>
   );
 };
@@ -79,16 +81,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(51, 65, 85, 0.75)', // Slate-700 desaturated (cor morta)
   },
   container: {
-    flex: 1,
-    justifyContent: 'space-between',
-    paddingHorizontal: SIZES.xl,
-    paddingTop: SIZES.xxl,
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: SIZES.lg,
+    paddingTop: SIZES.xl,
     paddingBottom: SIZES.xl,
+    gap: SIZES.lg,
   },
   header: {
     alignItems: 'center',
-    marginTop: SIZES.xxl,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)', // Glass effect
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+
     padding: SIZES.xl,
     borderRadius: 24,
     borderWidth: 1,
@@ -119,10 +122,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   content: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)', // Subtle glass for content
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     padding: SIZES.xl,
     borderRadius: 24,
-    marginVertical: SIZES.xl,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     alignItems: 'center',
@@ -143,7 +145,7 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     alignItems: 'center',
-    marginBottom: SIZES.xl,
+    marginTop: SIZES.md,
   },
   getStartedButton: {
     flexDirection: 'row',

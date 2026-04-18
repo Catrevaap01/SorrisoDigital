@@ -992,16 +992,14 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
                 {item.notes || item.observacoes}
               </Text>
             )}
-            {/* Show real plano value if concluded, otherwise estimated price */}
             {(() => {
               const patientId = item.patient_id || item.paciente?.id;
               const valorPlano = patientId ? planoValores[patientId] : undefined;
               const valorPadrao = PRECO_POR_TIPO[item.tipo || 'consulta'] || 0;
               const valorMostrar = valorPlano ?? valorPadrao;
-              const labelValor = valorPlano ? 'Valor da consulta (plano concluído)' : 'Valor estimado';
               return (
-                <Text style={[styles.valorLabel, valorPlano && { color: COLORS.secondary || '#059669', fontWeight: 'bold' }]}>
-                  {labelValor}: {formatCurrency(valorMostrar)}
+                <Text style={styles.valorLabel}>
+                  Valor estimado: <Text style={valorPlano ? { color: COLORS.secondary || '#059669', fontWeight: 'bold' } : { color: COLORS.text }}>{formatCurrency(valorMostrar)}{valorPlano ? ' (Plano de Tratamento)' : ''}</Text>
                 </Text>
               );
             })()}

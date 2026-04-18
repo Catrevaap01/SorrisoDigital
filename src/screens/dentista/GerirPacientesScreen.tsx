@@ -441,12 +441,12 @@ Toast.show({ type: 'error', text1: 'Falha ao enviar documento', text2: uploadRes
             <View style={[styles.detailsRow, { marginTop: 8 }]}>
               <View style={styles.detailItem}>
                 <Ionicons 
-                  name={item.dentist_id || item.dentista_id ? "checkmark-circle" : "medical-outline"} 
+                  name={item.dentist_id || item.dentista_id ? "checkmark-circle" : "close-circle-outline"} 
                   size={14} 
-                  color={item.dentist_id || item.dentista_id ? COLORS.success || '#059669' : COLORS.textLight} 
+                  color={item.dentist_id || item.dentista_id ? COLORS.success || '#059669' : '#DC2626'} 
                 />
-                <Text style={[styles.detailText, { color: item.dentist_id || item.dentista_id ? COLORS.success || '#059669' : COLORS.textLight, fontWeight: item.dentist_id || item.dentista_id ? '700' : '400' }]}> 
-                  {item.dentist_id || item.dentista_id ? 'Paciente atribuído' : 'Sem dentista atribuído'}
+                <Text style={[styles.detailText, { color: item.dentist_id || item.dentista_id ? COLORS.success || '#059669' : '#DC2626', fontWeight: item.dentist_id || item.dentista_id ? '700' : '700' }]}> 
+                  {item.dentist_id || item.dentista_id ? 'Atribuído' : 'Não atribuído'}
                 </Text>
               </View>
             </View>
@@ -486,16 +486,10 @@ Toast.show({ type: 'error', text1: 'Falha ao enviar documento', text2: uploadRes
             <Text style={styles.actionText}>Ficha</Text>
           </TouchableOpacity>
           {profile?.tipo === 'secretario' && (
-            <>
-              <TouchableOpacity style={styles.actionButton} onPress={() => abrirModalAtribuicao(item)}>
-                <Ionicons name="person-add-outline" size={18} color={COLORS.secondary} />
-                <Text style={styles.actionText}>Atribuir</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={() => handleExcluir(item)}>
-                <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
-                <Text style={[styles.actionText, { color: COLORS.danger }]}>Excluir</Text>
-              </TouchableOpacity>
-            </>
+            <TouchableOpacity style={styles.actionButton} onPress={() => handleExcluir(item)}>
+              <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
+              <Text style={[styles.actionText, { color: COLORS.danger }]}>Excluir</Text>
+            </TouchableOpacity>
           )}
         </View>
       </View>

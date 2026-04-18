@@ -474,32 +474,42 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
 
   return (
     <>
-      <FlatList
-        data={filtro === 'pago' ? [] : filtered}
-        keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={!!loading} onRefresh={onRefresh} />}
-        contentContainerStyle={styles.content}
-        ListHeaderComponent={
+      <View style={styles.content}>
           <View>
             <View style={styles.metricsContainer}>
               <View style={styles.metricsRow}>
                 <View style={styles.metricCard}>
+                  <View style={[styles.metricIcon, { backgroundColor: '#FEE2E2' }]}>
+                    <Ionicons name="document-text-outline" size={16} color="#DC2626" />
+                  </View>
                   <Text style={styles.metricValue}>{resumo.aguardando}</Text>
                   <Text style={styles.metricLabel}>Aguardando Factura</Text>
                 </View>
                 <View style={styles.metricCard}>
+                  <View style={[styles.metricIcon, { backgroundColor: '#D1FAE5' }]}>
+                    <Ionicons name="cash-outline" size={16} color="#059669" />
+                  </View>
                   <Text style={styles.metricValue}>{formatCurrency(resumo.receitaHoje)}</Text>
                   <Text style={styles.metricLabel}>Receita Hoje</Text>
                 </View>
                 <View style={styles.metricCard}>
+                  <View style={[styles.metricIcon, { backgroundColor: '#D1FAE5' }]}>
+                    <Ionicons name="cash-outline" size={16} color="#059669" />
+                  </View>
                   <Text style={styles.metricValue}>{formatCurrency(resumo.receitaSemana)}</Text>
                   <Text style={styles.metricLabel}>Receita Semana</Text>
                 </View>
                 <View style={styles.metricCard}>
+                  <View style={[styles.metricIcon, { backgroundColor: '#F3E8FF' }]}>
+                    <Ionicons name="people-outline" size={16} color="#7C3AED" />
+                  </View>
                   <Text style={styles.metricValue}>{resumo.pacientesAtendidosHoje}</Text>
                   <Text style={styles.metricLabel}>Pacientes Hoje</Text>
                 </View>
                 <View style={styles.metricCard}>
+                  <View style={[styles.metricIcon, { backgroundColor: '#FEE2E2' }]}>
+                    <Ionicons name="alert-circle-outline" size={16} color="#DC2626" />
+                  </View>
                   <Text style={styles.metricValue}>{resumo.taxaFalta.toFixed(1)}%</Text>
                   <Text style={styles.metricLabel}>Taxa Falta</Text>
                 </View>
@@ -536,44 +546,50 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
               </View>
             )}
           </View>
-        }
-        renderItem={({ item }) => {
-          const clinical = clinicalStatus(item.status_clinico);
-          const financial = financialStatus(item.status_financeiro);
-          return (
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.patient}>{item.paciente_nome}</Text>
-                  <Text style={styles.meta}>Dr(a). {item.dentista_nome} • {item.especialidade}</Text>
+
+          {(() => {
+            const listData = filtro === 'pago' ? [] : filtered;
+            if (listData.length === 0) {
+              return filtro === 'pago' ? null : <View style={styles.footerCard}><Text style={styles.empty}>Nenhum procedimento encontrado.</Text></View>;
+            }
+            return listData.map((item) => {
+              const clinical = clinicalStatus(item.status_clinico);
+              const financial = financialStatus(item.status_financeiro);
+              return (
+                <View key={item.id} style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.patient}>{item.paciente_nome}</Text>
+                      <Text style={styles.meta}>Dr(a). {item.dentista_nome} • {item.especialidade}</Text>
+                    </View>
+                  </View>
+                  
+                  <Text style={styles.procedure}>{item.procedimento}</Text>
+                  <Text style={styles.meta}>{formatDateTime(item.data_hora)}</Text>
+                  
+                  <View style={styles.paymentInfo}>
+                    <Text style={styles.paymentText}>Valor Já Pago: {money(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0))}</Text>
+                    <Text style={[styles.paymentText, { color: COLORS.danger }]}>
+                      Saldo Devedor: {money(Number(item.valor || 0) - Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0)))}
+                    </Text>
+                  </View>
+                  <View style={styles.statusRow}>
+                    <View style={[styles.statusChip, { backgroundColor: clinical.bg }]}><Text style={[styles.statusText, { color: clinical.text }]}>Clinico: {clinical.label}</Text></View>
+                    <View style={[styles.statusChip, { backgroundColor: financial.bg }]}><Text style={[styles.statusText, { color: financial.text }]}>Financeiro: {financial.label}</Text></View>
+                  </View>
+                  <View style={styles.actionsRow}>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => { setNumeroFactura(''); setSelected(item); }}><Text style={styles.actionText}>Emitir factura</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => abrirModalPagamentoParcial(item)}><Text style={styles.actionText}>Pagamento Parcial</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => emitirFacturaPagamento(item)}><Text style={styles.actionText}>Fatura pago</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => void handlePrintServico(item)}><Text style={styles.actionText}>Imprimir serviço</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => void marcarPago(item)}><Text style={styles.actionText}>Marcar pago</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => void enviarWhatsapp(item)}><Text style={styles.actionText}>WhatsApp</Text></TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-              
-              <Text style={styles.procedure}>{item.procedimento}</Text>
-              <Text style={styles.meta}>{formatDateTime(item.data_hora)}</Text>
-              
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentText}>Valor Já Pago: {money(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0))}</Text>
-                <Text style={[styles.paymentText, { color: COLORS.danger }]}>
-                  Saldo Devedor: {money(Number(item.valor || 0) - Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0)))}
-                </Text>
-              </View>
-              <View style={styles.statusRow}>
-                <View style={[styles.statusChip, { backgroundColor: clinical.bg }]}><Text style={[styles.statusText, { color: clinical.text }]}>Clinico: {clinical.label}</Text></View>
-                <View style={[styles.statusChip, { backgroundColor: financial.bg }]}><Text style={[styles.statusText, { color: financial.text }]}>Financeiro: {financial.label}</Text></View>
-              </View>
-              <View style={styles.actionsRow}>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => { setNumeroFactura(''); setSelected(item); }}><Text style={styles.actionText}>Emitir factura</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => abrirModalPagamentoParcial(item)}><Text style={styles.actionText}>Pagamento Parcial</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => emitirFacturaPagamento(item)}><Text style={styles.actionText}>Fatura pago</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => void handlePrintServico(item)}><Text style={styles.actionText}>Imprimir serviço</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => void marcarPago(item)}><Text style={styles.actionText}>Marcar pago</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => void enviarWhatsapp(item)}><Text style={styles.actionText}>WhatsApp</Text></TouchableOpacity>
-              </View>
-            </View>
-          );
-        }}
-        ListFooterComponent={
+              );
+            });
+          })()}
+
           <View style={styles.footerCard}>
             <Text style={styles.footerTitle}>Historico financeiro</Text>
             {historico.length === 0 ? <Text style={styles.empty}>Sem historico financeiro.</Text> : historico.map((item) => (
@@ -593,9 +609,7 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
               </View>
             ))}
           </View>
-        }
-        ListEmptyComponent={filtro === 'pago' ? null : <View style={styles.footerCard}><Text style={styles.empty}>Nenhum procedimento encontrado.</Text></View>}
-      />
+      </View>
 
       <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}>
         <View style={styles.overlay}>
@@ -696,7 +710,8 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 32 },
   metricsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md, marginBottom: SPACING.md },
   metricCard: { flexGrow: 1, minWidth: 150, backgroundColor: COLORS.surface, borderRadius: 18, padding: SPACING.md, ...SHADOWS.sm },
-  metricValue: { fontSize: 28, fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.text },
+  metricIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  metricValue: { fontSize: 24, fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.text },
   metricLabel: { marginTop: 4, fontSize: TYPOGRAPHY.sizes.small, color: COLORS.textSecondary },
   filtersRow: { gap: SPACING.sm, paddingBottom: SPACING.md },
   unifiedCard: { backgroundColor: COLORS.surface, borderRadius: 20, padding: SPACING.md, marginBottom: SPACING.md, borderWidth: 1, borderColor: '#E5E7EB', ...SHADOWS.sm },

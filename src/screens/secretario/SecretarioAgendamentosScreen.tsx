@@ -9,6 +9,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -57,10 +58,12 @@ const getStatusLabel = (status?: string): string => {
 };
 
 const getStatusTone = (status?: string) => {
-  const value = getStatusLabel(status).toLowerCase();
-  if (value.includes('cancelado')) return { bg: '#FEE2E2', text: '#B91C1C' };
-  if (value.includes('confirmado')) return { bg: '#DCFCE7', text: '#166534' };
-  if (value.includes('aguardando')) return { bg: '#FEF3C7', text: '#92400E' };
+  const label = getStatusLabel(status).toLowerCase();
+  
+  if (label === 'pendente') return { bg: '#FEE2E2', text: '#DC2626' }; // Não atribuído em vermelho
+  if (label.includes('cancelado')) return { bg: '#FEE2E2', text: '#B91C1C' };
+  if (label.includes('confirmado')) return { bg: '#DCFCE7', text: '#166534' };
+  if (label.includes('aguardando')) return { bg: '#FEF3C7', text: '#92400E' };
   return { bg: '#EDE9FE', text: '#6D28D9' };
 };
 
@@ -72,8 +75,233 @@ const getUrgencyTone = (urgency?: string) => {
   return { bg: '#DBEAFE', text: '#1D4ED8', label: 'Normal' };
 };
 
+const createStyles = (isMobile: boolean) => StyleSheet.create({
+  flatContent: {
+    paddingBottom: 32,
+  },
+  list: {
+    width: '100%',
+    maxWidth: 980,
+    alignSelf: 'center',
+    paddingHorizontal: SIZES.md,
+    paddingTop: SIZES.md,
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#F3F4F8',
+  },
+  content: {
+    paddingHorizontal: SIZES.md,
+    paddingTop: SIZES.md,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F4F8',
+    paddingHorizontal: SIZES.lg,
+  },
+  loadingTitle: {
+    marginTop: SIZES.md,
+    fontSize: 18,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  headerRow: {
+    flexDirection: isMobile ? 'column' : 'row',
+    justifyContent: 'space-between',
+    alignItems: isMobile ? 'flex-start' : 'center',
+    marginBottom: SIZES.md,
+    gap: SIZES.md,
+  },
+  title: {
+    fontSize: isMobile ? 22 : 24,
+    color: COLORS.text,
+    fontWeight: '800',
+  },
+  description: {
+    marginTop: 4,
+    color: COLORS.textSecondary,
+    fontSize: SIZES.fontMd,
+    width: '100%',
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F3F0FF',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: SIZES.radiusFull,
+  },
+  refreshButtonText: {
+    color: '#6D28D9',
+    fontSize: SIZES.fontSm,
+    fontWeight: '700',
+  },
+  searchInput: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: COLORS.text,
+    fontSize: SIZES.fontMd,
+    ...SHADOWS.sm,
+  },
+  tabsRow: {
+    gap: SIZES.sm,
+    paddingTop: SIZES.md,
+    paddingBottom: SIZES.sm,
+  },
+  tabButton: {
+    backgroundColor: COLORS.surface,
+    borderRadius: SIZES.radiusFull,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  tabButtonActive: {
+    backgroundColor: '#6D28D9',
+    borderColor: '#6D28D9',
+  },
+  tabButtonText: {
+    color: COLORS.text,
+    fontWeight: '700',
+  },
+  tabButtonTextActive: {
+    color: COLORS.textInverse,
+  },
+  requestCard: {
+    width: '100%',
+    maxWidth: 980,
+    alignSelf: 'center',
+    marginHorizontal: SIZES.md,
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    padding: SIZES.md,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    ...SHADOWS.sm,
+  },
+  requestHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: SIZES.sm,
+  },
+  requestMain: {
+    flex: 1,
+  },
+  patientLabel: {
+    color: '#6D28D9',
+    fontSize: SIZES.fontSm,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  requestName: {
+    fontSize: isMobile ? 18 : 22,
+    fontWeight: '800',
+    color: COLORS.text,
+  },
+  requestProblem: {
+    color: COLORS.textSecondary,
+    marginTop: 4,
+    fontSize: SIZES.fontMd,
+    lineHeight: 20,
+  },
+  statusBadge: {
+    borderRadius: SIZES.radiusFull,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  statusText: {
+    fontWeight: '800',
+    fontSize: SIZES.fontSm,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: SIZES.md,
+  },
+  metaText: {
+    color: COLORS.textSecondary,
+    fontSize: SIZES.fontSm,
+    fontWeight: '600',
+  },
+  metaDot: {
+    color: '#CBD5E1',
+    fontSize: SIZES.fontSm,
+  },
+  urgencyBadge: {
+    borderRadius: SIZES.radiusFull,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  urgencyText: {
+    fontSize: SIZES.fontSm,
+    fontWeight: '700',
+  },
+  footerRow: {
+    marginTop: SIZES.md,
+    paddingTop: SIZES.md,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: SIZES.sm,
+    flexWrap: 'wrap',
+  },
+  contactText: {
+    color: COLORS.textSecondary,
+    fontSize: SIZES.fontSm,
+    flexShrink: 1,
+  },
+  primaryAction: {
+    backgroundColor: '#6D28D9',
+    borderRadius: SIZES.radiusFull,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+  },
+  primaryActionText: {
+    color: COLORS.textInverse,
+    fontWeight: '700',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SIZES.xxl,
+    paddingHorizontal: SIZES.lg,
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: COLORS.text,
+    marginTop: SIZES.md,
+    marginBottom: SIZES.sm,
+  },
+  emptyText: {
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+});
+
 const SecretarioAgendamentosScreen: React.FC<Props> = ({ navigation }) => {
   const [agendamentos, setAgendamentos] = useState<AgendaItem[]>([]);
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
+  const styles = useMemo(() => createStyles(isMobile), [isMobile]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
@@ -368,218 +596,5 @@ const SecretarioAgendamentosScreen: React.FC<Props> = ({ navigation }) => {
     />
   );
 };
-
-const styles = StyleSheet.create({
-  flatContent: {
-    paddingBottom: 32,
-  },
-  list: {
-    width: '100%',
-    maxWidth: 980,
-    alignSelf: 'center',
-    paddingHorizontal: SIZES.md,
-    paddingTop: SIZES.md,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F3F4F8',
-    paddingHorizontal: SIZES.lg,
-  },
-  loadingTitle: {
-    marginTop: SIZES.md,
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.text,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SIZES.md,
-    gap: SIZES.sm,
-  },
-  title: {
-    fontSize: 24,
-    color: COLORS.text,
-    fontWeight: '800',
-  },
-  description: {
-    marginTop: 4,
-    color: COLORS.textSecondary,
-    fontSize: SIZES.fontMd,
-  },
-  refreshButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F3F0FF',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: SIZES.radiusFull,
-  },
-  refreshButtonText: {
-    color: '#6D28D9',
-    fontSize: SIZES.fontSm,
-    fontWeight: '700',
-  },
-  searchInput: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: COLORS.text,
-    fontSize: SIZES.fontMd,
-    ...SHADOWS.sm,
-  },
-  tabsRow: {
-    gap: SIZES.sm,
-    paddingTop: SIZES.md,
-    paddingBottom: SIZES.sm,
-  },
-  tabButton: {
-    backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusFull,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  tabButtonActive: {
-    backgroundColor: '#6D28D9',
-    borderColor: '#6D28D9',
-  },
-  tabButtonText: {
-    color: COLORS.text,
-    fontWeight: '700',
-  },
-  tabButtonTextActive: {
-    color: COLORS.textInverse,
-  },
-  requestCard: {
-    width: '100%',
-    maxWidth: 980,
-    alignSelf: 'center',
-    marginHorizontal: SIZES.md,
-    backgroundColor: COLORS.surface,
-    borderRadius: 20,
-    padding: SIZES.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    ...SHADOWS.sm,
-  },
-  requestHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: SIZES.sm,
-  },
-  requestMain: {
-    flex: 1,
-  },
-  patientLabel: {
-    color: '#6D28D9',
-    fontSize: SIZES.fontSm,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  requestName: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: COLORS.text,
-  },
-  requestProblem: {
-    color: COLORS.textSecondary,
-    marginTop: 4,
-    fontSize: SIZES.fontMd,
-    lineHeight: 20,
-  },
-  statusBadge: {
-    borderRadius: SIZES.radiusFull,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  statusText: {
-    fontWeight: '800',
-    fontSize: SIZES.fontSm,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: SIZES.md,
-  },
-  metaText: {
-    color: COLORS.textSecondary,
-    fontSize: SIZES.fontSm,
-    fontWeight: '600',
-  },
-  metaDot: {
-    color: '#CBD5E1',
-    fontSize: SIZES.fontSm,
-  },
-  urgencyBadge: {
-    borderRadius: SIZES.radiusFull,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  urgencyText: {
-    fontSize: SIZES.fontSm,
-    fontWeight: '700',
-  },
-  footerRow: {
-    marginTop: SIZES.md,
-    paddingTop: SIZES.md,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: SIZES.sm,
-    flexWrap: 'wrap',
-  },
-  contactText: {
-    color: COLORS.textSecondary,
-    fontSize: SIZES.fontSm,
-    flexShrink: 1,
-  },
-  primaryAction: {
-    backgroundColor: '#6D28D9',
-    borderRadius: SIZES.radiusFull,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
-  },
-  primaryActionText: {
-    color: COLORS.textInverse,
-    fontWeight: '700',
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: SIZES.xxl,
-    paddingHorizontal: SIZES.lg,
-    backgroundColor: COLORS.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.text,
-    marginTop: SIZES.md,
-    marginBottom: SIZES.sm,
-  },
-  emptyText: {
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-});
 
 export default SecretarioAgendamentosScreen;

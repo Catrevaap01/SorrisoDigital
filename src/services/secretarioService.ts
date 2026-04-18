@@ -194,6 +194,7 @@ export interface TratamentoFinanceiroItem {
   factura_emitida_em?: string | null;
   pago_em?: string | null;
   observacoes?: string | null;
+  updated_at?: string;
 }
 
 const nomeOuFallback = (...values: Array<any>) => {
@@ -522,6 +523,55 @@ export const atribuirAgendamentoAoDentista = async (
     return {
       success: false,
       error: err.message || 'Erro ao atribuir agendamento',
+    };
+  }
+};
+
+/**
+ * Remover atribuição de triagem ou agendamento
+ */
+export const removerAtribuicaoItem = async (
+  itemId: string,
+  tipo: 'triagem' | 'agendamento'
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const admin = getAdminClient();
+    const client = admin || supabase;
+    const table = tipo === 'triagem' ? 'triagens' : 'appointments';
+    const statusPendente = tipo === 'triagem' ? 'triagem_pendente_secretaria' : 'agendamento_pendente_secretaria';
+    const dentistField = tipo === 'triagem' ? 'dentista_id' : 'dentist_id';
+
+    const { data: itemData } = await client
+      .from(table)
+      .select(tipo === 'triagem' ? 'paciente_id' : 'patient_id')
+      .eq('id', itemId)
+      .single();
+
+    if (itemData) {
+      const pId = tipo === 'triagem' ? itemData.paciente_id : itemData.patient_id;
+      if (pId) {
+        await client
+          .from('profiles')
+          .update({ dentist_id: null, updated_at: new Date().toISOString() })
+          .eq('id', pId);
+      }
+    }
+
+    const { error } = await client
+      .from(table)
+      .update({
+        [dentistField]: null,
+        status: statusPendente,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', itemId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || 'Erro ao remover atribuição',
     };
   }
 };
