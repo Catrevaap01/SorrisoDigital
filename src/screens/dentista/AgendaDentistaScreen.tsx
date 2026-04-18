@@ -263,7 +263,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       
       // Filtrar todos os agendamentos realizados do dentista
       const realizadosTodos = agendamentos.filter(a => 
-        a.dentist_id === profileId && 
+        a.dentist_id === profile?.id && 
         a.status === 'realizado'
       );
       
@@ -472,13 +472,13 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     };
 
     const handleAgendar = async () => {
-      if (!profileId) {
+      if (!profile?.id) {
         Toast.show({ type: 'error', text1: 'Erro de autenticação', text2: 'Seu perfil ainda não foi carregado. Tente novamente.' });
         return;
       }
       if (processingId) return;
       setProcessingId(item.id);
-      const res = await agendarAgendamento(item.id, profileId);
+      const res = await agendarAgendamento(item.id, profile?.id);
       if (res.success) {
         Toast.show({ type: 'success', text1: 'Agendamento agendado' });
         await carregarAgendamentos();
@@ -494,13 +494,13 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     };
 
     const handleConfirmar = async () => {
-      if (!profileId) {
+      if (!profile?.id) {
         Toast.show({ type: 'error', text1: 'Erro de autenticação', text2: 'Seu perfil ainda não foi carregado. Tente novamente.' });
         return;
       }
       if (processingId) return;
       setProcessingId(item.id);
-      const res = await confirmarAgendamento(item.id, profileId);
+      const res = await confirmarAgendamento(item.id, profile?.id);
       if (res.success) {
         Toast.show({ type: 'success', text1: 'Agendamento confirmado' });
         await carregarAgendamentos();
@@ -563,7 +563,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     };
 
     const handleReagendarSugestao = async () => {
-      if (!profileId) {
+      if (!profile?.id) {
         Toast.show({ type: 'error', text1: 'Erro de autenticação', text2: 'Seu perfil ainda não foi carregado. Tente novamente.' });
         return;
       }
@@ -584,7 +584,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
             appointment_date: item.suggested_date,
             appointment_time: suggestedTime,
             status: 'confirmado_dentista',
-            dentist_id: profileId,
+            dentist_id: profile?.id,
             suggested_date: null,
             suggested_by: null
           })
@@ -669,7 +669,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
             data: {
               appointment_id: agendamento.id,
               patient_id: agendamento.patient_id,
-              dentist_id: profileId,
+              dentist_id: profile?.id,
               old_date: agendamento.appointment_date,
               new_date: agendamento.suggested_date
             },
@@ -697,7 +697,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
             data: {
               appointment_id: agendamento.id,
               patient_id: agendamento.patient_id,
-              dentist_id: profileId,
+              dentist_id: profile?.id,
               rejected_date: agendamento.suggested_date
             },
             created_at: new Date().toISOString()
@@ -725,7 +725,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     };
 
     const handleEnviarSugestao = async () => {
-      if (!profileId) {
+      if (!profile?.id) {
         Toast.show({ type: 'error', text1: 'Erro de autenticação', text2: 'Seu perfil ainda não foi carregado. Tente novamente.' });
         return;
       }
@@ -738,7 +738,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       
       try {
         // First suggest the new time
-        const res = await sugerirNovoHorario(item.id, profileId, horarioIso.toISOString());
+        const res = await sugerirNovoHorario(item.id, profile?.id, horarioIso.toISOString());
         if (!res.success) {
           const errorMessage = typeof res.error === 'string' ? res.error : res.error?.message || 'Não foi possível sugerir o horário';
           throw new Error(errorMessage);
@@ -751,7 +751,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
             status: 'pendente', // Send back to pending for secretary
             dentist_id: null, // Remove dentist assignment
             suggested_date: horarioIso.toISOString(),
-            suggested_by: profileId
+            suggested_by: profile?.id
           })
           .eq('id', item.id);
           
@@ -794,7 +794,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
             data: {
               appointment_id: agendamento.id,
               patient_id: agendamento.patient_id,
-              dentist_id: profileId,
+              dentist_id: profile?.id,
               suggested_date: novaData.toISOString()
             },
             created_at: new Date().toISOString()
@@ -1252,7 +1252,6 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     );
   };
 
-  const profileId = profile?.id;
   // Criar data no formato YYYY-MM-DD sem timezone para comparação correta
   const ano = dataSelecionada.getFullYear();
   const mes = String(dataSelecionada.getMonth() + 1).padStart(2, '0');
@@ -1261,26 +1260,26 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
   
   const meusAgendadosDoDia = agendamentos.filter(
     (a) =>
-      a.dentist_id === profileId &&
+      a.dentist_id === profile?.id &&
       ['atribuido_dentista', 'pendente', 'agendado', 'solicitado', 'agendamento_pendente_secretaria'].includes(a.status) &&
       (a.appointment_date === dataSelecionadaStr || (typeof a.appointment_date === 'string' && a.appointment_date.startsWith(dataSelecionadaStr)))
   );
   const meusConfirmadosDoDia = agendamentos.filter(
     (a) =>
-      a.dentist_id === profileId &&
+      a.dentist_id === profile?.id &&
       ['confirmado_dentista', 'confirmado_paciente', 'notificado_paciente'].includes(a.status) &&
       (a.appointment_date === dataSelecionadaStr || (typeof a.appointment_date === 'string' && a.appointment_date.startsWith(dataSelecionadaStr)))
   );
   const realizadosDoDia = agendamentos.filter(
     (a) =>
-      a.dentist_id === profileId &&
+      a.dentist_id === profile?.id &&
       a.status === 'realizado' &&
       (a.appointment_date === dataSelecionadaStr || (typeof a.appointment_date === 'string' && a.appointment_date.startsWith(dataSelecionadaStr)))
   );
   const canceladosDoDia = agendamentos.filter(
     (a) => 
       a.status === 'cancelado' && 
-      (!a.dentist_id || a.dentist_id === profileId) &&
+      (!a.dentist_id || a.dentist_id === profile?.id) &&
       (a.appointment_date === dataSelecionadaStr || (typeof a.appointment_date === 'string' && a.appointment_date.startsWith(dataSelecionadaStr)))
   );
 
