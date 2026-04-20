@@ -114,7 +114,7 @@ const HomeScreen: React.FC<HomeProps> = ({ navigation }) => {
 
         <TouchableOpacity
           style={styles.actionCard}
-          onPress={() => navigation.getParent()?.navigate('Agendamento' as any)}
+          onPress={() => navigation.getParent()?.navigate('Agendamento')}
         >
           <View style={[styles.actionIcon, { backgroundColor: '#FFF3E0' }]}
           >

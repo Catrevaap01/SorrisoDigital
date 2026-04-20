@@ -548,7 +548,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.opcaoItem}
-            onPress={() => navigation.getParent()?.navigate('Notificacoes' as any)}
+            onPress={() => navigation.getParent()?.navigate('Notificacoes')}
           >
             <Ionicons name="notifications-outline" size={22} color={COLORS.textSecondary} />
             <Text style={styles.opcaoText}>Notificações</Text>
@@ -557,7 +557,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.opcaoItem}
-            onPress={() => navigation.getParent()?.navigate('Privacidade' as any)}
+            onPress={() => navigation.getParent()?.navigate('Privacidade')}
           >
             <Ionicons name="shield-checkmark-outline" size={22} color={COLORS.textSecondary} />
             <Text style={styles.opcaoText}>Privacidade</Text>
@@ -566,7 +566,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.opcaoItem}
-            onPress={() => navigation.getParent()?.navigate('Ajuda' as any)}
+            onPress={() => navigation.getParent()?.navigate('Ajuda')}
           >
             <Ionicons name="help-circle-outline" size={22} color={COLORS.textSecondary} />
             <Text style={styles.opcaoText}>Ajuda</Text>
@@ -575,7 +575,7 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.opcaoItem}
-            onPress={() => navigation.getParent()?.navigate('TermosUso' as any)}
+            onPress={() => navigation.getParent()?.navigate('TermosUso')}
           >
             <Ionicons name="document-text-outline" size={22} color={COLORS.textSecondary} />
             <Text style={styles.opcaoText}>Termos de Uso</Text>

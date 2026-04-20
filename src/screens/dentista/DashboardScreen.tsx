@@ -540,16 +540,16 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       .slice(0, 5);
   }, [triagens, profile?.id]);
 
-  const abrirCaso = (triagem: Triagem) => navigation.getParent<any>()?.navigate('CasoDetalhe', { triagemId: triagem.id });
+  const abrirCaso = (triagem: Triagem) => navigation.getParent()?.navigate('CasoDetalhe', { triagemId: triagem.id });
   const abrirPaciente = (agendamento: Agendamento) => {
     if (!agendamento.patient_id) return;
-    navigation.getParent<any>()?.navigate('PacienteHistorico', { pacienteId: agendamento.patient_id, pacienteNome: agendamento.paciente?.nome });
+    navigation.getParent()?.navigate('PacienteHistorico', { pacienteId: agendamento.patient_id, pacienteNome: agendamento.paciente?.nome });
   };
 
   const handleQuickAction = (screen?: string) => {
     if (!screen) return;
     if (screen === 'CadastrarPaciente') {
-      navigation.getParent<any>()?.navigate('CadastrarPaciente');
+      navigation.getParent()?.navigate('CadastrarPaciente');
     } else if (['Agenda', 'Mensagens', 'Pacientes'].includes(screen)) {
       navigation.navigate(screen as any);
     }

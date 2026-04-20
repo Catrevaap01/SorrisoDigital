@@ -18,9 +18,10 @@ import { exportarHistoricoPacientePdf } from '../../services/pdfReportService';
 import Toast from 'react-native-toast-message';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { DentistaStackParamList } from '../../navigation/types';
+import { SecretarioStackParamList } from '../../navigation/types';
 
 type PacienteHistoricoProps = NativeStackScreenProps<
-  DentistaStackParamList,
+  DentistaStackParamList | SecretarioStackParamList,
   'PacienteHistorico'
 >;
 
@@ -81,7 +82,7 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
       <TouchableOpacity
         style={styles.rowItem}
         onPress={() =>
-          navigation.navigate('CasoDetalhe' as any, { triagemId: item.id })
+          navigation.getParent()?.navigate('CasoDetalhe', { triagemId: item.id })
         }
         activeOpacity={0.7}
       >

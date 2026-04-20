@@ -465,7 +465,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
 
     const handleAbrirPaciente = () => {
       if (!item.paciente?.id) return;
-      navigation.navigate('PacienteHistorico' as any, {
+      navigation.getParent()?.navigate('PacienteHistorico', {
         pacienteId: item.paciente.id,
         pacienteNome: item.paciente.nome,
       });
@@ -513,7 +513,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
             [
               { text: 'Agora não', onPress: handleAbrirPaciente, style: 'cancel' },
               { text: 'Sim, preencher plano', onPress: () => {
-                navigation.navigate('PlanoTratamento' as any, {
+                navigation.getParent()?.navigate('PlanoTratamento', {
                   pacienteId: item.paciente?.id,
                   pacienteNome: item.paciente?.nome,
                   triagemId: item.triagem_id || null // Passamos a triagem associada
@@ -525,7 +525,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
           // No web
           const irParaPlano = window.confirm('Agendamento confirmado!\nDeseja preencher o Plano de Tratamento e definir o valor para este paciente agora?');
           if (irParaPlano) {
-            navigation.navigate('PlanoTratamento' as any, {
+            navigation.getParent()?.navigate('PlanoTratamento', {
               pacienteId: item.paciente?.id,
               pacienteNome: item.paciente?.nome,
               triagemId: item.triagem_id || null
@@ -964,7 +964,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
           onPress={() => {
             if (!item.paciente?.id) return;
             if (item.status === 'confirmado_dentista' || item.status === 'realizado') {
-              navigation.navigate('PlanoTratamento' as any, {
+              navigation.getParent()?.navigate('PlanoTratamento', {
                 pacienteId: item.paciente.id,
                 pacienteNome: item.paciente.nome,
               });

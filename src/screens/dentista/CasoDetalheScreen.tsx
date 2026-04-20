@@ -25,8 +25,12 @@ import { STATUS_TRIAGEM, RECOMENDACAO } from '../../utils/constants';
 import { formatDateTime } from '../../utils/helpers';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { DentistaStackParamList } from '../../navigation/types';
+import { SecretarioStackParamList } from '../../navigation/types';
 
-type CasoDetalheProps = NativeStackScreenProps<DentistaStackParamList, 'CasoDetalhe'>;
+type CasoDetalheProps = NativeStackScreenProps<DentistaStackParamList | SecretarioStackParamList, 'CasoDetalhe'>;
+
+// Função para formatar valores em moeda Angolana
+const money = (value: number) => `${Number(value || 0).toLocaleString('pt-AO')} Kz`;
 
 const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) => {
   const { triagemId } = route.params;
@@ -36,6 +40,8 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
   const [loading, setLoading] = useState<boolean>(true);
   const [enviando, setEnviando] = useState<boolean>(false);
   const [imagemModal, setImagemModal] = useState<string | null>(null);
+  const [dentista, setDentista] = useState<{ nome?: string; foto_url?: string } | null>(null);
+  const [planoTratamento, setPlanoTratamento] = useState<{ valor?: number } | null>(null);
   
   // Campos da resposta
   const [orientacao, setOrientacao] = useState<string>('');
@@ -61,6 +67,34 @@ const carregarTriagem = async () => {
           .maybeSingle();
         if (prof && prof.nome) {
           tri = { ...tri, paciente: { ...(tri.paciente || {}), nome: prof.nome } };
+        }
+      }
+
+      // Carregar dados do dentista se dentista_id existe
+      if (tri.dentista_id) {
+        const { data: dentistaData } = await supabase
+          .from('profiles')
+          .select('nome, foto_url')
+          .eq('id', tri.dentista_id)
+          .maybeSingle();
+        if (dentistaData) {
+          setDentista(dentistaData);
+        }
+      }
+
+      // Carregar plano de tratamento se triagem tem uma resposta com dentista_id
+      if (tri.respostas && tri.respostas.length > 0) {
+        const resposta = tri.respostas[0];
+        if (resposta.dentista_id) {
+          const { data: planoData } = await supabase
+            .from('planos_tratamento')
+            .select('valor')
+            .eq('triagem_id', triagemId)
+            .eq('dentista_id', resposta.dentista_id)
+            .maybeSingle();
+          if (planoData) {
+            setPlanoTratamento(planoData);
+          }
         }
       }
 
@@ -272,7 +306,10 @@ const carregarTriagem = async () => {
       return;
     }
 
-    navigation.navigate('DentistaTabs' as any, {
+    // Determinar qual tab navigator usar baseado no tipo de usuário
+    const tabName = profile?.tipo === 'secretario' ? 'SecretarioTabs' : 'DentistaTabs';
+    
+    navigation.getParent()?.navigate(tabName as any, {
       screen: 'Mensagens',
       params: {
         openConversationId: result.data.id,
@@ -347,7 +384,7 @@ const carregarTriagem = async () => {
             style={[styles.chatButton, styles.historyButton]}
             onPress={() => {
               if (triagem.paciente_id) {
-                navigation.navigate('PacienteHistorico' as any, {
+                navigation.navigate('PacienteHistorico', {
                   pacienteId: triagem.paciente_id,
                   pacienteNome: triagem.paciente?.nome,
                 });
@@ -360,10 +397,11 @@ const carregarTriagem = async () => {
         </View>
 
         {/* Módulo Clínico — Anamnese, Plano, Prescrição */}
+        {profile?.tipo === 'dentista' && (
         <View style={styles.clinicaRow}>
           <TouchableOpacity
             style={styles.clinicaBtn}
-            onPress={() => triagem.paciente_id && navigation.navigate('Anamnese', {
+            onPress={() => triagem.paciente_id && navigation.navigate('Anamnese' as any, {
               triagemId, pacienteId: triagem.paciente_id, pacienteNome: triagem.paciente?.nome,
             })}
           >
@@ -373,7 +411,7 @@ const carregarTriagem = async () => {
 
           <TouchableOpacity
             style={styles.clinicaBtn}
-            onPress={() => triagem.paciente_id && navigation.navigate('PlanoTratamento', {
+            onPress={() => triagem.paciente_id && navigation.navigate('PlanoTratamento' as any, {
               triagemId, pacienteId: triagem.paciente_id, pacienteNome: triagem.paciente?.nome,
             })}
           >
@@ -383,7 +421,7 @@ const carregarTriagem = async () => {
 
           <TouchableOpacity
             style={styles.clinicaBtn}
-            onPress={() => triagem.paciente_id && navigation.navigate('Prescricao', {
+            onPress={() => triagem.paciente_id && navigation.navigate('Prescricao' as any, {
               triagemId, pacienteId: triagem.paciente_id, pacienteNome: triagem.paciente?.nome,
             })}
           >
@@ -391,6 +429,7 @@ const carregarTriagem = async () => {
             <Text style={[styles.clinicaBtnText, { color: '#E91E63' }]}>Prescrição</Text>
           </TouchableOpacity>
         </View>
+        )}
       </View>
 
       <View style={styles.statusCard}>
@@ -436,6 +475,35 @@ const carregarTriagem = async () => {
           </View>
         ) : null}
       </View>
+      {(dentista || planoTratamento) && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Detalhes do Atendimento</Text>
+          
+          {dentista && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Atendido por</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {dentista.foto_url && (
+                  <Image
+                    source={{ uri: dentista.foto_url }}
+                    style={{ width: 32, height: 32, borderRadius: 16 }}
+                  />
+                )}
+                <Text style={styles.infoValor}>{dentista.nome || 'Dentista'}</Text>
+              </View>
+            </View>
+          )}
+          
+          {planoTratamento && planoTratamento.valor && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Valor do Tratamento</Text>
+              <Text style={[styles.infoValor, { color: COLORS.secondary, fontWeight: 'bold' }]}>
+                {money(Number(planoTratamento.valor))}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
       {triagem.imagens && (Array.isArray(triagem.imagens) ? triagem.imagens.length > 0 : typeof triagem.imagens === 'string') ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>

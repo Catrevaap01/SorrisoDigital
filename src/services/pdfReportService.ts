@@ -43,8 +43,10 @@ const CSS_BASE = `
   tr:nth-child(even) { background: #fafafa; }
   .section { margin: 24px 0; }
   .section h2 { color: #1E88E5; font-size: 18px; border-bottom: 2px solid #E3F2FD; padding-bottom: 6px; margin-bottom: 12px; }
-  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .info-item { display: flex; flex-direction: row; align-items: baseline; gap: 6px; }
   .info-item .label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+  .info-item .label::after { content: ":"; }
   .info-item .value { font-size: 14px; color: #333; font-weight: 500; }
   .footer { text-align: center; margin-top: 40px; color: #bbb; font-size: 10px; border-top: 1px solid #eee; padding-top: 12px; }
   .alert { background: #FFF3E0; border-left: 4px solid #E65100; padding: 10px 14px; border-radius: 6px; margin: 12px 0; font-size: 13px; }

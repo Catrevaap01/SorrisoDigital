@@ -1449,14 +1449,14 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.headerActions}>
             <TouchableOpacity 
               style={styles.messageButtonHeader} 
-              onPress={() => (navigation as any).navigate('Mensagens')}
+              onPress={() => navigation.navigate('Mensagens')}
             >
               <Ionicons name="chatbubble-ellipses-outline" size={18} color="#6D28D9" />
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={styles.primaryActionButton} 
-              onPress={() => (navigation as any).navigate('CadastrarPaciente')}
+              onPress={() => navigation.getParent()?.navigate('CadastrarPaciente')}
             >
               <Ionicons name="person-add-outline" size={16} color="white" />
               <Text style={styles.primaryActionButtonText}>Novo</Text>
@@ -1638,7 +1638,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
           itemTipo={modalDetalhes.tipo}
           itemData={modalDetalhes.itemData}
           onVerHistorico={(id, nome) => {
-            navigation.navigate('PacienteHistorico' as any, { pacienteId: id, pacienteNome: nome });
+            navigation.getParent()?.navigate('PacienteHistorico', { pacienteId: id, pacienteNome: nome });
           }}
         />
       </View>

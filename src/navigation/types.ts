@@ -70,6 +70,7 @@ export type SecretarioStackParamList = {
   TermosUso: undefined;
   Ajuda: undefined;
   PacienteHistorico: { pacienteId: string; pacienteNome?: string };
+  CasoDetalhe: { triagemId: string };
 };
 
 export type PacienteStackParamList = {

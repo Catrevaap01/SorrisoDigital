@@ -507,18 +507,29 @@ const SecretarioAgendamentosScreen: React.FC<Props> = ({ navigation }) => {
           <TouchableOpacity 
             style={[
               styles.primaryAction, 
-              ['atribuido_dentista', 'pendente', 'confirmado', 'agendado'].includes(String(item.status || '').toLowerCase()) && { backgroundColor: '#94A3B8' }
+              tab !== 'historico' && ['atribuido_dentista', 'pendente', 'confirmado', 'agendado'].includes(String(item.status || '').toLowerCase()) && { backgroundColor: '#94A3B8' }
             ]} 
             onPress={() => {
+              if (tab === 'historico') {
+                if (item.patient_id) {
+                  navigation.getParent()?.navigate('PacienteHistorico', { 
+                    pacienteId: item.patient_id, 
+                    pacienteNome: item.paciente?.nome || 'Paciente' 
+                  } as any);
+                }
+                return;
+              }
               if (['atribuido_dentista', 'pendente', 'confirmado', 'agendado'].includes(String(item.status || '').toLowerCase())) return;
               handleAbrirAtribuicao(item);
             }}
-            disabled={['atribuido_dentista', 'pendente', 'confirmado', 'agendado'].includes(String(item.status || '').toLowerCase())}
+            disabled={tab !== 'historico' && ['atribuido_dentista', 'pendente', 'confirmado', 'agendado'].includes(String(item.status || '').toLowerCase())}
           >
             <Text style={styles.primaryActionText}>
-              {['atribuido_dentista', 'pendente', 'confirmado', 'agendado'].includes(String(item.status || '').toLowerCase())
+              {tab === 'historico'
+                ? 'Abrir'
+                : (['atribuido_dentista', 'pendente', 'confirmado', 'agendado'].includes(String(item.status || '').toLowerCase())
                 ? 'Atribuído'
-                : (tab === 'pendentes' ? 'Agendar' : 'Abrir')}
+                : (tab === 'pendentes' ? 'Agendar' : 'Abrir'))}
             </Text>
           </TouchableOpacity>
         </View>

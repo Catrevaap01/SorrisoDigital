@@ -548,7 +548,9 @@ export const removerAtribuicaoItem = async (
       .single();
 
     if (itemData) {
-      const pId = tipo === 'triagem' ? itemData.paciente_id : itemData.patient_id;
+      const pId = tipo === 'triagem' 
+        ? (itemData as any).paciente_id 
+        : (itemData as any).patient_id;
       if (pId) {
         await client
           .from('profiles')

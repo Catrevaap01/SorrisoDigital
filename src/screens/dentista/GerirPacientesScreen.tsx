@@ -446,7 +446,7 @@ const GerirPacientesScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.actionsRow}>
           {profile?.tipo !== 'secretario' && (
             <>
-              <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('PacienteHistorico' as any, { pacienteId: item.id, pacienteNome: item.nome })}>
+              <TouchableOpacity style={styles.actionButton} onPress={() => navigation.getParent()?.navigate('PacienteHistorico', { pacienteId: item.id, pacienteNome: item.nome })}>
                 <Ionicons name="time-outline" size={18} color={COLORS.primary} />
                 <Text style={styles.actionText}>Historico</Text>
               </TouchableOpacity>
@@ -540,7 +540,7 @@ const GerirPacientesScreen: React.FC<Props> = ({ navigation }) => {
                     <Ionicons name="copy-outline" size={18} color={COLORS.primary} />
                     <Text style={styles.summaryButtonText}>Copiar codigo</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.summaryButton} onPress={() => navigation.navigate('PacienteHistorico' as any, { pacienteId: selectedPaciente?.id, pacienteNome: formData.nome })}>
+                  <TouchableOpacity style={styles.summaryButton} onPress={() => navigation.getParent()?.navigate('PacienteHistorico', { pacienteId: selectedPaciente?.id, pacienteNome: formData.nome })}>
                     <Ionicons name="time-outline" size={18} color={COLORS.accent} />
                     <Text style={styles.summaryButtonText}>Historico</Text>
                   </TouchableOpacity>

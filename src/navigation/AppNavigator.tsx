@@ -541,6 +541,15 @@ const SecretarioStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
         }}
       />
       <SecretarioStackNav.Screen
+        name="CasoDetalhe"
+        component={CasoDetalheScreen}
+        options={{
+          title: 'Detalhes do Caso',
+          headerStyle: { backgroundColor: '#7C3AED' },
+          headerTintColor: COLORS.textInverse,
+        }}
+      />
+      <SecretarioStackNav.Screen
         name="Settings"
         component={require('../screens/paciente/SettingsScreen').default}
         options={{
