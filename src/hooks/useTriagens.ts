@@ -3,10 +3,11 @@
  * Encapsula lógica de busca e manipulação de triagens
  */
 
-import { useState, useCallback } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
 import { handleError, HandledError } from '../utils/errorHandler';
+import { useRealtimeRefresh } from './useRealtimeRefresh';
 
 export interface Triagem {
   id: string;
@@ -36,6 +37,8 @@ export const useTriagens = (pacienteId: string | null = null): UseTriagensResult
   const [triagens, setTriagens] = useState<Triagem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<HandledError | null>(null);
+  const lastFiltersRef = useRef<Record<string, any>>({});
+  const hasLoadedRef = useRef(false);
 
   /**
    * Buscar triagens
@@ -45,6 +48,7 @@ export const useTriagens = (pacienteId: string | null = null): UseTriagensResult
       try {
         setLoading(true);
         setError(null);
+        lastFiltersRef.current = filtros || {};
 
         let query = supabase.from('triagens').select('*');
 
@@ -63,6 +67,7 @@ export const useTriagens = (pacienteId: string | null = null): UseTriagensResult
         if (queryError) throw queryError;
 
         setTriagens(data as Triagem[] || []);
+        hasLoadedRef.current = true;
         logger.info('Triagens buscadas com sucesso');
         return { success: true, data: data as Triagem[] };
       } catch (err) {
@@ -75,6 +80,20 @@ export const useTriagens = (pacienteId: string | null = null): UseTriagensResult
     },
     [pacienteId]
   );
+
+  useRealtimeRefresh({
+    enabled: hasLoadedRef.current,
+    debounceMs: 700,
+    shouldRefresh: (event) => {
+      if (event.table !== 'triagens' && event.table !== 'respostas_triagem') return false;
+      if (!pacienteId) return true;
+      const pid = String(event.new?.paciente_id || event.old?.paciente_id || '');
+      return pid === pacienteId;
+    },
+    refresh: () => {
+      buscarTriagens(lastFiltersRef.current);
+    },
+  });
 
   /**
    * Criar nova triagem

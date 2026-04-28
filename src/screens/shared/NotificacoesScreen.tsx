@@ -13,6 +13,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { buscarTodasNotificacoes, marcarNotificacaoComoLida, Notificacao } from '../../services/notificacoesService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { formatRelativeTime } from '../../utils/helpers';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 const NotificacoesScreen: React.FC = () => {
   const { profile } = useAuth();
@@ -20,7 +21,7 @@ const NotificacoesScreen: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  const carregarNotificacoes = async () => {
+  const carregarNotificacoes = useCallback(async () => {
     if (!profile?.id) return;
 
     const result = await buscarTodasNotificacoes(profile.id);
@@ -28,11 +29,25 @@ const NotificacoesScreen: React.FC = () => {
       setNotificacoes(result.data);
     }
     setLoading(false);
-  };
+  }, [profile?.id]);
 
   useEffect(() => {
     carregarNotificacoes();
-  }, [profile?.id]);
+  }, [carregarNotificacoes]);
+
+  useRealtimeRefresh({
+    enabled: !!profile?.id,
+    debounceMs: 800,
+    shouldRefresh: (event) => {
+      const userId = profile?.id;
+      if (!userId) return false;
+      if (event.table !== 'notificacoes') return false;
+      return String(event.new?.usuario_id || event.old?.usuario_id || '') === userId;
+    },
+    refresh: () => {
+      void carregarNotificacoes();
+    },
+  });
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

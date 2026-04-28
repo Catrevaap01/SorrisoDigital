@@ -71,7 +71,8 @@ export default function LoginScreen({
 
       console.log('Login successful from LoginScreen');
     } catch (err: any) {
-      console.error('Login failed from LoginScreen:', err);
+      const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
+      console.error('Login failed from LoginScreen:', errorMsg);
       // Erros são mostrados via Toast pelo AuthContext
     } finally {
       setLoading(false);

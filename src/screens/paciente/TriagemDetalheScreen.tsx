@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { buscarAgendamentosPaciente } from '../../services/agendamentoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { STATUS_TRIAGEM, STATUS_AGENDAMENTO } from '../../utils/constants';
 import { formatDateTime } from '../../utils/helpers';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 interface DetailItem {
   id: string;
@@ -32,11 +33,7 @@ const TriagemDetalheScreen = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    carregarDetalhe();
-  }, []);
-
-  const carregarDetalhe = async () => {
+  const carregarDetalhe = useCallback(async () => {
     setLoading(true);
     try {
       if (item.tipo === 'triagem') {
@@ -55,7 +52,38 @@ const TriagemDetalheScreen = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [item.id, item.tipo, profile?.id]);
+
+  useEffect(() => {
+    carregarDetalhe();
+  }, [carregarDetalhe]);
+
+  useRealtimeRefresh({
+    enabled: !!item?.id,
+    debounceMs: 500,
+    shouldRefresh: (event) => {
+      if (!item?.id) return false;
+      if (item.tipo === 'triagem') {
+        if (event.table === 'triagens') {
+          return String(event.new?.id || event.old?.id || '') === item.id;
+        }
+        if (event.table === 'respostas_triagem') {
+          return String(event.new?.triagem_id || event.old?.triagem_id || '') === item.id;
+        }
+        return false;
+      }
+      if (item.tipo === 'agendamento') {
+        if (event.table === 'appointments') {
+          return String(event.new?.id || event.old?.id || '') === item.id;
+        }
+        return false;
+      }
+      return false;
+    },
+    refresh: () => {
+      carregarDetalhe();
+    },
+  });
 
   if (loading) {
     return (

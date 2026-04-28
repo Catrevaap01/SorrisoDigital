@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SIZES, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
@@ -8,6 +8,7 @@ import {
   Notificacao as ServiceNotificacao,
 } from '../../services/notificacoesService';
 import { marcarNotificacaoComoLida } from '../../services/notificacoesService';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 type Notificacao = ServiceNotificacao & {
   created_at: string;
@@ -19,7 +20,7 @@ const NotificacoesDetalheScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const carregarNotificacoes = async () => {
+  const carregarNotificacoes = useCallback(async () => {
     if (!user?.id) return;
     setRefreshing(true);
     const result = await buscarTodasNotificacoes(user.id);
@@ -27,7 +28,7 @@ const NotificacoesDetalheScreen = () => {
       setNotificacoes((result.data || []).filter((item): item is Notificacao => !!item.created_at));
     }
     setRefreshing(false);
-  };
+  }, [user?.id]);
 
   const marcarLida = async (id: string) => {
     await marcarNotificacaoComoLida(id);
@@ -36,7 +37,21 @@ const NotificacoesDetalheScreen = () => {
 
   useEffect(() => {
     carregarNotificacoes().finally(() => setLoading(false));
-  }, []);
+  }, [carregarNotificacoes]);
+
+  useRealtimeRefresh({
+    enabled: !!user?.id,
+    debounceMs: 800,
+    shouldRefresh: (event) => {
+      const uid = user?.id;
+      if (!uid) return false;
+      if (event.table !== 'notificacoes') return false;
+      return String(event.new?.usuario_id || event.old?.usuario_id || '') === uid;
+    },
+    refresh: () => {
+      void carregarNotificacoes();
+    },
+  });
 
   const renderNotificacao = ({ item }: { item: Notificacao }) => (
     <TouchableOpacity 

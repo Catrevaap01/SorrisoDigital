@@ -47,6 +47,8 @@ const invalidateDentistasCache = (): void => {
   dentistasCacheAt = 0;
 };
 
+export { invalidateDentistasCache };
+
 const normalizeDentista = (row: any): DentistaProfile => ({
   ...(row || {}),
   crm: row?.crm || row?.numero_registro || row?.registro || undefined,
@@ -669,4 +671,3 @@ export const procurarDentistas = async (termo: string): Promise<{
     };
   }
 };
-

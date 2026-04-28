@@ -3,10 +3,11 @@
  * Encapsula lógica de busca e manipulação de agendamentos
  */
 
-import { useState, useCallback } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import { supabase } from '../config/supabase';
 import { logger } from '../utils/logger';
 import { handleError, HandledError } from '../utils/errorHandler';
+import { useRealtimeRefresh } from './useRealtimeRefresh';
 
 export interface Agendamento {
   id: string;
@@ -36,6 +37,8 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<HandledError | null>(null);
+  const lastFiltersRef = useRef<Record<string, any>>({});
+  const hasLoadedRef = useRef(false);
 
   /**
    * Buscar agendamentos
@@ -45,6 +48,7 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
       try {
         setLoading(true);
         setError(null);
+        lastFiltersRef.current = filtros || {};
 
         let query = supabase.from('appointments').select('*');
 
@@ -64,6 +68,7 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
         if (queryError) throw queryError;
 
         setAgendamentos(data as Agendamento[] || []);
+        hasLoadedRef.current = true;
         logger.info('Agendamentos buscados com sucesso');
         return { success: true, data: data as Agendamento[] };
       } catch (err) {
@@ -76,6 +81,20 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
     },
     [pacienteId]
   );
+
+  useRealtimeRefresh({
+    enabled: hasLoadedRef.current,
+    debounceMs: 700,
+    shouldRefresh: (event) => {
+      if (event.table !== 'appointments') return false;
+      if (!pacienteId) return true;
+      const pid = String(event.new?.patient_id || event.old?.patient_id || '');
+      return pid === pacienteId;
+    },
+    refresh: () => {
+      buscarAgendamentos(lastFiltersRef.current);
+    },
+  });
 
   /**
    * Criar novo agendamento

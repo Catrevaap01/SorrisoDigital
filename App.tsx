@@ -9,6 +9,7 @@ import { AuthProvider } from './src/contexts/AuthContext';
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import { DentistProvider } from './src/contexts/DentistContext';
 import { NetworkProvider, useNetwork } from './src/contexts/NetworkContext';
+import { RealtimeProvider } from './src/contexts/RealtimeContext';
 import { processOfflineQueue } from './src/services/offlineSyncService';
 import AppNavigator from './src/navigation/AppNavigator';
 import { SHADOWS } from './src/styles/theme';
@@ -103,9 +104,11 @@ export default function App(): React.JSX.Element {
         <ThemeProvider>
           <AuthProvider>
             <DentistProvider>
-              <NavigationContainer>
-                <AppContent />
-              </NavigationContainer>
+              <RealtimeProvider>
+                <NavigationContainer>
+                  <AppContent />
+                </NavigationContainer>
+              </RealtimeProvider>
             </DentistProvider>
           </AuthProvider>
         </ThemeProvider>

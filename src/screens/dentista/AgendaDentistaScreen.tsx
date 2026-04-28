@@ -24,6 +24,7 @@ import {
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { formatDate } from '../../utils/helpers';
 import { TIPOS_CONSULTA } from '../../utils/constants';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 const PRECO_POR_TIPO: Record<string, number> = {
   consulta: 25000,
@@ -114,22 +115,19 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     setLoading(false);
   };
 
-  // REALTIME: Subscribe to appointment changes for this dentist
-  useEffect(() => {
-    if (!profile?.id) return;
-    const channel = supabase
-      .channel(`agenda-dentista-${profile.id}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'appointments',
-        filter: `dentist_id=eq.${profile.id}`,
-      }, () => {
-        void carregarAgendamentos();
-      })
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [profile?.id]);
+  useRealtimeRefresh({
+    enabled: !!profile?.id,
+    debounceMs: 700,
+    shouldRefresh: (event) => {
+      const dentistId = profile?.id;
+      if (!dentistId) return false;
+      if (event.table !== 'appointments') return false;
+      return String(event.new?.dentist_id || event.old?.dentist_id || '') === dentistId;
+    },
+    refresh: () => {
+      void carregarAgendamentos();
+    },
+  });
 
   useEffect(() => {
     carregarAgendamentos();

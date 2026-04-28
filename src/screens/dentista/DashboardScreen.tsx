@@ -26,6 +26,7 @@ import {
   buildDentistBillingHtml 
 } from '../../services/relatorioService';
 import { exportHtmlAsPdf } from '../../utils/pdfExportUtils';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 type Props = BottomTabScreenProps<DentistaTabParamList, 'Dashboard'>;
 type ListaItem = Triagem | Agendamento;
@@ -202,18 +203,39 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     setRefreshing(false);
   }, [carregarDados]);
 
-  // REALTIME: auto-update dashboard when triagens or appointments change
-  useEffect(() => {
-    if (!profile?.id) return;
-    const channel = supabase
-      .channel(`dashboard-dentista-${profile.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'triagens', filter: `dentista_id=eq.${profile.id}` }, () => { void carregarDados(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agendamentos', filter: `dentist_id=eq.${profile.id}` }, () => { void carregarDados(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'procedimentos_tratamento' }, () => { void carregarDados(); })
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id]);
+  useRealtimeRefresh({
+    enabled: !!profile?.id,
+    debounceMs: 900,
+    shouldRefresh: (event) => {
+      const dentistId = profile?.id;
+      if (!dentistId) return false;
+
+      if (event.table === 'triagens') {
+        return String(event.new?.dentista_id || event.old?.dentista_id || '') === dentistId;
+      }
+
+      if (event.table === 'appointments') {
+        return String(event.new?.dentist_id || event.old?.dentist_id || '') === dentistId;
+      }
+
+      // DocumentaÃ§Ã£o clÃ­nica e financeiro
+      if (
+        event.table === 'respostas_triagem' ||
+        event.table === 'procedimentos_tratamento' ||
+        event.table === 'planos_tratamento' ||
+        event.table === 'anamneses' ||
+        event.table === 'prescricoes' ||
+        event.table === 'profiles'
+      ) {
+        return true;
+      }
+
+      return false;
+    },
+    refresh: () => {
+      void carregarDados();
+    },
+  });
 
   const dashboard = useMemo(() => {
     const now = new Date();
@@ -475,10 +497,12 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     if (filtroAtivo === 'respondido') {
       const tResp = triagens.filter(t => {
         const s = (t.status || '').toLowerCase();
-        const as = ((t as any).agendamento_status || '').toLowerCase();
-        const hasResp = (t.respostas && t.respostas.length > 0) || s === 'respondido';
-        const isReal = s === 'realizado' || as === 'realizado';
-        return hasResp && !isReal;
+        const hasResp =
+          (t.respostas && t.respostas.length > 0) ||
+          s === 'respondido' ||
+          s === 'completo';
+        // Respondido deve continuar visível nesta aba, mesmo quando também estiver realizado.
+        return hasResp;
       });
       return tResp.sort((a, b) => new Date(b.created_at || (b as any).appointment_date || (b as any).data_agendamento || 0).getTime() - new Date(a.created_at || (a as any).appointment_date || (a as any).data_agendamento || 0).getTime());
     }

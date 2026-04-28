@@ -149,7 +149,7 @@ const PacienteTabs: React.FC<TabsProps> = ({ unreadCount }) => (
   </PacienteTab.Navigator>
 );
 
-const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
+export const DentistaTabs: React.FC<TabsProps> = ({ unreadCount }) => (
   <DentistaTab.Navigator
     id="DentistaTab"
     screenOptions={({ route, navigation }) => ({

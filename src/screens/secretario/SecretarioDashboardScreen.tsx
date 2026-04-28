@@ -40,6 +40,7 @@ import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 import { formatRelativeTime, formatDate, formatDateTime } from '../../utils/helpers';
 import { exportHtmlAsPdf } from '../../utils/pdfExportUtils';
 import { supabase } from '../../config/supabase';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 type Props = BottomTabScreenProps<SecretarioTabParamList, 'SecretarioDashboard'>;
 
@@ -145,7 +146,7 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
     fontWeight: '700',
   },
   topTabsRow: {
-    flexDirection: 'row',
+    flexDirection: isMobile ? 'column' : 'row',
     backgroundColor: 'white',
     borderRadius: 14,
     padding: 4,
@@ -159,6 +160,7 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     paddingVertical: 10,
+    minHeight: 42,
     borderRadius: 10,
   },
   topTabActive: {
@@ -249,9 +251,11 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
   },
   board: {
     flexDirection: isMobile ? 'column' : 'row',
-    gap: SPACING.md,
+    flexWrap: isMobile ? 'nowrap' : 'wrap',
+    gap: isMobile ? 0 : SPACING.md,
     marginTop: SPACING.md,
-    alignItems: 'flex-start',
+    alignItems: isMobile ? 'stretch' : 'flex-start',
+    width: '100%',
   },
   columnLeft: {
     flex: isMobile ? undefined : 1.1,
@@ -322,13 +326,14 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
     borderTopColor: '#F0F0F0',
   },
   listItemTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: isMobile ? 'column' : 'row',
+    alignItems: isMobile ? 'stretch' : 'center',
     justifyContent: 'space-between',
     gap: SPACING.sm,
   },
   patientBlock: {
-    flex: 1,
+    flex: isMobile ? undefined : 1,
+    minWidth: 0,
   },
   patientLabel: {
     color: '#6D28D9',
@@ -339,7 +344,6 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
     marginBottom: 2,
   },
   listItemTitle: {
-    flex: 1,
     color: COLORS.text,
     fontSize: TYPOGRAPHY.sizes.body,
     fontWeight: TYPOGRAPHY.weights.bold,
@@ -529,18 +533,22 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
     fontWeight: TYPOGRAPHY.weights.bold,
   },
   listItemFooter: {
-    flexDirection: 'row',
+    flexDirection: isMobile ? 'column' : 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: isMobile ? 'flex-start' : 'center',
+    gap: isMobile ? 8 : 0,
     marginTop: 8,
   },
   atribuirPrincipalBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
     backgroundColor: '#7C3AED',
+    width: isMobile ? '100%' : undefined,
+    minHeight: 40,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: isMobile ? 10 : 8,
     borderRadius: 8,
   },
   atribuirPrincipalBtnText: {
@@ -570,13 +578,35 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
     color: COLORS.textSecondary,
   },
   dentistGroupItems: {
-    paddingLeft: 34,
+    paddingLeft: isMobile ? 0 : 34,
     gap: 10,
   },
   assignedPatientItem: {
+    flexDirection: isMobile ? 'column' : 'row',
+    alignItems: isMobile ? 'stretch' : 'center',
+    gap: 10,
+    width: '100%',
+  },
+  assignedPatientMain: {
+    flex: isMobile ? undefined : 1,
+    width: '100%',
+    minWidth: 0,
+    paddingRight: isMobile ? 0 : 8,
+  },
+  assignedPatientTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    width: '100%',
+    minWidth: 0,
+  },
+  assignedBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+    alignItems: 'center',
+    alignSelf: 'flex-start',
   },
   assignedPatientPoint: {
     width: 6,
@@ -586,20 +616,20 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
   },
   assignedPatientName: {
     flex: 1,
+    minWidth: 0,
     fontSize: 14,
     color: COLORS.text,
     fontWeight: '500',
   },
-  assignedBadge: {
-    transform: [{ scale: 0.85 }],
-  },
   btnRemoveAssignment: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
     backgroundColor: '#FEE2E2',
+    width: isMobile ? '100%' : undefined,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: isMobile ? 8 : 4,
     borderRadius: 6,
     borderWidth: 1,
     borderColor: '#FECACA',
@@ -644,7 +674,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     if (result.success) {
       setTratamentosFinanceiros(result.data || []);
     } else {
-      Toast.show({ type: 'error', text1: 'Erro', text2: result.error || 'Falha ao carregar tratamentos e facturas' });
+      Toast.show({ type: 'error', text1: 'Erro', text2: result.error || 'Falha ao carregar tratamentos e facturas' } as any);
       setTratamentosFinanceiros([]);
     }
     setFinanceiroLoading(false);
@@ -657,7 +687,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
       setRelatorioGeral(result.data || null);
     } else {
       setRelatorioGeral(null);
-      Toast.show({ type: 'error', text1: 'Erro', text2: result.error || 'Falha ao carregar relatório geral' });
+      Toast.show({ type: 'error', text1: 'Erro', text2: result.error || 'Falha ao carregar Relatório geral' } as any);
     }
     setRelatorioLoading(false);
   }, []);
@@ -672,27 +702,33 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     }, [carregarPainel])
   );
 
-  // REALTIME: auto-refresh when appointments, triagens or procedures change
-  useEffect(() => {
-    const channel = supabase
-      .channel('secretaria-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, () => { void carregarPainel(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'triagens' }, () => { void carregarPainel(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'procedimentos_tratamento' }, () => { void carregarPainel(); })
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useRealtimeRefresh({
+    enabled: true,
+    debounceMs: 900,
+    shouldRefresh: (event) => {
+      return (
+        event.table === 'appointments' ||
+        event.table === 'triagens' ||
+        event.table === 'procedimentos_tratamento' ||
+        event.table === 'planos_tratamento' ||
+        event.table === 'profiles' ||
+        event.table === 'notificacoes'
+      );
+    },
+    refresh: () => {
+      void carregarPainel();
+    },
+  });
 
   const handleImprimirFaturacaoGeral = useCallback(async () => {
     if (!relatorioGeral) {
-      Toast.show({ type: 'info', text1: 'Carregando dados', text2: 'Aguarde o carregamento do relatório geral.' });
+      Toast.show({ type: 'info', text1: 'Carregando dados', text2: 'Aguarde o carregamento do Relatório geral.' } as any);
       return;
     }
     const html = buildGeneralBillingHtml(relatorioGeral, profile?.nome);
     const result = await exportHtmlAsPdf(html, `faturacao-geral-${new Date().toISOString().split('T')[0]}.pdf`);
     if (!result.success) {
-      Toast.show({ type: 'error', text1: 'Erro ao imprimir', text2: result.error || 'Tente novamente' });
+      Toast.show({ type: 'error', text1: 'Erro ao imprimir', text2: result.error || 'Tente novamente' } as any);
       return;
     }
     Toast.show({ type: 'success', text1: 'Faturação geral pronta para impressão' });
@@ -702,13 +738,13 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     async (dentista: any) => {
       const itemsDentista = tratamentosFinanceiros.filter((item) => item.dentista_id === dentista.dentista.id);
       if (itemsDentista.length === 0) {
-        Toast.show({ type: 'info', text1: 'Sem procedimentos', text2: `${dentista.dentista.nome} não tem procedimentos registrados.` });
+        Toast.show({ type: 'info', text1: 'Sem procedimentos', text2: `${dentista.dentista.nome} não tem procedimentos registrados.` } as any);
         return;
       }
       const html = buildDentistBillingHtml(dentista.dentista.nome, itemsDentista, profile?.nome);
       const result = await exportHtmlAsPdf(html, `faturacao-${dentista.dentista.nome}-${new Date().toISOString().split('T')[0]}.pdf`);
       if (!result.success) {
-        Toast.show({ type: 'error', text1: 'Erro ao imprimir', text2: result.error || 'Tente novamente' });
+        Toast.show({ type: 'error', text1: 'Erro ao imprimir', text2: result.error || 'Tente novamente' } as any);
         return;
       }
       Toast.show({ type: 'success', text1: `Faturação de ${dentista.dentista.nome} pronta para impressão` });
@@ -755,22 +791,18 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
           type: 'success',
           text1: 'Atribuído com sucesso!',
           text2: 'O dentista já pode ver este paciente.',
-        });
+        } as any);
         setModalAtribuicao({ visible: false, item: null, tipo: 'triagem' });
         await carregarFilas();
       } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Erro ao atribuir',
-          text2: result.error || 'Tente novamente',
-        });
+        Toast.show({ type: 'error', text1: 'Erro ao atribuir', text2: result.error || 'Tente novamente' } as any);
       }
     } catch (error: any) {
       Toast.show({
         type: 'error',
         text1: 'Erro crítico',
         text2: error.message || 'Falha na conexão',
-      });
+      } as any);
     }
   };
   
@@ -790,11 +822,11 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
           Toast.show({ type: 'success', text1: 'Atribuição removida com sucesso' });
           await carregarFilas();
         } else {
-          Toast.show({ type: 'error', text1: 'Erro ao remover', text2: result.error });
+          Toast.show({ type: 'error', text1: 'Erro ao remover', text2: result.error } as any);
         }
       } catch (error: any) {
         setRelatorioLoading(false);
-        Toast.show({ type: 'error', text1: 'Erro crítico', text2: error.message });
+        Toast.show({ type: 'error', text1: 'Erro crítico', text2: error.message } as any);
       }
     };
 
@@ -825,7 +857,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
             Toast.show({ type: 'success', text1: 'Triagem rejeitada' });
             await carregarFilas();
           } else {
-            Toast.show({ type: 'error', text1: 'Erro', text2: result.error || 'Falha ao rejeitar' });
+            Toast.show({ type: 'error', text1: 'Erro', text2: result.error || 'Falha ao rejeitar' } as any);
           }
         })();
       } else {
@@ -843,7 +875,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
                   Toast.show({ type: 'success', text1: 'Triagem rejeitada' });
                   await carregarFilas();
                 } else {
-                  Toast.show({ type: 'error', text1: 'Erro', text2: result.error || 'Falha ao rejeitar' });
+                  Toast.show({ type: 'error', text1: 'Erro', text2: result.error || 'Falha ao rejeitar' } as any);
                 }
               }
             }
@@ -871,7 +903,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
             Toast.show({ type: 'success', text1: 'Agendamento rejeitado' });
             await carregarFilas();
           } else {
-            Toast.show({ type: 'error', text1: 'Erro', text2: result.error || 'Falha ao rejeitar' });
+            Toast.show({ type: 'error', text1: 'Erro', text2: result.error || 'Falha ao rejeitar' } as any);
           }
         })();
       } else {
@@ -889,7 +921,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
                   Toast.show({ type: 'success', text1: 'Agendamento rejeitado' });
                   await carregarFilas();
                 } else {
-                  Toast.show({ type: 'error', text1: 'Erro', text2: result.error || 'Falha ao rejeitar' });
+                  Toast.show({ type: 'error', text1: 'Erro', text2: result.error || 'Falha ao rejeitar' } as any);
                 }
               }
             }
@@ -959,8 +991,9 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const alertas = useMemo(
     () =>
       itensCombinados.filter((item) => {
-        const prioridade = item.prioridade.toLowerCase();
-        return prioridade === 'urgente' || prioridade === 'alta' || Number(prioridade) >= 8;
+        const p = item.prioridade?.toLowerCase() || '';
+        const isNumeric = !isNaN(Number(p));
+        return p === 'urgente' || p === 'alta' || (isNumeric && Number(p) >= 8);
       }).slice(0, 4),
     [itensCombinados]
   );
@@ -979,24 +1012,24 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const novasSolicitacoes = useMemo(() => itensCombinados.slice(0, 5), [itensCombinados]);
 
   // Lógica para a aba Acompanhamento (A/B)
-  const itensNaoAtribuidos = useMemo(() => 
-    itensCombinados.filter(item => {
-      const s = (item.raw.status || '').toLowerCase();
-      // Não atribuídos são aqueles que aguardam análise inicial da secretaria
-      return s === 'triagem_pendente_secretaria' || s === 'agendamento_pendente_secretaria' || s === 'solicitado';
-    }),
+  const extrairDentistaId = (item: ItemPainel) =>
+    String(
+      item.raw?.dentista_id ||
+      item.raw?.dentist_id ||
+      item.raw?.dentista?.id ||
+      item.raw?.dentist?.id ||
+      ''
+    )
+      .trim()
+      .toLowerCase();
+
+  const itensNaoAtribuidos = useMemo(
+    () => itensCombinados.filter((item) => !extrairDentistaId(item)),
     [itensCombinados]
   );
 
-  const itensAtribuidos = useMemo(() => 
-    itensCombinados.filter(item => {
-      const s = (item.raw.status || '').toLowerCase();
-      // Se não está no status inicial e tem um dentista vinculado, está atribuído
-      return s !== 'triagem_pendente_secretaria' && 
-             s !== 'agendamento_pendente_secretaria' && 
-             s !== 'solicitado' && 
-             (item.raw.dentista_id || item.raw.dentista?.id || item.raw.dentist_id || item.raw.dentist?.id);
-    }),
+  const itensAtribuidos = useMemo(
+    () => itensCombinados.filter((item) => !!extrairDentistaId(item)),
     [itensCombinados]
   );
 
@@ -1183,17 +1216,17 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const renderAcompanhamentoTab = () => (
     <>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionHeaderTitle}>Atribuição de Pacientes</Text>
+        <Text style={styles.sectionHeaderTitle}>Atribuição</Text>
         <Text style={styles.sectionHeaderSubtitle}>Gerencie o encaminhamento de pacientes aos profissionais.</Text>
       </View>
 
       <View style={styles.board}>
-        {/* SECÇÃO A: NÃO ATRIBUÍDOS */}
-        <View style={[styles.card, { borderColor: '#DC2626', borderTopWidth: 4, flex: isMobile ? 0 : 1, width: isMobile ? '100%' : 'auto' }]}>
+        {/* SECÇÃO A: Não AtribuídoS */}
+        <View style={[styles.card, { borderColor: '#DC2626', borderTopWidth: 4, width: '100%', flex: isMobile ? undefined : 1, minWidth: isMobile ? '100%' : 340, marginBottom: SPACING.md }]}>
           <View style={styles.cardHeaderRow}>
             <View>
               <Text style={[styles.cardTitle, { color: '#DC2626' }]}>NÃO ATRIBUÍDOS</Text>
-              <Text style={styles.cardSubtitle}>Pacientes aguardando direcionamento para um dentista.</Text>
+              <Text style={styles.cardSubtitle}>Pacientes aguardando direcionamento para um profissional.</Text>
             </View>
             <View style={[styles.badge, { backgroundColor: '#FEE2E2' }]}>
               <Text style={[styles.badgeText, { color: '#DC2626' }]}>{itensNaoAtribuidos.length}</Text>
@@ -1241,17 +1274,21 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
           )}
         </View>
 
+
         {/* SECÇÃO B: ATRIBUÍDOS */}
-        <View style={[styles.card, { borderColor: '#059669', borderTopWidth: 4, flex: isMobile ? 0 : 1, width: isMobile ? '100%' : 'auto' }]}>
+        <View style={[styles.card, { borderColor: '#059669', borderTopWidth: 4, width: '100%', flex: isMobile ? undefined : 1, minWidth: isMobile ? '100%' : 340 }]}>
           <View style={styles.cardHeaderRow}>
             <View>
               <Text style={[styles.cardTitle, { color: '#059669' }]}>ATRIBUÍDOS</Text>
               <Text style={styles.cardSubtitle}>Pacientes já encaminhados para os profissionais.</Text>
             </View>
+            <View style={[styles.badge, { backgroundColor: '#D1FAE5' }]}>
+              <Text style={[styles.badgeText, { color: '#059669' }]}>{itensAtribuidos.length}</Text>
+            </View>
           </View>
 
           {Object.keys(agrupadoPorDentista).length === 0 ? (
-            <Text style={styles.emptyText}>Nenhum paciente atribuído no momento.</Text>
+            <Text style={styles.emptyText}>Nenhuma atribuição ativa no momento.</Text>
           ) : (
             Object.entries(agrupadoPorDentista).map(([key, items]: any) => {
               const [dNome, dEsp] = key.split('|');
@@ -1268,7 +1305,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
                     {items.map((it: any) => (
                         <View key={it.id} style={styles.assignedPatientItem}>
                           <TouchableOpacity 
-                            style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                            style={styles.assignedPatientMain}
                             onPress={() => setModalDetalhes({
                               visible: true,
                               pacienteId: it.raw?.paciente_id || it.raw?.patient_id,
@@ -1276,9 +1313,11 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
                               itemData: it.raw
                             })}
                           >
-                            <View style={styles.assignedPatientPoint} />
-                            <Text style={styles.assignedPatientName}>{it.titulo}</Text>
-                            <View style={styles.assignedBadge}>
+                            <View style={styles.assignedPatientTitleRow}>
+                              <View style={styles.assignedPatientPoint} />
+                              <Text style={styles.assignedPatientName}>{it.titulo}</Text>
+                            </View>
+                            <View style={styles.assignedBadgeRow}>
                               <View style={[styles.badge, { backgroundColor: '#D1FAE5', marginRight: 4 }]}>
                                 <Text style={[styles.badgeText, { color: '#059669' }]}>Atribuído</Text>
                               </View>
@@ -1313,7 +1352,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.cardHeaderRow}>
         <View>
           <Text style={styles.cardTitle}>Agenda</Text>
-          <Text style={styles.cardSubtitle}>Solicitacoes pendentes que precisam de atribuicao da secretaria.</Text>
+          <Text style={styles.cardSubtitle}>Solicitações pendentes que precisam de atribuição da secretaria.</Text>
         </View>
         <TouchableOpacity style={styles.inlineButton} onPress={() => navigation.navigate('Agendamentos')}>
           <Ionicons name="calendar-outline" size={16} color="#6D28D9" />
@@ -1333,7 +1372,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     </View>
   );
 
-  const renderHistorico = () => (
+  const renderHistórico = () => (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>Histórico</Text>
       <Text style={styles.cardSubtitle}>Últimas entradas da operação da secretaria.</Text>
@@ -1424,7 +1463,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       <View style={styles.footerSection}>
-        {renderHistorico()}
+        {renderHistórico()}
       </View>
     </>
   );
@@ -1638,7 +1677,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
           itemTipo={modalDetalhes.tipo}
           itemData={modalDetalhes.itemData}
           onVerHistorico={(id, nome) => {
-            navigation.getParent()?.navigate('PacienteHistorico', { pacienteId: id, pacienteNome: nome });
+            navigation.getParent()?.navigate('PacienteHistórico', { pacienteId: id, pacienteNome: nome });
           }}
         />
       </View>

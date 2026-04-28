@@ -4,6 +4,8 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { realtimeBus } from '../realtime/realtime';
+import type { DbChangeEvent } from '../realtime/realtimeEvents';
 import {
   buscarTriagensPendentesSecretaria,
   buscarAgendamentosPendentesSecretaria,
@@ -22,7 +24,7 @@ export interface FilasSecretaria {
   error?: string;
 }
 
-const REVALIDATE_INTERVAL_MS = 10000; // 10 segundos
+const REVALIDATE_INTERVAL_MS = 30000; // 30s (fallback se algum evento realtime falhar)
 
 export const useFilasSecretaria = () => {
   const [filas, setFilas] = useState<FilasSecretaria>({
@@ -37,6 +39,7 @@ export const useFilasSecretaria = () => {
   });
 
   const revalidateTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const carregarFilas = useCallback(async () => {
     setFilas((prev) => ({ ...prev, loading: true }));
@@ -82,6 +85,36 @@ export const useFilasSecretaria = () => {
       }));
     }
   }, []);
+
+  // Realtime: revalidar instantaneamente quando dados mudarem
+  useEffect(() => {
+    const shouldRefresh = (event: DbChangeEvent) => {
+      return (
+        event.table === 'triagens' ||
+        event.table === 'appointments' ||
+        event.table === 'procedimentos_tratamento' ||
+        event.table === 'planos_tratamento' ||
+        event.table === 'profiles'
+      );
+    };
+
+    const unsub = realtimeBus.on('db:change', (event) => {
+      if (!shouldRefresh(event)) return;
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        debounceTimerRef.current = null;
+        carregarFilas();
+      }, 700);
+    });
+
+    return () => {
+      unsub();
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+    };
+  }, [carregarFilas]);
 
   // Auto-revalidate a cada 10 segundos
   const iniciarAutoRevalidate = useCallback(() => {

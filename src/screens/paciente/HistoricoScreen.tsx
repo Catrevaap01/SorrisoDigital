@@ -32,6 +32,7 @@ import { formatDateTime, formatRelativeTime, formatDate } from '../../utils/help
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { PacienteTabParamList } from '../../navigation/types';
 import Loading from '../../components/ui/Loading';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 const PRECO_POR_TIPO: Record<string, number> = {
   consulta: 25000,
@@ -66,7 +67,7 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
   const [agendamentoSelecionado, setAgendamentoSelecionado] = useState<any | null>(null);
   const [valorEstimadoPlano, setValorEstimadoPlano] = useState<number | null>(null);
 
-  const carregarTriagens = async () => {
+  const carregarTriagens = useCallback(async () => {
     if (!profile?.id) return;
 
     const tipo = profile?.tipo;
@@ -81,30 +82,64 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
       setTriagens(result.data || []);
     }
     setLoading(false);
-  };
+  }, [profile?.id, profile?.tipo]);
 
-  const carregarAgendamentos = async () => {
+  const carregarAgendamentos = useCallback(async () => {
     if (!profile?.id) return;
 
     const result = await buscarAgendamentosPaciente(profile.id);
     if (result.success) {
       setAgendamentos(result.data || []);
     }
-  };
+  }, [profile?.id]);
 
-  const carregarDados = async () => {
+  const carregarDados = useCallback(async () => {
     await Promise.all([carregarTriagens(), carregarAgendamentos()]);
-  };
+  }, [carregarAgendamentos, carregarTriagens]);
 
   useEffect(() => {
     carregarDados();
-  }, [profile]);
+  }, [carregarDados]);
+
+  useRealtimeRefresh({
+    enabled: !!profile?.id,
+    debounceMs: 900,
+    shouldRefresh: (event) => {
+      const userId = profile?.id;
+      const role = profile?.tipo;
+      if (!userId) return false;
+
+      if (event.table === 'triagens' || event.table === 'respostas_triagem') {
+        if (role === 'admin') return true;
+        if (role === 'dentista' || role === 'medico') {
+          return String(event.new?.dentista_id || event.old?.dentista_id || '') === userId;
+        }
+        return String(event.new?.paciente_id || event.old?.paciente_id || '') === userId;
+      }
+
+      if (event.table === 'appointments') {
+        // Nesta tela, agendamentos sÃ£o carregados por paciente; ainda assim, cobrimos ambos.
+        const pid = String(event.new?.patient_id || event.old?.patient_id || '');
+        const did = String(event.new?.dentist_id || event.old?.dentist_id || '');
+        return pid === userId || did === userId;
+      }
+
+      if (event.table === 'procedimentos_tratamento' || event.table === 'planos_tratamento') {
+        return true;
+      }
+
+      return false;
+    },
+    refresh: () => {
+      carregarDados();
+    },
+  });
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await carregarDados();
     setRefreshing(false);
-  }, [profile]);
+  }, [carregarDados]);
 
   const filtros = [
     { id: 'todos', label: 'Todos', icon: 'grid' },

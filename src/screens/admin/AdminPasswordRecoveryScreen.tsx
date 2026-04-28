@@ -25,6 +25,7 @@ import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 import { authService } from '../../services/authService';
 import { recuperarSenhaProfissional } from '../../services/passwordRecoveryService';
 import { copiarParaAreaDeTransferencia } from '../../utils/senhaUtils';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 interface ProfissionalRecovery {
   id: string;
@@ -52,7 +53,7 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
     return 'Dentista';
   };
 
-  const carregarProfissionais = async () => {
+  const carregarProfissionais = useCallback(async () => {
     setLoading(true);
     try {
       const resultado = await authService.adminListProfissionais();
@@ -75,13 +76,22 @@ const AdminPasswordRecoveryScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       carregarProfissionais();
-    }, [])
+    }, [carregarProfissionais])
   );
+
+  useRealtimeRefresh({
+    enabled: true,
+    debounceMs: 1500,
+    shouldRefresh: (event) => event.table === 'profiles',
+    refresh: () => {
+      void carregarProfissionais();
+    },
+  });
 
   const handleBusca = (texto: string) => {
     setBusca(texto);
@@ -522,4 +532,3 @@ const styles = StyleSheet.create({
 });
 
 export default AdminPasswordRecoveryScreen;
-

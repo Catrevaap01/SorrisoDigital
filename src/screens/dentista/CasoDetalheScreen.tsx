@@ -26,6 +26,7 @@ import { formatDateTime } from '../../utils/helpers';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { DentistaStackParamList } from '../../navigation/types';
 import { SecretarioStackParamList } from '../../navigation/types';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 type CasoDetalheProps = NativeStackScreenProps<DentistaStackParamList | SecretarioStackParamList, 'CasoDetalhe'>;
 
@@ -53,7 +54,7 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
   const [motivoRecusa, setMotivoRecusa] = useState('');
   const [recusando, setRecusando] = useState(false);
 
-const carregarTriagem = async () => {
+const carregarTriagem = useCallback(async () => {
     const result = await buscarTriagemPorId(triagemId);
     if (result.success) {
       let tri = result.data;
@@ -109,28 +110,31 @@ const carregarTriagem = async () => {
       }
     }
     setLoading(false);
-  };
+  }, [triagemId]);
 
   useEffect(() => {
-    carregarTriagem();
+    void carregarTriagem();
+  }, [carregarTriagem]);
 
-    // Realtime subscription for triage changes
-    const channel = supabase
-      .channel(`triagem-${triagemId}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'triagens', filter: `id=eq.${triagemId}` },
-        () => {
-          console.log('🔄 Triagem alterada, recarregando...');
-          carregarTriagem();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [triagemId]);
+  useRealtimeRefresh({
+    enabled: !!triagemId,
+    debounceMs: 600,
+    shouldRefresh: (event) => {
+      if (event.table === 'triagens') {
+        return String(event.new?.id || event.old?.id || '') === String(triagemId);
+      }
+      if (event.table === 'respostas_triagem') {
+        return String(event.new?.triagem_id || event.old?.triagem_id || '') === String(triagemId);
+      }
+      if (event.table === 'planos_tratamento') {
+        return String(event.new?.triagem_id || event.old?.triagem_id || '') === String(triagemId);
+      }
+      return false;
+    },
+    refresh: () => {
+      void carregarTriagem();
+    },
+  });
 
   const handleEnviarResposta = async () => {
     if (!orientacao.trim()) {

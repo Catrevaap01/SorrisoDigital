@@ -19,6 +19,7 @@ import { Agendamento, enrichAgendamentosComValorPlano } from '../../services/age
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { formatDate, formatDateTime } from '../../utils/helpers';
 import { supabase } from '../../config/supabase';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 type Props = BottomTabScreenProps<SecretarioTabParamList, 'Agendamentos'>;
 type TabKey = 'pendentes' | 'encaminhados' | 'retornos' | 'historico';
@@ -382,6 +383,22 @@ const SecretarioAgendamentosScreen: React.FC<Props> = ({ navigation }) => {
     await carregar();
     setRefreshing(false);
   }, [carregar]);
+
+  useRealtimeRefresh({
+    enabled: true,
+    debounceMs: 900,
+    shouldRefresh: (event) => {
+      return (
+        event.table === 'appointments' ||
+        event.table === 'procedimentos_tratamento' ||
+        event.table === 'planos_tratamento' ||
+        event.table === 'profiles'
+      );
+    },
+    refresh: () => {
+      void carregar();
+    },
+  });
 
   const grouped = useMemo(() => {
     const pendentes = agendamentos.filter((item) =>

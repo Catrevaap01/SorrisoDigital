@@ -52,6 +52,11 @@ const clearCache = async (key: string) => {
   } catch { }
 };
 
+export const invalidatePacienteCache = async (pacienteId: string): Promise<void> => {
+  if (!pacienteId) return;
+  await clearCache(getCacheKey(pacienteId));
+};
+
 export interface PacienteProfile extends UserProfile {
   data_nascimento?: string;
   genero?: 'Masculino' | 'Feminino' | 'Outro';

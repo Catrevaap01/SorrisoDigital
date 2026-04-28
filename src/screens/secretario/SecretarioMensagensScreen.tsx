@@ -21,6 +21,7 @@ import ChatScreen from '../../screens/shared/ChatScreen';
 import { listarDentistas, DentistaProfile } from '../../services/dentistaService';
 import { listarPacientes, PacienteProfile } from '../../services/pacienteService';
 import { obterOuCriarConversa } from '../../services/messagesService';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 type Props = BottomTabScreenProps<SecretarioTabParamList, 'Mensagens'>;
 
@@ -53,7 +54,7 @@ const SecretarioMensagensScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   // Carregar dentistas e pacientes para nova conversa
-  const carregarContatos = async () => {
+  const carregarContatos = useCallback(async () => {
     setLoadingContatos(true);
     try {
       const [dentResult, pacResult] = await Promise.all([
@@ -82,7 +83,16 @@ const SecretarioMensagensScreen: React.FC<Props> = ({ route, navigation }) => {
     } finally {
       setLoadingContatos(false);
     }
-  };
+  }, []);
+
+  useRealtimeRefresh({
+    enabled: showNovoModal,
+    debounceMs: 1200,
+    shouldRefresh: (event) => event.table === 'profiles',
+    refresh: () => {
+      void carregarContatos();
+    },
+  });
 
 const iniciarConversa = async (contato: DentistaProfile | PacienteProfile) => {
   if (!user?.id || !profile?.nome || !contato.nome) return;

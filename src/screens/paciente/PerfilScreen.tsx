@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,7 @@ import { PROVINCIAS_ANGOLA } from '../../utils/constants';
 import { getInitials, formatDate, formatBirthDateInput, calculateAgeFromBirthDate } from '../../utils/helpers';
 import { exportHtmlAsPdf } from '../../utils/pdfExportUtils';
 import { gerarFichaHistorico } from '../dentista/gerarFichaHistorico';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 const ESPECIALIDADES_DENTISTA = [
   'Ortodontia',
@@ -94,17 +95,31 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
     return null;
   }, [isDentista, perfilPaciente]);
 
-  useEffect(() => {
-    const carregarPerfilCompleto = async () => {
-      if (isDentista || !profile?.id) return;
-      const result = await buscarPaciente(profile.id, { forceRefresh: true });
-      if (result.success && result.data) {
-        setPerfilCarregado(result.data);
-      }
-    };
-
-    void carregarPerfilCompleto();
+  const carregarPerfilCompleto = useCallback(async () => {
+    if (isDentista || !profile?.id) return;
+    const result = await buscarPaciente(profile.id, { forceRefresh: true });
+    if (result.success && result.data) {
+      setPerfilCarregado(result.data);
+    }
   }, [isDentista, profile?.id]);
+
+  useEffect(() => {
+    void carregarPerfilCompleto();
+  }, [carregarPerfilCompleto]);
+
+  useRealtimeRefresh({
+    enabled: !!profile?.id,
+    debounceMs: 800,
+    shouldRefresh: (event) => {
+      if (event.table !== 'profiles') return false;
+      return String(event.new?.id || event.old?.id || '') === String(profile?.id || '');
+    },
+    refresh: async () => {
+      // Atualiza contexto (nome/tipo/etc) e perfil completo (paciente)
+      await refreshProfile();
+      await carregarPerfilCompleto();
+    },
+  });
 
   useEffect(() => {
     setNome(profile?.nome || '');

@@ -17,6 +17,7 @@ import { DentistaProfile, listarDentistas } from '../../services/dentistaService
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { PacienteStackParamList } from '../../navigation/types';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 type ChooseDentistaProps = NativeStackScreenProps<any, any>;
 
@@ -26,7 +27,7 @@ const ChooseDentistaScreen: React.FC<ChooseDentistaProps> = ({ navigation }) => 
   const [dentistas, setDentistas] = useState<DentistaProfile[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const load = async (showSpinner: boolean) => {
+  const load = useCallback(async (showSpinner: boolean) => {
     if (showSpinner) {
       setLoading(true);
     }
@@ -47,7 +48,7 @@ const ChooseDentistaScreen: React.FC<ChooseDentistaProps> = ({ navigation }) => 
     }
 
     setLoading(false);
-  };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -65,8 +66,21 @@ const ChooseDentistaScreen: React.FC<ChooseDentistaProps> = ({ navigation }) => 
       // Primeira carga mostra spinner; recargas posteriores atualizam em background.
       void load(dentistas.length === 0);
       return undefined;
-    }, [dentistas.length, navigation, profile?.tipo])
+    }, [dentistas.length, load, navigation, profile?.tipo])
   );
+
+  useRealtimeRefresh({
+    enabled: true,
+    debounceMs: 1200,
+    shouldRefresh: (event) => {
+      if (event.table !== 'profiles') return false;
+      const tipo = String(event.new?.tipo || event.old?.tipo || '').toLowerCase();
+      return !tipo || tipo === 'dentista' || tipo === 'medico';
+    },
+    refresh: () => {
+      void load(false);
+    },
+  });
 
   const handleSelect = async (d: DentistaProfile) => {
     if (!d.id) {

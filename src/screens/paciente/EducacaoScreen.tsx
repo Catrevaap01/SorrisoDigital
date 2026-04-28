@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { buscarConteudos } from '../../services/conteudoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { CATEGORIAS_CONTEUDO } from '../../utils/constants';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 const EducacaoScreen: React.FC = () => {
   const [conteudos, setConteudos] = useState<any[]>([]);
@@ -20,18 +21,29 @@ const EducacaoScreen: React.FC = () => {
   const [conteudoSelecionado, setConteudoSelecionado] = useState<any | null>(null);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
 
-  const carregarConteudos = async (categoria = null) => {
+  const carregarConteudos = useCallback(async (categoria = null) => {
     setLoading(true);
     const result = await buscarConteudos(categoria);
     if (result.success) {
       setConteudos(result.data);
     }
     setLoading(false);
-  };
+  }, []);
 
   useEffect(() => {
     carregarConteudos(categoriaAtiva === 'todos' ? null : categoriaAtiva);
-  }, [categoriaAtiva]);
+  }, [carregarConteudos, categoriaAtiva]);
+
+  useRealtimeRefresh({
+    enabled: true,
+    debounceMs: 1200,
+    shouldRefresh: (event) => {
+      return event.table === 'conteudos_educativos' || event.table === 'conteudos_educacionais';
+    },
+    refresh: () => {
+      void carregarConteudos(categoriaAtiva === 'todos' ? null : categoriaAtiva);
+    },
+  });
 
   const getIconeCategoria = (categoria) => {
     const cat = CATEGORIAS_CONTEUDO.find(c => c.id === categoria);

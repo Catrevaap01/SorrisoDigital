@@ -20,6 +20,7 @@ import { STATUS_TRIAGEM } from '../../utils/constants';
 import { formatRelativeTime, getInitials } from '../../utils/helpers';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { PacienteTabParamList } from '../../navigation/types';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 type HomeProps = BottomTabScreenProps<PacienteTabParamList, 'Início'>;
 
@@ -29,19 +30,42 @@ const HomeScreen: React.FC<HomeProps> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const carregarDados = async () => {
-    if (!profile?.id) return;
+  const carregarDados = useCallback(async () => {
+    if (!profile?.id) {
+      setLoading(false);
+      return;
+    }
 
     const result = await buscarTriagensPaciente(profile.id);
     if (result.success) {
       setTriagensRecentes(result.data?.slice(0, 3) || []);
     }
     setLoading(false);
-  };
+  }, [profile?.id]);
 
   useEffect(() => {
     carregarDados();
-  }, [profile]);
+  }, [carregarDados]);
+
+  useRealtimeRefresh({
+    enabled: !!profile?.id,
+    debounceMs: 900,
+    shouldRefresh: (event) => {
+      const userId = profile?.id;
+      if (!userId) return false;
+
+      if (event.table === 'triagens') {
+        return String(event.new?.paciente_id || event.old?.paciente_id || '') === userId;
+      }
+      if (event.table === 'respostas_triagem') {
+        return true;
+      }
+      return false;
+    },
+    refresh: () => {
+      carregarDados();
+    },
+  });
 
 
 
@@ -49,7 +73,7 @@ const HomeScreen: React.FC<HomeProps> = ({ navigation }) => {
     setRefreshing(true);
     await carregarDados();
     setRefreshing(false);
-  }, [profile]);
+  }, [carregarDados]);
 
   const dicasDoDia = [
     'Escove os dentes por pelo menos 2 minutos',

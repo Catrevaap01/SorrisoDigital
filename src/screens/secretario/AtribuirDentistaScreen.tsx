@@ -19,6 +19,7 @@ import { listarDentistasPorEspecialidade, obterCargaDentista } from '../../servi
 import { atribuirTriagemADentista, buscarTriagemPorId } from '../../services/triagemService';
 import { DentistaProfile } from '../../services/dentistaService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 type Props = NativeStackScreenProps<SecretarioStackParamList, 'AtribuirDentista'>;
 
@@ -80,6 +81,24 @@ const AtribuirDentistaScreen: React.FC<Props> = ({ route, navigation }) => {
   }, [triagemId, especialidadeFiltro]);
 
   useEffect(() => { carregarDados(); }, [carregarDados]);
+
+  useRealtimeRefresh({
+    enabled: true,
+    debounceMs: 700,
+    shouldRefresh: (event) => {
+      if (event.table === 'triagens') {
+        return String(event.new?.id || event.old?.id || '') === String(triagemId);
+      }
+      if (event.table === 'profiles') {
+        const tipo = String(event.new?.tipo || event.old?.tipo || '').toLowerCase();
+        return !tipo || tipo === 'dentista' || tipo === 'medico';
+      }
+      return false;
+    },
+    refresh: () => {
+      void carregarDados();
+    },
+  });
 
   const handleAtribuir = (dentista: DentistaComCarga) => {
     const confirmar = async () => {

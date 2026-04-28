@@ -25,6 +25,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 import {
   listarDentistas,
   criarDentista,
@@ -187,7 +188,7 @@ const AdminDashboardScreen: React.FC = () => {
   };
 
   // Carregar dentistas
-  const carregarDentistas = async (termo?: string, forceRefresh = false) => {
+  const carregarDentistas = useCallback(async (termo?: string, forceRefresh = false) => {
     setLoading(true);
     try {
       const resultado = termo
@@ -212,7 +213,7 @@ const AdminDashboardScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Recarregar na entrada da tela
   useFocusEffect(
@@ -222,8 +223,21 @@ const AdminDashboardScreen: React.FC = () => {
       setModalProvinciaVisivel(false);
       setFormModalToReopen(null);
       carregarDentistas(undefined, true);
-    }, [])
+    }, [carregarDentistas])
   );
+
+  useRealtimeRefresh({
+    enabled: true,
+    debounceMs: 1200,
+    shouldRefresh: (event) => {
+      if (event.table !== 'profiles') return false;
+      const tipo = String(event.new?.tipo || event.old?.tipo || '').toLowerCase();
+      return !tipo || tipo === 'dentista' || tipo === 'medico';
+    },
+    refresh: () => {
+      void carregarDentistas(busca || undefined, true);
+    },
+  });
 
   const handleOpenCreateModal = () => {
     if (enviandoForm || salvandoEdicao) return;
@@ -1583,4 +1597,3 @@ const styles = StyleSheet.create({
 });
 
 export default AdminDashboardScreen;
-

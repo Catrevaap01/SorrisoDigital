@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Image,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { buscarTriagensPaciente, Triagem } from '../../services/triagemService';
@@ -19,6 +20,8 @@ import Toast from 'react-native-toast-message';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { DentistaStackParamList } from '../../navigation/types';
 import { SecretarioStackParamList } from '../../navigation/types';
+import { useAuth } from '../../contexts/AuthContext';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 type PacienteHistoricoProps = NativeStackScreenProps<
   DentistaStackParamList | SecretarioStackParamList,
@@ -30,13 +33,14 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
   navigation,
 }) => {
   const { pacienteId, pacienteNome } = route.params;
+  const { profile } = useAuth();
   const [triagens, setTriagens] = useState<Triagem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [paciente, setPaciente] = useState<PacienteProfile | null>(null);
   const [exporting, setExporting] = useState(false);
 
-  const carregarDados = async () => {
+  const carregarDados = useCallback(async () => {
     setLoading(true);
     if (pacienteId) {
       const [tResult, pResult] = await Promise.all([
@@ -51,17 +55,40 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
       }
     }
     setLoading(false);
-  };
+  }, [pacienteId]);
 
   useEffect(() => {
     carregarDados();
-  }, [pacienteId]);
+  }, [carregarDados]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await carregarDados();
     setRefreshing(false);
-  }, [pacienteId]);
+  }, [carregarDados]);
+
+  useRealtimeRefresh({
+    enabled: !!pacienteId,
+    debounceMs: 600,
+    shouldRefresh: (event) => {
+      if (!pacienteId) return false;
+      if (event.table === 'triagens') {
+        const pid = String(event.new?.paciente_id || event.old?.paciente_id || '');
+        return pid === pacienteId;
+      }
+      if (event.table === 'profiles') {
+        const id = String(event.new?.id || event.old?.id || '');
+        return id === pacienteId;
+      }
+      if (event.table === 'respostas_triagem') {
+        return true; // garante que status/response reflita imediatamente
+      }
+      return false;
+    },
+    refresh: () => {
+      carregarDados();
+    },
+  });
 
   const renderTriagemLinha = ({ item }: { item: Triagem }) => {
     const temResposta = item.respostas && item.respostas.length > 0;
@@ -78,13 +105,17 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
           
     const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
 
+    const isSecretario = profile?.tipo === 'secretario';
+
     return (
       <TouchableOpacity
         style={styles.rowItem}
-        onPress={() =>
-          navigation.getParent()?.navigate('CasoDetalhe', { triagemId: item.id })
-        }
-        activeOpacity={0.7}
+        onPress={() => {
+          if (!isSecretario) {
+            navigation.getParent()?.navigate('CasoDetalhe', { triagemId: item.id });
+          }
+        }}
+        activeOpacity={isSecretario ? 1 : 0.7}
       >
         <View
           style={[styles.rowStatusDot, { backgroundColor: statusInfo.color }]}
@@ -95,15 +126,17 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
           </Text>
           <Text style={styles.rowSubtitulo} numberOfLines={1}>
             {statusInfo.label} | Dor {item.intensidade_dor}/10 |{' '}
-            {formatRelativeTime(item.created_at)}{' '}
+            {item.created_at ? formatRelativeTime(item.created_at) : 'N/A'}{' '}
             •{' '}
-            {new Date(item.created_at).toLocaleTimeString('pt-BR', {
+            {item.created_at ? new Date(item.created_at).toLocaleTimeString('pt-BR', {
               hour: '2-digit',
               minute: '2-digit',
-            })}
+            }) : 'N/A'}
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+        {!isSecretario && (
+          <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
+        )}
       </TouchableOpacity>
     );
   };
@@ -197,9 +230,9 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
           keyExtractor={(item: any) => item.id}
           renderItem={renderTriagemLinha}
           contentContainerStyle={styles.listaLinhas}
-          refreshControl={
+          refreshControl={Platform.OS !== 'web' ? (
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          ) : undefined}
           ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
           showsVerticalScrollIndicator={false}
         />

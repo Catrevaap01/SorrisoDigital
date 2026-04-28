@@ -31,6 +31,7 @@ import {
   obterOuCriarConversa,
 } from '../../services/messagesService';
 import { listarPacientes, PacienteProfile } from '../../services/pacienteService';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 interface ConversationsListScreenProps {
   onSelectConversation: (
@@ -68,7 +69,7 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
       : COLORS.primary;
 
   // Carregar conversas
-  const carregarConversas = async () => {
+  const carregarConversas = useCallback(async () => {
     if (!user?.id) return;
 
     setLoading(true);
@@ -174,14 +175,29 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
       // sincroniza também a badge do menu
       import('../../navigation/AppNavigator').then(m => m.triggerUnreadRefresh());
     }
-  };
+  }, [user?.id]);
 
   useFocusEffect(
     useCallback(() => {
       import('../../navigation/AppNavigator').then((m) => m.markUnreadAsSeen());
       carregarConversas();
-    }, [user?.id])
+    }, [carregarConversas])
   );
+
+  useRealtimeRefresh({
+    enabled: !!user?.id,
+    debounceMs: 700,
+    shouldRefresh: (event) => {
+      return (
+        event.table === 'messages' ||
+        event.table === 'conversations' ||
+        event.table === 'profiles'
+      );
+    },
+    refresh: () => {
+      void carregarConversas();
+    },
+  });
 
   // Buscar conversa
   const handleBusca = (texto: string) => {
@@ -209,7 +225,7 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
   };
 
   // Funções para iniciar nova conversa
-  const carregarPacientes = async () => {
+  const carregarPacientes = useCallback(async () => {
     setLoadingPacientes(true);
     try {
       const resp = await listarPacientes();
@@ -222,7 +238,16 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
     } finally {
       setLoadingPacientes(false);
     }
-  };
+  }, []);
+
+  useRealtimeRefresh({
+    enabled: modalVisible,
+    debounceMs: 900,
+    shouldRefresh: (event) => event.table === 'profiles',
+    refresh: () => {
+      void carregarPacientes();
+    },
+  });
 
   const handleBuscaPaciente = (text: string) => {
     setBuscaPaciente(text);

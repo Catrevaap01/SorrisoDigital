@@ -24,6 +24,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 import { authService } from '../../services/authService';
 import { validators } from '../../utils/validators';
 import { calculateAgeFromBirthDate, formatBirthDateInput } from '../../utils/helpers';
@@ -96,7 +97,7 @@ const AdminSecretariosScreen: React.FC = () => {
     return () => clearTimeout(timer);
   }, [expandedId]);
 
-  const carregar = async () => {
+  const carregar = useCallback(async () => {
     setLoading(true);
     try {
       const result = await authService.adminListSecretarios();
@@ -107,14 +108,27 @@ const AdminSecretariosScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
       setExpandedId(null);
       carregar();
-    }, [])
+    }, [carregar])
   );
+
+  useRealtimeRefresh({
+    enabled: true,
+    debounceMs: 1200,
+    shouldRefresh: (event) => {
+      if (event.table !== 'profiles') return false;
+      const tipo = String(event.new?.tipo || event.old?.tipo || '').toLowerCase();
+      return !tipo || tipo === 'secretario';
+    },
+    refresh: () => {
+      void carregar();
+    },
+  });
 
   const handleRefresh = async () => {
     setRefreshing(true);

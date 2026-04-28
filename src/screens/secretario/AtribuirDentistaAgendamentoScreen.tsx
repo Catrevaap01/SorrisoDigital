@@ -20,6 +20,7 @@ import { buscarAgendamentoPorId, Agendamento } from '../../services/agendamentoS
 import { DentistaProfile } from '../../services/dentistaService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { formatDate, formatDateTime } from '../../utils/helpers';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 type Props = NativeStackScreenProps<SecretarioStackParamList, 'AtribuirAgendamento'>;
 
@@ -68,6 +69,24 @@ const AtribuirDentistaAgendamentoScreen: React.FC<Props> = ({ route, navigation 
   }, [agendamentoId, especialidadeFiltro]);
 
   useEffect(() => { carregarDados(); }, [carregarDados]);
+
+  useRealtimeRefresh({
+    enabled: true,
+    debounceMs: 700,
+    shouldRefresh: (event) => {
+      if (event.table === 'appointments') {
+        return String(event.new?.id || event.old?.id || '') === String(agendamentoId);
+      }
+      if (event.table === 'profiles') {
+        const tipo = String(event.new?.tipo || event.old?.tipo || '').toLowerCase();
+        return !tipo || tipo === 'dentista' || tipo === 'medico';
+      }
+      return false;
+    },
+    refresh: () => {
+      void carregarDados();
+    },
+  });
 
   const handleAtribuir = (dentista: DentistaComCarga) => {
     const confirmar = async () => {

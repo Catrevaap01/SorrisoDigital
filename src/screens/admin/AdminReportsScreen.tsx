@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 import { authService } from '../../services/authService';
 import { supabase } from '../../config/supabase';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
@@ -124,13 +125,7 @@ const AdminReportsScreen: React.FC = () => {
   const [dentistasResumo, setDentistasResumo] = useState<DentistaResumo[]>([]);
   const [secretariosResumo, setSecretariosResumo] = useState<SecretarioResumo[]>([]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void carregarEstatisticas();
-    }, [])
-  );
-
-  const carregarEstatisticas = async () => {
+  const carregarEstatisticas = useCallback(async () => {
     setLoading(true);
     try {
       const result = await gerarRelatorioGeral();
@@ -195,7 +190,34 @@ const AdminReportsScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void carregarEstatisticas();
+    }, [carregarEstatisticas])
+  );
+
+  useRealtimeRefresh({
+    enabled: true,
+    debounceMs: 1500,
+    shouldRefresh: (event) => {
+      return (
+        event.table === 'profiles' ||
+        event.table === 'appointments' ||
+        event.table === 'triagens' ||
+        event.table === 'respostas_triagem' ||
+        event.table === 'messages' ||
+        event.table === 'conversations' ||
+        event.table === 'procedimentos_tratamento' ||
+        event.table === 'planos_tratamento' ||
+        event.table === 'notificacoes'
+      );
+    },
+    refresh: () => {
+      void carregarEstatisticas();
+    },
+  });
 
   const handleRefresh = async () => {
     setRefreshing(true);

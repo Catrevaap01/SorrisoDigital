@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -66,9 +67,9 @@ const money = (value: number) => `${Number(value || 0).toLocaleString('pt-AO')} 
 
 const clinicalStatus = (status?: string) => {
   const value = String(status || '').toLowerCase();
-  if (value === 'concluido') return { label: 'Concluido', bg: '#DCFCE7', text: '#166534' };
+  if (value === 'concluido') return { label: 'Concluído', bg: '#DCFCE7', text: '#166534' };
   if (value === 'cancelado') return { label: 'Cancelado', bg: '#FEE2E2', text: '#B91C1C' };
-  return { label: 'Em execucao', bg: '#DBEAFE', text: '#1D4ED8' };
+  return { label: 'Em execução', bg: '#DBEAFE', text: '#1D4ED8' };
 };
 
 const financialStatus = (status?: string) => {
@@ -201,6 +202,8 @@ const buildUnifiedHtml = (grupo: GrupoFacturaUnificada, numero?: string) => `
 `;
 
 const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }) => {
+  const { width } = useWindowDimensions();
+  const isMobile = width < 768;
   const [filtro, setFiltro] = useState<FiltroFinanceiro>('todos');
   const [selected, setSelected] = useState<TratamentoFinanceiroItem | null>(null);
   const [grupoSelecionado, setGrupoSelecionado] = useState<GrupoFacturaUnificada | null>(null);
@@ -248,11 +251,26 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
     const totalPacientesDia = new Set(itemsFiltered.filter(item => item.factura_emitida_em).map(item => item.paciente_id)).size;
     const taxaFalta = totalPacientesDia > 0 ? ((totalPacientesDia - pacientesAtendidosHoje) / totalPacientesDia) * 100 : 0;
     
+    const getCalculatedStatus = (item: any) => {
+      const dbStatus = String(item.status_financeiro || 'sem_factura').toLowerCase();
+      const isParcial = item.valor_pago != null && item.valor_pago > 0 && item.valor_pago < Number(item.valor || 0);
+      if (isParcial && dbStatus !== 'pendente' && dbStatus !== 'aguardando_factura' && dbStatus !== 'sem_factura') {
+        return 'parcial';
+      }
+      return dbStatus;
+    };
+    
     return {
       planosAtivos: new Set(itemsFiltered.filter((item) => item.status_clinico !== 'cancelado').map((item) => item.plano_id)).size,
-      aguardando: itemsFiltered.filter((item) => item.status_financeiro === 'aguardando_factura').length,
+      aguardando: itemsFiltered.filter((item) => {
+        const s = getCalculatedStatus(item);
+        return s === 'aguardando_factura' || s === 'sem_factura';
+      }).length,
       facturasHoje: itemsFiltered.filter((item) => item.factura_emitida_em && new Date(item.factura_emitida_em).toDateString() === today).length,
-      pendentes: itemsFiltered.filter((item) => ['aguardando_factura', 'pendente', 'parcial'].includes(item.status_financeiro)).length,
+      pendentes: itemsFiltered.filter((item) => {
+        const s = getCalculatedStatus(item);
+        return ['aguardando_factura', 'sem_factura', 'pendente', 'parcial'].includes(s);
+      }).length,
       receitaHoje,
       receitaSemana,
       pacientesAtendidosHoje,
@@ -260,9 +278,25 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
     };
   }, [items]);
 
-  const filtered = useMemo(() => (
-    filtro === 'todos' ? items : items.filter((item) => item.status_financeiro === filtro)
-  ), [filtro, items]);
+  const filtered = useMemo(() => {
+    if (filtro === 'todos') {
+      return items;
+    }
+    return items.filter((item) => {
+      const dbStatus = String(item.status_financeiro || 'sem_factura').toLowerCase();
+      const isParcial = item.valor_pago != null && item.valor_pago > 0 && item.valor_pago < Number(item.valor || 0);
+      let s = dbStatus;
+      
+      if (isParcial && dbStatus !== 'pendente' && dbStatus !== 'aguardando_factura' && dbStatus !== 'sem_factura') {
+        s = 'parcial';
+      }
+
+      if (filtro === 'aguardando_factura') {
+        return s === 'aguardando_factura' || s === 'sem_factura';
+      }
+      return s === filtro;
+    });
+  }, [filtro, items]);
 
   const historico = useMemo<HistoricoFinanceiroAgrupado[]>(() => {
     const grupos = new Map<string, HistoricoFinanceiroAgrupado>();
@@ -305,7 +339,7 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
   const gruposUnificaveis = useMemo(() => {
     const grupos = new Map<string, GrupoFacturaUnificada>();
 
-    items.forEach((item) => {
+    filtered.forEach((item) => {
       const chave = item.paciente_id || item.paciente_nome;
       const existente = grupos.get(chave);
 
@@ -329,18 +363,22 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
     });
 
     return Array.from(grupos.values())
-      .filter((grupo) => grupo.items.length > 1 && grupo.dentistas.length > 1)
+      .filter((grupo) => grupo.items.length > 1)
       .sort((a, b) => b.total - a.total);
-  }, [items]);
+  }, [filtered]);
 
   const emitirFactura = async (status: 'pendente' | 'parcial' | 'pago') => {
     if (!selected) return;
-    const result = await atualizarFinanceiroProcedimento(selected.id, {
+    const payload: any = {
       numero_factura: numeroFactura.trim() || `FT-${Date.now().toString().slice(-6)}`,
       status_financeiro: status,
       factura_emitida_em: new Date().toISOString(),
       pago_em: status === 'pago' ? new Date().toISOString() : null,
-    });
+    };
+    if (status === 'pago') {
+      payload.valor_pago = selected.valor;
+    }
+    const result = await atualizarFinanceiroProcedimento(selected.id, payload);
     if (!result.success) {
       Toast.show({ type: 'error', text1: 'Erro ao emitir factura', text2: result.error || 'Tente novamente' });
       return;
@@ -358,12 +396,16 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
     const agora = new Date().toISOString();
 
     for (const item of grupoSelecionado.items) {
-      const result = await atualizarFinanceiroProcedimento(item.id, {
+      const payload: any = {
         numero_factura: numero,
         status_financeiro: status,
         factura_emitida_em: agora,
         pago_em: status === 'pago' ? agora : null,
-      });
+      };
+      if (status === 'pago') {
+        payload.valor_pago = item.valor;
+      }
+      const result = await atualizarFinanceiroProcedimento(item.id, payload);
 
       if (!result.success) {
         Toast.show({ type: 'error', text1: 'Erro ao unificar facturas', text2: result.error || 'Tente novamente' });
@@ -384,6 +426,7 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
   const marcarPago = async (item: TratamentoFinanceiroItem) => {
     const result = await atualizarFinanceiroProcedimento(item.id, {
       status_financeiro: 'pago',
+      valor_pago: item.valor,
       pago_em: new Date().toISOString(),
       factura_emitida_em: item.factura_emitida_em || new Date().toISOString(),
       numero_factura: item.numero_factura || `FT-${Date.now().toString().slice(-6)}`,
@@ -527,18 +570,18 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
             {gruposUnificaveis.length > 0 && (
               <View style={styles.unifiedCard}>
                 <Text style={styles.unifiedTitle}>Facturas unificadas por paciente</Text>
-                <Text style={styles.unifiedSubtitle}>Pacientes atendidos por dois ou mais dentistas podem receber uma unica factura com o valor total somado.</Text>
+                <Text style={styles.unifiedSubtitle}>Pacientes com mais de um serviço pendente podem receber uma única factura com o valor total somado.</Text>
                 {gruposUnificaveis.map((grupo) => (
-                  <View key={grupo.paciente_id || grupo.paciente_nome} style={styles.unifiedRow}>
-                    <View style={{ flex: 1 }}>
+                  <View key={grupo.paciente_id || grupo.paciente_nome} style={[styles.unifiedRow, isMobile && styles.unifiedRowMobile]}>
+                    <View style={[styles.unifiedInfo, isMobile && styles.unifiedInfoMobile]}>
                       <Text style={styles.unifiedPatient}>{grupo.paciente_nome}</Text>
                       <Text style={styles.unifiedMeta}>{grupo.dentistas.join(' • ')}</Text>
-                      <Text style={styles.unifiedMeta}>{grupo.items.length} servicos • {money(grupo.total)}</Text>
+                      <Text style={styles.unifiedMeta}>{grupo.items.length} serviços • {money(grupo.total)}</Text>
                     </View>
-                    <TouchableOpacity style={styles.unifyBtn} onPress={() => { setNumeroFactura(''); setGrupoSelecionado(grupo); }}>
+                    <TouchableOpacity style={[styles.unifyBtn, isMobile && styles.unifiedActionBtnMobile]} onPress={() => { setNumeroFactura(''); setGrupoSelecionado(grupo); }}>
                       <Text style={styles.unifyBtnText}>Unificar facturas</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.printBtn} onPress={() => void handlePrintFacturaUnica(grupo)}>
+                    <TouchableOpacity style={[styles.printBtn, isMobile && styles.unifiedActionBtnMobile]} onPress={() => void handlePrintFacturaUnica(grupo)}>
                       <Text style={styles.printBtnText}>Imprimir factura única</Text>
                     </TouchableOpacity>
                   </View>
@@ -548,13 +591,22 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
           </View>
 
           {(() => {
-            const listData = filtro === 'pago' ? [] : filtered;
-            if (listData.length === 0) {
-              return filtro === 'pago' ? null : <View style={styles.footerCard}><Text style={styles.empty}>Nenhum procedimento encontrado.</Text></View>;
+            if (filtered.length === 0) {
+              return <View style={styles.footerCard}><Text style={styles.empty}>Nenhum procedimento encontrado.</Text></View>;
             }
-            return listData.map((item) => {
+            return filtered.map((item) => {
               const clinical = clinicalStatus(item.status_clinico);
               const financial = financialStatus(item.status_financeiro);
+              const valorTotal = Number(item.valor || 0);
+              const valorPagoCalculado = item.status_financeiro === 'pago'
+                ? valorTotal
+                : Number(
+                    item.valor_pago !== undefined && item.valor_pago !== null
+                      ? item.valor_pago
+                      : 0
+                  );
+              const dividaPendente = Math.max(0, valorTotal - valorPagoCalculado);
+              const isPagoFinal = String(item.status_financeiro || '').toLowerCase() === 'pago' || dividaPendente <= 0;
               return (
                 <View key={item.id} style={styles.card}>
                   <View style={styles.cardHeader}>
@@ -568,21 +620,38 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
                   <Text style={styles.meta}>{formatDateTime(item.data_hora)}</Text>
                   
                   <View style={styles.paymentInfo}>
-                    <Text style={styles.paymentText}>Valor Já Pago: {money(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0))}</Text>
-                    <Text style={[styles.paymentText, { color: COLORS.danger }]}>
-                      Saldo Devedor: {money(Number(item.valor || 0) - Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0)))}
-                    </Text>
+                    {(() => {
+                      const basePago = item.valor_pago !== undefined && item.valor_pago !== null 
+                                       ? item.valor_pago 
+                                       : (item.status_financeiro === 'pago' ? item.valor : 0);
+                      
+                      const renderPago = item.status_financeiro === 'pago' ? Number(item.valor || 0) : Number(basePago || 0);
+                      const renderDevedor = Math.max(0, Number(item.valor || 0) - renderPago);
+                      
+                      return (
+                        <>
+                          <Text style={styles.paymentText}>Valor Já Pago: {money(renderPago)}</Text>
+                          <Text style={[styles.paymentText, renderDevedor > 0 ? styles.debtText : styles.paymentNeutralText]}>
+                            Dívida Pendente: {money(renderDevedor)}
+                          </Text>
+                        </>
+                      );
+                    })()}
                   </View>
                   <View style={styles.statusRow}>
-                    <View style={[styles.statusChip, { backgroundColor: clinical.bg }]}><Text style={[styles.statusText, { color: clinical.text }]}>Clinico: {clinical.label}</Text></View>
+                    <View style={[styles.statusChip, { backgroundColor: clinical.bg }]}><Text style={[styles.statusText, { color: clinical.text }]}>Clínico: {clinical.label}</Text></View>
                     <View style={[styles.statusChip, { backgroundColor: financial.bg }]}><Text style={[styles.statusText, { color: financial.text }]}>Financeiro: {financial.label}</Text></View>
                   </View>
                   <View style={styles.actionsRow}>
                     <TouchableOpacity style={styles.actionBtn} onPress={() => { setNumeroFactura(''); setSelected(item); }}><Text style={styles.actionText}>Emitir factura</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.actionBtn} onPress={() => abrirModalPagamentoParcial(item)}><Text style={styles.actionText}>Pagamento Parcial</Text></TouchableOpacity>
                     <TouchableOpacity style={styles.actionBtn} onPress={() => emitirFacturaPagamento(item)}><Text style={styles.actionText}>Fatura pago</Text></TouchableOpacity>
                     <TouchableOpacity style={styles.actionBtn} onPress={() => void handlePrintServico(item)}><Text style={styles.actionText}>Imprimir serviço</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.actionBtn} onPress={() => void marcarPago(item)}><Text style={styles.actionText}>Marcar pago</Text></TouchableOpacity>
+                    {!isPagoFinal && (
+                      <TouchableOpacity style={styles.actionBtn} onPress={() => abrirModalPagamentoParcial(item)}><Text style={styles.actionText}>Pagamento Parcial</Text></TouchableOpacity>
+                    )}
+                    {!isPagoFinal && (
+                      <TouchableOpacity style={styles.actionBtn} onPress={() => void marcarPago(item)}><Text style={styles.actionText}>Marcar pago</Text></TouchableOpacity>
+                    )}
                     <TouchableOpacity style={styles.actionBtn} onPress={() => void enviarWhatsapp(item)}><Text style={styles.actionText}>WhatsApp</Text></TouchableOpacity>
                   </View>
                 </View>
@@ -591,12 +660,12 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
           })()}
 
           <View style={styles.footerCard}>
-            <Text style={styles.footerTitle}>Historico financeiro</Text>
-            {historico.length === 0 ? <Text style={styles.empty}>Sem historico financeiro.</Text> : historico.map((item) => (
+            <Text style={styles.footerTitle}>Histórico financeiro</Text>
+            {historico.length === 0 ? <Text style={styles.empty}>Sem histórico financeiro.</Text> : historico.map((item) => (
               <View key={`h-${item.id}`} style={styles.historyRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.historyTitle}>
-                    {item.paciente_nome} • {item.quantidade_servicos > 1 ? `Factura unificada (${item.quantidade_servicos} servicos)` : item.procedimentos[0] || 'Procedimento'}
+                    {item.paciente_nome} • {item.quantidade_servicos > 1 ? `Factura unificada (${item.quantidade_servicos} serviços)` : item.procedimentos[0] || 'Procedimento'}
                   </Text>
                   <Text style={styles.historyMeta}>{item.numero_factura || 'Sem factura'} • {formatDateTime(item.data_referencia)}</Text>
                   {item.quantidade_servicos > 1 && (
@@ -614,8 +683,13 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
       <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}>
         <View style={styles.overlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Emitir factura</Text>
-            <TextInput style={styles.input} value={numeroFactura} onChangeText={setNumeroFactura} placeholder="Numero da factura" placeholderTextColor={COLORS.textSecondary} />
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { marginBottom: 0 }]}>Emitir factura</Text>
+              <TouchableOpacity style={styles.closeButton} onPress={() => setSelected(null)}>
+                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <TextInput style={styles.input} value={numeroFactura} onChangeText={setNumeroFactura} placeholder="Número da factura" placeholderTextColor={COLORS.textSecondary} />
             <View style={styles.actionsRow}>
               <TouchableOpacity style={styles.actionBtn} onPress={() => void emitirFactura('pendente')}><Text style={styles.actionText}>Pendente</Text></TouchableOpacity>
               <TouchableOpacity style={styles.actionBtn} onPress={() => void emitirFactura('parcial')}><Text style={styles.actionText}>Parcial</Text></TouchableOpacity>
@@ -628,7 +702,12 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
       <Modal visible={modalPagamentoParcial} transparent animationType="fade" onRequestClose={() => setModalPagamentoParcial(false)}>
         <View style={styles.overlay}>
           <View style={styles.mediumModalCard}>
-            <Text style={styles.modalTitle}>Pagamento Parcial</Text>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { marginBottom: 0 }]}>Pagamento Parcial</Text>
+              <TouchableOpacity style={styles.closeButton} onPress={() => setModalPagamentoParcial(false)}>
+                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
             {itemPagamentoParcial && (
               <>
                 <Text style={styles.modalSubtitle}>
@@ -673,11 +752,16 @@ const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }
       <Modal visible={!!grupoSelecionado} transparent animationType="fade" onRequestClose={() => setGrupoSelecionado(null)}>
         <View style={styles.overlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Unificar facturas</Text>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { marginBottom: 0 }]}>Unificar facturas</Text>
+              <TouchableOpacity style={styles.closeButton} onPress={() => setGrupoSelecionado(null)}>
+                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
             <Text style={styles.unifiedSubtitle}>
-              {grupoSelecionado ? `${grupoSelecionado.paciente_nome} • ${grupoSelecionado.items.length} servicos • ${money(grupoSelecionado.total)}` : ''}
+              {grupoSelecionado ? `${grupoSelecionado.paciente_nome} • ${grupoSelecionado.items.length} serviços • ${money(grupoSelecionado.total)}` : ''}
             </Text>
-            <TextInput style={styles.input} value={numeroFactura} onChangeText={setNumeroFactura} placeholder="Numero da factura unificada" placeholderTextColor={COLORS.textSecondary} />
+            <TextInput style={styles.input} value={numeroFactura} onChangeText={setNumeroFactura} placeholder="Número da factura unificada" placeholderTextColor={COLORS.textSecondary} />
             <View style={styles.actionsRow}>
               <TouchableOpacity style={styles.actionBtn} onPress={() => void unificarFacturas('pendente')}><Text style={styles.actionText}>Pendente</Text></TouchableOpacity>
               <TouchableOpacity style={styles.actionBtn} onPress={() => void unificarFacturas('parcial')}><Text style={styles.actionText}>Parcial</Text></TouchableOpacity>
@@ -718,6 +802,10 @@ const styles = StyleSheet.create({
   unifiedTitle: { fontSize: TYPOGRAPHY.sizes.h4, fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.text },
   unifiedSubtitle: { marginTop: 6, fontSize: TYPOGRAPHY.sizes.small, color: COLORS.textSecondary, lineHeight: 18 },
   unifiedRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, paddingTop: SPACING.md, marginTop: SPACING.md, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+  unifiedRowMobile: { flexDirection: 'column', alignItems: 'stretch' },
+  unifiedInfo: { flex: 1, minWidth: 220 },
+  unifiedInfoMobile: { minWidth: 0, width: '100%' },
+  unifiedActionBtnMobile: { width: '100%', alignItems: 'center' },
   unifiedPatient: { fontSize: TYPOGRAPHY.sizes.body, fontWeight: TYPOGRAPHY.weights.bold, color: COLORS.text },
   unifiedMeta: { marginTop: 4, fontSize: TYPOGRAPHY.sizes.small, color: COLORS.textSecondary },
   unifyBtn: { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0', borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
@@ -738,6 +826,7 @@ const styles = StyleSheet.create({
   actionText: { color: COLORS.text, fontSize: TYPOGRAPHY.sizes.small, fontWeight: TYPOGRAPHY.weights.semiBold },
   paymentInfo: { marginTop: 12, padding: 12, backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#F1F5F9' },
   paymentText: { fontSize: 13, color: '#059669', fontWeight: '700' },
+  paymentNeutralText: { color: '#64748B' },
   debtText: { fontSize: 13, color: '#DC2626', fontWeight: '700', marginTop: 4 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   faturadoBadge: { backgroundColor: '#F0FDF4', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#DCFCE7' },
@@ -796,6 +885,15 @@ const styles = StyleSheet.create({
   unifiedPdfText: { color: '#3730A3', fontSize: TYPOGRAPHY.sizes.small, fontWeight: TYPOGRAPHY.weights.semiBold },
   printBtn: { marginTop: SPACING.sm, backgroundColor: '#ECFDF5', borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: '#A7F3D0' },
   printBtnText: { color: '#047857', fontSize: TYPOGRAPHY.sizes.small, fontWeight: TYPOGRAPHY.weights.semiBold },
+  modalHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: SPACING.md 
+  },
+  closeButton: { 
+    padding: 4 
+  },
 });
 
 export default TratamentosFacturasPanel;

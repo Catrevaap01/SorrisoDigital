@@ -31,6 +31,8 @@ interface PacienteListItem {
   created_at?: string;
 }
 
+const normalizarId = (valor?: string | null) => (valor || '').trim().toLowerCase();
+
 const DentistaRelatorioScreen: React.FC = () => {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -68,7 +70,11 @@ const DentistaRelatorioScreen: React.FC = () => {
         Toast.show({ type: 'error', text1: 'Erro ao carregar pacientes', text2: pacResult.error || 'Falha' });
         setPacientesList([]);
       } else {
-        const list = (pacResult.data || []).map(p => ({
+        const dentistaId = normalizarId(profile.id);
+        const pacientesAtribuidos = (pacResult.data || []).filter(
+          (p) => normalizarId(p.dentist_id) === dentistaId || normalizarId(p.dentista_id) === dentistaId
+        );
+        const list = pacientesAtribuidos.map(p => ({
           id: p.id,
           nome: p.nome || 'Paciente sem nome',
           data_nascimento: p.data_nascimento,
@@ -112,8 +118,7 @@ const DentistaRelatorioScreen: React.FC = () => {
         return data.getMonth() === agora.getMonth() && data.getFullYear() === agora.getFullYear();
       }).length;
 
-      // Buscar dados de faturação
-      const faturacaoRes = await buscarTratamentosFinanceirosDentista(profile?.id);
+      const faturacaoRes = profile?.id ? await buscarTratamentosFinanceirosDentista(profile.id) : { success: false, data: [] };
       const itemsFinanceiros = faturacaoRes.success ? (faturacaoRes.data || []) : [];
       
       // Calcular totais de faturação
@@ -121,7 +126,7 @@ const DentistaRelatorioScreen: React.FC = () => {
       let totalRecebido = 0;
       itemsFinanceiros.forEach((item: any) => {
         const valor = Number(item.valor || 0);
-        const valorPago = Number(item.valor_pago || 0);
+        const valorPago = item.status_financeiro === 'pago' ? valor : Number(item.valor_pago || 0);
         totalFaturado += valor;
         totalRecebido += valorPago;
       });
@@ -265,7 +270,7 @@ const DentistaRelatorioScreen: React.FC = () => {
               <tbody>
                 ${itemsFinanceiros.slice(0, 100).map((item: any) => {
                   const vTotal = Number(item.valor || 0);
-                  const vPago = Number(item.valor_pago || 0);
+                  const vPago = item.status_financeiro === 'pago' ? vTotal : Number(item.valor_pago || 0);
                   const divida = vTotal - vPago;
                   const statusFin = item.status_financeiro || (vPago >= vTotal ? 'pago' : vPago > 0 ? 'parcial' : 'pendente');
                   const dataRef = item.appointment_date || item.updated_at || item.created_at;
@@ -329,14 +334,14 @@ const DentistaRelatorioScreen: React.FC = () => {
   const gerarPdfFaturacao = async () => {
     setGerandoPdf(true);
     try {
-      const faturacaoRes = await buscarTratamentosFinanceirosDentista(profile?.id);
+      const faturacaoRes = profile?.id ? await buscarTratamentosFinanceirosDentista(profile.id) : { success: false, data: [] };
       const itemsFinanceiros = faturacaoRes.success ? (faturacaoRes.data || []) : [];
       
       let totalFaturado = 0;
       let totalRecebido = 0;
       itemsFinanceiros.forEach((item: any) => {
         const valor = Number(item.valor || 0);
-        const valorPago = Number(item.valor_pago || 0);
+        const valorPago = item.status_financeiro === 'pago' ? valor : Number(item.valor_pago || 0);
         totalFaturado += valor;
         totalRecebido += valorPago;
       });
@@ -419,7 +424,7 @@ const DentistaRelatorioScreen: React.FC = () => {
             <tbody>
               ${itemsFinanceiros.length === 0 ? '<tr><td colspan="7" style="text-align:center">Sem registos financeiros encontrados</td></tr>' : itemsFinanceiros.map((item: any) => {
                 const vTotal = Number(item.valor || 0);
-                const vPago = Number(item.valor_pago || 0);
+                const vPago = item.status_financeiro === 'pago' ? vTotal : Number(item.valor_pago || 0);
                 const divida = vTotal - vPago;
                 const statusFin = item.status_financeiro || (vPago >= vTotal ? 'pago' : vPago > 0 ? 'parcial' : 'pendente');
                 const dataRef = item.appointment_date || item.updated_at || item.created_at;
@@ -678,7 +683,7 @@ const DentistaRelatorioScreen: React.FC = () => {
             {pacientesList.length === 0 && (
               <View style={styles.emptyModal}>
             <Ionicons name="person-outline" size={48} color={COLORS.textSecondary} />
-                <Text style={styles.emptyModalText}>Nenhum paciente nos agendamentos</Text>
+                <Text style={styles.emptyModalText}>Nenhum paciente atribuído ao dentista</Text>
               </View>
             )}
           </View>

@@ -13,6 +13,7 @@ import { notificarAgendamentoPaciente } from './notificacoesService';
 import { scheduleAppointmentReminder } from './localNotificationService';
 import NetInfo from '@react-native-community/netinfo';
 import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
+import { fetchWithCache } from '../utils/cacheService';
 
 // helper para detectar falta da tabela agendamentos e informar o usuário
 function _handleTableMissing(error: any): string | null {
@@ -164,47 +165,49 @@ export const buscarAgendaDentista = async (
   dentistaId: string,
   date: Date | string
 ): Promise<ServiceResult<Agendamento[]>> => {
-  try {
-    // Garantir uso correto da data recebida
-    let start: Date;
-    if (typeof date === 'string' && (date as string).length === 10) {
-      const [y, m, d] = (date as string).split('-').map(Number);
-      start = new Date(y, m - 1, d);
-    } else {
-      start = new Date(date);
+  return fetchWithCache(`agenda_dentista_${dentistaId}_${date.toString().slice(0,10)}`, async () => {
+    try {
+      // Garantir uso correto da data recebida
+      let start: Date;
+      if (typeof date === 'string' && (date as string).length === 10) {
+        const [y, m, d] = (date as string).split('-').map(Number);
+        start = new Date(y, m - 1, d);
+      } else {
+        start = new Date(date);
+      }
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(start);
+      end.setDate(end.getDate() + 1);
+
+      // ✅ TIMEOUT + LIMIT 200 agendamentos - Buscar APENAS agendamentos atribuídos a este dentista
+      // Usar datas em formato YYYY-MM-DD para comparação com DATE fields, resolvendo em timezone local
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const startDate = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
+      const endDate = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+      
+      const query = supabase
+        .from('appointments')
+        .select('*')
+        .eq('dentist_id', dentistaId)
+        .gte('appointment_date', startDate)
+        .lt('appointment_date', endDate)
+        .order('appointment_date', { ascending: true })
+        .limit(200);
+      
+      const agendaRes = await withTimeout(query, 12000);
+
+      if (agendaRes.error) throw agendaRes.error;
+
+      const agendaBase = (agendaRes.data || []) as Agendamento[];
+      const agendaEnriquecida = await enrichAgendamentosWithPacientes(agendaBase);
+
+      return { success: true, data: agendaEnriquecida };
+    } catch (err: any) {
+      const mapped = _handleTableMissing(err);
+      const message = mapped || err.message || 'Erro desconhecido';
+      return { success: false, error: message };
     }
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-
-    // ✅ TIMEOUT + LIMIT 200 agendamentos - Buscar APENAS agendamentos atribuídos a este dentista
-    // Usar datas em formato YYYY-MM-DD para comparação com DATE fields, resolvendo em timezone local
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const startDate = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
-    const endDate = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
-    
-    const query = supabase
-      .from('appointments')
-      .select('*')
-      .eq('dentist_id', dentistaId)
-      .gte('appointment_date', startDate)
-      .lt('appointment_date', endDate)
-      .order('appointment_date', { ascending: true })
-      .limit(200);
-    
-    const agendaRes = await withTimeout(query, 12000);
-
-    if (agendaRes.error) throw agendaRes.error;
-
-    const agendaBase = (agendaRes.data || []) as Agendamento[];
-    const agendaEnriquecida = await enrichAgendamentosWithPacientes(agendaBase);
-
-    return { success: true, data: agendaEnriquecida };
-  } catch (err: any) {
-    const mapped = _handleTableMissing(err);
-    const message = mapped || err.message || 'Erro desconhecido';
-    return { success: false, error: message };
-  }
+  });
 };
 
 /**

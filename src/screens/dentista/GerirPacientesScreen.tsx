@@ -33,17 +33,17 @@ import {
   listarPacientes,
   resetarSenhaPaciente,
   calcularIdade,
-  atribuirPacienteAoDentista,
   PacienteProfile,
 } from '../../services/pacienteService';
-import { listarDentistasPorEspecialidade } from '../../services/secretarioService';
 import { gerarFichaHistorico } from './gerarFichaHistorico';
 import { gerarFichaCadastroHTML } from '../../services/fichaService';
 import { deleteImage, uploadImage } from '../../services/storageService';
 import { COLORS, SHADOWS, SIZES, SPACING, TYPOGRAPHY } from '../../styles/theme';
 import { formatBirthDateInput, formatDate } from '../../utils/helpers';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 const safeShadow = SHADOWS?.sm || {};
+const normalizarId = (valor?: string | null) => (valor || '').trim().toLowerCase();
 
 type Props = BottomTabScreenProps<DentistaTabParamList, 'Pacientes'>;
 
@@ -93,15 +93,10 @@ const GerirPacientesScreen: React.FC<Props> = ({ navigation }) => {
   const [uploading, setUploading] = useState(false);
   const [selectedPaciente, setSelectedPaciente] = useState<PacienteProfile | null>(null);
   const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
-  const [atribuirModalVisible, setAtribuirModalVisible] = useState(false);
-  const [dentistas, setDentistas] = useState<any[]>([]);
-  const [atribuindo, setAtribuindo] = useState(false);
 
   const carregarPacientes = useCallback(async () => {
     setLoading(true);
-    // ✅ Apply role-based filtering
-    const filtro = profile?.tipo === 'dentista' ? { dentist_id: user?.id } : {};
-    const result = await listarPacientes(filtro);
+    const result = await listarPacientes({});
     if (result.success && result.data) {
       setPacientes(result.data);
     } else {
@@ -114,6 +109,21 @@ const GerirPacientesScreen: React.FC<Props> = ({ navigation }) => {
     void carregarPacientes();
   }, [carregarPacientes]);
 
+  useRealtimeRefresh({
+    enabled: !!profile?.tipo,
+    debounceMs: 1200,
+    shouldRefresh: (event) => {
+      if (event.table !== 'profiles') return false;
+      const tipo = String(event.new?.tipo || event.old?.tipo || '').toLowerCase();
+      // Se nao der para inferir o tipo, ainda assim atualiza para garantir consistencia.
+      if (!tipo) return true;
+      return tipo === 'paciente';
+    },
+    refresh: () => {
+      void carregarPacientes();
+    },
+  });
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await carregarPacientes();
@@ -122,13 +132,18 @@ const GerirPacientesScreen: React.FC<Props> = ({ navigation }) => {
 
   const pacientesVisiveis = useMemo(() => {
     if (profile?.tipo === 'dentista') {
+      const dentistaId = normalizarId(user?.id || profile?.id);
+      if (!dentistaId) return [];
       return pacientes.filter(
-        (paciente) =>
-          paciente.dentist_id === user?.id || paciente.dentista_id === user?.id
+        (paciente) => {
+          const dentistId = normalizarId(paciente.dentist_id);
+          const dentistaIdLegacy = normalizarId(paciente.dentista_id);
+          return dentistId === dentistaId || dentistaIdLegacy === dentistaId;
+        }
       );
     }
     return pacientes;
-  }, [pacientes, profile?.tipo, user?.id]);
+  }, [pacientes, profile?.id, profile?.tipo, user?.id]);
 
   const pacientesFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
@@ -221,37 +236,6 @@ const GerirPacientesScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const abrirModalAtribuicao = async (paciente: PacienteProfile) => {
-    setSelectedPaciente(paciente);
-    setLoading(true);
-    const result = await listarDentistasPorEspecialidade();
-    setLoading(false);
-    
-    if (result.success && result.data) {
-      setDentistas(result.data);
-      setAtribuirModalVisible(true);
-    } else {
-      Toast.show({ type: 'error', text1: 'Erro ao carregar dentistas', text2: result.error });
-    }
-  };
-
-  const confirmarAtribuicao = async (dentistaId: string | null) => {
-    if (!selectedPaciente) return;
-    
-    setAtribuindo(true);
-    const result = await atribuirPacienteAoDentista(selectedPaciente.id, dentistaId);
-    setAtribuindo(false);
-    
-    if (result.success) {
-      Toast.show({ type: 'success', text1: 'Atribuição atualizada com sucesso' });
-      setSelectedPaciente((prev) => prev ? { ...prev, dentist_id: dentistaId, dentista_id: dentistaId } : prev);
-      setAtribuirModalVisible(false);
-      await carregarPacientes();
-    } else {
-      Toast.show({ type: 'error', text1: 'Falha na atribuição', text2: result.error });
-    }
-  };
-
   const handleExcluir = (paciente: PacienteProfile) => {
     const confirmar = async () => {
       try {
@@ -304,7 +288,7 @@ const GerirPacientesScreen: React.FC<Props> = ({ navigation }) => {
       
       const result = await exportHtmlAsPdf(html, `ficha_${paciente.nome || 'paciente'}.pdf`);
       if (!result.success) {
-        console.error('❌ PDF Export Error:', result.error);
+        console.error('PDF Export Error:', result.error);
         Toast.show({ 
           type: 'error', 
           text1: 'Erro ao gerar PDF', 
@@ -653,48 +637,6 @@ const GerirPacientesScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </Modal>
       </Modal>
-
-      <Modal visible={atribuirModalVisible} transparent animationType="fade" onRequestClose={() => setAtribuirModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Atribuir Dentista</Text>
-            <Text style={styles.modalSubtitle}>Selecione um dentista para {selectedPaciente?.nome}</Text>
-            
-            <FlatList
-              data={dentistas}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity 
-                  style={[styles.dentistaSelectItem, (selectedPaciente?.dentist_id === item.id || selectedPaciente?.dentista_id === item.id) && styles.dentistaSelected]}
-                  onPress={() => confirmarAtribuicao(item.id)}
-                >
-                  <View style={styles.dentistaSelectInfo}>
-                    <Text style={[styles.dentistaSelectName, (selectedPaciente?.dentist_id === item.id || selectedPaciente?.dentista_id === item.id) && { color: 'white' }]}>{item.nome}</Text>
-                    <Text style={[styles.dentistaSelectSub, (selectedPaciente?.dentist_id === item.id || selectedPaciente?.dentista_id === item.id) && { color: 'white' }]}>{item.especialidade || 'Clínico Geral'}</Text>
-                  </View>
-                  {(selectedPaciente?.dentist_id === item.id || selectedPaciente?.dentista_id === item.id) && (
-                    <Ionicons name="checkmark-circle" size={24} color="white" />
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-            
-            <TouchableOpacity 
-              style={[styles.saveButton, { backgroundColor: COLORS.danger, marginTop: 10 }]} 
-              onPress={() => confirmarAtribuicao(null)}
-            >
-              <Text style={styles.saveButtonText}>Remover Atribuição</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.saveButton, { backgroundColor: COLORS.textSecondary, marginTop: 10 }]} 
-              onPress={() => setAtribuirModalVisible(false)}
-            >
-              <Text style={styles.saveButtonText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };
@@ -749,16 +691,18 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
   },
   tempPassText: { fontSize: 13, fontWeight: '700', color: COLORS.secondary },
   cardCode: { fontSize: SIZES.fontXs, color: COLORS.secondary, fontWeight: '700', marginTop: 4 },
-  actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SIZES.sm, marginTop: SIZES.md },
+  actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SIZES.sm, marginTop: SIZES.md, justifyContent: 'space-between' },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: COLORS.background,
     borderRadius: SIZES.radiusMd,
     paddingHorizontal: SIZES.sm,
     paddingVertical: SIZES.sm,
-    minWidth: isMobile ? '45%' : undefined,
-    flexGrow: isMobile ? 1 : 0,
+    flexBasis: isMobile ? '48%' : 'auto',
+    flexGrow: isMobile ? 0 : 0,
+    marginBottom: isMobile ? 8 : 0,
   },
   actionText: { marginLeft: 6, color: COLORS.text, fontSize: SIZES.fontSm, fontWeight: '600' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'center', padding: isMobile ? 0 : SIZES.md },
@@ -843,3 +787,5 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
 });
 
 export default GerirPacientesScreen;
+
+

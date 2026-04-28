@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -17,6 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 import { DentistaProfile, listarDentistas } from '../../services/dentistaService';
 import { obterOuCriarConversa } from '../../services/messagesService';
+import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 const MensagensScreen: React.FC = () => {
   const { user, profile } = useAuth();
@@ -57,7 +58,7 @@ const MensagensScreen: React.FC = () => {
     setConversaSelecionada(null);
   };
 
-  const carregarDentistas = async () => {
+  const carregarDentistas = useCallback(async () => {
     setLoadingDentistas(true);
     try {
       let result = await listarDentistas({ forceRefresh: true });
@@ -77,13 +78,26 @@ const MensagensScreen: React.FC = () => {
     } finally {
       setLoadingDentistas(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (showNovoModal) {
       carregarDentistas();
     }
-  }, [showNovoModal]);
+  }, [carregarDentistas, showNovoModal]);
+
+  useRealtimeRefresh({
+    enabled: showNovoModal,
+    debounceMs: 1200,
+    shouldRefresh: (event) => {
+      if (event.table !== 'profiles') return false;
+      const tipo = String(event.new?.tipo || event.old?.tipo || '').toLowerCase();
+      return !tipo || tipo === 'dentista' || tipo === 'medico';
+    },
+    refresh: () => {
+      void carregarDentistas();
+    },
+  });
 
   const iniciarConversa = async (dentista: DentistaProfile) => {
     if (!user?.id || !profile?.nome) return;
