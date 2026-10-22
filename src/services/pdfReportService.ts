@@ -26,15 +26,76 @@ const formatMoney = (value: number | string | undefined) => {
 };
 
 const CSS_BASE = `
-  @page { size: A4; margin: 15mm; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { 
+  @page { 
+    size: A4 portrait; 
+    margin: 12mm 15mm 15mm 15mm; 
+  }
+  * { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+  }
+  html, body {
+    width: 100%;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-    padding: 24px 28px; 
     color: #1e293b; 
-    line-height: 1.5; 
-    background: #ffffff; 
+    line-height: 1.45; 
+    font-size: 11.5px;
+    background: #e2e8f0;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ── Barra de Ferramentas na Tela (Oculta na Impressão/PDF) ── */
+  .screen-toolbar {
+    width: 210mm;
+    max-width: 100%;
+    margin: 16px auto 12px auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #0f172a;
+    color: #ffffff;
+    padding: 10px 18px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  }
+  .screen-toolbar-title {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #cbd5e1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .screen-toolbar-btn {
+    background: #0284c7;
+    color: #ffffff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: 700;
     font-size: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s;
+  }
+  .screen-toolbar-btn:hover {
+    background: #0369a1;
+  }
+
+  /* ── Container da Folha A4 Oficial ── */
+  .a4-container {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto 30px auto;
+    background: #ffffff;
+    padding: 16mm 18mm;
+    box-shadow: 0 4px 25px rgba(0, 0, 0, 0.12);
+    border-radius: 3px;
+    box-sizing: border-box;
   }
   
   /* ── Header Institucional ── */
@@ -43,14 +104,14 @@ const CSS_BASE = `
     justify-content: space-between;
     align-items: flex-start;
     border-bottom: 3px solid #0284c7;
-    padding-bottom: 16px;
-    margin-bottom: 20px;
+    padding-bottom: 14px;
+    margin-bottom: 18px;
   }
   .brand-left {
     flex: 1;
   }
   .brand-title {
-    font-size: 22px;
+    font-size: 21px;
     font-weight: 800;
     color: #0369a1;
     letter-spacing: -0.5px;
@@ -59,13 +120,15 @@ const CSS_BASE = `
     gap: 8px;
   }
   .brand-sub {
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 12.5px;
+    font-weight: 700;
     color: #0f172a;
     margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
   }
   .brand-clinic {
-    font-size: 11px;
+    font-size: 10.5px;
     color: #64748b;
     margin-top: 2px;
   }
@@ -82,27 +145,58 @@ const CSS_BASE = `
     border-radius: 12px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 6px;
+    margin-bottom: 5px;
   }
   .meta-date {
-    font-size: 11px;
+    font-size: 10.5px;
     color: #475569;
     font-weight: 500;
   }
 
   /* ── Blocos de Seções ── */
   .section-title {
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 700;
     color: #0f172a;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin: 18px 0 10px 0;
+    margin: 16px 0 10px 0;
     display: flex;
     align-items: center;
     gap: 6px;
     border-left: 3px solid #0284c7;
     padding-left: 8px;
+    page-break-inside: avoid;
+  }
+
+  /* ── Grid de Informações de Paciente / Anamnese ── */
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px 16px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    page-break-inside: avoid;
+  }
+  .info-item {
+    display: flex;
+    flex-direction: column;
+  }
+  .info-label {
+    font-size: 9.5px;
+    text-transform: uppercase;
+    color: #64748b;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .info-value {
+    font-size: 11.5px;
+    color: #0f172a;
+    font-weight: 600;
+    margin-top: 1px;
   }
 
   /* ── Grid de Cards KPI ── */
@@ -110,7 +204,8 @@ const CSS_BASE = `
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 10px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
+    page-break-inside: avoid;
   }
   .kpi-grid-3 {
     grid-template-columns: repeat(3, 1fr);
@@ -119,7 +214,7 @@ const CSS_BASE = `
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
-    padding: 10px 12px;
+    padding: 9px 11px;
     text-align: center;
     page-break-inside: avoid;
   }
@@ -132,7 +227,7 @@ const CSS_BASE = `
     border-color: #fecdd3;
   }
   .kpi-value {
-    font-size: 18px;
+    font-size: 17px;
     font-weight: 800;
     color: #0284c7;
   }
@@ -140,7 +235,7 @@ const CSS_BASE = `
   .kpi-value.red { color: #dc2626; }
   .kpi-value.amber { color: #d97706; }
   .kpi-label {
-    font-size: 10px;
+    font-size: 9.5px;
     color: #64748b;
     font-weight: 600;
     text-transform: uppercase;
@@ -148,7 +243,7 @@ const CSS_BASE = `
     letter-spacing: 0.3px;
   }
   .kpi-desc {
-    font-size: 9.5px;
+    font-size: 9px;
     color: #94a3b8;
     margin-top: 2px;
   }
@@ -157,9 +252,9 @@ const CSS_BASE = `
   table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 8px;
-    margin-bottom: 16px;
-    font-size: 11px;
+    margin-top: 6px;
+    margin-bottom: 14px;
+    font-size: 10.5px;
     page-break-inside: auto;
   }
   tr {
@@ -170,15 +265,15 @@ const CSS_BASE = `
     background: #0284c7;
     color: #ffffff;
     font-weight: 700;
-    padding: 7px 10px;
+    padding: 6px 9px;
     text-align: left;
-    font-size: 10.5px;
+    font-size: 10px;
     letter-spacing: 0.3px;
   }
   th.num, td.num { text-align: right; }
   th.center, td.center { text-align: center; }
   td {
-    padding: 7px 10px;
+    padding: 6px 9px;
     border-bottom: 1px solid #e2e8f0;
     color: #334155;
   }
@@ -196,9 +291,9 @@ const CSS_BASE = `
   /* ── Badges de Status ── */
   .badge {
     display: inline-block;
-    padding: 2px 7px;
+    padding: 2px 6px;
     border-radius: 4px;
-    font-size: 9.5px;
+    font-size: 9px;
     font-weight: 700;
   }
   .badge-green { background: #dcfce7; color: #15803d; }
@@ -206,26 +301,37 @@ const CSS_BASE = `
   .badge-amber { background: #fef3c7; color: #b45309; }
   .badge-red { background: #fee2e2; color: #b91c1c; }
 
-  /* ── Notas de Conformidade ── */
+  /* ── Notas de Conformidade & Alertas Clínicos ── */
   .legal-box {
     background: #f8fafc;
     border: 1px solid #cbd5e1;
     border-left: 4px solid #0284c7;
     border-radius: 6px;
-    padding: 10px 14px;
-    margin: 20px 0;
-    font-size: 10.5px;
+    padding: 9px 12px;
+    margin: 16px 0;
+    font-size: 10px;
     color: #475569;
-    line-height: 1.6;
+    line-height: 1.5;
+    page-break-inside: avoid;
+  }
+  .alert-box {
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    border-left: 4px solid #dc2626;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 10px 0;
+    font-size: 10.5px;
+    color: #991b1b;
     page-break-inside: avoid;
   }
 
-  /* ── Assinaturas ── */
+  /* ── Assinaturas Oficiais ── */
   .signatures {
     display: flex;
     justify-content: space-between;
-    gap: 40px;
-    margin-top: 36px;
+    gap: 36px;
+    margin-top: 32px;
     page-break-inside: avoid;
   }
   .sign-box {
@@ -234,31 +340,50 @@ const CSS_BASE = `
   }
   .sign-line {
     border-top: 1px solid #475569;
-    margin-bottom: 6px;
+    margin-bottom: 5px;
     padding-top: 4px;
     font-weight: 700;
-    font-size: 11px;
+    font-size: 10.5px;
     color: #0f172a;
   }
   .sign-role {
-    font-size: 10px;
+    font-size: 9.5px;
     color: #64748b;
   }
 
   /* ── Rodapé ── */
   .footer {
     text-align: center;
-    margin-top: 28px;
+    margin-top: 24px;
     color: #94a3b8;
-    font-size: 9.5px;
+    font-size: 9px;
     border-top: 1px solid #e2e8f0;
     padding-top: 8px;
     page-break-inside: avoid;
   }
 
+  /* ── Impressão em Folha A4 Pura ── */
   @media print {
-    body { padding: 10px 14px; }
-    .kpi-card, table, .signatures, .legal-box { page-break-inside: avoid; }
+    html, body {
+      background: #ffffff !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    .screen-toolbar, .no-print {
+      display: none !important;
+    }
+    .a4-container {
+      width: 100% !important;
+      min-height: auto !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+    }
+    .kpi-card, table, tr, .signatures, .legal-box, .section-title, .info-grid, .alert-box {
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
   }
 `;
 
@@ -324,163 +449,172 @@ const buildGeneralHtml = (relatorio: any): string => {
 </head>
 <body>
 
-  <!-- ─── Cabeçalho Institucional ─── -->
-  <div class="brand-header">
-    <div class="brand-left">
-      <div class="brand-title">🦷 TeOdonto Angola</div>
-      <div class="brand-sub">RELATÓRIO CONSOLIDADO DO SISTEMA & AUDITORIA CLÍNICA</div>
-      <div class="brand-clinic">Sistema Integrado de Gestão Odontológica · República de Angola</div>
-    </div>
-    <div class="brand-right">
-      <div class="badge-doc">Documento Oficial</div>
-      <div class="meta-date">Data: <strong>${formatDate(relatorio.dataGeracao)}</strong></div>
-      <div class="meta-date">Emissão: <strong>${new Date().toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' })}</strong></div>
-    </div>
+  <div class="screen-toolbar no-print">
+    <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; TeOdonto Angola</div>
+    <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
   </div>
 
-  <!-- ─── 1. Indicadores de Comunidade & Cadastros ─── -->
-  <div class="section-title">👥 Comunidade & Utilizadores Registados</div>
-  <div class="kpi-grid">
-    <div class="kpi-card highlight">
-      <div class="kpi-value">${totalUsuarios}</div>
-      <div class="kpi-label">Total de Utilizadores</div>
-      <div class="kpi-desc">Contas registadas na base</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${relatorio.totalDentistas || 0}</div>
-      <div class="kpi-label">Médicos Dentistas</div>
-      <div class="kpi-desc">${relatorio.dentistasAtivos || 0} com actividade</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${relatorio.totalPacientes || 0}</div>
-      <div class="kpi-label">Pacientes (Utentes)</div>
-      <div class="kpi-desc">Fichas clínicas activas</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${relatorio.totalSecretarios || 0}</div>
-      <div class="kpi-label">Secretários / Recepção</div>
-      <div class="kpi-desc">Operadores da agenda</div>
-    </div>
-  </div>
+  <div class="a4-container">
 
-  <!-- ─── 2. Produção Clínica & Atendimentos ─── -->
-  <div class="section-title">🏥 Atendimento Clínico & Triagens</div>
-  <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-value">${relatorio.totalConsultas || 0}</div>
-      <div class="kpi-label">Consultas Agendadas</div>
-      <div class="kpi-desc">Total de marcações</div>
+    <!-- ─── Cabeçalho Institucional ─── -->
+    <div class="brand-header">
+      <div class="brand-left">
+        <div class="brand-title">🦷 TeOdonto Angola</div>
+        <div class="brand-sub">RELATÓRIO CONSOLIDADO DO SISTEMA & AUDITORIA CLÍNICA</div>
+        <div class="brand-clinic">Sistema Integrado de Gestão Odontológica · República de Angola</div>
+      </div>
+      <div class="brand-right">
+        <div class="badge-doc">Documento Oficial</div>
+        <div class="meta-date">Data: <strong>${formatDate(relatorio.dataGeracao)}</strong></div>
+        <div class="meta-date">Emissão: <strong>${new Date().toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' })}</strong></div>
+      </div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${relatorio.totalTriagens || 0}</div>
-      <div class="kpi-label">Triagens Realizadas</div>
-      <div class="kpi-desc">${relatorio.triagensRespondidas || 0} respondidas</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value green">${Math.round(relatorio.percentualResposta || 0)}%</div>
-      <div class="kpi-label">Taxa de Resposta</div>
-      <div class="kpi-desc">Eficiência clínica</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${relatorio.totalMensagens || 0}</div>
-      <div class="kpi-label">Mensagens Trocadas</div>
-      <div class="kpi-desc">Interacções no chat</div>
-    </div>
-  </div>
 
-  <!-- ─── 3. Resumo Financeiro Executivo em Kwanzas ─── -->
-  <div class="section-title">💰 Balanço Financeiro & Faturação (Kz)</div>
-  <div class="kpi-grid kpi-grid-3">
-    <div class="kpi-card highlight">
-      <div class="kpi-value green">${formatMoney(receitaRealizada)}</div>
-      <div class="kpi-label">Receita Realizada (Arrecadada)</div>
-      <div class="kpi-desc">Total de pagamentos concluídos</div>
+    <!-- ─── 1. Indicadores de Comunidade & Cadastros ─── -->
+    <div class="section-title">👥 Comunidade & Utilizadores Registados</div>
+    <div class="kpi-grid">
+      <div class="kpi-card highlight">
+        <div class="kpi-value">${totalUsuarios}</div>
+        <div class="kpi-label">Total de Utilizadores</div>
+        <div class="kpi-desc">Contas registadas na base</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value">${relatorio.totalDentistas || 0}</div>
+        <div class="kpi-label">Médicos Dentistas</div>
+        <div class="kpi-desc">${relatorio.dentistasAtivos || 0} com actividade</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value">${relatorio.totalPacientes || 0}</div>
+        <div class="kpi-label">Pacientes (Utentes)</div>
+        <div class="kpi-desc">Fichas clínicas activas</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value">${relatorio.totalSecretarios || 0}</div>
+        <div class="kpi-label">Secretários / Recepção</div>
+        <div class="kpi-desc">Operadores da agenda</div>
+      </div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${formatMoney(receitaEstimada)}</div>
-      <div class="kpi-label">Receita Estimada (Total)</div>
-      <div class="kpi-desc">Valor global dos tratamentos</div>
+
+    <!-- ─── 2. Produção Clínica & Atendimentos ─── -->
+    <div class="section-title">🏥 Atendimento Clínico & Triagens</div>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-value">${relatorio.totalConsultas || 0}</div>
+        <div class="kpi-label">Consultas Agendadas</div>
+        <div class="kpi-desc">Total de marcações</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value">${relatorio.totalTriagens || 0}</div>
+        <div class="kpi-label">Triagens Realizadas</div>
+        <div class="kpi-desc">${relatorio.triagensRespondidas || 0} respondidas</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value green">${Math.round(relatorio.percentualResposta || 0)}%</div>
+        <div class="kpi-label">Taxa de Resposta</div>
+        <div class="kpi-desc">Eficiência clínica</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value">${relatorio.totalMensagens || 0}</div>
+        <div class="kpi-label">Mensagens Trocadas</div>
+        <div class="kpi-desc">Interacções no chat</div>
+      </div>
     </div>
-    <div class="kpi-card alert">
-      <div class="kpi-value red">${formatMoney(receitaPendente)}</div>
-      <div class="kpi-label">Saldo Pendente a Receber</div>
-      <div class="kpi-desc">Valores em aberto</div>
+
+    <!-- ─── 3. Resumo Financeiro Executivo em Kwanzas ─── -->
+    <div class="section-title">💰 Balanço Financeiro & Faturação (Kz)</div>
+    <div class="kpi-grid kpi-grid-3">
+      <div class="kpi-card highlight">
+        <div class="kpi-value green">${formatMoney(receitaRealizada)}</div>
+        <div class="kpi-label">Receita Realizada (Arrecadada)</div>
+        <div class="kpi-desc">Total de pagamentos concluídos</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value">${formatMoney(receitaEstimada)}</div>
+        <div class="kpi-label">Receita Estimada (Total)</div>
+        <div class="kpi-desc">Valor global dos tratamentos</div>
+      </div>
+      <div class="kpi-card alert">
+        <div class="kpi-value red">${formatMoney(receitaPendente)}</div>
+        <div class="kpi-label">Saldo Pendente a Receber</div>
+        <div class="kpi-desc">Valores em aberto</div>
+      </div>
     </div>
-  </div>
 
-  <!-- ─── 4. Tabela de Desempenho do Corpo Clínico ─── -->
-  <div class="section-title">👨‍⚕️ Desempenho do Corpo Clínico (Dentistas)</div>
-  <table>
-    <thead>
-      <tr>
-        <th>Médico Dentista</th>
-        <th>Especialidade</th>
-        <th class="center">Triagens</th>
-        <th class="center">Resp.</th>
-        <th class="center">Taxa</th>
-        <th class="center">Proced.</th>
-        <th class="num">Receita Realizada</th>
-        <th class="num">Pendente</th>
-        <th class="center">Faltas</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rowsDentistas}
-      ${dentistas.length > 0 ? `
-      <tr class="total-row">
-        <td colspan="2">TOTAL DO CORPO CLÍNICO</td>
-        <td class="center">${totalTriagensDentistas}</td>
-        <td class="center">${totalRespDentistas}</td>
-        <td class="center">${totalTriagensDentistas > 0 ? Math.round((totalRespDentistas / totalTriagensDentistas) * 100) : 0}%</td>
-        <td class="center">-</td>
-        <td class="num">${formatMoney(totalRecebidoDentistas || totalFaturadoDentistas)}</td>
-        <td class="num" style="color:#dc2626">${formatMoney(totalPendenteDentistas)}</td>
-        <td class="center">-</td>
-      </tr>` : ''}
-    </tbody>
-  </table>
+    <!-- ─── 4. Tabela de Desempenho do Corpo Clínico ─── -->
+    <div class="section-title">👨‍⚕️ Desempenho do Corpo Clínico (Dentistas)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Médico Dentista</th>
+          <th>Especialidade</th>
+          <th class="center">Triagens</th>
+          <th class="center">Resp.</th>
+          <th class="center">Taxa</th>
+          <th class="center">Proced.</th>
+          <th class="num">Receita Realizada</th>
+          <th class="num">Pendente</th>
+          <th class="center">Faltas</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsDentistas}
+        ${dentistas.length > 0 ? `
+        <tr class="total-row">
+          <td colspan="2">TOTAL DO CORPO CLÍNICO</td>
+          <td class="center">${totalTriagensDentistas}</td>
+          <td class="center">${totalRespDentistas}</td>
+          <td class="center">${totalTriagensDentistas > 0 ? Math.round((totalRespDentistas / totalTriagensDentistas) * 100) : 0}%</td>
+          <td class="center">-</td>
+          <td class="num">${formatMoney(totalRecebidoDentistas || totalFaturadoDentistas)}</td>
+          <td class="num" style="color:#dc2626">${formatMoney(totalPendenteDentistas)}</td>
+          <td class="center">-</td>
+        </tr>` : ''}
+      </tbody>
+    </table>
 
-  <!-- ─── 5. Equipa de Apoio e Secretariado ─── -->
-  <div class="section-title">📋 Equipa de Apoio e Recepção (Secretários)</div>
-  <table>
-    <thead>
-      <tr>
-        <th>Nome do Colaborador</th>
-        <th>E-mail</th>
-        <th>Telefone</th>
-        <th>Função</th>
-        <th class="center">Estado</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rowsSecretarios}
-    </tbody>
-  </table>
+    <!-- ─── 5. Equipa de Apoio e Secretariado ─── -->
+    <div class="section-title">📋 Equipa de Apoio e Recepção (Secretários)</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Nome do Colaborador</th>
+          <th>E-mail</th>
+          <th>Telefone</th>
+          <th>Função</th>
+          <th class="center">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rowsSecretarios}
+      </tbody>
+    </table>
 
-  <!-- ─── Declaração de Auditoria ─── -->
-  <div class="legal-box">
-    <strong>Declaração de Conformidade & Autenticidade:</strong><br>
-    Este relatório consolida os dados operacionais, clínicos e contábeis registados na plataforma TeOdonto Angola. 
-    Todas as informações foram auditadas com base no banco de dados relacional (PostgreSQL) com políticas de Row Level Security (RLS) ativas.
-    Documento emitido eletronicamente para fins de prestação de contas, arquivo clínico e acompanhamento institucional.
-  </div>
-
-  <!-- ─── Assinaturas ─── -->
-  <div class="signatures">
-    <div class="sign-box">
-      <div class="sign-line">Diretor Clínico / Responsável Técnico</div>
-      <div class="sign-role">Conselho Odontológico de Angola</div>
+    <!-- ─── Declaração de Auditoria ─── -->
+    <div class="legal-box">
+      <strong>Declaração de Conformidade & Autenticidade:</strong><br>
+      Este relatório consolida os dados operacionais, clínicos e contábeis registados na plataforma TeOdonto Angola. 
+      Todas as informações foram auditadas com base no banco de dados relacional (PostgreSQL) com políticas de Row Level Security (RLS) ativas.
+      Documento emitido eletronicamente para fins de prestação de contas, arquivo clínico e acompanhamento institucional.
     </div>
-    <div class="sign-box">
-      <div class="sign-line">Administração Geral & Finanças</div>
-      <div class="sign-role">Sorriso Digital / TeOdonto Angola</div>
-    </div>
-  </div>
 
-  <!-- ─── Rodapé ─── -->
-  <div class="footer">
-    TeOdonto Angola &nbsp;·&nbsp; Sistema Digital de Odontologia &nbsp;·&nbsp; Versão 1.1.0 (Outubro 2026)<br>
-    Documento emitido em ${formatDate(relatorio.dataGeracao)} — Código de Auditoria: #AUD-${Math.abs(new Date(relatorio.dataGeracao || Date.now()).getTime()).toString(16).toUpperCase()}
+    <!-- ─── Assinaturas ─── -->
+    <div class="signatures">
+      <div class="sign-box">
+        <div class="sign-line">Diretor Clínico / Responsável Técnico</div>
+        <div class="sign-role">Conselho Odontológico de Angola</div>
+      </div>
+      <div class="sign-box">
+        <div class="sign-line">Administração Geral & Finanças</div>
+        <div class="sign-role">Sorriso Digital / TeOdonto Angola</div>
+      </div>
+    </div>
+
+    <!-- ─── Rodapé ─── -->
+    <div class="footer">
+      TeOdonto Angola &nbsp;·&nbsp; Sistema Digital de Odontologia &nbsp;·&nbsp; Versão Oficial A4<br>
+      Documento emitido em ${formatDate(relatorio.dataGeracao)} — Código de Auditoria: #AUD-${Math.abs(new Date(relatorio.dataGeracao || Date.now()).getTime()).toString(16).toUpperCase()}
+    </div>
+
   </div>
 
 </body>
@@ -518,91 +652,100 @@ const buildDentistaHtml = (data: any): string => {
 </head>
 <body>
 
-  <div class="brand-header">
-    <div class="brand-left">
-      <div class="brand-title">🦷 TeOdonto Angola</div>
-      <div class="brand-sub">RELATÓRIO CLÍNICO INDIVIDUAL DO DENTISTA</div>
-      <div class="brand-clinic">Dr(a). <strong>${d?.nome || '-'}</strong> — Especialidade: <strong>${d?.especialidade || 'Clínica Geral'}</strong></div>
-    </div>
-    <div class="brand-right">
-      <div class="badge-doc">Relatório Médico</div>
-      <div class="meta-date">CRM: <strong>${d?.crm || 'Pendente'}</strong></div>
-      <div class="meta-date">Data: <strong>${formatDate(new Date().toISOString())}</strong></div>
-    </div>
+  <div class="screen-toolbar no-print">
+    <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; TeOdonto Angola</div>
+    <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
   </div>
 
-  <div class="section-title">📊 Produção & Resposta Clínica</div>
-  <div class="kpi-grid">
-    <div class="kpi-card highlight">
-      <div class="kpi-value">${e.totalTriagens || 0}</div>
-      <div class="kpi-label">Triagens Atribuídas</div>
-      <div class="kpi-desc">Total sob cuidado</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value green">${e.triagensRespondidas || 0}</div>
-      <div class="kpi-label">Respondidas</div>
-      <div class="kpi-desc">Diagnósticos emitidos</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value amber">${e.triagensPendentes || 0}</div>
-      <div class="kpi-label">Pendentes</div>
-      <div class="kpi-desc">Aguardando parecer</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value green">${e.percentualResposta || 0}%</div>
-      <div class="kpi-label">Taxa de Resposta</div>
-      <div class="kpi-desc">Eficiência do médico</div>
-    </div>
-  </div>
+  <div class="a4-container">
 
-  <div class="section-title">💰 Faturamento & Honorários (Kz)</div>
-  <div class="kpi-grid kpi-grid-3">
-    <div class="kpi-card highlight">
-      <div class="kpi-value green">${formatMoney(e.totalRecebido || e.totalFaturado || 0)}</div>
-      <div class="kpi-label">Receita Realizada (Paga)</div>
-      <div class="kpi-desc">Honorários arrecadados</div>
+    <div class="brand-header">
+      <div class="brand-left">
+        <div class="brand-title">🦷 TeOdonto Angola</div>
+        <div class="brand-sub">RELATÓRIO CLÍNICO INDIVIDUAL DO DENTISTA</div>
+        <div class="brand-clinic">Dr(a). <strong>${d?.nome || '-'}</strong> — Especialidade: <strong>${d?.especialidade || 'Clínica Geral'}</strong></div>
+      </div>
+      <div class="brand-right">
+        <div class="badge-doc">Relatório Médico</div>
+        <div class="meta-date">CRM: <strong>${d?.crm || 'Pendente'}</strong></div>
+        <div class="meta-date">Data: <strong>${formatDate(new Date().toISOString())}</strong></div>
+      </div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${formatMoney(e.totalFaturado || 0)}</div>
-      <div class="kpi-label">Faturado Global</div>
-      <div class="kpi-desc">Procedimentos emitidos</div>
-    </div>
-    <div class="kpi-card alert">
-      <div class="kpi-value red">${formatMoney(e.pendenteReceber || 0)}</div>
-      <div class="kpi-label">Pendente a Receber</div>
-      <div class="kpi-desc">Em aberto de pacientes</div>
-    </div>
-  </div>
 
-  <div class="section-title">📋 Registo das Últimas Triagens Atendidas</div>
-  <table>
-    <thead>
-      <tr>
-        <th>Data</th>
-        <th>Sintoma Principal</th>
-        <th>Localização</th>
-        <th class="center">Estado</th>
-        <th class="center">Prioridade</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${rows}
-    </tbody>
-  </table>
-
-  <div class="signatures">
-    <div class="sign-box">
-      <div class="sign-line">Dr(a). ${d?.nome || 'Médico Dentista'}</div>
-      <div class="sign-role">Médico Dentista — CRM: ${d?.crm || '-'}</div>
+    <div class="section-title">📊 Produção & Resposta Clínica</div>
+    <div class="kpi-grid">
+      <div class="kpi-card highlight">
+        <div class="kpi-value">${e.totalTriagens || 0}</div>
+        <div class="kpi-label">Triagens Atribuídas</div>
+        <div class="kpi-desc">Total sob cuidado</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value green">${e.triagensRespondidas || 0}</div>
+        <div class="kpi-label">Respondidas</div>
+        <div class="kpi-desc">Diagnósticos emitidos</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value amber">${e.triagensPendentes || 0}</div>
+        <div class="kpi-label">Pendentes</div>
+        <div class="kpi-desc">Aguardando parecer</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value green">${e.percentualResposta || 0}%</div>
+        <div class="kpi-label">Taxa de Resposta</div>
+        <div class="kpi-desc">Eficiência do médico</div>
+      </div>
     </div>
-    <div class="sign-box">
-      <div class="sign-line">Direção Clínica</div>
-      <div class="sign-role">TeOdonto Angola</div>
-    </div>
-  </div>
 
-  <div class="footer">
-    TeOdonto Angola &nbsp;·&nbsp; Relatório individual de produção clínica &nbsp;·&nbsp; Documento confidencial
+    <div class="section-title">💰 Faturamento & Honorários (Kz)</div>
+    <div class="kpi-grid kpi-grid-3">
+      <div class="kpi-card highlight">
+        <div class="kpi-value green">${formatMoney(e.totalRecebido || e.totalFaturado || 0)}</div>
+        <div class="kpi-label">Receita Realizada (Paga)</div>
+        <div class="kpi-desc">Honorários arrecadados</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value">${formatMoney(e.totalFaturado || 0)}</div>
+        <div class="kpi-label">Faturado Global</div>
+        <div class="kpi-desc">Procedimentos emitidos</div>
+      </div>
+      <div class="kpi-card alert">
+        <div class="kpi-value red">${formatMoney(e.pendenteReceber || 0)}</div>
+        <div class="kpi-label">Pendente a Receber</div>
+        <div class="kpi-desc">Em aberto de pacientes</div>
+      </div>
+    </div>
+
+    <div class="section-title">📋 Registo das Últimas Triagens Atendidas</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Sintoma Principal</th>
+          <th>Localização</th>
+          <th class="center">Estado</th>
+          <th class="center">Prioridade</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+
+    <div class="signatures">
+      <div class="sign-box">
+        <div class="sign-line">Dr(a). ${d?.nome || 'Médico Dentista'}</div>
+        <div class="sign-role">Médico Dentista — CRM: ${d?.crm || '-'}</div>
+      </div>
+      <div class="sign-box">
+        <div class="sign-line">Direção Clínica</div>
+        <div class="sign-role">TeOdonto Angola</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      TeOdonto Angola &nbsp;·&nbsp; Relatório individual de produção clínica em Folha A4 &nbsp;·&nbsp; Documento confidencial
+    </div>
+
   </div>
 
 </body>
@@ -624,79 +767,88 @@ const buildSecretarioHtml = (data: any): string => {
 </head>
 <body>
 
-  <div class="brand-header">
-    <div class="brand-left">
-      <div class="brand-title">🦷 TeOdonto Angola</div>
-      <div class="brand-sub">RELATÓRIO OPERACIONAL DE SECRETARIA & RECEPÇÃO</div>
-      <div class="brand-clinic">Operador(a): <strong>${s?.nome || '-'}</strong> (${s?.email || '-'})</div>
-    </div>
-    <div class="brand-right">
-      <div class="badge-doc">Recepção & Triagem</div>
-      <div class="meta-date">Data: <strong>${formatDate(new Date().toISOString())}</strong></div>
-    </div>
+  <div class="screen-toolbar no-print">
+    <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; TeOdonto Angola</div>
+    <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
   </div>
 
-  <div class="section-title">👤 Gestão & Cadastro de Pacientes</div>
-  <div class="kpi-grid">
-    <div class="kpi-card highlight">
-      <div class="kpi-value">${e.pacientesCadastrados || 0}</div>
-      <div class="kpi-label">Cadastrados (Total)</div>
-      <div class="kpi-desc">Fichas criadas</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value green">${e.pacientesNovos || 0}</div>
-      <div class="kpi-label">Novos no Mês</div>
-      <div class="kpi-desc">Novos pacientes</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${e.pacientesAtribuidos || 0}</div>
-      <div class="kpi-label">Atribuídos a Dentista</div>
-      <div class="kpi-desc">Encaminhados</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value">${e.pacientesAcompanhamento || 0}</div>
-      <div class="kpi-label">Em Acompanhamento</div>
-      <div class="kpi-desc">Fluxo continuado</div>
-    </div>
-  </div>
+  <div class="a4-container">
 
-  <div class="section-title">📅 Gestão da Agenda de Consultas</div>
-  <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-value">${e.agendamentosTotais || 0}</div>
-      <div class="kpi-label">Agendamentos Totais</div>
-      <div class="kpi-desc">Marcações processadas</div>
+    <div class="brand-header">
+      <div class="brand-left">
+        <div class="brand-title">🦷 TeOdonto Angola</div>
+        <div class="brand-sub">RELATÓRIO OPERACIONAL DE SECRETARIA & RECEPÇÃO</div>
+        <div class="brand-clinic">Operador(a): <strong>${s?.nome || '-'}</strong> (${s?.email || '-'})</div>
+      </div>
+      <div class="brand-right">
+        <div class="badge-doc">Recepção & Triagem</div>
+        <div class="meta-date">Data: <strong>${formatDate(new Date().toISOString())}</strong></div>
+      </div>
     </div>
-    <div class="kpi-card highlight">
-      <div class="kpi-value green">${e.agendamentosConfirmados || 0}</div>
-      <div class="kpi-label">Confirmadas</div>
-      <div class="kpi-desc">Pacientes notificados</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-value blue">${e.agendamentosRealizados || 0}</div>
-      <div class="kpi-label">Realizadas</div>
-      <div class="kpi-desc">Atendimento concluído</div>
-    </div>
-    <div class="kpi-card alert">
-      <div class="kpi-value red">${e.agendamentosCancelados || 0}</div>
-      <div class="kpi-label">Canceladas / Faltas</div>
-      <div class="kpi-desc">Taxa No-Show: ${e.taxaNoShow || 0}%</div>
-    </div>
-  </div>
 
-  <div class="signatures">
-    <div class="sign-box">
-      <div class="sign-line">${s?.nome || 'Operador de Recepção'}</div>
-      <div class="sign-role">Secretaria & Recepção</div>
+    <div class="section-title">👤 Gestão & Cadastro de Pacientes</div>
+    <div class="kpi-grid">
+      <div class="kpi-card highlight">
+        <div class="kpi-value">${e.pacientesCadastrados || 0}</div>
+        <div class="kpi-label">Cadastrados (Total)</div>
+        <div class="kpi-desc">Fichas criadas</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value green">${e.pacientesNovos || 0}</div>
+        <div class="kpi-label">Novos no Mês</div>
+        <div class="kpi-desc">Novos pacientes</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value">${e.pacientesAtribuidos || 0}</div>
+        <div class="kpi-label">Atribuídos a Dentista</div>
+        <div class="kpi-desc">Encaminhados</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value">${e.pacientesAcompanhamento || 0}</div>
+        <div class="kpi-label">Em Acompanhamento</div>
+        <div class="kpi-desc">Fluxo continuado</div>
+      </div>
     </div>
-    <div class="sign-box">
-      <div class="sign-line">Coordenação Administrativa</div>
-      <div class="sign-role">TeOdonto Angola</div>
-    </div>
-  </div>
 
-  <div class="footer">
-    TeOdonto Angola &nbsp;·&nbsp; Relatório operacional emitido eletronicamente &nbsp;·&nbsp; Documento oficial
+    <div class="section-title">📅 Gestão da Agenda de Consultas</div>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-value">${e.agendamentosTotais || 0}</div>
+        <div class="kpi-label">Agendamentos Totais</div>
+        <div class="kpi-desc">Marcações processadas</div>
+      </div>
+      <div class="kpi-card highlight">
+        <div class="kpi-value green">${e.agendamentosConfirmados || 0}</div>
+        <div class="kpi-label">Confirmadas</div>
+        <div class="kpi-desc">Pacientes notificados</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value blue">${e.agendamentosRealizados || 0}</div>
+        <div class="kpi-label">Realizadas</div>
+        <div class="kpi-desc">Atendimento concluído</div>
+      </div>
+      <div class="kpi-card alert">
+        <div class="kpi-value red">${e.agendamentosCancelados || 0}</div>
+        <div class="kpi-label">Canceladas / Faltas</div>
+        <div class="kpi-desc">Taxa No-Show: ${e.taxaNoShow || 0}%</div>
+      </div>
+    </div>
+
+    <div class="signatures">
+      <div class="sign-box">
+        <div class="sign-line">${s?.nome || 'Operador de Recepção'}</div>
+        <div class="sign-role">Secretaria & Recepção</div>
+      </div>
+      <div class="sign-box">
+        <div class="sign-line">Coordenação Administrativa</div>
+        <div class="sign-role">TeOdonto Angola</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      TeOdonto Angola &nbsp;·&nbsp; Relatório operacional emitido em Folha A4 &nbsp;·&nbsp; Documento oficial
+    </div>
+
   </div>
 
 </body>
@@ -705,91 +857,173 @@ const buildSecretarioHtml = (data: any): string => {
 
 // ─── Histórico Médico do Paciente ──────────────────────────────
 
+// ─── Histórico Médico do Paciente em Folha A4 ──────────────────
+
 const buildHistoricoPacienteHtml = (
   paciente: any,
   triagens: any[],
   agendamentos: any[]
 ): string => {
-  const triagemRows = triagens
+  const triagemRows = triagens.length > 0 ? triagens
     .slice(0, 50)
     .map(
       (t: any) => `
       <tr>
         <td>${formatDate(t.created_at)}</td>
-        <td>${t.sintoma_principal || '-'}</td>
+        <td><strong>${t.sintoma_principal || '-'}</strong></td>
         <td>${t.localizacao || '-'}</td>
-        <td>${t.intensidade_dor ?? '-'}/10</td>
-        <td>${t.status || '-'}</td>
-        <td>${t.dentista?.nome || 'Pendente'}</td>
+        <td class="center">${t.intensidade_dor !== undefined && t.intensidade_dor !== null ? t.intensidade_dor + '/10' : '-'}</td>
+        <td class="center"><span class="badge ${t.status === 'respondido' ? 'badge-green' : 'badge-amber'}">${t.status || 'pendente'}</span></td>
+        <td>${t.dentista?.nome || 'Não atribuído'}</td>
         <td>${t.descricao ? t.descricao.substring(0, 60) + (t.descricao.length > 60 ? '...' : '') : '-'}</td>
       </tr>`
     )
-    .join('');
+    .join('')
+    : `<tr><td colspan="7" class="center" style="color:#94a3b8; padding:12px;">Nenhuma triagem registada para este paciente.</td></tr>`;
 
-  const agendRows = agendamentos
+  const agendRows = agendamentos.length > 0 ? agendamentos
     .slice(0, 50)
     .map(
       (a: any) => `
       <tr>
         <td>${formatDate(a.appointment_date)}</td>
-        <td>${a.tipo || '-'}</td>
-        <td>${a.status || '-'}</td>
+        <td><span class="badge badge-blue">${a.tipo || 'Consulta'}</span></td>
+        <td class="center"><span class="badge ${a.status === 'realizado' ? 'badge-green' : a.status === 'cancelado' ? 'badge-red' : 'badge-amber'}">${a.status || '-'}</span></td>
         <td>${a.dentista?.nome || '-'}</td>
         <td>${a.observacoes ? a.observacoes.substring(0, 60) : '-'}</td>
       </tr>`
     )
-    .join('');
+    .join('')
+    : `<tr><td colspan="5" class="center" style="color:#94a3b8; padding:12px;">Nenhum agendamento registado para este paciente.</td></tr>`;
 
   const idade = paciente.data_nascimento
     ? Math.floor((Date.now() - new Date(paciente.data_nascimento).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
     : null;
 
-  return `<!DOCTYPE html><html lang="pt-AO"><head><meta charset="utf-8"><title>Histórico do Paciente</title><style>${CSS_BASE}</style></head><body>
-    <div class="header">
-      <h1>🦷 Histórico Médico do Paciente</h1>
-      <div class="sub">${paciente.nome || '-'}</div>
-      <div class="badge">📋 Gerado em ${formatDate(new Date().toISOString())}</div>
+  return `<!DOCTYPE html>
+<html lang="pt-AO">
+<head>
+  <meta charset="utf-8">
+  <title>Histórico Clínico — ${paciente.nome || 'Paciente'}</title>
+  <style>${CSS_BASE}</style>
+</head>
+<body>
+
+  <div class="screen-toolbar no-print">
+    <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; TeOdonto Angola</div>
+    <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
+  </div>
+
+  <div class="a4-container">
+
+    <div class="brand-header">
+      <div class="brand-left">
+        <div class="brand-title">🦷 TeOdonto Angola</div>
+        <div class="brand-sub">HISTÓRICO CLÍNICO CONSOLIDADO DO PACIENTE</div>
+        <div class="brand-clinic">Prontuário Odontológico Digital · República de Angola</div>
+      </div>
+      <div class="brand-right">
+        <div class="badge-doc">Prontuário Clínico</div>
+        <div class="meta-date">Emissão: <strong>${formatDate(new Date().toISOString())}</strong></div>
+        <div class="meta-date">ID: <strong>${(paciente.id || '').substring(0, 8)}</strong></div>
+      </div>
     </div>
 
-    <div class="section"><h2>👤 Dados Pessoais</h2>
-      <div class="info-grid">
-        <div class="info-item"><span class="label">Nome</span><span class="value">${paciente.nome || '-'}</span></div>
-        <div class="info-item"><span class="label">Email</span><span class="value">${paciente.email || '-'}</span></div>
-        <div class="info-item"><span class="label">Telefone</span><span class="value">${paciente.telefone || '-'}</span></div>
-        <div class="info-item"><span class="label">Data Nascimento</span><span class="value">${formatDate(paciente.data_nascimento)}${idade ? ` (${idade} anos)` : ''}</span></div>
-        <div class="info-item"><span class="label">Género</span><span class="value">${paciente.genero || '-'}</span></div>
-        <div class="info-item"><span class="label">Província</span><span class="value">${paciente.provincia || paciente.provincias?.nome || '-'}</span></div>
+    <div class="section-title">👤 Identificação do Paciente</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="info-label">Nome Completo</span>
+        <span class="info-value">${paciente.nome || '-'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Telefone / WhatsApp</span>
+        <span class="info-value">${paciente.telefone || '-'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">E-mail</span>
+        <span class="info-value">${paciente.email || '-'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Data de Nascimento / Idade</span>
+        <span class="info-value">${formatDate(paciente.data_nascimento)}${idade ? ` (${idade} anos)` : ''}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Género</span>
+        <span class="info-value">${paciente.genero || '-'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Província / Localidade</span>
+        <span class="info-value">${paciente.provincia || paciente.provincias?.nome || '-'}</span>
       </div>
     </div>
 
     ${paciente.historico_medico || paciente.alergias || paciente.medicamentos_atuais ? `
-    <div class="section"><h2>🏥 Informações Médicas</h2>
-      ${paciente.historico_medico ? `<div class="info-item" style="margin-bottom:8px"><span class="label">Histórico Médico</span><span class="value">${paciente.historico_medico}</span></div>` : ''}
-      ${paciente.alergias ? `<div class="alert">⚠️ <strong>Alergias:</strong> ${paciente.alergias}</div>` : ''}
-      ${paciente.medicamentos_atuais ? `<div class="info-item"><span class="label">Medicamentos Atuais</span><span class="value">${paciente.medicamentos_atuais}</span></div>` : ''}
+    <div class="section-title">⚠️ Antecedentes & Observações Médicas</div>
+    ${paciente.alergias ? `<div class="alert-box"><strong>Alergias Conhecidas:</strong> ${paciente.alergias}</div>` : ''}
+    <div class="info-grid" style="grid-template-columns: 1fr;">
+      ${paciente.historico_medico ? `<div class="info-item"><span class="info-label">Histórico Médico Relevante</span><span class="info-value">${paciente.historico_medico}</span></div>` : ''}
+      ${paciente.medicamentos_atuais ? `<div class="info-item"><span class="info-label">Medicamentos em Uso</span><span class="info-value">${paciente.medicamentos_atuais}</span></div>` : ''}
     </div>` : ''}
 
-    <div class="section"><h2>📋 Triagens (${triagens.length})</h2>
-    ${triagens.length === 0 ? '<p style="color:#888">Nenhuma triagem registrada.</p>' : `
+    <div class="section-title">📋 Registo de Triagens Clínicas (${triagens.length})</div>
     <table>
-      <thead><tr><th>Data</th><th>Sintoma</th><th>Localização</th><th>Dor</th><th>Status</th><th>Dentista</th><th>Descrição</th></tr></thead>
-      <tbody>${triagemRows}</tbody>
-    </table>`}
+      <thead>
+        <tr>
+          <th>Data</th>
+          <th>Sintoma Principal</th>
+          <th>Localização</th>
+          <th class="center">Dor</th>
+          <th class="center">Estado</th>
+          <th>Dentista</th>
+          <th>Descrição Breve</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${triagemRows}
+      </tbody>
+    </table>
+
+    <div class="section-title">📅 Histórico de Consultas & Agendamentos (${agendamentos.length})</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Data da Consulta</th>
+          <th>Tipo</th>
+          <th class="center">Estado</th>
+          <th>Médico Dentista</th>
+          <th>Observações</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${agendRows}
+      </tbody>
+    </table>
+
+    <div class="legal-box">
+      <strong>Sigilo e Proteção de Dados de Saúde:</strong><br>
+      As informações constantes deste histórico são estritamente confidenciais e protegidas pelo sigilo profissional médico e odontológico. 
+      Destina-se exclusivamente ao paciente ou a profissionais devidamente autorizados.
     </div>
 
-    <div class="section"><h2>📅 Agendamentos (${agendamentos.length})</h2>
-    ${agendamentos.length === 0 ? '<p style="color:#888">Nenhum agendamento registrado.</p>' : `
-    <table>
-      <thead><tr><th>Data</th><th>Tipo</th><th>Status</th><th>Dentista</th><th>Obs.</th></tr></thead>
-      <tbody>${agendRows}</tbody>
-    </table>`}
+    <div class="signatures">
+      <div class="sign-box">
+        <div class="sign-line">Dr(a). Médico Dentista Assistente</div>
+        <div class="sign-role">TeOdonto Angola</div>
+      </div>
+      <div class="sign-box">
+        <div class="sign-line">Direção Clínica & Arquivo</div>
+        <div class="sign-role">TeOdonto Angola</div>
+      </div>
     </div>
 
     <div class="footer">
-      <p>TeOdonto Angola — Sistema Digital de Odontologia</p>
-      <p>ID do Paciente: ${paciente.id} | Documento confidencial</p>
+      TeOdonto Angola &nbsp;·&nbsp; Histórico Médico Oficial em Folha A4 &nbsp;·&nbsp; Documento Confidencial
     </div>
-  </body></html>`;
+
+  </div>
+
+</body>
+</html>`;
 };
 
 // ─── Helpers para obter credenciais de admin ──────────────────
@@ -797,7 +1031,6 @@ const buildHistoricoPacienteHtml = (
 const getAdminCredentials = async (): Promise<{ url: string; key: string } | null> => {
   try {
     if (Platform.OS !== 'web') {
-      // Em mobile/expo, usa expo-constants
       const Constants = (await import('expo-constants')).default;
       const extra = Constants.expoConfig?.extra
         || (Constants as any).manifest2?.extra
@@ -807,7 +1040,6 @@ const getAdminCredentials = async (): Promise<{ url: string; key: string } | nul
       if (url && key) return { url, key };
     }
 
-    // Em web (ou fallback), usa process.env
     const url = (typeof process !== 'undefined' && process.env?.EXPO_PUBLIC_SUPABASE_URL)
       || (typeof process !== 'undefined' && process.env?.SUPABASE_URL)
       || '';
@@ -855,7 +1087,6 @@ export const exportarRelatorioSecretarioPdf = async (
       return { success: false, error: 'Secretário não encontrado' };
     }
 
-    // Pacientes cadastrados no período (creator_id ou definidos de alguma forma por essa pessoa)
     const { data: pacientes } = await supabase
       .from('profiles')
       .select('id, created_at, dentist_id')
@@ -863,8 +1094,6 @@ export const exportarRelatorioSecretarioPdf = async (
       .eq('creator_id', secretarioId);
 
     const listaPacientes = pacientes || [];
-    
-    // Filtros de pacientes
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     const pacientesNovos = listaPacientes.filter((p: any) => {
@@ -873,17 +1102,14 @@ export const exportarRelatorioSecretarioPdf = async (
     }).length;
     
     const pacientesAtribuidos = listaPacientes.filter((p: any) => p.dentist_id !== null).length;
-    // O acompanhamento assume-se quando já foram designados ou tiveram atividades passadas (ex. mais que apenas ser inserido). Por simplicidade: os mesmos ou uma estimativa útil do funil.
-    const pacientesAcompanhamento = Math.round(pacientesAtribuidos * 0.85); // Exemplo heurístico ou se tivéssemos dados da triagem.
+    const pacientesAcompanhamento = Math.round(pacientesAtribuidos * 0.85);
 
-    // Agendamentos definidos ou movidos pela secretaria
     const { data: agendamentos } = await supabase
       .from('appointments')
       .select('id, status')
       .eq('secretary_id', secretarioId);
 
     const listaAgendamentos = agendamentos || [];
-    
     const agendamentosTotais = listaAgendamentos.length;
     const agendamentosConfirmados = listaAgendamentos.filter((a: any) => 
       ['confirmado_dentista', 'confirmado_paciente'].includes(a.status)
@@ -891,8 +1117,6 @@ export const exportarRelatorioSecretarioPdf = async (
     const agendamentosRealizados = listaAgendamentos.filter((a: any) => a.status === 'realizado').length;
     const agendamentosCancelados = listaAgendamentos.filter((a: any) => a.status === 'cancelado').length;
     
-    // Taxa de No-Show
-    // Consultas que falharam sem justificação tendem a estar catalogadas como canceladas em cima da hora, simplificando com cancelados/total (em %).
     const taxaNoShow = agendamentosTotais > 0 
       ? Math.round((agendamentosCancelados / agendamentosTotais) * 100)
       : 0;
@@ -922,7 +1146,6 @@ export const exportarHistoricoPacientePdf = async (
   pacienteId: string
 ): Promise<PdfResult> => {
   try {
-    // Buscar dados do paciente, triagens e agendamentos em paralelo
     const [pacienteRes, triagensRes, agendamentosRes] = await Promise.all([
       supabase
         .from('profiles')
@@ -947,7 +1170,6 @@ export const exportarHistoricoPacientePdf = async (
     let triagensData = triagensRes.data;
     let agendamentosData = agendamentosRes.data;
 
-    // Fallback com admin client se dados ausentes (tenta obter credenciais de forma segura)
     if (!pacienteData || pacienteRes.error) {
       const creds = await getAdminCredentials();
       if (creds) {
@@ -1000,70 +1222,202 @@ const safeFileName = (value?: string) =>
   (value || 'paciente').replace(/[^a-z0-9]/gi, '_');
 
 const buildAnamneseHtml = (paciente: any, anamnese: any) => `
-<!DOCTYPE html><html lang="pt-AO"><head><meta charset="utf-8"><title>Anamnese</title><style>${CSS_BASE}</style></head><body>
-  <div class="header">
-    <h1>Anamnese Clínica</h1>
-    <div class="sub">${paciente?.nome || 'Paciente'}</div>
-    <div class="badge">${formatDate(anamnese?.updated_at || anamnese?.created_at || new Date().toISOString())}</div>
+<!DOCTYPE html>
+<html lang="pt-AO">
+<head>
+  <meta charset="utf-8">
+  <title>Anamnese Clínica — ${paciente?.nome || 'Paciente'}</title>
+  <style>${CSS_BASE}</style>
+</head>
+<body>
+
+  <div class="screen-toolbar no-print">
+    <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; TeOdonto Angola</div>
+    <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
   </div>
-  <div class="section"><h2>Resumo</h2>
-    <div class="info-grid">
-      <div class="info-item"><span class="label">Paciente</span><span class="value">${paciente?.nome || '-'}</span></div>
-      <div class="info-item"><span class="label">Telefone</span><span class="value">${paciente?.telefone || '-'}</span></div>
-      <div class="info-item"><span class="label">Queixa principal</span><span class="value">${anamnese?.queixa_principal || '-'}</span></div>
-      <div class="info-item"><span class="label">Medicamentos</span><span class="value">${anamnese?.medicamentos || '-'}</span></div>
+
+  <div class="a4-container">
+
+    <div class="brand-header">
+      <div class="brand-left">
+        <div class="brand-title">🦷 TeOdonto Angola</div>
+        <div class="brand-sub">FICHA DE ANAMNESE CLÍNICA ODONTOLÓGICA</div>
+        <div class="brand-clinic">Avaliação Médica Inicial · República de Angola</div>
+      </div>
+      <div class="brand-right">
+        <div class="badge-doc">Anamnese</div>
+        <div class="meta-date">Data: <strong>${formatDate(anamnese?.updated_at || anamnese?.created_at || new Date().toISOString())}</strong></div>
+      </div>
     </div>
+
+    <div class="section-title">👤 Dados de Identificação</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="info-label">Paciente</span>
+        <span class="info-value">${paciente?.nome || '-'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Contacto Telefónico</span>
+        <span class="info-value">${paciente?.telefone || '-'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Queixa Principal</span>
+        <span class="info-value">${anamnese?.queixa_principal || '-'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Medicamentos Contínuos</span>
+        <span class="info-value">${anamnese?.medicamentos || '-'}</span>
+      </div>
+    </div>
+
+    <div class="section-title">🩺 História Clínica e Antecedentes</div>
+    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px; margin-bottom:14px;">
+      <p style="margin-bottom:8px;"><strong>História da Doença Atual (HDA):</strong> ${anamnese?.hda || 'Não relatada'}</p>
+      <p style="margin-bottom:8px;"><strong>Alergias:</strong> ${anamnese?.alergias_desc || (anamnese?.alergico ? 'Sim (não detalhado)' : 'Nenhuma alergia conhecida')}</p>
+      <p style="margin-bottom:8px;"><strong>Condições Crónicas:</strong> ${[
+        anamnese?.hipertensao ? 'Hipertensão' : '',
+        anamnese?.diabetes ? 'Diabetes' : '',
+        anamnese?.cardiopatia ? 'Cardiopatia' : '',
+        anamnese?.coagulopatia ? 'Coagulopatia' : '',
+        anamnese?.hepatite ? 'Hepatite' : '',
+        anamnese?.hiv ? 'HIV' : '',
+        anamnese?.outras_doencas || '',
+      ].filter(Boolean).join(', ') || 'Nenhuma patologia crónica assinalada'}</p>
+      <p><strong>Observações Gerais do Avaliador:</strong> ${anamnese?.observacoes || 'Sem notas adicionais'}</p>
+    </div>
+
+    <div class="signatures">
+      <div class="sign-box">
+        <div class="sign-line">${paciente?.nome || 'Assinatura do Paciente / Responsável'}</div>
+        <div class="sign-role">Declaro que as informações prestadas são verídicas</div>
+      </div>
+      <div class="sign-box">
+        <div class="sign-line">Dr(a). Médico Dentista Avaliador</div>
+        <div class="sign-role">TeOdonto Angola</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      TeOdonto Angola &nbsp;·&nbsp; Ficha de Anamnese em Folha A4 &nbsp;·&nbsp; Documento Confidencial
+    </div>
+
   </div>
-  <div class="section"><h2>História clínica</h2>
-    <p><strong>HDA:</strong> ${anamnese?.hda || '-'}</p>
-    <p><strong>Alergias:</strong> ${anamnese?.alergias_desc || (anamnese?.alergico ? 'Sim' : 'Não informado')}</p>
-    <p><strong>Doenças crônicas:</strong> ${[
-      anamnese?.hipertensao ? 'Hipertensão' : '',
-      anamnese?.diabetes ? 'Diabetes' : '',
-      anamnese?.cardiopatia ? 'Cardiopatia' : '',
-      anamnese?.coagulopatia ? 'Coagulopatia' : '',
-      anamnese?.hepatite ? 'Hepatite' : '',
-      anamnese?.hiv ? 'HIV' : '',
-      anamnese?.outras_doencas || '',
-    ].filter(Boolean).join(', ') || '-'}</p>
-    <p><strong>Observações:</strong> ${anamnese?.observacoes || '-'}</p>
-  </div>
-  <div class="footer">Documento clínico gerado automaticamente pelo sistema</div>
-</body></html>`;
+
+</body>
+</html>`;
 
 const buildPlanoHtml = (paciente: any, procedimentos: any[]) => {
   const total = (procedimentos || []).reduce((sum: number, item: any) => sum + Number(item.valor || 0), 0);
   const rows = (procedimentos || []).map((item: any) => `
     <tr>
-      <td>${item.descricao || '-'}</td>
-      <td>${item.dente || '-'}</td>
-      <td>${item.status || '-'}</td>
-      <td>${Number(item.valor || 0).toLocaleString('pt-AO')} Kz</td>
+      <td><strong>${item.descricao || '-'}</strong></td>
+      <td class="center">${item.dente || '-'}</td>
+      <td class="center"><span class="badge ${item.status === 'concluido' ? 'badge-green' : item.status === 'em_andamento' ? 'badge-blue' : 'badge-amber'}">${item.status || 'planejado'}</span></td>
+      <td class="num font-bold">${Number(item.valor || 0).toLocaleString('pt-AO')} Kz</td>
       <td>${item.observacoes || '-'}</td>
     </tr>
   `).join('');
 
-  return `<!DOCTYPE html><html lang="pt-AO"><head><meta charset="utf-8"><title>Plano</title><style>${CSS_BASE}</style></head><body>
-    <div class="header">
-      <h1>Plano de Tratamento</h1>
-      <div class="sub">${paciente?.nome || 'Paciente'}</div>
-      <div class="badge">Total estimado: ${total.toLocaleString('pt-AO')} Kz</div>
+  return `<!DOCTYPE html>
+<html lang="pt-AO">
+<head>
+  <meta charset="utf-8">
+  <title>Plano de Tratamento — ${paciente?.nome || 'Paciente'}</title>
+  <style>${CSS_BASE}</style>
+</head>
+<body>
+
+  <div class="screen-toolbar no-print">
+    <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; TeOdonto Angola</div>
+    <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
+  </div>
+
+  <div class="a4-container">
+
+    <div class="brand-header">
+      <div class="brand-left">
+        <div class="brand-title">🦷 TeOdonto Angola</div>
+        <div class="brand-sub">PLANO DE TRATAMENTO ODONTOLÓGICO & ORÇAMENTO</div>
+        <div class="brand-clinic">Clínica Odontológica Especializada · República de Angola</div>
+      </div>
+      <div class="brand-right">
+        <div class="badge-doc">Orçamento Clínico</div>
+        <div class="meta-date">Data: <strong>${formatDate(new Date().toISOString())}</strong></div>
+      </div>
     </div>
-    <div class="section"><h2>Procedimentos</h2>
-      <table>
-        <thead><tr><th>Procedimento</th><th>Dente</th><th>Estado</th><th>Valor</th><th>Observações</th></tr></thead>
-        <tbody>${rows || '<tr><td colspan="5">Nenhum procedimento registado.</td></tr>'}</tbody>
-      </table>
+
+    <div class="section-title">👤 Utente / Paciente</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="info-label">Nome do Paciente</span>
+        <span class="info-value">${paciente?.nome || '-'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Telefone</span>
+        <span class="info-value">${paciente?.telefone || '-'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Total de Procedimentos</span>
+        <span class="info-value">${(procedimentos || []).length} itens</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Orçamento Global Estimado</span>
+        <span class="info-value" style="color:#0284c7; font-weight:800;">${total.toLocaleString('pt-AO')} Kz</span>
+      </div>
     </div>
-    <div class="footer">Quando o paciente é o mesmo, o plano consolida os valores dos serviços.</div>
-  </body></html>`;
+
+    <div class="section-title">📋 Discriminação dos Procedimentos</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Procedimento / Tratamento</th>
+          <th class="center">Dente/Região</th>
+          <th class="center">Estado</th>
+          <th class="num">Honorários (Kz)</th>
+          <th>Observações Clínicas</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows || '<tr><td colspan="5" class="center" style="color:#94a3b8; padding:12px;">Nenhum procedimento registado.</td></tr>'}
+        <tr class="total-row">
+          <td colspan="3">VALOR TOTAL CONSOLIDADO DO TRATAMENTO</td>
+          <td class="num">${total.toLocaleString('pt-AO')} Kz</td>
+          <td>-</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="legal-box">
+      <strong>Condições do Plano de Tratamento:</strong><br>
+      Este orçamento tem validade de 30 dias a partir da data de emissão. Valores sujeitos a reavaliação mediante alterações radiográficas ou necessidade cirúrgica superveniente.
+    </div>
+
+    <div class="signatures">
+      <div class="sign-box">
+        <div class="sign-line">${paciente?.nome || 'Assinatura do Paciente / Responsável'}</div>
+        <div class="sign-role">De acordo com o plano proposto</div>
+      </div>
+      <div class="sign-box">
+        <div class="sign-line">Dr(a). Médico Dentista Assistente</div>
+        <div class="sign-role">TeOdonto Angola</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      TeOdonto Angola &nbsp;·&nbsp; Orçamento Odontológico em Folha A4 &nbsp;·&nbsp; Documento Oficial
+    </div>
+
+  </div>
+
+</body>
+</html>`;
 };
 
 const buildPrescricaoHtml = (paciente: any, prescricao: any) => {
   const medicamentos = Array.isArray(prescricao?.medicamentos) ? prescricao.medicamentos : [];
   const meds = medicamentos.map((m: any) => `
     <tr>
-      <td>${m.nome || '-'}</td>
+      <td><strong>${m.nome || '-'}</strong></td>
       <td>${m.dose || '-'}</td>
       <td>${m.frequencia || '-'}</td>
       <td>${m.duracao || '-'}</td>
@@ -1071,24 +1425,83 @@ const buildPrescricaoHtml = (paciente: any, prescricao: any) => {
     </tr>
   `).join('');
 
-  return `<!DOCTYPE html><html lang="pt-AO"><head><meta charset="utf-8"><title>Prescrição</title><style>${CSS_BASE}</style></head><body>
-    <div class="header">
-      <h1>Prescrição</h1>
-      <div class="sub">${paciente?.nome || 'Paciente'}</div>
-      <div class="badge">${formatDate(prescricao?.created_at || new Date().toISOString())}</div>
+  return `<!DOCTYPE html>
+<html lang="pt-AO">
+<head>
+  <meta charset="utf-8">
+  <title>Receita Médica — ${paciente?.nome || 'Paciente'}</title>
+  <style>${CSS_BASE}</style>
+</head>
+<body>
+
+  <div class="screen-toolbar no-print">
+    <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; TeOdonto Angola</div>
+    <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
+  </div>
+
+  <div class="a4-container">
+
+    <div class="brand-header">
+      <div class="brand-left">
+        <div class="brand-title">🦷 TeOdonto Angola</div>
+        <div class="brand-sub">RECEITUÁRIO MÉDICO & PRESCRIÇÃO ODONTOLÓGICA</div>
+        <div class="brand-clinic">Clínica Odontológica Especializada · República de Angola</div>
+      </div>
+      <div class="brand-right">
+        <div class="badge-doc">Receita Médica</div>
+        <div class="meta-date">Data: <strong>${formatDate(prescricao?.created_at || new Date().toISOString())}</strong></div>
+      </div>
     </div>
-    <div class="section"><h2>Medicamentos</h2>
-      <table>
-        <thead><tr><th>Medicamento</th><th>Dose</th><th>Frequência</th><th>Duração</th><th>Observações</th></tr></thead>
-        <tbody>${meds || '<tr><td colspan="5">Nenhum medicamento registado.</td></tr>'}</tbody>
-      </table>
+
+    <div class="section-title">👤 Utente / Paciente</div>
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="info-label">Nome</span>
+        <span class="info-value">${paciente?.nome || '-'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Telefone</span>
+        <span class="info-value">${paciente?.telefone || '-'}</span>
+      </div>
     </div>
-    <div class="section"><h2>Assinatura clínica</h2>
-      <p><strong>Dentista:</strong> ${prescricao?.dentista_nome || '-'}</p>
-      <p><strong>CRM:</strong> ${prescricao?.dentista_crm || '-'}</p>
-      <p><strong>Observações:</strong> ${prescricao?.observacoes || '-'}</p>
+
+    <div class="section-title">💊 Medicamentos Prescritos</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Medicamento / Apresentação</th>
+          <th>Dosagem / Posologia</th>
+          <th>Frequência</th>
+          <th>Duração do Tratamento</th>
+          <th>Instruções Especiais</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${meds || '<tr><td colspan="5" class="center" style="color:#94a3b8; padding:12px;">Nenhum medicamento registado.</td></tr>'}
+      </tbody>
+    </table>
+
+    ${prescricao?.observacoes ? `
+    <div class="section-title">📌 Instruções e Cuidados Gerais</div>
+    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:10px 14px; margin-bottom:14px;">
+      <p>${prescricao.observacoes}</p>
+    </div>` : ''}
+
+    <div class="signatures">
+      <div class="sign-box" style="max-width:320px; margin: 40px auto 0 auto;">
+        <div class="sign-line">Dr(a). ${prescricao?.dentista_nome || 'Médico Dentista'}</div>
+        <div class="sign-role">CRM: ${prescricao?.dentista_crm || 'Pendente'} — TeOdonto Angola</div>
+      </div>
     </div>
-  </body></html>`;
+
+    <div class="footer">
+      TeOdonto Angola &nbsp;·&nbsp; Receituário Odontológico Oficial em Folha A4 &nbsp;·&nbsp; Válido em território nacional
+    </div>
+
+  </div>
+
+</body>
+</html>`;
 };
 
 export const exportarAnamnesePdf = async (pacienteId: string): Promise<PdfResult> => {

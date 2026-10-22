@@ -351,107 +351,164 @@ export const buildDentistBillingHtml = (dentistName: string, items: any[], issue
     <html lang="pt-AO">
     <head>
       <meta charset="UTF-8">
-      <title>Relatório de Faturação</title>
+      <title>Relatório de Faturação — Dr(a). ${dentistName}</title>
       <style>
         @page { 
-          margin: 10mm; 
+          size: A4 portrait; 
+          margin: 12mm 15mm 15mm 15mm; 
         }
-        @media print {
-          * { -webkit-print-color-adjust: exact; }
-          body { margin: 0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { 
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+          background: #e2e8f0; 
+          color: #1e293b; 
+          font-size: 11px;
+          -webkit-print-color-adjust: exact !important; 
+          print-color-adjust: exact !important; 
         }
-        * { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-        body { padding: 40px; background: white; color: #1e293b; }
-        .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #7C3AED; padding-bottom: 20px; }
-        h1 { color: #7C3AED; font-size: 28px; }
-        .subtitle { color: #64748b; font-size: 14px; margin-top: 5px; }
-        .summary { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 40px; }
-        .summary-card { flex: 1; background: #f8fafc; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #e2e8f0; }
-        .summary-card h3 { color: #7C3AED; font-size: 22px; margin-bottom: 4px; }
-        .summary-card p { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        table th { background: #7C3AED; color: white; padding: 12px; text-align: left; font-size: 12px; }
-        table td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
-        .status { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        .screen-toolbar {
+          width: 210mm;
+          max-width: 100%;
+          margin: 16px auto 12px auto;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background: #0f172a;
+          color: #ffffff;
+          padding: 10px 18px;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        .screen-toolbar-title { font-size: 12.5px; font-weight: 600; color: #cbd5e1; }
+        .screen-toolbar-btn { background: #0284c7; color: #ffffff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; }
+        .a4-container {
+          width: 210mm;
+          min-height: 297mm;
+          margin: 0 auto 20px auto;
+          background: #ffffff;
+          padding: 16mm 18mm;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+          border-radius: 3px;
+          box-sizing: border-box;
+        }
+        .header { display: flex; justify-content: space-between; border-bottom: 3px solid #0284c7; padding-bottom: 14px; margin-bottom: 20px; }
+        .logo-title { font-size: 20px; font-weight: 800; color: #0369a1; }
+        .subtitle { color: #64748b; font-size: 11px; margin-top: 2px; }
+        .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; page-break-inside: avoid; }
+        .summary-card { background: #f8fafc; padding: 12px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0; }
+        .summary-card h3 { color: #0284c7; font-size: 18px; font-weight: 800; margin-bottom: 2px; }
+        .summary-card p { color: #64748b; font-size: 10px; text-transform: uppercase; font-weight: 700; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 10.5px; page-break-inside: auto; }
+        tr { page-break-inside: avoid; }
+        table th { background: #0284c7; color: white; padding: 7px 9px; text-align: left; font-size: 10px; font-weight: 700; }
+        table td { padding: 7px 9px; border-bottom: 1px solid #e2e8f0; }
+        .status { padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; display: inline-block; }
         .status-pago { background: #dcfce7; color: #166534; }
         .status-parcial { background: #fef9c3; color: #854d0e; }
         .status-pendente { background: #fee2e2; color: #991b1b; }
-        .footer { text-align: center; margin-top: 40px; color: #94a3b8; font-size: 11px; }
+        .signatures { display: flex; justify-content: space-between; gap: 40px; margin-top: 36px; page-break-inside: avoid; }
+        .sign-box { flex: 1; text-align: center; }
+        .sign-line { border-top: 1px solid #475569; margin-bottom: 4px; padding-top: 4px; font-weight: 700; font-size: 10.5px; }
+        .footer { text-align: center; margin-top: 28px; color: #94a3b8; font-size: 9px; border-top: 1px solid #e2e8f0; padding-top: 8px; page-break-inside: avoid; }
+        @media print { 
+          body { background: white !important; } 
+          .screen-toolbar, .no-print { display: none !important; } 
+          .a4-container { width: 100% !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; }
+        }
       </style>
     </head>
     <body>
-      <div class="header">
-        <h1>Sorriso Digital</h1>
-        <p class="subtitle">Relatório Individual de Faturação</p>
-        <p class="subtitle"><strong>Dr(a). ${dentistName}</strong></p>
-        <p class="subtitle" style="margin-top: 10px; font-size: 11px; color: #7C3AED;">
-          ${issuedByName ? `Emitido por: ${issuedByName}` : ""}
-          ${issuedByName && !isSelfService ? ` | Para: Dr(a). ${dentistName}` : ""}
-        </p>
-        <p class="subtitle">Gerado em ${new Date().toLocaleDateString('pt-AO')}</p>
+      <div class="screen-toolbar no-print">
+        <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; TeOdonto Angola</div>
+        <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
       </div>
 
-      <div class="summary">
-        <div class="summary-card">
-          <h3>${formatMoney(totalPago)}</h3>
-          <p>Total Faturado</p>
+      <div class="a4-container">
+        <div class="header">
+          <div>
+            <div class="logo-title">🦷 TeOdonto Angola</div>
+            <p class="subtitle">RELATÓRIO INDIVIDUAL DE FATURAÇÃO & HONORÁRIOS</p>
+            <p class="subtitle">Médico Dentista: <strong>Dr(a). ${dentistName}</strong></p>
+          </div>
+          <div style="text-align: right;">
+            <p class="subtitle">${issuedByName ? `Emitido por: ${issuedByName}` : 'Emissão do Sistema'}</p>
+            <p class="subtitle">Data: <strong>${new Date().toLocaleDateString('pt-AO')}</strong></p>
+          </div>
         </div>
-        <div class="summary-card">
-          <h3>${formatMoney(totalPago)}</h3>
-          <p>Total Recebido</p>
-        </div>
-        <div class="summary-card">
-          <h3 style="color: ${pendente > 0 ? '#b91c1c' : '#16a34a'}">${formatMoney(pendente)}</h3>
-          <p>Pendente</p>
-        </div>
-      </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Data</th>
-            <th>Paciente</th>
-            <th>Procedimento</th>
-            <th>Valor Total</th>
-            <th>Valor Pago</th>
-            <th>Dívida</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${items.map(item => {
-            const vTotal = Number(item.valor || 0);
-            const vPago = Number((item.valor_pago !== undefined && item.valor_pago !== null)
-              ? item.valor_pago
-              : (item.status_financeiro === 'pago' ? vTotal : 0));
-            const divida = vTotal - vPago;
-            const statusFin = item.status_financeiro || (vPago >= vTotal ? 'pago' : vPago > 0 ? 'parcial' : 'pendente');
-            const dataRef = item.data_hora || item.appointment_date || item.updated_at || item.created_at;
-            const dataStr = dataRef
-              ? (typeof dataRef === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dataRef) 
-                  ? dataRef.split('-').reverse().join('/') 
-                  : new Date(dataRef).toLocaleDateString('pt-AO'))
-              : '---';
-            const nomeProcedimento = item.procedimento || item.descricao || item.nome || 'Procedimento';
-            const statusLabel = statusFin === 'pago' ? 'PAGO' : statusFin === 'parcial' ? 'PARCIAL' : 'PENDENTE';
-            const statusClass = statusFin === 'pago' ? 'status-pago' : statusFin === 'parcial' ? 'status-parcial' : 'status-pendente';
-            return `
-              <tr>
-                <td>${dataStr}</td>
-                <td>${item.paciente_nome || 'Paciente'}</td>
-                <td>${nomeProcedimento}</td>
-                <td>${formatMoney(vTotal)}</td>
-                <td style="color:#16a34a;font-weight:bold">${formatMoney(vPago)}</td>
-                <td style="color:${divida > 0 ? '#b91c1c' : '#16a34a'}">${formatMoney(divida)}</td>
-                <td><span class="status ${statusClass}">${statusLabel}</span></td>
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
+        <div class="summary">
+          <div class="summary-card">
+            <h3>${formatMoney(totalPago)}</h3>
+            <p>Total Faturado</p>
+          </div>
+          <div class="summary-card">
+            <h3 style="color:#16a34a">${formatMoney(totalPago)}</h3>
+            <p>Total Recebido</p>
+          </div>
+          <div class="summary-card">
+            <h3 style="color: ${pendente > 0 ? '#b91c1c' : '#16a34a'}">${formatMoney(pendente)}</h3>
+            <p>Pendente</p>
+          </div>
+        </div>
 
-      <div class="footer">
-        <p>&copy; ${new Date().getFullYear()} Sorriso Digital - Sistema de Gestão Odontológica</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Paciente</th>
+              <th>Procedimento</th>
+              <th>Total</th>
+              <th>Valor Pago</th>
+              <th>Pendente</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(item => {
+              const vTotal = Number(item.valor || 0);
+              const vPago = Number((item.valor_pago !== undefined && item.valor_pago !== null)
+                ? item.valor_pago
+                : (item.status_financeiro === 'pago' ? vTotal : 0));
+              const divida = vTotal - vPago;
+              const statusFin = item.status_financeiro || (vPago >= vTotal ? 'pago' : vPago > 0 ? 'parcial' : 'pendente');
+              const dataRef = item.data_hora || item.appointment_date || item.updated_at || item.created_at;
+              const dataStr = dataRef
+                ? (typeof dataRef === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dataRef) 
+                    ? dataRef.split('-').reverse().join('/') 
+                    : new Date(dataRef).toLocaleDateString('pt-AO'))
+                : '---';
+              const nomeProcedimento = item.procedimento || item.descricao || item.nome || 'Procedimento';
+              const statusLabel = statusFin === 'pago' ? 'PAGO' : statusFin === 'parcial' ? 'PARCIAL' : 'PENDENTE';
+              const statusClass = statusFin === 'pago' ? 'status-pago' : statusFin === 'parcial' ? 'status-parcial' : 'status-pendente';
+              return `
+                <tr>
+                  <td>${dataStr}</td>
+                  <td><strong>${item.paciente_nome || 'Paciente'}</strong></td>
+                  <td>${nomeProcedimento}</td>
+                  <td>${formatMoney(vTotal)}</td>
+                  <td style="color:#16a34a;font-weight:bold">${formatMoney(vPago)}</td>
+                  <td style="color:${divida > 0 ? '#b91c1c' : '#16a34a'}">${formatMoney(divida)}</td>
+                  <td><span class="status ${statusClass}">${statusLabel}</span></td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+
+        <div class="signatures">
+          <div class="sign-box">
+            <div class="sign-line">Dr(a). ${dentistName}</div>
+            <div style="font-size:9.5px; color:#64748b;">Médico Dentista</div>
+          </div>
+          <div class="sign-box">
+            <div class="sign-line">Direção Financeira</div>
+            <div style="font-size:9.5px; color:#64748b;">TeOdonto Angola</div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>TeOdonto Angola &nbsp;·&nbsp; Relatório Oficial em Folha A4 &nbsp;·&nbsp; Documento Confidencial</p>
+        </div>
       </div>
     </body>
     </html>
@@ -687,89 +744,141 @@ export const gerarHTMLRelatorio = (relatorio: RelatorioGeral): string => {
     <html lang="pt-AO">
     <head>
       <meta charset="UTF-8">
-      <title>Relatorio Geral - Te Odonto Angola</title>
+      <title>Relatório Geral — TeOdonto Angola</title>
       <style>
-        * { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-        body { padding: 40px; background: white; }
-        .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #1E88E5; padding-bottom: 20px; }
-        h1 { color: #1E88E5; font-size: 28px; }
-        .subtitle { color: #666; font-size: 12px; margin-top: 5px; }
-        .summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 20px; margin-bottom: 40px; }
-        .summary-card { background: #f5f5f5; padding: 20px; border-radius: 8px; text-align: center; }
-        .summary-card h3 { color: #1E88E5; font-size: 24px; }
-        .summary-card p { color: #666; font-size: 12px; margin-top: 5px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 30px; }
-        table th { background: #1E88E5; color: white; padding: 12px; text-align: left; font-weight: bold; }
-        table td { padding: 12px; border-bottom: 1px solid #eee; }
-        table tr:nth-child(even) { background: #f9f9f9; }
-        .footer { text-align: center; margin-top: 40px; color: #999; font-size: 11px; }
+        @page { 
+          size: A4 portrait; 
+          margin: 12mm 15mm 15mm 15mm; 
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { 
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+          background: #e2e8f0; 
+          color: #1e293b; 
+          font-size: 11px;
+          -webkit-print-color-adjust: exact !important; 
+          print-color-adjust: exact !important; 
+        }
+        .screen-toolbar {
+          width: 210mm;
+          max-width: 100%;
+          margin: 16px auto 12px auto;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background: #0f172a;
+          color: #ffffff;
+          padding: 10px 18px;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        .screen-toolbar-title { font-size: 12.5px; font-weight: 600; color: #cbd5e1; }
+        .screen-toolbar-btn { background: #0284c7; color: #ffffff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; }
+        .a4-container {
+          width: 210mm;
+          min-height: 297mm;
+          margin: 0 auto 20px auto;
+          background: #ffffff;
+          padding: 16mm 18mm;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+          border-radius: 3px;
+          box-sizing: border-box;
+        }
+        .header { display: flex; justify-content: space-between; border-bottom: 3px solid #0284c7; padding-bottom: 14px; margin-bottom: 18px; }
+        .logo-title { font-size: 20px; font-weight: 800; color: #0369a1; }
+        .subtitle { color: #64748b; font-size: 11px; margin-top: 2px; }
+        .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; page-break-inside: avoid; }
+        .summary-card { background: #f8fafc; padding: 10px 12px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0; }
+        .summary-card h3 { color: #0284c7; font-size: 18px; font-weight: 800; margin-bottom: 2px; }
+        .summary-card p { color: #64748b; font-size: 9.5px; text-transform: uppercase; font-weight: 700; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 10.5px; page-break-inside: auto; }
+        tr { page-break-inside: avoid; }
+        table th { background: #0284c7; color: white; padding: 7px 9px; text-align: left; font-size: 10px; font-weight: 700; }
+        table td { padding: 7px 9px; border-bottom: 1px solid #e2e8f0; }
+        .footer { text-align: center; margin-top: 26px; color: #94a3b8; font-size: 9px; border-top: 1px solid #e2e8f0; padding-top: 8px; page-break-inside: avoid; }
+        @media print { 
+          body { background: white !important; } 
+          .screen-toolbar, .no-print { display: none !important; } 
+          .a4-container { width: 100% !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; }
+        }
       </style>
     </head>
     <body>
-      <div class="header">
-        <h1>Te Odonto Angola</h1>
-        <p class="subtitle">Relatorio Geral de Dentistas</p>
-        <p class="subtitle">Gerado em ${dataBR}</p>
+      <div class="screen-toolbar no-print">
+        <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; TeOdonto Angola</div>
+        <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
       </div>
 
-      <div class="summary">
-        <div class="summary-card">
-          <h3>${relatorio.totalDentistas}</h3>
-          <p>Total de Dentistas</p>
+      <div class="a4-container">
+        <div class="header">
+          <div>
+            <div class="logo-title">🦷 TeOdonto Angola</div>
+            <p class="subtitle">RELATÓRIO GERAL DO CORPO CLÍNICO</p>
+          </div>
+          <div style="text-align: right;">
+            <p class="subtitle">Emissão: <strong>${dataBR}</strong></p>
+          </div>
         </div>
-        <div class="summary-card">
-          <h3>${relatorio.dentistasMes || 0}</h3>
-          <p>Dentistas mês</p>
-        </div>
-        <div class="summary-card">
-          <h3>${relatorio.pacientesMes || 0}</h3>
-          <p>Pacientes mês</p>
-        </div>
-        <div class="summary-card">
-          <h3>${relatorio.dentistasAtivos}</h3>
-          <p>Dentistas Ativos</p>
-        </div>
-        <div class="summary-card">
-          <h3>${relatorio.totalTriagens}</h3>
-          <p>Total de Triagens</p>
-        </div>
-        <div class="summary-card">
-          <h3>${relatorio.percentualResposta}%</h3>
-          <p>Taxa de Resposta</p>
-        </div>
-      </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Nome</th>
-            <th>Especialidade</th>
-            <th>Triagens</th>
-            <th>Respondidas</th>
-            <th>Pendentes</th>
-            <th>Taxa (%)</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${relatorio.dentistas
-            .map(
-              (r) => `
+        <div class="summary">
+          <div class="summary-card">
+            <h3>${relatorio.totalDentistas}</h3>
+            <p>Total de Dentistas</p>
+          </div>
+          <div class="summary-card">
+            <h3>${relatorio.dentistasAtivos}</h3>
+            <p>Dentistas Activos</p>
+          </div>
+          <div class="summary-card">
+            <h3>${relatorio.totalTriagens}</h3>
+            <p>Total de Triagens</p>
+          </div>
+          <div class="summary-card">
+            <h3 style="color:#16a34a">${relatorio.percentualResposta}%</h3>
+            <p>Taxa de Resposta</p>
+          </div>
+          <div class="summary-card">
+            <h3>${relatorio.dentistasMes || 0}</h3>
+            <p>Novos Dentistas no Mês</p>
+          </div>
+          <div class="summary-card">
+            <h3>${relatorio.pacientesMes || 0}</h3>
+            <p>Novos Pacientes no Mês</p>
+          </div>
+        </div>
+
+        <table>
+          <thead>
             <tr>
-              <td>${r.dentista.nome || '-'}</td>
-              <td>${r.dentista.especialidade || '-'}</td>
-              <td>${r.totalTriagens}</td>
-              <td>${r.triagensRespondidas}</td>
-              <td>${r.triagensPendentes}</td>
-              <td>${r.percentualResposta}%</td>
+              <th>Nome</th>
+              <th>Especialidade</th>
+              <th style="text-align:center;">Triagens</th>
+              <th style="text-align:center;">Respondidas</th>
+              <th style="text-align:center;">Pendentes</th>
+              <th style="text-align:center;">Taxa (%)</th>
             </tr>
-          `
-            )
-            .join('')}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            ${relatorio.dentistas
+              .map(
+                (r) => `
+              <tr>
+                <td><strong>Dr(a). ${r.dentista.nome || '-'}</strong></td>
+                <td>${r.dentista.especialidade || 'Clínica Geral'}</td>
+                <td style="text-align:center;">${r.totalTriagens}</td>
+                <td style="text-align:center;">${r.triagensRespondidas}</td>
+                <td style="text-align:center;">${r.triagensPendentes}</td>
+                <td style="text-align:center;"><strong>${r.percentualResposta}%</strong></td>
+              </tr>
+            `
+              )
+              .join('')}
+          </tbody>
+        </table>
 
-      <div class="footer">
-        <p>Este relatorio foi gerado automaticamente pelo sistema Te Odonto Angola</p>
+        <div class="footer">
+          <p>TeOdonto Angola &nbsp;·&nbsp; Relatório Oficial em Folha A4 &nbsp;·&nbsp; Documento Oficial</p>
+        </div>
       </div>
     </body>
     </html>
@@ -802,87 +911,146 @@ export const buildGeneralBillingHtml = (relatorio: RelatorioGeral, issuedByName?
     <html lang="pt-AO">
     <head>
       <meta charset="UTF-8">
-      <title>Relatório Geral de Faturação</title>
+      <title>Relatório Geral de Faturação — TeOdonto Angola</title>
       <style>
         @page { 
-          margin: 10mm; 
+          size: A4 portrait; 
+          margin: 12mm 15mm 15mm 15mm; 
         }
-        @media print {
-          * { -webkit-print-color-adjust: exact; }
-          body { margin: 0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { 
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+          background: #e2e8f0; 
+          color: #1e293b; 
+          font-size: 11px;
+          -webkit-print-color-adjust: exact !important; 
+          print-color-adjust: exact !important; 
         }
-        * { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-        body { padding: 40px; background: white; color: #1e293b; }
-        .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #7C3AED; padding-bottom: 20px; }
-        h1 { color: #7C3AED; font-size: 28px; }
-        .subtitle { color: #64748b; font-size: 14px; margin-top: 5px; }
-        .summary { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 40px; }
-        .summary-card { flex: 1; background: #f8fafc; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #e2e8f0; }
-        .summary-card h3 { color: #7C3AED; font-size: 22px; margin-bottom: 4px; }
-        .summary-card p { color: #64748b; font-size: 11px; text-transform: uppercase; font-weight: bold; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        table th { background: #7C3AED; color: white; padding: 12px; text-align: left; font-size: 12px; }
-        table td { padding: 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
-        .footer { text-align: center; margin-top: 40px; color: #94a3b8; font-size: 11px; }
+        .screen-toolbar {
+          width: 210mm;
+          max-width: 100%;
+          margin: 16px auto 12px auto;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background: #0f172a;
+          color: #ffffff;
+          padding: 10px 18px;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+        .screen-toolbar-title { font-size: 12.5px; font-weight: 600; color: #cbd5e1; }
+        .screen-toolbar-btn { background: #0284c7; color: #ffffff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 700; font-size: 12px; cursor: pointer; }
+        .a4-container {
+          width: 210mm;
+          min-height: 297mm;
+          margin: 0 auto 20px auto;
+          background: #ffffff;
+          padding: 16mm 18mm;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+          border-radius: 3px;
+          box-sizing: border-box;
+        }
+        .header { display: flex; justify-content: space-between; border-bottom: 3px solid #0284c7; padding-bottom: 14px; margin-bottom: 18px; }
+        .logo-title { font-size: 20px; font-weight: 800; color: #0369a1; }
+        .subtitle { color: #64748b; font-size: 11px; margin-top: 2px; }
+        .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; page-break-inside: avoid; }
+        .summary-card { background: #f8fafc; padding: 10px 12px; border-radius: 8px; text-align: center; border: 1px solid #e2e8f0; }
+        .summary-card h3 { color: #0284c7; font-size: 17px; font-weight: 800; margin-bottom: 2px; }
+        .summary-card p { color: #64748b; font-size: 9.5px; text-transform: uppercase; font-weight: 700; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 10.5px; page-break-inside: auto; }
+        tr { page-break-inside: avoid; }
+        table th { background: #0284c7; color: white; padding: 7px 9px; text-align: left; font-size: 10px; font-weight: 700; }
+        table td { padding: 7px 9px; border-bottom: 1px solid #e2e8f0; }
+        .signatures { display: flex; justify-content: space-between; gap: 40px; margin-top: 36px; page-break-inside: avoid; }
+        .sign-box { flex: 1; text-align: center; }
+        .sign-line { border-top: 1px solid #475569; margin-bottom: 4px; padding-top: 4px; font-weight: 700; font-size: 10.5px; }
+        .footer { text-align: center; margin-top: 26px; color: #94a3b8; font-size: 9px; border-top: 1px solid #e2e8f0; padding-top: 8px; page-break-inside: avoid; }
+        @media print { 
+          body { background: white !important; } 
+          .screen-toolbar, .no-print { display: none !important; } 
+          .a4-container { width: 100% !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; }
+        }
       </style>
     </head>
     <body>
-      <div class="header">
-        <h1>Sorriso Digital</h1>
-        <p class="subtitle">Relatório Consolidado de Faturação da Clínica</p>
-        <p class="subtitle" style="margin-top: 10px; font-size: 11px; color: #7C3AED;">
-          ${issuedByName ? `Emitido por: ${issuedByName}` : ""}
-        </p>
-        <p class="subtitle">Gerado em ${new Date().toLocaleDateString('pt-AO')}</p>
+      <div class="screen-toolbar no-print">
+        <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; TeOdonto Angola</div>
+        <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
       </div>
 
-      <div class="summary">
-        <div class="summary-card">
-          <h3>${relatorio.totalProcedimentos}</h3>
-          <p>Total Procedimentos</p>
+      <div class="a4-container">
+        <div class="header">
+          <div>
+            <div class="logo-title">🦷 TeOdonto Angola</div>
+            <p class="subtitle">RELATÓRIO CONSOLIDADO DE FATURAÇÃO & PRODUÇÃO</p>
+            <p class="subtitle" style="margin-top: 4px; font-size: 10.5px; color: #0284c7;">
+              ${issuedByName ? `Emitido por: ${issuedByName}` : "Administração Geral"}
+            </p>
+          </div>
+          <div style="text-align: right;">
+            <p class="subtitle">Data: <strong>${new Date().toLocaleDateString('pt-AO')}</strong></p>
+          </div>
         </div>
-        <div class="summary-card">
-          <h3>${formatMoney(relatorio.totalFaturado)}</h3>
-          <p>Total Faturado</p>
-        </div>
-        <div class="summary-card">
-          <h3>${formatMoney(relatorio.totalRecebido)}</h3>
-          <p>Total Recebido</p>
-        </div>
-        <div class="summary-card">
-          <h3 style="color: #b91c1c">${formatMoney(relatorio.totalPendente)}</h3>
-          <p>Total Pendente</p>
-        </div>
-      </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>Dentista</th>
-            <th>Especialidade</th>
-            <th>Proc.</th>
-            <th>Faturado</th>
-            <th>Recebido</th>
-            <th>Pendente</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${relatorio.dentistas.map(d => `
+        <div class="summary">
+          <div class="summary-card">
+            <h3>${relatorio.totalProcedimentos}</h3>
+            <p>Procedimentos</p>
+          </div>
+          <div class="summary-card">
+            <h3>${formatMoney(relatorio.totalFaturado)}</h3>
+            <p>Total Faturado</p>
+          </div>
+          <div class="summary-card">
+            <h3 style="color:#16a34a">${formatMoney(relatorio.totalRecebido)}</h3>
+            <p>Recebido</p>
+          </div>
+          <div class="summary-card">
+            <h3 style="color: #b91c1c">${formatMoney(relatorio.totalPendente)}</h3>
+            <p>Pendente</p>
+          </div>
+        </div>
+
+        <table>
+          <thead>
             <tr>
-              <td><strong>${d.dentista.nome || '---'}</strong></td>
-              <td>${d.dentista.especialidade || 'Clínica Geral'}</td>
-              <td>${d.totalProcedimentos || 0}</td>
-              <td>${formatMoney(d.totalFaturado || 0)}</td>
-              <td>${formatMoney(d.totalRecebido || 0)}</td>
-              <td>${formatMoney(d.pendenteReceber || 0)}</td>
+              <th>Médico Dentista</th>
+              <th>Especialidade</th>
+              <th style="text-align:center;">Proc.</th>
+              <th style="text-align:right;">Faturado</th>
+              <th style="text-align:right;">Recebido</th>
+              <th style="text-align:right;">Pendente</th>
             </tr>
-          `).join('')}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            ${relatorio.dentistas.map(d => `
+              <tr>
+                <td><strong>Dr(a). ${d.dentista.nome || '---'}</strong></td>
+                <td>${d.dentista.especialidade || 'Clínica Geral'}</td>
+                <td style="text-align:center;">${d.totalProcedimentos || 0}</td>
+                <td style="text-align:right;">${formatMoney(d.totalFaturado || 0)}</td>
+                <td style="text-align:right; color:#16a34a; font-weight:bold;">${formatMoney(d.totalRecebido || 0)}</td>
+                <td style="text-align:right; color:#b91c1c;">${formatMoney(d.pendenteReceber || 0)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
 
-      <div class="footer">
-        <p>&copy; ${new Date().getFullYear()} Sorriso Digital - Sistema de Gestão Odontológica</p>
-        <p>Este relatório contém dados sensíveis. Uso restrito à administração da clínica.</p>
+        <div class="signatures">
+          <div class="sign-box">
+            <div class="sign-line">Direção Clínica</div>
+            <div style="font-size:9.5px; color:#64748b;">TeOdonto Angola</div>
+          </div>
+          <div class="sign-box">
+            <div class="sign-line">Direção Financeira</div>
+            <div style="font-size:9.5px; color:#64748b;">TeOdonto Angola</div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <p>TeOdonto Angola &nbsp;·&nbsp; Sistema Digital de Odontologia em Folha A4 &nbsp;·&nbsp; Documento Oficial</p>
+        </div>
       </div>
     </body>
     </html>

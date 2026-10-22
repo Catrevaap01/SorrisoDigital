@@ -34,22 +34,62 @@ export const gerarFichaCadastroHTML = async (
 <html>
 <head>
   <meta charset="utf-8">
+  <title>Ficha de Cadastro — ${paciente.nome || 'Paciente'}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     @page { 
-      size: A4; 
-      margin: 0; /* Let body padding handle margin */
+      size: A4 portrait; 
+      margin: 10mm;
     }
-    body {
-      font-family: 'Segoe UI', Arial, sans-serif;
-      padding: 10mm;
+    html, body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
       color: #333;
-      line-height: 1.3;
+      line-height: 1.35;
+      background: #e2e8f0;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    .screen-toolbar {
       width: 210mm;
-      height: 297mm;
-      margin: 0 auto;
+      max-width: 100%;
+      margin: 16px auto 12px auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 10px 18px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+    .screen-toolbar-title {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+    .screen-toolbar-btn {
+      background: #0284c7;
+      color: #ffffff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .a4-container {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto 20px auto;
       background: white;
-      overflow: hidden;
+      padding: 14mm 16mm;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+      border-radius: 3px;
+    }
+    @media print {
+      body { background: white !important; }
+      .screen-toolbar, .no-print { display: none !important; }
+      .a4-container { width: 100% !important; margin: 0 !important; padding: 0 !important; box-shadow: none !important; }
     }
     .header {
       text-align: center;
@@ -225,11 +265,17 @@ export const gerarFichaCadastroHTML = async (
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="logo">🦷 Odontologia de Angola</div>
-    <div class="subtitle">Ficha de Cadastro do Paciente</div>
-    <div class="badge">📋 Gerado em: ${dataGeracao}</div>
+  <div class="screen-toolbar no-print">
+    <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; TeOdonto Angola</div>
+    <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
   </div>
+
+  <div class="a4-container">
+    <div class="header">
+      <div class="logo">🦷 TeOdonto Angola</div>
+      <div class="subtitle">Ficha de Cadastro do Paciente</div>
+      <div class="badge">📋 Gerado em: ${dataGeracao}</div>
+    </div>
 
   <div class="section">
     <h3>👤 Dados do Paciente</h3>
@@ -307,7 +353,8 @@ export const gerarFichaCadastroHTML = async (
 
   <div class="footer">
     <p>TeOdonto Angola - Sistema Digital de Odontologia</p>
-    <p>ID: ${paciente.id} | Documento confidencial</p>
+    <p>ID: ${paciente.id} | Documento confidencial em Folha A4</p>
+  </div>
   </div>
 </body>
 </html>`;

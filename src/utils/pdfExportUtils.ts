@@ -21,19 +21,26 @@ const buildHtmlDocument = (html: string): string => {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
         @page {
-          size: A4;
-          margin: 15mm;
+          size: A4 portrait;
+          margin: 12mm 15mm;
+        }
+        * {
+          box-sizing: border-box;
         }
         html, body {
           margin: 0;
           padding: 0;
           width: 100%;
           background: #fff;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
-        body {
-          font-family: 'Segoe UI', Arial, sans-serif;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
+        @media print {
+          body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
         }
       </style>
     </head>
@@ -188,6 +195,36 @@ const printInHiddenIframe = async (html: string): Promise<PdfResult> => {
   });
 };
 
+const openInA4PrintWindow = (html: string, filename?: string): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return false;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+    if (filename && printWindow.document) {
+      printWindow.document.title = filename.replace(/\.pdf$/i, '');
+    }
+    printWindow.focus();
+
+    // Dispara a impressão/salvar como PDF após carregar
+    setTimeout(() => {
+      try {
+        printWindow.print();
+      } catch (err) {
+        console.warn('PDF: Auto-print no popup falhou:', err);
+      }
+    }, 800);
+
+    return true;
+  } catch (err) {
+    console.warn('PDF: Falha ao abrir janela de impressão A4:', err);
+    return false;
+  }
+};
+
 export const exportHtmlAsPdf = async (
   html: string,
   filename?: string
@@ -197,6 +234,13 @@ export const exportHtmlAsPdf = async (
     const printableHtml = await inlineRemoteImages(htmlDocument);
 
     if (Platform.OS === 'web') {
+      // Tenta abrir janela dedicada A4 com folha nítida e diálogo de impressão
+      const opened = openInA4PrintWindow(printableHtml, filename);
+      if (opened) {
+        return { success: true };
+      }
+
+      // Fallback caso o navegador bloqueie popups
       const result = await printInHiddenIframe(printableHtml);
       if (!result.success) {
         return result;
@@ -215,9 +259,10 @@ export const exportHtmlAsPdf = async (
     const shareAsync = SharingModule.shareAsync || SharingModule.default?.shareAsync;
 
     if (!printToFileAsync) {
-      return { success: false, error: 'expo-print nao disponivel.' };
+      return { success: false, error: 'expo-print não disponível.' };
     }
 
+    // A4 padrão internacional: 595.28 x 841.89 pontos a 72 DPI
     const { uri } = await printToFileAsync({
       html: printableHtml,
       width: 595,
@@ -226,7 +271,7 @@ export const exportHtmlAsPdf = async (
     });
 
     if (!uri) {
-      return { success: false, error: 'Nao foi possivel gerar o arquivo PDF.' };
+      return { success: false, error: 'Não foi possível gerar o arquivo PDF.' };
     }
 
     if (isAvailableAsync && shareAsync) {
@@ -234,7 +279,7 @@ export const exportHtmlAsPdf = async (
       if (canShare) {
         await shareAsync(uri, {
           mimeType: 'application/pdf',
-          dialogTitle: filename || 'Documento PDF',
+          dialogTitle: filename || 'Documento PDF Oficial',
           UTI: 'com.adobe.pdf',
         });
       }
@@ -245,3 +290,4 @@ export const exportHtmlAsPdf = async (
     return { success: false, error: err?.message || 'Erro ao gerar PDF.' };
   }
 };
+
