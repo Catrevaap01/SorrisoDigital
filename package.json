@@ -17,6 +17,7 @@
     "desktop:dev": "set ELECTRON_DEV=true&& electron desktop/main.cjs",
     "clean:release": "npx rimraf release",
     "dist:win": "npm run clean:release && npm run build:web && electron-builder --win nsis",
+    "apk": "npx -y eas-cli build -p android --profile preview",
     "preview": "npm run build:web && npx serve -s dist -p 3000",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck",
