@@ -140,23 +140,11 @@ let staticServer;
 
 function startStaticServer() {
   return new Promise((resolve, reject) => {
-    // Gerar certificado auto-assinado localmente para SSL
-    const selfsigned = require('selfsigned');
-    const attrs = [{ name: 'commonName', value: 'localhost' }];
-    const pems = selfsigned.generate(attrs, { days: 365, keySize: 2048 });
-
-    const serverOptions = {
-      key: pems.private,
-      cert: pems.cert
-    };
-
-    const https = require('https');
-    staticServer = https.createServer(serverOptions, async (req, res) => {
+    staticServer = http.createServer(async (req, res) => {
       const filePath = resolveDistFile(req.url || '/');
 
-      // Cabeçalhos de Segurança (SSL + CSP + etc)
+      // Cabeçalhos de Segurança
       const securityHeaders = {
-        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
         'X-XSS-Protection': '1; mode=block',
@@ -214,8 +202,8 @@ function startStaticServer() {
     staticServer.on('error', reject);
     staticServer.listen(0, '127.0.0.1', () => {
       const { port } = staticServer.address();
-      console.log(`[TeOdonto] Servidor local seguro: https://127.0.0.1:${port}`);
-      resolve(`https://127.0.0.1:${port}`);
+      console.log(`[TeOdonto] Servidor local: http://127.0.0.1:${port}`);
+      resolve(`http://127.0.0.1:${port}`);
     });
   });
 }
