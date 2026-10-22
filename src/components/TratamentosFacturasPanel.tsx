@@ -81,125 +81,247 @@ const financialStatus = (status?: string) => {
   return { label: 'Sem factura', bg: '#E5E7EB', text: '#475569' };
 };
 
-const buildHtml = (item: TratamentoFinanceiroItem, numero?: string) => `
-  <div style="max-width:800px; margin:0 auto; padding:40px; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#334155; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
-    <div style="text-align:center; margin-bottom:40px; border-bottom:2px solid #f1f5f9; padding-bottom:20px;">
-      <h1 style="margin:0; color:#1e293b; font-size:28px; font-weight:700;">SORRISO DIGITAL CLÍNICA DENTÁRIA</h1>
-      <p style="margin:8px 0 0 0; color:#64748b; font-size:14px;">Relatório de Serviço Individual</p>
-    </div>
-    <div style="margin-bottom:30px;">
-      <h2 style="margin:0 0 15px 0; color:#1e293b; font-size:18px; font-weight:600; border-bottom:1px solid #e2e8f0; padding-bottom:8px;">Dados do Paciente</h2>
-      <p style="margin:6px 0; color:#475569;"><strong>Nome:</strong> ${item.paciente_nome}</p>
-    </div>
-    
-    <table style="width:100%; border-collapse:collapse; margin-bottom:40px;">
-      <thead>
-        <tr style="background-color:#f8fafc;">
-          <th style="text-align:left; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">TRATAMENTO REALIZADO</th>
-          <th style="text-align:right; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">VALOR PAGO</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9;">
-            <div style="font-weight:bold; color:#1e293b;">${item.procedimento}</div>
-          </td>
-          <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:bold;">${money(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0))}</td>
-        </tr>
-      </tbody>
-    </table>
+const buildHtml = (item: TratamentoFinanceiroItem, numero?: string) => {
+  const pago = Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0));
+  const total = Number(item.valor || 0);
+  const divida = Math.max(0, total - pago);
+  const numFat = numero || item.numero_factura || `FT-${String(item.id || '').substring(0, 8).toUpperCase()}`;
 
-    <div style="display:flex; justify-content:flex-end;">
-      <div style="width:300px;">
-        <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f1f5f9;">
-          <span style="color:#64748b;">Valor Pago</span>
-          <span style="font-weight:500;">${money(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0))}</span>
+  return `
+    <div class="screen-toolbar no-print">
+      <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; Factura / Recibo de Serviço</div>
+      <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
+    </div>
+
+    <div class="a4-container">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #0284c7; padding-bottom:14px; margin-bottom:22px;">
+        <div>
+          <div style="font-size:22px; font-weight:800; color:#0369a1; letter-spacing:-0.5px;">🦷 TeOdonto Angola</div>
+          <div style="font-size:13px; font-weight:700; color:#0f172a; margin-top:3px; text-transform:uppercase;">Factura &bull; Recibo de Procedimento Odontológico</div>
+          <div style="font-size:11px; color:#64748b; margin-top:2px;">Clínica Dentária Especializada &bull; Luanda, Angola</div>
         </div>
-        ${Number(item.valor || 0) - Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0)) > 0 ? `
-        <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f1f5f9;">
-          <span style="color:#64748b;">Dívida Pendente</span>
-          <span style="font-weight:500; color:#DC2626;">${money(Number(item.valor || 0) - Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0)))}</span>
-        </div>
-        ` : ''}
-        <div style="display:flex; justify-content:space-between; padding:15px 0;">
-          <span style="font-weight:bold; color:#1e293b; font-size:18px;">VALOR TOTAL DA CONSULTA</span>
-          <span style="font-weight:bold; color:#7C3AED; font-size:18px;">${money(item.valor)}</span>
+        <div style="text-align:right;">
+          <div style="display:inline-block; background:#e0f2fe; color:#0369a1; font-size:10px; font-weight:700; padding:4px 10px; border-radius:12px; text-transform:uppercase;">FACTURA DE SERVIÇO</div>
+          <div style="font-size:11.5px; font-weight:800; color:#0f172a; margin-top:4px;">Nº ${numFat}</div>
+          <div style="font-size:10.5px; color:#475569;">Data: ${formatDateTime(new Date().toISOString())}</div>
         </div>
       </div>
-    </div>
 
-    <div style="margin-top:60px; padding-top:20px; border-top:1px solid #f1f5f9; text-align:center; color:#94a3b8; font-size:12px;">
-      <p>Obrigado por confiar no Sorriso Digital. Este documento serve como comprovativo de serviço.</p>
-      <p>Emitido em ${formatDateTime(new Date().toISOString())}</p>
-    </div>
-  </div>
-`;
-
-const buildUnifiedHtml = (grupo: GrupoFacturaUnificada, numero?: string) => `
-  <div style="max-width:800px; margin:0 auto; padding:40px; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#334155; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:40px; border-bottom: 2px solid #efeff1; padding-bottom: 20px;">
-      <div style="flex:1;">
-        <h1 style="color:#7C3AED; margin:0; font-size:28px; letter-spacing:-1px;">SORRISO DIGITAL</h1>
-        <p style="margin:5px 0; font-size:14px; color:#64748b;">Clínica Odontológica de Excelência</p>
-        <p style="margin:5px 0; font-size:12px; color:#94a3b8;">Av. Deolinda Rodrigues, Luanda, Angola</p>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;">
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+          <div style="font-size:10.5px; font-weight:700; color:#0284c7; text-transform:uppercase; margin-bottom:8px; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">
+            Identificação do Utente (Paciente)
+          </div>
+          <div style="font-size:13px; font-weight:700; color:#0f172a;">${item.paciente_nome}</div>
+          <div style="font-size:11px; color:#64748b; margin-top:4px;">Contacto: ${item.paciente_telefone || 'Não informado'}</div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+          <div style="font-size:10.5px; font-weight:700; color:#0284c7; text-transform:uppercase; margin-bottom:8px; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">
+            Profissional Odontológico
+          </div>
+          <div style="font-size:13px; font-weight:700; color:#0f172a;">Dr(a). ${item.dentista_nome || 'Dentista Responsável'}</div>
+          <div style="font-size:11px; color:#64748b; margin-top:4px;">TeOdonto Angola &bull; Serviços Odontológicos</div>
+        </div>
       </div>
-      <div style="text-align:right;">
-        <h2 style="margin:0; color:#1e293b; font-size:18px;">FACTURA UNIFICADA</h2>
-        <p style="margin:5px 0; font-weight:bold; color:#7C3AED;"># ${numero || 'UNIFICADO'}</p>
-        <p style="margin:5px 0; font-size:13px;">Data: ${formatDateTime(new Date().toISOString())}</p>
-      </div>
-    </div>
 
-    <div style="margin-bottom:40px;">
-      <h3 style="font-size:12px; text-transform:uppercase; color:#94a3b8; margin-bottom:10px; border-bottom:1px solid #f1f5f9;">Dados do Paciente</h3>
-      <p style="margin:4px 0; font-weight:bold; color:#1e293b; font-size:16px;">${grupo.paciente_nome}</p>
-      <p style="margin:4px 0; font-size:13px;">${grupo.paciente_telefone || 'Telefone não informado'}</p>
-    </div>
-
-    <table style="width:100%; border-collapse:collapse; margin-bottom:40px;">
-      <thead>
-        <tr style="background-color:#f8fafc;">
-          <th style="text-align:left; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">TRATAMENTO REALIZADO</th>
-          <th style="text-align:right; padding:12px; border-bottom:2px solid #e2e8f0; font-size:13px; color:#64748b;">VALOR PAGO</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${grupo.items.map((item) => `
-          <tr>
-            <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9;">
-              <div style="font-weight:bold; color:#1e293b;">${item.procedimento}</div>
-            </td>
-            <td style="padding:15px 12px; border-bottom:1px solid #f1f5f9; text-align:right; font-weight:bold;">${money(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0))}</td>
+      <table style="width:100%; border-collapse:collapse; margin-bottom:24px; font-size:11px;">
+        <thead>
+          <tr style="background:#0284c7; color:#ffffff;">
+            <th style="padding:10px 12px; text-align:left; font-size:10.5px;">Descrição do Procedimento Clínico</th>
+            <th style="padding:10px 12px; text-align:center; font-size:10.5px; width:120px;">Estado Clínico</th>
+            <th style="padding:10px 12px; text-align:right; font-size:10.5px; width:130px;">Valor Total</th>
+            <th style="padding:10px 12px; text-align:right; font-size:10.5px; width:130px;">Valor Pago</th>
           </tr>
-        `).join('')}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:14px 12px; border-bottom:1px solid #e2e8f0;">
+              <div style="font-weight:700; color:#0f172a; font-size:12px;">${item.procedimento}</div>
+              <div style="font-size:10.5px; color:#64748b; margin-top:2px;">Registo nº ${item.id}</div>
+            </td>
+            <td style="padding:14px 12px; border-bottom:1px solid #e2e8f0; text-align:center;">
+              <span style="padding:3px 8px; border-radius:4px; font-size:9.5px; font-weight:700; background:#dbeafe; color:#1d4ed8;">
+                ${item.status_clinico || 'Realizado'}
+              </span>
+            </td>
+            <td style="padding:14px 12px; border-bottom:1px solid #e2e8f0; text-align:right; font-weight:700;">
+              ${money(total)}
+            </td>
+            <td style="padding:14px 12px; border-bottom:1px solid #e2e8f0; text-align:right; font-weight:700; color:#16a34a; font-size:12px;">
+              ${money(pago)}
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
-    <div style="display:flex; justify-content:flex-end;">
-      <div style="width:300px;">
-        <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f1f5f9;">
-          <span style="color:#64748b;">Valor Pago dos Serviços (${grupo.items.length})</span>
-          <span style="font-weight:500;">${money(grupo.items.reduce((sum, item) => sum + Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0)), 0))}</span>
-        </div>
-        ${grupo.items.reduce((sum, item) => sum + (Number(item.valor || 0) - Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0))), 0) > 0 ? `
-        <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #f1f5f9;">
-          <span style="color:#64748b;">Dívida Pendente Consolidada</span>
-          <span style="font-weight:500; color:#DC2626;">${money(grupo.items.reduce((sum, item) => sum + (Number(item.valor || 0) - Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0))), 0))}</span>
-        </div>
-        ` : ''}
-        <div style="display:flex; justify-content:space-between; padding:15px 0;">
-          <span style="font-weight:bold; color:#1e293b; font-size:18px;">VALOR TOTAL (BRUTO)</span>
-          <span style="font-weight:bold; color:#7C3AED; font-size:18px;">${money(grupo.total)}</span>
+      <div style="display:flex; justify-content:flex-end; margin-bottom:40px;">
+        <div style="width:290px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:11px;">
+            <span style="color:#64748b;">Subtotal Serviço:</span>
+            <span style="font-weight:700; color:#0f172a;">${money(total)}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:11px;">
+            <span style="color:#16a34a; font-weight:600;">Valor Liquidado:</span>
+            <span style="font-weight:700; color:#16a34a;">${money(pago)}</span>
+          </div>
+          ${divida > 0 ? `
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:11px;">
+              <span style="color:#dc2626; font-weight:600;">Saldo Pendente:</span>
+              <span style="font-weight:700; color:#dc2626;">${money(divida)}</span>
+            </div>
+          ` : ''}
+          <div style="border-top:2px solid #0284c7; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:10px; font-weight:700; text-transform:uppercase; color:#0f172a;">Estado Financeiro:</span>
+            <span style="font-size:10.5px; font-weight:800; color:${divida <= 0 ? '#16a34a' : '#d97706'};">
+              ${divida <= 0 ? 'TOTALMENTE PAGO' : 'PAGAMENTO PENDENTE'}
+            </span>
+          </div>
         </div>
       </div>
+
+      <div style="display:flex; justify-content:space-between; gap:40px; margin-top:50px; page-break-inside:avoid;">
+        <div style="flex:1; text-align:center;">
+          <div style="border-top:1px solid #475569; margin-bottom:4px; padding-top:4px; font-weight:700; font-size:10.5px;">
+            Assinatura do Paciente / Responsável
+          </div>
+          <div style="font-size:9.5px; color:#64748b;">Conforme com a prestação do serviço</div>
+        </div>
+        <div style="flex:1; text-align:center;">
+          <div style="border-top:1px solid #475569; margin-bottom:4px; padding-top:4px; font-weight:700; font-size:10.5px;">
+            Assinatura / Carimbo Autorizado
+          </div>
+          <div style="font-size:9.5px; color:#64748b;">TeOdonto Angola &bull; Departamento de Tesouraria</div>
+        </div>
+      </div>
+
+      <div style="margin-top:36px; text-align:center; color:#94a3b8; font-size:9.5px; border-top:1px solid #e2e8f0; padding-top:8px;">
+        Obrigado por escolher a TeOdonto Angola &bull; Documento emitido para efeitos legais e fiscais
+      </div>
+    </div>
+  `;
+};
+
+const buildUnifiedHtml = (grupo: GrupoFacturaUnificada, numero?: string) => {
+  const totalGeral = Number(grupo.total || 0);
+  const totalPago = grupo.items.reduce((sum, item) => sum + Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0)), 0);
+  const totalPendente = Math.max(0, totalGeral - totalPago);
+  const numDoc = numero || `FAT-UNI-${String(grupo.paciente_id || Date.now()).substring(0, 8).toUpperCase()}`;
+
+  return `
+    <div class="screen-toolbar no-print">
+      <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; Factura Unificada Consolidada</div>
+      <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
     </div>
 
-    <div style="margin-top:60px; padding-top:20px; border-top:1px solid #f1f5f9; text-align:center; color:#94a3b8; font-size:12px;">
-      <p>Obrigado por escolher o Sorriso Digital. Este é um resumo consolidado de seus tratamentos.</p>
-      <p>Emitido em ${formatDateTime(new Date().toISOString())}</p>
+    <div class="a4-container">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #0284c7; padding-bottom:14px; margin-bottom:22px;">
+        <div>
+          <div style="font-size:22px; font-weight:800; color:#0369a1; letter-spacing:-0.5px;">🦷 TeOdonto Angola</div>
+          <div style="font-size:13px; font-weight:700; color:#0f172a; margin-top:3px; text-transform:uppercase;">Factura Global Unificada de Tratamentos</div>
+          <div style="font-size:11px; color:#64748b; margin-top:2px;">Clínica Dentária Especializada &bull; Luanda, Angola</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="display:inline-block; background:#e0f2fe; color:#0369a1; font-size:10px; font-weight:700; padding:4px 10px; border-radius:12px; text-transform:uppercase;">FACTURA CONSOLIDADA</div>
+          <div style="font-size:11.5px; font-weight:800; color:#0f172a; margin-top:4px;">Nº ${numDoc}</div>
+          <div style="font-size:10.5px; color:#475569;">Data: ${formatDateTime(new Date().toISOString())}</div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;">
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+          <div style="font-size:10.5px; font-weight:700; color:#0284c7; text-transform:uppercase; margin-bottom:8px; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">
+            Titular da Factura (Paciente)
+          </div>
+          <div style="font-size:14px; font-weight:700; color:#0f172a;">${grupo.paciente_nome}</div>
+          <div style="font-size:11px; color:#64748b; margin-top:4px;">Contacto: ${grupo.paciente_telefone || 'Não informado'}</div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+          <div style="font-size:10.5px; font-weight:700; color:#0284c7; text-transform:uppercase; margin-bottom:8px; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">
+            Resumo dos Atendimentos
+          </div>
+          <div style="font-size:12px; font-weight:600; color:#0f172a;">Total de Serviços Inclusos: <strong>${grupo.items.length}</strong></div>
+          <div style="font-size:11px; color:#64748b; margin-top:4px;">Corpo Clínico: ${grupo.dentistas.length > 0 ? grupo.dentistas.join(', ') : 'Especialistas TeOdonto'}</div>
+        </div>
+      </div>
+
+      <table style="width:100%; border-collapse:collapse; margin-bottom:24px; font-size:10.5px;">
+        <thead>
+          <tr style="background:#0284c7; color:#ffffff;">
+            <th style="padding:9px 10px; text-align:left; font-size:10px;">Item</th>
+            <th style="padding:9px 10px; text-align:left; font-size:10px;">Procedimento Realizado</th>
+            <th style="padding:9px 10px; text-align:left; font-size:10px;">Dentista</th>
+            <th style="padding:9px 10px; text-align:right; font-size:10px; width:110px;">Preço Tabela</th>
+            <th style="padding:9px 10px; text-align:right; font-size:10px; width:110px;">Valor Pago</th>
+            <th style="padding:9px 10px; text-align:center; font-size:10px; width:90px;">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${grupo.items.map((item, idx) => {
+            const vTotal = Number(item.valor || 0);
+            const vPago = Number(item.valor_pago !== undefined && item.valor_pago !== null ? item.valor_pago : (item.status_financeiro === 'pago' ? item.valor : 0));
+            const isPago = vPago >= vTotal;
+            return `
+              <tr style="page-break-inside:avoid;">
+                <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; color:#64748b; font-weight:600;">${idx + 1}</td>
+                <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; font-weight:700; color:#0f172a;">${item.procedimento}</td>
+                <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; color:#475569;">${item.dentista_nome || 'Dentista'}</td>
+                <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; text-align:right; font-weight:600;">${money(vTotal)}</td>
+                <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; text-align:right; font-weight:700; color:#16a34a;">${money(vPago)}</td>
+                <td style="padding:8px 10px; border-bottom:1px solid #e2e8f0; text-align:center;">
+                  <span style="padding:2px 6px; border-radius:4px; font-size:9px; font-weight:700; background:${isPago ? '#dcfce7' : '#fee2e2'}; color:${isPago ? '#166534' : '#991b1b'};">
+                    ${isPago ? 'PAGO' : 'PENDENTE'}
+                  </span>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+
+      <div style="display:flex; justify-content:flex-end; margin-bottom:40px;">
+        <div style="width:310px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:11px;">
+            <span style="color:#64748b;">Subtotal Bruto (${grupo.items.length} itens):</span>
+            <span style="font-weight:700; color:#0f172a;">${money(totalGeral)}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:11px;">
+            <span style="color:#16a34a; font-weight:600;">Total Liquidado:</span>
+            <span style="font-weight:700; color:#16a34a;">${money(totalPago)}</span>
+          </div>
+          ${totalPendente > 0 ? `
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:11px;">
+              <span style="color:#dc2626; font-weight:600;">Saldo Pendente Global:</span>
+              <span style="font-weight:700; color:#dc2626;">${money(totalPendente)}</span>
+            </div>
+          ` : ''}
+          <div style="border-top:2px solid #0284c7; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:11px; font-weight:800; text-transform:uppercase; color:#0f172a;">Total da Factura:</span>
+            <span style="font-size:15px; font-weight:800; color:#0369a1;">${money(totalGeral)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; gap:40px; margin-top:50px; page-break-inside:avoid;">
+        <div style="flex:1; text-align:center;">
+          <div style="border-top:1px solid #475569; margin-bottom:4px; padding-top:4px; font-weight:700; font-size:10.5px;">
+            Assinatura do Paciente / Responsável
+          </div>
+          <div style="font-size:9.5px; color:#64748b;">Conforme com a discriminação dos serviços</div>
+        </div>
+        <div style="flex:1; text-align:center;">
+          <div style="border-top:1px solid #475569; margin-bottom:4px; padding-top:4px; font-weight:700; font-size:10.5px;">
+            Direcção Financeira & Tesouraria
+          </div>
+          <div style="font-size:9.5px; color:#64748b;">TeOdonto Angola &bull; Emitido Electronicamente</div>
+        </div>
+      </div>
+
+      <div style="margin-top:36px; text-align:center; color:#94a3b8; font-size:9.5px; border-top:1px solid #e2e8f0; padding-top:8px;">
+        TeOdonto Angola &bull; Clínica Especializada em Medicina Dentária e Ortodontia &bull; Luanda
+      </div>
     </div>
-  </div>
-`;
+  `;
+};
 
 const TratamentosFacturasPanel: React.FC<Props> = ({ items, loading, onRefresh }) => {
   const { width } = useWindowDimensions();

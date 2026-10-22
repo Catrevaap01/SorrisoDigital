@@ -21,7 +21,7 @@ import { buscarPaciente, listarPacientes } from '../../services/pacienteService'
 import { exportHtmlAsPdf } from '../../utils/pdfExportUtils';
 import Loading from '../../components/ui/Loading';
 import { gerarFichaHistorico } from './gerarFichaHistorico';
-import { buscarTratamentosFinanceirosDentista } from '../../services/relatorioService';
+import { buscarTratamentosFinanceirosDentista, buildDentistBillingHtml } from '../../services/relatorioService';
 
 interface PacienteListItem {
   id: string;
@@ -143,170 +143,146 @@ const DentistaRelatorioScreen: React.FC = () => {
       };
 
       const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Relatório Completo - Dr(a). ${profile?.nome || 'Dentista'}</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: Arial, sans-serif; padding: 20px; color: #333; line-height: 1.4; background: white; }
-            h1 { color: #1E88E5; text-align: center; font-size: 24px; margin-bottom: 30px; }
-            h2 { color: #1E88E5; font-size: 16px; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #1E88E5; padding-bottom: 8px; }
-            .info { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; }
-            .info p { margin: 5px 0; font-size: 13px; }
-            .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin: 20px 0; }
-            .stat-card { background: #e3f2fd; padding: 15px; border-radius: 8px; text-align: center; border-left: 4px solid #1E88E5; }
-            .stat-number { font-size: 22px; font-weight: bold; color: #1E88E5; }
-            .stat-label { font-size: 12px; color: #666; margin-top: 5px; }
-            
-            /* Relatório de Faturação */
-            .billing-section { margin-top: 30px; page-break-inside: avoid; }
-            .billing-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 15px 0; }
-            .billing-card { padding: 15px; border-radius: 8px; text-align: center; color: white; font-weight: bold; }
-            .billing-total { background: #4CAF50; }
-            .billing-recebido { background: #2196F3; }
-            .billing-pendente { background: #FF9800; }
-            .billing-value { font-size: 20px; margin-bottom: 5px; }
-            .billing-label { font-size: 12px; opacity: 0.9; }
-            
-            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 11px; }
-            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-            th { background: #1E88E5; color: white; font-weight: bold; }
-            tr:nth-child(even) { background: #f9f9f9; }
-            .status { padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: bold; }
-            .status.pago { background: #c8e6c9; color: #1b5e20; }
-            .status.parcial { background: #fff9c4; color: #f57f17; }
-            .status.pendente { background: #ffcdd2; color: #b71c1c; }
-            .text-right { text-align: right; }
-            .text-center { text-align: center; }
-            .currency { font-family: 'Courier New', monospace; }
-            
-            .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #ddd; text-align: center; font-size: 11px; color: #999; }
-            @media print { body { margin: 0; padding: 10px; } h2 { page-break-after: avoid; } }
-          </style>
-        </head>
-        <body>
-          <h1>🦷 Sorriso Digital - Relatório Completo do Dentista</h1>
-          
-          <!-- Seção de Informações do Dentista -->
-          <div class="info">
-            <p><strong>Dentista:</strong> ${profile?.nome || 'N/D'}</p>
-            <p><strong>CRM:</strong> ${profile?.crm || 'N/D'}</p>
-            <p><strong>Especialidade:</strong> ${profile?.especialidade || 'N/D'}</p>
-            <p><strong>Gerado em:</strong> ${new Date().toLocaleString('pt-AO')}</p>
-          </div>
+        <div class="screen-toolbar no-print">
+          <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; TeOdonto Angola</div>
+          <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
+        </div>
 
-          <!-- Seção 1: Estatísticas de Consultas -->
-          <h2>📋 Estatísticas de Consultas</h2>
-          <div class="stats">
-            <div class="stat-card">
-              <div class="stat-number">${totalConsultas}</div>
-              <div class="stat-label">Total de Consultas</div>
+        <div class="a4-container">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #0284c7; padding-bottom:14px; margin-bottom:20px;">
+            <div>
+              <div style="font-size:22px; font-weight:800; color:#0369a1; letter-spacing:-0.5px;">🦷 TeOdonto Angola</div>
+              <div style="font-size:13px; font-weight:700; color:#0f172a; margin-top:3px; text-transform:uppercase;">Relatório Geral de Actividade Clínica & Financeira</div>
+              <div style="font-size:11px; color:#64748b; margin-top:2px;">Médico Dentista: <strong>Dr(a). ${profile?.nome || 'Dentista'}</strong> (CRM: ${profile?.crm || 'N/D'})</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-number">${consultasMes}</div>
-              <div class="stat-label">Consultas Este Mês</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-number">${agendamentos.length > 0 ? Math.round((consultasMes / totalConsultas) * 100) : 0}%</div>
-              <div class="stat-label">% Este Mês</div>
+            <div style="text-align:right;">
+              <div style="display:inline-block; background:#e0f2fe; color:#0369a1; font-size:10px; font-weight:700; padding:4px 10px; border-radius:12px; text-transform:uppercase;">RELATÓRIO CLÍNICO</div>
+              <div style="font-size:10.5px; color:#475569; margin-top:4px;">Emissão: ${new Date().toLocaleDateString('pt-AO')}</div>
+              <div style="font-size:10px; color:#64748b;">Especialidade: ${profile?.especialidade || 'Clínica Geral'}</div>
             </div>
           </div>
 
-          <table>
+          <div style="font-size:12px; font-weight:700; color:#0284c7; margin-bottom:10px; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">
+            1. INDICADORES GERAIS DE CONSULTAS
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-bottom:20px; page-break-inside:avoid;">
+            <div style="background:#f8fafc; padding:12px; border-radius:8px; text-align:center; border:1px solid #e2e8f0;">
+              <div style="color:#0284c7; font-size:20px; font-weight:800;">${totalConsultas}</div>
+              <div style="color:#64748b; font-size:10px; text-transform:uppercase; font-weight:700; margin-top:2px;">Total de Consultas</div>
+            </div>
+            <div style="background:#f8fafc; padding:12px; border-radius:8px; text-align:center; border:1px solid #e2e8f0;">
+              <div style="color:#0284c7; font-size:20px; font-weight:800;">${consultasMes}</div>
+              <div style="color:#64748b; font-size:10px; text-transform:uppercase; font-weight:700; margin-top:2px;">Consultas Este Mês</div>
+            </div>
+            <div style="background:#f8fafc; padding:12px; border-radius:8px; text-align:center; border:1px solid #e2e8f0;">
+              <div style="color:#16a34a; font-size:20px; font-weight:800;">${agendamentos.length > 0 ? Math.round((consultasMes / totalConsultas) * 100) : 0}%</div>
+              <div style="color:#64748b; font-size:10px; text-transform:uppercase; font-weight:700; margin-top:2px;">Produtividade Mensal</div>
+            </div>
+          </div>
+
+          <table style="width:100%; border-collapse:collapse; margin-bottom:24px; font-size:10.5px;">
             <thead>
-              <tr>
-                <th>Paciente</th>
-                <th>Data/Hora</th>
-                <th>Status</th>
-                <th>Tipo</th>
+              <tr style="background:#0284c7; color:#ffffff;">
+                <th style="padding:8px 10px; text-align:left; font-size:10px;">Paciente</th>
+                <th style="padding:8px 10px; text-align:left; font-size:10px;">Data & Hora</th>
+                <th style="padding:8px 10px; text-align:center; font-size:10px;">Status</th>
+                <th style="padding:8px 10px; text-align:left; font-size:10px;">Tipo de Atendimento</th>
               </tr>
             </thead>
             <tbody>
-              ${agendamentos.slice(0, 50).map((ag: any) => `
-                <tr>
-                  <td>${ag.paciente?.nome || 'N/D'}</td>
-                  <td>${new Date(ag.data_agendamento).toLocaleString('pt-AO')}</td>
-                  <td class="text-center">${ag.status || 'Pendente'}</td>
-                  <td>${ag.tipo || 'Consulta'}</td>
+              ${agendamentos.slice(0, 30).map((ag: any) => `
+                <tr style="page-break-inside:avoid;">
+                  <td style="padding:7px 10px; border-bottom:1px solid #e2e8f0; font-weight:600; color:#0f172a;">${ag.paciente?.nome || 'N/D'}</td>
+                  <td style="padding:7px 10px; border-bottom:1px solid #e2e8f0;">${new Date(ag.data_agendamento).toLocaleString('pt-AO')}</td>
+                  <td style="padding:7px 10px; border-bottom:1px solid #e2e8f0; text-align:center;">
+                    <span style="padding:2px 6px; border-radius:4px; font-size:9px; font-weight:700; background:#e0f2fe; color:#0369a1;">
+                      ${ag.status || 'Realizado'}
+                    </span>
+                  </td>
+                  <td style="padding:7px 10px; border-bottom:1px solid #e2e8f0;">${ag.tipo || 'Consulta Odontológica'}</td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
-          ${agendamentos.length > 50 ? '<p style="text-align:center; font-style:italic; color:#666; margin-top: 10px;">... e mais ' + (agendamentos.length - 50) + ' registros</p>' : ''}
 
-          <!-- Seção 2: Relatório de Faturação -->
-          <div class="billing-section">
-            <h2>💰 Relatório de Faturação</h2>
-            
-            <div class="billing-summary">
-              <div class="billing-card billing-total">
-                <div class="billing-value currency">${formatarMoeda(totalFaturado)}</div>
-                <div class="billing-label">Total Faturado</div>
-              </div>
-              <div class="billing-card billing-recebido">
-                <div class="billing-value currency">${formatarMoeda(totalRecebido)}</div>
-                <div class="billing-label">Total Recebido</div>
-              </div>
-              <div class="billing-card billing-pendente">
-                <div class="billing-value currency">${formatarMoeda(totalPendente)}</div>
-                <div class="billing-label">Pendente</div>
-              </div>
+          <div style="font-size:12px; font-weight:700; color:#0284c7; margin-bottom:10px; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">
+            2. RESUMO DE FATURAÇÃO & HONORÁRIOS
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-bottom:20px; page-break-inside:avoid;">
+            <div style="background:#f8fafc; padding:12px; border-radius:8px; text-align:center; border:1px solid #e2e8f0;">
+              <div style="color:#0284c7; font-size:18px; font-weight:800;">${formatarMoeda(totalFaturado)}</div>
+              <div style="color:#64748b; font-size:10px; text-transform:uppercase; font-weight:700; margin-top:2px;">Total Faturado</div>
             </div>
-
-            <table>
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Paciente</th>
-                  <th>Procedimento</th>
-                  <th class="text-right">Valor Total</th>
-                  <th class="text-right">Valor Pago</th>
-                  <th class="text-right">Dívida</th>
-                  <th class="text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${itemsFinanceiros.slice(0, 100).map((item: any) => {
-                  const vTotal = Number(item.valor || 0);
-                  const vPago = item.status_financeiro === 'pago' ? vTotal : Number(item.valor_pago || 0);
-                  const divida = vTotal - vPago;
-                  const statusFin = item.status_financeiro || (vPago >= vTotal ? 'pago' : vPago > 0 ? 'parcial' : 'pendente');
-                  const dataRef = item.appointment_date || item.updated_at || item.created_at;
-                  const dataStr = dataRef
-                    ? (typeof dataRef === 'string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(dataRef) 
-                        ? dataRef.split('-').reverse().join('/') 
-                        : new Date(dataRef).toLocaleDateString('pt-AO'))
-                    : '---';
-                  const nomeProcedimento = item.procedimento || item.descricao || 'Procedimento';
-                  const statusLabel = statusFin === 'pago' ? 'PAGO' : statusFin === 'parcial' ? 'PARCIAL' : 'PENDENTE';
-                  const statusClass = statusFin === 'pago' ? 'pago' : statusFin === 'parcial' ? 'parcial' : 'pendente';
-                  
-                  return `
-                    <tr>
-                      <td>${dataStr}</td>
-                      <td>${item.paciente_nome || 'Paciente'}</td>
-                      <td>${nomeProcedimento}</td>
-                      <td class="text-right currency">${formatarMoeda(vTotal)}</td>
-                      <td class="text-right currency" style="color:#16a34a;font-weight:bold">${formatarMoeda(vPago)}</td>
-                      <td class="text-right currency" style="color:${divida > 0 ? '#b91c1c' : '#16a34a'}">${formatarMoeda(divida)}</td>
-                      <td class="text-center"><span class="status ${statusClass}">${statusLabel}</span></td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-            ${itemsFinanceiros.length > 100 ? '<p style="text-align:center; font-style:italic; color:#666; margin-top: 10px;">... e mais ' + (itemsFinanceiros.length - 100) + ' registros</p>' : ''}
-            ${itemsFinanceiros.length === 0 ? '<p style="text-align:center; color:#999; margin-top: 10px;">Nenhum procedimento registrado</p>' : ''}
+            <div style="background:#f8fafc; padding:12px; border-radius:8px; text-align:center; border:1px solid #e2e8f0;">
+              <div style="color:#16a34a; font-size:18px; font-weight:800;">${formatarMoeda(totalRecebido)}</div>
+              <div style="color:#64748b; font-size:10px; text-transform:uppercase; font-weight:700; margin-top:2px;">Total Recebido</div>
+            </div>
+            <div style="background:#f8fafc; padding:12px; border-radius:8px; text-align:center; border:1px solid #e2e8f0;">
+              <div style="color:${totalPendente > 0 ? '#dc2626' : '#16a34a'}; font-size:18px; font-weight:800;">${formatarMoeda(totalPendente)}</div>
+              <div style="color:#64748b; font-size:10px; text-transform:uppercase; font-weight:700; margin-top:2px;">Saldo Pendente</div>
+            </div>
           </div>
 
-          <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} Sorriso Digital - Sistema de Gestão Odontológica</p>
-            <p>Documento gerado automaticamente pelo sistema</p>
+          <table style="width:100%; border-collapse:collapse; margin-bottom:24px; font-size:10.5px;">
+            <thead>
+              <tr style="background:#0284c7; color:#ffffff;">
+                <th style="padding:8px 10px; text-align:left; font-size:10px;">Data</th>
+                <th style="padding:8px 10px; text-align:left; font-size:10px;">Paciente</th>
+                <th style="padding:8px 10px; text-align:left; font-size:10px;">Procedimento</th>
+                <th style="padding:8px 10px; text-align:right; font-size:10px;">Total (Kz)</th>
+                <th style="padding:8px 10px; text-align:right; font-size:10px;">Recebido</th>
+                <th style="padding:8px 10px; text-align:right; font-size:10px;">Dívida</th>
+                <th style="padding:8px 10px; text-align:center; font-size:10px;">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsFinanceiros.slice(0, 50).map((item: any) => {
+                const vTotal = Number(item.valor || 0);
+                const vPago = item.status_financeiro === 'pago' ? vTotal : Number(item.valor_pago || 0);
+                const divida = vTotal - vPago;
+                const statusFin = item.status_financeiro || (vPago >= vTotal ? 'pago' : vPago > 0 ? 'parcial' : 'pendente');
+                const dataRef = item.appointment_date || item.updated_at || item.created_at;
+                const dataStr = dataRef ? new Date(dataRef).toLocaleDateString('pt-AO') : '---';
+                const statusLabel = statusFin === 'pago' ? 'PAGO' : statusFin === 'parcial' ? 'PARCIAL' : 'PENDENTE';
+                return `
+                  <tr style="page-break-inside:avoid;">
+                    <td style="padding:7px 10px; border-bottom:1px solid #e2e8f0;">${dataStr}</td>
+                    <td style="padding:7px 10px; border-bottom:1px solid #e2e8f0; font-weight:600;">${item.paciente_nome || 'Paciente'}</td>
+                    <td style="padding:7px 10px; border-bottom:1px solid #e2e8f0;">${item.procedimento || 'Procedimento'}</td>
+                    <td style="padding:7px 10px; border-bottom:1px solid #e2e8f0; text-align:right;">${formatarMoeda(vTotal)}</td>
+                    <td style="padding:7px 10px; border-bottom:1px solid #e2e8f0; text-align:right; color:#16a34a; font-weight:700;">${formatarMoeda(vPago)}</td>
+                    <td style="padding:7px 10px; border-bottom:1px solid #e2e8f0; text-align:right; color:${divida > 0 ? '#dc2626' : '#16a34a'}; font-weight:700;">${formatarMoeda(divida)}</td>
+                    <td style="padding:7px 10px; border-bottom:1px solid #e2e8f0; text-align:center;">
+                      <span style="padding:2px 6px; border-radius:4px; font-size:9px; font-weight:700; background:${statusFin === 'pago' ? '#dcfce7' : '#fee2e2'}; color:${statusFin === 'pago' ? '#166534' : '#991b1b'};">
+                        ${statusLabel}
+                      </span>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+
+          <div style="display:flex; justify-content:space-between; gap:40px; margin-top:36px; page-break-inside:avoid;">
+            <div style="flex:1; text-align:center;">
+              <div style="border-top:1px solid #475569; margin-bottom:4px; padding-top:4px; font-weight:700; font-size:10.5px;">
+                Dr(a). ${profile?.nome || 'Médico Dentista'}
+              </div>
+              <div style="font-size:9.5px; color:#64748b;">CRM: ${profile?.crm || 'Não informado'}</div>
+            </div>
+            <div style="flex:1; text-align:center;">
+              <div style="border-top:1px solid #475569; margin-bottom:4px; padding-top:4px; font-weight:700; font-size:10.5px;">
+                Direcção Clínica & Auditoria
+              </div>
+              <div style="font-size:9.5px; color:#64748b;">TeOdonto Angola</div>
+            </div>
           </div>
-        </body>
-        </html>`;
+
+          <div style="margin-top:26px; text-align:center; color:#94a3b8; font-size:9px; border-top:1px solid #e2e8f0; padding-top:8px;">
+            Documento emitido electronicamente &bull; TeOdonto Angola &bull; Sistema de Gestão Integrada
+          </div>
+        </div>
+      `;
 
       const result = await exportHtmlAsPdf(html, `relatorio-completo-${profile?.nome || 'dentista'}.pdf`);
       
@@ -337,116 +313,7 @@ const DentistaRelatorioScreen: React.FC = () => {
       const faturacaoRes = profile?.id ? await buscarTratamentosFinanceirosDentista(profile.id) : { success: false, data: [] };
       const itemsFinanceiros = faturacaoRes.success ? (faturacaoRes.data || []) : [];
       
-      let totalFaturado = 0;
-      let totalRecebido = 0;
-      itemsFinanceiros.forEach((item: any) => {
-        const valor = Number(item.valor || 0);
-        const valorPago = item.status_financeiro === 'pago' ? valor : Number(item.valor_pago || 0);
-        totalFaturado += valor;
-        totalRecebido += valorPago;
-      });
-      const totalPendente = totalFaturado - totalRecebido;
-
-      const formatarMoeda = (valor: number): string => {
-        return new Intl.NumberFormat('pt-AO', {
-          style: 'currency',
-          currency: 'AOA',
-          minimumFractionDigits: 0,
-        }).format(valor);
-      };
-
-      const html = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Facturação - Dr(a). ${profile?.nome || 'Dentista'}</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: Arial, sans-serif; padding: 20px; color: #333; background: white; }
-            h1 { color: #10B981; text-align: center; font-size: 24px; margin-bottom: 20px; }
-            .info { background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 13px; }
-            
-            .billing-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin: 15px 0; }
-            .billing-card { padding: 15px; border-radius: 8px; text-align: center; color: white; font-weight: bold; }
-            .billing-total { background: #4CAF50; }
-            .billing-recebido { background: #10B981; }
-            .billing-pendente { background: #FF9800; }
-            .billing-value { font-size: 20px; margin-bottom: 5px; }
-            .billing-label { font-size: 12px; opacity: 0.9; }
-            
-            table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 11px; }
-            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-            th { background: #10B981; color: white; font-weight: bold; }
-            tr:nth-child(even) { background: #f9f9f9; }
-            .status { padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: bold; }
-            .status.pago { background: #D1FAE5; color: #065F46; }
-            .status.parcial { background: #FEF3C7; color: #92400E; }
-            .status.pendente { background: #FEE2E2; color: #991B1B; }
-            .text-right { text-align: right; }
-            .currency { font-family: monospace; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <h1>💰 Relatório de Faturação</h1>
-          <div class="info">
-            <p><strong>Médico(a):</strong> ${profile?.nome || 'N/D'}</p>
-            <p><strong>Gerado em:</strong> ${new Date().toLocaleString('pt-AO')}</p>
-          </div>
-
-          <div class="billing-summary">
-            <div class="billing-card billing-total">
-              <div class="billing-value currency">${formatarMoeda(totalFaturado)}</div>
-              <div class="billing-label">Total Faturado</div>
-            </div>
-            <div class="billing-card billing-recebido">
-              <div class="billing-value currency">${formatarMoeda(totalRecebido)}</div>
-              <div class="billing-label">Total Recebido</div>
-            </div>
-            <div class="billing-card billing-pendente">
-              <div class="billing-value currency">${formatarMoeda(totalPendente)}</div>
-              <div class="billing-label">Pendente</div>
-            </div>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Paciente</th>
-                <th>Procedimento</th>
-                <th class="text-right">Total</th>
-                <th class="text-right">Pago</th>
-                <th class="text-right">Dívida</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsFinanceiros.length === 0 ? '<tr><td colspan="7" style="text-align:center">Sem registos financeiros encontrados</td></tr>' : itemsFinanceiros.map((item: any) => {
-                const vTotal = Number(item.valor || 0);
-                const vPago = item.status_financeiro === 'pago' ? vTotal : Number(item.valor_pago || 0);
-                const divida = vTotal - vPago;
-                const statusFin = item.status_financeiro || (vPago >= vTotal ? 'pago' : vPago > 0 ? 'parcial' : 'pendente');
-                const dataRef = item.appointment_date || item.updated_at || item.created_at;
-                const dataStr = dataRef ? new Date(dataRef).toLocaleDateString('pt-AO') : '---';
-                const statusLabel = statusFin === 'pago' ? 'PAGO' : statusFin === 'parcial' ? 'PARCIAL' : 'PENDENTE';
-                return `
-                  <tr>
-                    <td>${dataStr}</td>
-                    <td>${item.paciente_nome || 'Paciente'}</td>
-                    <td>${item.procedimento || 'Procedimento'}</td>
-                    <td class="text-right currency">${formatarMoeda(vTotal)}</td>
-                    <td class="text-right currency" style="color:#059669">${formatarMoeda(vPago)}</td>
-                    <td class="text-right currency" style="color:${divida > 0 ? '#DC2626' : '#059669'}">${formatarMoeda(divida)}</td>
-                    <td><span class="status ${statusFin}">${statusLabel}</span></td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </body>
-        </html>`;
-
+      const html = buildDentistBillingHtml(profile?.nome || 'Dentista', itemsFinanceiros, profile?.nome);
       const result = await exportHtmlAsPdf(html, `faturacao-${profile?.nome || 'dentista'}.pdf`);
       if (!result.success) throw new Error(result.error);
       Toast.show({ type: 'success', text1: '✅ Facturação gerada!' });

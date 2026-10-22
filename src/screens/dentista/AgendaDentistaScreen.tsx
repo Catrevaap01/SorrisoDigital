@@ -296,69 +296,47 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         return acc;
       }, {} as Record<string, any[]>);
       
-      // Gerar HTML do relatório
+      // Gerar HTML do relatório no padrão A4 oficial TeOdonto Angola
       const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Relatório Geral de Faturação</title>
-          <style>
-            @page { margin: 1cm; }
-            @media print {
-              body { padding: 0; }
-              .no-print { display: none; }
-            }
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .title { font-size: 24px; font-weight: bold; color: #333; }
-            .subtitle { font-size: 16px; color: #666; margin-top: 5px; }
-            .summary { background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-            .summary-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-            .summary-label { font-weight: bold; }
-            .summary-value { font-weight: bold; color: #333; }
-            .total-row { border-top: 2px solid #333; padding-top: 10px; margin-top: 10px; }
-            .date-section { margin-bottom: 30px; }
-            .date-title { font-size: 18px; font-weight: bold; color: #7C3AED; margin-bottom: 10px; border-bottom: 2px solid #7C3AED; padding-bottom: 5px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; font-weight: bold; }
-            .status-pago { color: #4CAF50; font-weight: bold; }
-            .status-pendente { color: #F59E0B; font-weight: bold; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="title">Relatório Geral de Faturação</div>
-            <div class="subtitle">Dr(a). ${profile?.nome || 'Dentista'}</div>
-            <div class="subtitle">Período: Todos os agendamentos realizados</div>
-            <div class="subtitle" style="margin-top: 10px; font-size: 11px; color: #7C3AED;">
-              Emitido por: ${profile?.nome || 'Dentista'}
+        <div class="screen-toolbar no-print">
+          <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; TeOdonto Angola</div>
+          <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
+        </div>
+
+        <div class="a4-container">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #0284c7; padding-bottom:14px; margin-bottom:18px;">
+            <div>
+              <div style="font-size:21px; font-weight:800; color:#0369a1; letter-spacing:-0.5px;">🦷 TeOdonto Angola</div>
+              <div style="font-size:12.5px; font-weight:700; color:#0f172a; margin-top:3px; text-transform:uppercase;">Relatório Geral de Faturação & Atendimentos</div>
+              <div style="font-size:11px; color:#64748b; margin-top:2px;">Médico Dentista: <strong>Dr(a). ${profile?.nome || 'Dentista'}</strong></div>
+            </div>
+            <div style="text-align:right;">
+              <div style="display:inline-block; background:#e0f2fe; color:#0369a1; font-size:10px; font-weight:700; padding:4px 10px; border-radius:12px; text-transform:uppercase;">CONSOLIDADO CLÍNICO</div>
+              <div style="font-size:10.5px; color:#475569; margin-top:4px;">Emissão: ${formatDate(new Date().toISOString(), 'dd/MM/yyyy HH:mm')}</div>
+              <div style="font-size:10px; color:#64748b;">Período: Consultas Realizadas</div>
             </div>
           </div>
           
-          <div class="summary">
-            <div class="summary-row">
-              <span class="summary-label">Total de Consultas:</span>
-              <span class="summary-value">${realizadosTodos.length}</span>
+          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; margin-bottom:20px; page-break-inside:avoid;">
+            <div style="background:#f8fafc; padding:12px; border-radius:8px; text-align:center; border:1px solid #e2e8f0;">
+              <div style="color:#0284c7; font-size:18px; font-weight:800;">${realizadosTodos.length}</div>
+              <div style="color:#64748b; font-size:9.5px; text-transform:uppercase; font-weight:700; margin-top:2px;">Atendimentos</div>
             </div>
-            <div class="summary-row">
-              <span class="summary-label">Total Faturado:</span>
-              <span class="summary-value">${formatCurrency(totalRecebido)}</span>
+            <div style="background:#f8fafc; padding:12px; border-radius:8px; text-align:center; border:1px solid #e2e8f0;">
+              <div style="color:#0284c7; font-size:18px; font-weight:800;">${formatCurrency(totalFaturado)}</div>
+              <div style="color:#64748b; font-size:9.5px; text-transform:uppercase; font-weight:700; margin-top:2px;">Total Faturado</div>
             </div>
-            <div class="summary-row">
-              <span class="summary-label">Total Recebido:</span>
-              <span class="summary-value">${formatCurrency(totalRecebido)}</span>
+            <div style="background:#f8fafc; padding:12px; border-radius:8px; text-align:center; border:1px solid #e2e8f0;">
+              <div style="color:#16a34a; font-size:18px; font-weight:800;">${formatCurrency(totalRecebido)}</div>
+              <div style="color:#64748b; font-size:9.5px; text-transform:uppercase; font-weight:700; margin-top:2px;">Total Recebido</div>
             </div>
-            <div class="summary-row total-row">
-              <span class="summary-label">Total Pendente:</span>
-              <span class="summary-value" style="color: ${totalPendente > 0 ? '#dc2626' : '#16a34a'}">
-                ${formatCurrency(totalPendente)}
-              </span>
+            <div style="background:#f8fafc; padding:12px; border-radius:8px; text-align:center; border:1px solid #e2e8f0;">
+              <div style="color:${totalPendente > 0 ? '#dc2626' : '#16a34a'}; font-size:18px; font-weight:800;">${formatCurrency(totalPendente)}</div>
+              <div style="color:#64748b; font-size:9.5px; text-transform:uppercase; font-weight:700; margin-top:2px;">Saldo Pendente</div>
             </div>
           </div>
           
-           ${(() => {
+          ${(() => {
             return Object.entries(agrupadosPorData).map(([data, itens]) => {
               const rowsHtml = (itens as any[]).map((item: any) => {
                 const preco = PRECO_POR_TIPO[item.tipo || 'consulta'] || 0;
@@ -367,31 +345,37 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
                 const status = recebido >= preco ? 'pago' : 'pendente';
                 
                 return `
-                  <tr>
-                    <td>${item.appointment_time || '--:--'}</td>
-                    <td>${item.paciente?.nome || item.patient_name || 'Paciente'}</td>
-                    <td>${TIPOS_CONSULTA[item.tipo]?.label || item.tipo || 'consulta'}</td>
-                    <td style="color:#16a34a; font-weight:bold;">${formatCurrency(recebido)}</td>
-                    <td style="color: ${divida > 0 ? '#dc2626' : '#16a34a'}">${formatCurrency(divida)}</td>
-                    <td class="status-${status}">
-                      ${status === 'pago' ? 'Pago' : `Pendente: ${formatCurrency(divida)}`}
+                  <tr style="page-break-inside:avoid;">
+                    <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; font-weight:600; color:#0f172a;">${item.appointment_time || '--:--'}</td>
+                    <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0;">${item.paciente?.nome || item.patient_name || 'Paciente'}</td>
+                    <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0;">${TIPOS_CONSULTA[item.tipo]?.label || item.tipo || 'consulta'}</td>
+                    <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:right; font-weight:600;">${formatCurrency(preco)}</td>
+                    <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:right; color:#16a34a; font-weight:700;">${formatCurrency(recebido)}</td>
+                    <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:right; color:${divida > 0 ? '#dc2626' : '#16a34a'}; font-weight:700;">${formatCurrency(divida)}</td>
+                    <td style="padding:7px 9px; border-bottom:1px solid #e2e8f0; text-align:center;">
+                      <span style="padding:2px 7px; border-radius:4px; font-size:9px; font-weight:700; background:${status === 'pago' ? '#dcfce7' : '#fee2e2'}; color:${status === 'pago' ? '#166534' : '#991b1b'};">
+                        ${status === 'pago' ? 'LIQUIDADO' : 'PENDENTE'}
+                      </span>
                     </td>
                   </tr>
                 `;
               }).join('');
 
               return `
-                <div class="date-section">
-                  <div class="date-title">${data}</div>
-                  <table>
+                <div style="margin-bottom:20px;">
+                  <div style="font-size:12px; font-weight:700; color:#0284c7; background:#f0f9ff; padding:6px 10px; border-radius:6px; margin-bottom:8px; border-left:4px solid #0284c7;">
+                    📅 Sessões de Atendimento — ${data}
+                  </div>
+                  <table style="width:100%; border-collapse:collapse; font-size:10.5px;">
                     <thead>
-                      <tr>
-                        <th>Hora</th>
-                        <th>Paciente</th>
-                        <th>Tipo</th>
-                        <th>Valor Pago</th>
-                        <th>Dívida</th>
-                        <th>Status</th>
+                      <tr style="background:#0284c7; color:#ffffff;">
+                        <th style="padding:7px 9px; text-align:left; font-size:10px;">Hora</th>
+                        <th style="padding:7px 9px; text-align:left; font-size:10px;">Paciente</th>
+                        <th style="padding:7px 9px; text-align:left; font-size:10px;">Tipo de Atendimento</th>
+                        <th style="padding:7px 9px; text-align:right; font-size:10px;">Total (Kz)</th>
+                        <th style="padding:7px 9px; text-align:right; font-size:10px;">Recebido</th>
+                        <th style="padding:7px 9px; text-align:right; font-size:10px;">Dívida</th>
+                        <th style="padding:7px 9px; text-align:center; font-size:10px;">Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -403,11 +387,25 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
             }).join('');
           })()}
           
-          <div style="margin-top: 30px; text-align: center; color: #666; font-size: 12px;">
-            Relatório gerado em ${new Date().toLocaleString('pt-BR')}
+          <div style="display:flex; justify-content:space-between; gap:40px; margin-top:36px; page-break-inside:avoid;">
+            <div style="flex:1; text-align:center;">
+              <div style="border-top:1px solid #475569; margin-bottom:4px; padding-top:4px; font-weight:700; font-size:10.5px;">
+                Dr(a). ${profile?.nome || 'Médico Dentista'}
+              </div>
+              <div style="font-size:9.5px; color:#64748b;">Corpo Clínico Odontológico</div>
+            </div>
+            <div style="flex:1; text-align:center;">
+              <div style="border-top:1px solid #475569; margin-bottom:4px; padding-top:4px; font-weight:700; font-size:10.5px;">
+                Direcção Administrativa & Financeira
+              </div>
+              <div style="font-size:9.5px; color:#64748b;">TeOdonto Angola</div>
+            </div>
           </div>
-        </body>
-        </html>
+
+          <div style="margin-top:26px; text-align:center; color:#94a3b8; font-size:9px; border-top:1px solid #e2e8f0; padding-top:8px;">
+            Documento emitido electronicamente pelo TeOdonto Angola &nbsp;·&nbsp; Válido como comprovativo financeiro oficial
+          </div>
+        </div>
       `;
       
       const result = await exportHtmlAsPdf(htmlContent, `relatorio-geral-faturacao-${formatDate(new Date(), 'dd-MM-yyyy')}`);
@@ -910,30 +908,113 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         // Importar a função de exportação PDF
         const { exportHtmlAsPdf } = await import('../../utils/pdfExportUtils');
         
+        const precoProcedimento = PRECO_POR_TIPO[item.tipo || 'consulta'] || 0;
+        const pago = Number(item.valor_pago || 0);
+        const restante = precoProcedimento - pago;
+
         const html = `
-          <div style="max-width:600px; margin:0 auto; padding:40px; font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#334155; border: 1px solid #e2e8f0; border-radius: 8px; background-color: #ffffff;">
-            <div style="text-align:center; margin-bottom:40px;">
-              <h1 style="color:#7C3AED; margin:0; font-size:24px;">RECIBO DE PAGAMENTO</h1>
-              <p style="margin:5px 0; font-size:14px; color:#64748b;">Sorriso Digital - Clínica Odontológica</p>
+          <div class="screen-toolbar no-print">
+            <div class="screen-toolbar-title">📄 Folha A4 Oficial &nbsp;·&nbsp; Recibo Odontológico</div>
+            <button class="screen-toolbar-btn" onclick="window.print()">🖨️ Imprimir / Guardar em PDF (A4)</button>
+          </div>
+
+          <div class="a4-container">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid #0284c7; padding-bottom:14px; margin-bottom:22px;">
+              <div>
+                <div style="font-size:22px; font-weight:800; color:#0369a1; letter-spacing:-0.5px;">🦷 TeOdonto Angola</div>
+                <div style="font-size:13px; font-weight:700; color:#0f172a; margin-top:3px; text-transform:uppercase;">Recibo Oficial de Quitação Odontológica</div>
+                <div style="font-size:11px; color:#64748b; margin-top:2px;">Clínica Dentária Especializada &bull; Luanda, Angola</div>
+              </div>
+              <div style="text-align:right;">
+                <div style="display:inline-block; background:#dcfce7; color:#166534; font-size:10px; font-weight:700; padding:4px 10px; border-radius:12px; text-transform:uppercase;">COMPROVATIVO OFICIAL</div>
+                <div style="font-size:11px; font-weight:700; color:#0f172a; margin-top:4px;">Nº REC-${String(item.id || '').substring(0, 8).toUpperCase() || '001'}</div>
+                <div style="font-size:10.5px; color:#475569;">Data: ${formatDate(new Date().toISOString(), 'dd/MM/yyyy HH:mm')}</div>
+              </div>
             </div>
-            
-            <div style="margin-bottom:30px;">
-              <h3 style="font-size:12px; text-transform:uppercase; color:#94a3b8; margin-bottom:10px;">Dados do Paciente</h3>
-              <p style="margin:4px 0; font-weight:bold; color:#1e293b;">${item.paciente?.nome || 'Paciente'}</p>
-              <p style="margin:4px 0; font-size:13px; color:#64748b;">Telefone: ${item.paciente?.telefone || 'Não informado'}</p>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px;">
+              <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+                <div style="font-size:10.5px; font-weight:700; color:#0284c7; text-transform:uppercase; margin-bottom:8px; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">
+                  Identificação do Paciente (Utente)
+                </div>
+                <div style="font-size:13px; font-weight:700; color:#0f172a;">${item.paciente?.nome || item.patient_name || 'Paciente'}</div>
+                <div style="font-size:11px; color:#64748b; margin-top:4px;">Contacto: ${item.paciente?.telefone || 'Não informado'}</div>
+              </div>
+              <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+                <div style="font-size:10.5px; font-weight:700; color:#0284c7; text-transform:uppercase; margin-bottom:8px; border-bottom:1px solid #e2e8f0; padding-bottom:4px;">
+                  Profissional de Saúde Responsável
+                </div>
+                <div style="font-size:13px; font-weight:700; color:#0f172a;">Dr(a). ${profile?.nome || 'Dentista'}</div>
+                <div style="font-size:11px; color:#64748b; margin-top:4px;">Corpo Clínico Odontológico &bull; TeOdonto Angola</div>
+              </div>
             </div>
-            
-            <div style="margin-bottom:30px;">
-              <h3 style="font-size:12px; text-transform:uppercase; color:#94a3b8; margin-bottom:10px;">Detalhes do Pagamento</h3>
-              <p style="margin:4px 0; color:#1e293b;">Procedimento: ${item.tipo || 'Consulta'}</p>
-              <p style="margin:4px 0; color:#1e293b;">Valor Total: ${formatCurrency(PRECO_POR_TIPO[item.tipo || 'consulta'] || 0)}</p>
-              <p style="margin:4px 0; color:#16a34a; font-weight:bold;">Valor Pago: ${formatCurrency(item.valor_pago || 0)}</p>
-              <p style="margin:4px 0; color:#dc2626;">Dívida Restante: ${formatCurrency((PRECO_POR_TIPO[item.tipo || 'consulta'] || 0) - (item.valor_pago || 0))}</p>
+
+            <table style="width:100%; border-collapse:collapse; margin-bottom:24px; font-size:11px;">
+              <thead>
+                <tr style="background:#0284c7; color:#ffffff;">
+                  <th style="padding:10px 12px; text-align:left; font-size:10.5px;">Descrição do Procedimento / Consulta</th>
+                  <th style="padding:10px 12px; text-align:right; font-size:10.5px; width:130px;">Valor Total</th>
+                  <th style="padding:10px 12px; text-align:right; font-size:10.5px; width:130px;">Valor Liquidado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="padding:14px 12px; border-bottom:1px solid #e2e8f0;">
+                    <div style="font-weight:700; color:#0f172a; font-size:12px;">${TIPOS_CONSULTA[item.tipo]?.label || item.tipo || 'Consulta Odontológica'}</div>
+                    <div style="font-size:10.5px; color:#64748b; margin-top:2px;">Atendimento em ${formatDate(item.appointment_date, 'dd/MM/yyyy')} às ${item.appointment_time || '--:--'}</div>
+                  </td>
+                  <td style="padding:14px 12px; border-bottom:1px solid #e2e8f0; text-align:right; font-weight:700;">
+                    ${formatCurrency(precoProcedimento)}
+                  </td>
+                  <td style="padding:14px 12px; border-bottom:1px solid #e2e8f0; text-align:right; font-weight:700; color:#16a34a; font-size:12px;">
+                    ${formatCurrency(pago)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div style="display:flex; justify-content:flex-end; margin-bottom:40px;">
+              <div style="width:280px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:14px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:11px;">
+                  <span style="color:#64748b;">Total do Serviço:</span>
+                  <span style="font-weight:700; color:#0f172a;">${formatCurrency(precoProcedimento)}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:11px;">
+                  <span style="color:#16a34a; font-weight:600;">Total Pago:</span>
+                  <span style="font-weight:700; color:#16a34a;">${formatCurrency(pago)}</span>
+                </div>
+                ${restante > 0 ? `
+                  <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:11px;">
+                    <span style="color:#dc2626; font-weight:600;">Saldo Pendente:</span>
+                    <span style="font-weight:700; color:#dc2626;">${formatCurrency(restante)}</span>
+                  </div>
+                ` : ''}
+                <div style="border-top:2px solid #0284c7; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
+                  <span style="font-size:10px; font-weight:700; text-transform:uppercase; color:#0f172a;">Estado:</span>
+                  <span style="font-size:10.5px; font-weight:800; color:${restante <= 0 ? '#16a34a' : '#d97706'};">
+                    ${restante <= 0 ? 'LIQUIDADO' : 'PARCIALMENTE PAGO'}
+                  </span>
+                </div>
+              </div>
             </div>
-            
-            <div style="margin-top:60px; padding-top:20px; border-top:1px solid #f1f5f9; text-align:center; color:#94a3b8; font-size:12px;">
-              <p>Recibo emitido em ${formatDate(new Date().toISOString(), "dd/MM/yyyy 'às' HH:mm")}</p>
-              <p>Obrigado por confiar no Sorriso Digital.</p>
+
+            <div style="display:flex; justify-content:space-between; gap:40px; margin-top:50px; page-break-inside:avoid;">
+              <div style="flex:1; text-align:center;">
+                <div style="border-top:1px solid #475569; margin-bottom:4px; padding-top:4px; font-weight:700; font-size:10.5px;">
+                  Assinatura do Paciente / Responsável
+                </div>
+                <div style="font-size:9.5px; color:#64748b;">Declaro ter recebido os serviços discriminados</div>
+              </div>
+              <div style="flex:1; text-align:center;">
+                <div style="border-top:1px solid #475569; margin-bottom:4px; padding-top:4px; font-weight:700; font-size:10.5px;">
+                  Assinatura / Carimbo do Caixa
+                </div>
+                <div style="font-size:9.5px; color:#64748b;">TeOdonto Angola &bull; Departamento Financeiro</div>
+              </div>
+            </div>
+
+            <div style="margin-top:36px; text-align:center; color:#94a3b8; font-size:9.5px; border-top:1px solid #e2e8f0; padding-top:8px;">
+              Agradecemos a sua preferência &bull; TeOdonto Angola &bull; O seu sorriso em primeiro lugar
             </div>
           </div>
         `;
