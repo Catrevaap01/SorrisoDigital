@@ -384,7 +384,14 @@ const AdminReportsScreen: React.FC = () => {
           {tabAtiva === 'geral' && (
             <View style={styles.sectionWrap}>
               {/* Banner Rápido de PDF Geral */}
-              <View style={styles.bannerPdf}>
+              <TouchableOpacity
+                style={styles.bannerPdf}
+                onPress={handleExportarGeral}
+                disabled={loadingPdf === 'geral'}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Exportar Relatório Geral Consolidado em PDF"
+              >
                 <View style={styles.bannerPdfContent}>
                   <View style={styles.bannerIconCircle}>
                     <Ionicons name="document-text" size={26} color="#1E88E5" />
@@ -392,25 +399,22 @@ const AdminReportsScreen: React.FC = () => {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.bannerPdfTitle}>Relatório Geral Consolidado</Text>
                     <Text style={styles.bannerPdfSubtitle}>
-                      Gere o relatório completo em PDF pronto para auditoria e arquivo.
+                      Toque para gerar e descarregar o relatório oficial em PDF pronto para auditoria.
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity
-                  style={styles.bannerPdfBtn}
-                  onPress={handleExportarGeral}
-                  disabled={loadingPdf === 'geral'}
-                >
+
+                <View style={styles.bannerPdfBtn}>
                   {loadingPdf === 'geral' ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
                     <>
                       <Ionicons name="print-outline" size={18} color="#fff" />
-                      <Text style={styles.bannerPdfBtnText}>Exportar PDF Geral</Text>
+                      <Text style={styles.bannerPdfBtnText}>Exportar Relatório em PDF</Text>
                     </>
                   )}
-                </TouchableOpacity>
-              </View>
+                </View>
+              </TouchableOpacity>
 
               {/* Grid de Cartões de Métricas Principais */}
               <Text style={styles.groupHeader}>Indicadores de Comunidade & Cadastros</Text>
