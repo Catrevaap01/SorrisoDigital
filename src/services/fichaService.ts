@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { PacienteProfile } from './pacienteService';
-import { formatDateTime } from '../utils/helpers';
+import { formatDateTime, formatDate } from '../utils/helpers';
 
 const APP_URL = Constants.expoConfig?.extra?.APP_URL || 'https://teodontoangola.vercel.app';
 
@@ -23,11 +23,11 @@ export const gerarFichaCadastroHTML = async (
     minute: '2-digit'
   });
 
-  // ✅ QR points to Login with auto-fill params for "permitir ter acesso ao ler o qr"
-  const qrContent = `${APP_URL}/login?email=${encodeURIComponent(tempEmail)}&password=${encodeURIComponent(tempPassword)}`;
+  // ✅ QR points exactly to the Expo app installation link (Lido dinamicamente do app.json)
+  const qrContent = Constants.expoConfig?.extra?.APK_DOWNLOAD_URL || 'https://expo.dev/@antoniotati/TeOdontoAngola';
   
-  // Use Google Charts for reliable QR image in PDF
-  const qrDataUri = `https://chart.googleapis.com/chart?chs=250x250&cht=qr&chl=${encodeURIComponent(qrContent)}&choe=UTF-8&chld=M|2`;
+  // Use api.qrserver.com for reliable QR image rendering in PDF
+  const qrDataUri = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(qrContent)}`;
 
   return `
 <!DOCTYPE html>
@@ -246,7 +246,7 @@ export const gerarFichaCadastroHTML = async (
       ${paciente.data_nascimento ? `
       <div class="info-item">
         <span class="info-label">Data Nascimento</span>
-        <span class="info-value">${formatDateTime(paciente.data_nascimento)}</span>
+        <span class="info-value">${formatDate(paciente.data_nascimento)}</span>
       </div>` : ''}
       ${paciente.genero ? `
       <div class="info-item">

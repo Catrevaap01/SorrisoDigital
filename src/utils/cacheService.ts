@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { logger } from './logger';
+import { isNetworkOffline } from './networkUtils';
 
 const CACHE_PREFIX = '@teodonto_cache_';
 const CACHE_EXPIRATION_MS = 1000 * 60 * 60 * 24; // 24 hours
@@ -19,7 +20,7 @@ export const fetchWithCache = async <T>(
 
   try {
     const netState = await NetInfo.fetch();
-    const isOffline = !netState.isConnected || !netState.isInternetReachable;
+    const isOffline = isNetworkOffline(netState);
 
     // Se estiver offline ou não forçar refresh, tenta pegar do cache primeiro
     if (isOffline || !forceRefresh) {

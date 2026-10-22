@@ -1,81 +1,126 @@
 /**
  * Auth Context
- * Gerencia o estado de autenticação global da aplicação
+ * Gere o estado de autenticação global da aplicação.
+ * Responsável por: login, logout, registo, MFA, sessão única e inactividade.
  */
 
+// Importações de React e hooks necessários
 import React, { createContext, useState, useContext, useEffect, useRef, useCallback, ReactNode } from 'react';
+// Platform: detecta web/iOS/Android; AppState: detecta foreground/background no mobile
 import { Platform, AppState } from 'react-native';
+// Constants: acede às variáveis do app.json/app.config.js
 import Constants from 'expo-constants';
+// Tipos do Supabase
 import { SupabaseClient } from '@supabase/supabase-js';
 import { User } from '@supabase/supabase-js';
+// Armazenamento local compatível com web e mobile
 import { universalStorage } from '../utils/storage';
+// Cliente Supabase e utilitários de configuração
 import { supabase, PROFILE_SCHEMA_FEATURES, SUPABASE_URL, getAdminClient } from '../config/supabase';
+// Sistema de notificações visuais temporárias
 import Toast from 'react-native-toast-message';
+// Utilitário de logging estruturado
 import { logger } from '../utils/logger';
+// Executa uma Promise com timeout máximo
 import { withTimeout } from '../utils/withTimeout';
 import { handleError, HandledError } from '../utils/errorHandler';
+// Serviço de verificação em duas etapas via WhatsApp
+import {
+  generateAndSendWhatsAppOtp,
+  resendWhatsAppOtp,
+  verifyWhatsAppOtp,
+} from '../services/whatsappMfaService';
 
+// Tempo máximo para o arranque da autenticação (10 segundos)
 const AUTH_BOOT_TIMEOUT_MS = 10000;
+// Tempo máximo para verificar se o Supabase está acessível (5 segundos)
 const AUTH_NETWORK_TIMEOUT_MS = 5000;
-const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000; // Alterado para 2 minutos conforme (2,M?)
+// Tempo de inactividade antes do logout automático (2 minutos)
+const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000;
 
+// ── Interface de perfil do utilizador ──────────────────────────────────────
 export interface UserProfile {
-  id: string;
-  email?: string;
-  nome?: string;
-  tipo?: 'paciente' | 'dentista' | 'medico' | 'admin' | 'secretario';
-  telefone?: string;
-  provincia?: string;
-  provincia_id?: number;
+  id: string;              // ID único do utilizador (UUID do Supabase)
+  email?: string;          // Email de autenticação
+  nome?: string;           // Nome completo
+  tipo?: 'paciente' | 'dentista' | 'medico' | 'admin' | 'secretario'; // Tipo de conta
+  telefone?: string;       // Número de telefone
+  provincia?: string;      // Nome da província (Angola)
+  provincia_id?: number;   // ID numérico da província na tabela 'provincias'
   // Campos adicionais usados para dentistas
-  crm?: string;
-  numero_registro?: string;
-  especialidade?: string;
-  foto_url?: string;
-  senha_alterada?: boolean;
-  created_at?: string;
-  updated_at?: string;
-  [key: string]: any;
+  crm?: string;            // Número CRM do dentista
+  numero_registro?: string;// Número de registo profissional
+  especialidade?: string;  // Especialidade odontológica
+  foto_url?: string;       // URL da foto de perfil
+  senha_alterada?: boolean;// Indica se o utilizador já alterou a senha padrão
+  created_at?: string;     // Data de criação da conta (ISO 8601)
+  updated_at?: string;     // Data da última actualização do perfil (ISO 8601)
+  [key: string]: any;      // Permite campos extras sem quebrar tipagem
 }
 
+// ── Estado do desafio MFA em progresso ─────────────────────────────────────
+export interface MfaChallengeState {
+  factorId: string;              // ID do factor MFA (TOTP ou 'whatsapp')
+  challengeId: string;           // ID do desafio gerado pelo Supabase ou WhatsApp
+  friendlyName?: string | null;  // Nome amigável do dispositivo autenticador
+  factorType?: string;           // Tipo de factor (ex: 'totp', 'whatsapp')
+  userId?: string;               // ID do utilizador no Supabase
+  phone?: string;                // Telefone de envio do WhatsApp
+  nome?: string;                 // Nome do utilizador
+}
+
+// ── Interface pública do contexto de autenticação ──────────────────────────
 export interface AuthContextValue {
-  user: User | null;
-  profile: UserProfile | null;
-  loading: boolean;
-  initializing: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; data?: any; error?: HandledError }>;
-  signIn: (email: string, password: string) => Promise<{ success: boolean; data?: any; error?: HandledError }>;
-  signUp: (email: string, password: string, userData: Omit<UserProfile, 'id' | 'email'>) => Promise<{ success: boolean; data?: any; error?: HandledError }>;
-  signOut: () => Promise<void>;
-  updateProfile: (updates: Partial<UserProfile>) => Promise<{ success: boolean; data?: UserProfile; error?: HandledError }>;
-  refreshProfile: () => Promise<UserProfile | null>;
+  user: User | null;                     // Utilizador autenticado (null se não logado)
+  profile: UserProfile | null;           // Perfil completo do utilizador
+  loading: boolean;                      // Indica operação em curso
+  initializing: boolean;                 // Indica arranque inicial da app
+  pendingMfa: MfaChallengeState | null;  // Desafio MFA em espera (null se não aplicável)
+  login: (email: string, password: string) => Promise<{ success: boolean; data?: any; error?: HandledError }>; // Alias de signIn
+  signIn: (email: string, password: string) => Promise<{ success: boolean; data?: any; error?: HandledError }>; // Fazer login
+  verifyMfaCode: (code: string) => Promise<{ success: boolean; data?: any; error?: HandledError }>; // Verificar código MFA
+  cancelMfaChallenge: () => Promise<void>;  // Cancelar desafio MFA em curso
+  resendWhatsAppMfa: () => Promise<{ success: boolean; error?: string }>; // Reenviar código WhatsApp
+  signUp: (email: string, password: string, userData: Omit<UserProfile, 'id' | 'email'>) => Promise<{ success: boolean; data?: any; error?: HandledError }>; // Registar novo utilizador
+  signOut: () => Promise<void>;             // Fazer logout
+  updateProfile: (updates: Partial<UserProfile>) => Promise<{ success: boolean; data?: UserProfile; error?: HandledError }>; // Actualizar perfil
+  refreshProfile: () => Promise<UserProfile | null>; // Recarregar perfil da BD
 }
 
+// Cria o contexto React com valor inicial undefined (obriga a usar AuthProvider)
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+// Hook personalizado para aceder ao contexto de autenticação em qualquer componente
 export const useAuth = (): AuthContextValue => {
   const context = useContext(AuthContext);
+  // Garante que o hook só é usado dentro do AuthProvider
   if (!context) {
     throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
 };
 
+// Props do componente AuthProvider
 interface AuthProviderProps {
-  children: ReactNode;
+  children: ReactNode; // Componentes filhos que terão acesso ao contexto
 }
 
+// Componente Provider: envolve a aplicação e fornece o estado de autenticação
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [initializing, setInitializing] = useState<boolean>(true);
-  const [isSigningIn, setIsSigningInState] = useState<boolean>(false);
-  const [lastLoginTime, setLastLoginTimeState] = useState<number>(0);
+  const [user, setUser] = useState<User | null>(null);           // Utilizador Supabase
+  const [profile, setProfile] = useState<UserProfile | null>(null); // Perfil da BD
+  const [loading, setLoading] = useState<boolean>(true);         // Operação em curso
+  const [initializing, setInitializing] = useState<boolean>(true); // Arranque inicial
+  const [isSigningIn, setIsSigningInState] = useState<boolean>(false); // A fazer login
+  const [lastLoginTime, setLastLoginTimeState] = useState<number>(0);  // Timestamp do último login
+  const [pendingMfa, setPendingMfaState] = useState<MfaChallengeState | null>(null); // MFA pendente
 
-  // Refs para evitar problemas de closure no onAuthStateChange/fetchProfile
-  const isSigningInRef = React.useRef(false);
-  const lastLoginTimeRef = React.useRef(0);
+  // Refs: mantêm referências mutáveis sem causar re-renders desnecessários
+  // Necessários porque os callbacks do Supabase capturam o valor no momento da criação (closure)
+  const isSigningInRef = React.useRef(false);                        // Ref de isSigningIn
+  const lastLoginTimeRef = React.useRef(0);                          // Ref do lastLoginTime
+  const pendingMfaRef = React.useRef<MfaChallengeState | null>(null); // Ref do pendingMfa
+  const awaitingMfaDecisionRef = React.useRef(false);              // Aguarda decisão MFA
 
   const setIsSigningIn = (val: boolean) => {
     isSigningInRef.current = val;
@@ -87,11 +132,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setLastLoginTimeState(val);
   };
 
+  const setPendingMfa = (value: MfaChallengeState | null) => {
+    pendingMfaRef.current = value;
+    setPendingMfaState(value);
+  };
+
   // ═══════════════════════════════════════════════════════════
   // TAB/INSTANCE SESSION IDENTIFIER
   // Unique per tab on Web (sessionStorage), persistent per app on Mobile.
   // ═══════════════════════════════════════════════════════════
   const [tabInstanceId, setTabInstanceId] = useState<string | null>(null);
+
+  const getPrimaryVerifiedMfaFactor = async (): Promise<any | null> => {
+    const { data, error } = await supabase.auth.mfa.listFactors();
+    if (error) throw error;
+
+    const totpFactors = (data?.totp || []).filter((factor: any) => factor.status === 'verified');
+    if (totpFactors.length > 0) return totpFactors[0];
+
+    const verifiedFactors = (data?.all || []).filter((factor: any) => factor.status === 'verified');
+    return verifiedFactors[0] || null;
+  };
 
   useEffect(() => {
     const initTabId = async () => {
@@ -155,6 +216,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
 
 
+  // Detecta se um erro é causado por políticas RLS (Row Level Security) do Supabase
+  // Código 42501 = permissão negada no PostgreSQL
   const isRowLevelSecurityError = (error: any): boolean => {
     const msg = String(error?.message || '').toLowerCase();
     return (
@@ -164,6 +227,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     );
   };
 
+  // Obtém o cliente admin (sem RLS) para operações privilegiadas
   const getAdminClientFromContext = () => getAdminClient();
 
   const checkSupabaseReachable = async (): Promise<boolean> => {
@@ -185,7 +249,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         },
       });
 
-      return response.ok;
+      // Alguns projetos Supabase respondem 401/403 no /auth/v1/health quando
+      // a chave nao chega no preflight web, mas isso ainda confirma rede/host.
+      return response.ok || response.status === 401 || response.status === 403;
     } catch (error) {
       logger.warn('Supabase indisponivel na verificacao de conectividade:', error);
       return false;
@@ -370,6 +436,122 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const generateSessionId = () => `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
+  const beginMfaChallengeIfRequired = async (authUser: User): Promise<boolean> => {
+    const factor = await getPrimaryVerifiedMfaFactor();
+    if (!factor?.id) return false;
+
+    const { data: aalData, error: aalError } =
+      await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aalError) throw aalError;
+
+    if (aalData?.currentLevel === 'aal2') return false;
+
+    const { data: challengeData, error: challengeError } = await supabase.auth.mfa.challenge({
+      factorId: factor.id,
+    });
+    if (challengeError) throw challengeError;
+
+    setUser(null);
+    setProfile(null);
+    setPendingMfa({
+      factorId: factor.id,
+      challengeId: challengeData.id,
+      friendlyName: factor.friendly_name || factor.factor_type || 'Autenticador',
+      factorType: factor.factor_type,
+    });
+
+    Toast.show({
+      type: 'info',
+      text1: 'Verificacao em duas etapas',
+      text2: `Introduza o codigo do autenticador para ${authUser.email || 'esta conta'}.`,
+      visibilityTime: 5000,
+    });
+
+    return true;
+  };
+
+  const finalizeAuthenticatedSession = async (authUser: User): Promise<void> => {
+    console.log(`ðŸ” Login: Authenticated ${authUser.email} (${authUser.id})`);
+
+    const newSessionId = tabInstanceId || generateSessionId();
+    console.log(`ðŸ“¡ Login: Using Session ID: ${newSessionId}`);
+
+    if (Platform.OS === 'web' && newSessionId) {
+      localStorage.setItem(LATEST_SESSION_KEY, newSessionId);
+      console.log('âœ… [SESS-10MS] Local storage updated for instant tab expulsion.');
+    }
+
+    console.log('ðŸ“¡ Login: Invaliding other sessions (non-blocking)...');
+    void supabase.auth.signOut({ scope: 'others' }).catch(err => {
+      console.warn('âš ï¸ Login: signOut(others) failed (ignoring):', err);
+    });
+    console.log(`ðŸ“¡ Login: Proceeding with update for session: ${newSessionId}`);
+
+    const runSessionUpdate = async () => {
+      try {
+        let res = await withTimeout(
+          supabase
+            .from('profiles')
+            .update({ last_session_id: newSessionId })
+            .eq('id', authUser.id),
+          10000
+        );
+
+        if (res.error && isRowLevelSecurityError(res.error)) {
+          console.warn('âš ï¸ Login: RLS error on session update, trying admin fallback...');
+          const admin = getAdminClient();
+          if (admin) {
+            res = await withTimeout(
+              admin
+                .from('profiles')
+                .update({ last_session_id: newSessionId })
+                .eq('id', authUser.id),
+              10000
+            );
+          }
+        }
+        return res;
+      } catch (updateErr) {
+        console.error('âŒ Login: Session update timed out or crashed:', updateErr);
+        return { error: updateErr };
+      }
+    };
+
+    const updateResult = (await runSessionUpdate()) as any;
+    if (updateResult.error) {
+      if (updateResult.error.code === 'PGRST204' || String(updateResult.error.message).includes('column "last_session_id" does not exist')) {
+        console.error('âŒ [SESS-ERROR] A coluna "last_session_id" nÃ£o existe na tabela "profiles". ERRO CRÃTICO!');
+        console.error('ðŸ‘‰ Por favor, execute o script em docs/SUPABASE_ADD_SESSION_TRACKING.sql no painel do Supabase.');
+      } else {
+        console.error('âŒ [SESS-ERROR] Erro ao atualizar sessÃ£o no DB:', updateResult.error);
+      }
+    } else {
+      console.log(`âœ… [SESS-ASYNC] Session ID [${tabInstanceId}] synchronized with DB.`);
+      console.log(`ðŸ“¡ [SESS-SYNC] Broadcasting shift across devices...`);
+      const channel = supabase.channel(`session-guard-${authUser.id}`, {
+        config: { broadcast: { self: false } }
+      });
+
+      channel.subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          setTimeout(async () => {
+            await channel.send({
+              type: 'broadcast',
+              event: 'SESSION_CHANGE',
+              payload: { sessionId: newSessionId },
+            });
+            console.log('âœ… [SESS-3] Cross-device broadcast sent.');
+            setTimeout(() => supabase.removeChannel(channel), 1000);
+          }, 50);
+        }
+      });
+    }
+
+    setPendingMfa(null);
+    setUser(authUser);
+    await fetchProfile(authUser.id);
+  };
+
   const handleForceLogout = async (userId: string, message: string) => {
     setUser(null);
     setProfile(null);
@@ -517,7 +699,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (session?.user) {
           console.log(`📡 Bootstrap: Recovered session for ${session.user.id}.`);
           setLastLoginTime(Date.now()); // Inicializa tempo no boot
-          void fetchProfile(session.user.id).finally(() => {
+          void (async () => {
+            const requiresMfa = await beginMfaChallengeIfRequired(session.user);
+            if (!requiresMfa) {
+              setUser(session.user);
+              await fetchProfile(session.user.id);
+            }
+          })().finally(() => {
             releaseBootstrap();
           });
           return;
@@ -533,6 +721,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Escutar mudanças de estado de autenticação
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (session?.user && (awaitingMfaDecisionRef.current || pendingMfaRef.current)) {
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        // ── MFA AAL CHECK on TOKEN_REFRESHED ────────────────────
+        // When a token is refreshed, verify that users with MFA
+        // enrolled still have aal2. If not, force re-challenge.
+        if (event === 'TOKEN_REFRESHED' && session?.user) {
+          try {
+            const factor = await getPrimaryVerifiedMfaFactor();
+            if (factor?.id) {
+              const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+              if (aalData?.currentLevel !== 'aal2') {
+                logger.warn('TOKEN_REFRESHED: MFA factor exists but AAL is not aal2. Forcing re-challenge.');
+                const mfaRequired = await beginMfaChallengeIfRequired(session.user);
+                if (mfaRequired) {
+                  setLoading(false);
+                  return; // Block — user must verify MFA again
+                }
+              }
+            }
+          } catch (mfaCheckErr) {
+            logger.warn('TOKEN_REFRESHED: MFA AAL check failed (non-blocking):', mfaCheckErr);
+          }
+        }
+        // ── End MFA AAL CHECK ───────────────────────────────────
+
         setUser(session?.user ?? null);
 
         if (session?.user) {
@@ -791,6 +1009,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setLoading(true);
       setIsSigningIn(true);
+      awaitingMfaDecisionRef.current = true;
       setLastLoginTime(Date.now());
       const isReachable = await checkSupabaseReachable();
       if (!isReachable) {
@@ -809,95 +1028,73 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (error) throw error;
 
       if (data.user) {
-        console.log(`🔐 Login: Authenticated ${data.user.email} (${data.user.id})`);
+        // 1. Verificar se o perfil pertence a Admin, Secretário ou Dentista para 2FA
+        let isStaffRole = false;
+        try {
+          const { data: profData } = await supabase
+            .from('profiles')
+            .select('id, nome, telefone, two_step_enabled, tipo')
+            .eq('id', data.user.id)
+            .maybeSingle();
 
-        // Registrar nova sessao baseada na ID desta tab/instancia
-        const newSessionId = tabInstanceId || generateSessionId();
-        console.log(`📡 Login: Using Session ID: ${newSessionId}`);
+          const userType = (profData?.tipo || '').toLowerCase();
+          // Verificação de duas etapas exclusiva para admin, secretário e dentista
+          isStaffRole = ['admin', 'secretario', 'secretaria', 'dentista', 'medico'].includes(userType);
 
-        // OTIMIZAÇÃO 10MS: Notificar outras abas IMEDIATAMENTE (antes do DB)
-        if (Platform.OS === 'web' && newSessionId) {
-          localStorage.setItem(LATEST_SESSION_KEY, newSessionId);
-          console.log('✅ [SESS-10MS] Local storage updated for instant tab expulsion.');
+          if (isStaffRole && profData?.two_step_enabled && profData?.telefone) {
+            console.log(`📱 2FA WhatsApp exclusivo para staff (${userType}): Iniciando desafio para ${profData.telefone}`);
+            await generateAndSendWhatsAppOtp({
+              userId: data.user.id,
+              nome: profData.nome || 'Utilizador',
+              telefone: profData.telefone,
+            });
+
+            setUser(null);
+            setProfile(null);
+            setPendingMfa({
+              factorId: 'whatsapp',
+              challengeId: `wa-${Date.now()}`,
+              friendlyName: `WhatsApp (${profData.telefone})`,
+              factorType: 'whatsapp',
+              userId: data.user.id,
+              phone: profData.telefone,
+              nome: profData.nome || 'Utilizador',
+            });
+
+            awaitingMfaDecisionRef.current = false;
+            Toast.show({
+              type: 'info',
+              text1: 'Verificação em Duas Etapas',
+              text2: `Código de segurança enviado para o seu WhatsApp (${profData.telefone}).`,
+              visibilityTime: 6000,
+            });
+
+            return { success: true, data: { ...data, mfaRequired: true } };
+          }
+        } catch (mfaCheckErr) {
+          logger.warn('Aviso ao verificar 2FA WhatsApp do perfil:', mfaCheckErr);
         }
 
-        // Encerra outras sessoes no Supabase Auth (Não bloqueante)
-        console.log('📡 Login: Invaliding other sessions (non-blocking)...');
-        void supabase.auth.signOut({ scope: 'others' }).catch(err => {
-          console.warn('⚠️ Login: signOut(others) failed (ignoring):', err);
-        });
-        // Já registramos newSessionId acima para otimização 10ms
-        console.log(`📡 Login: Proceeding with update for session: ${newSessionId}`);
-
-        const runSessionUpdate = async () => {
-          try {
-            let res = await withTimeout(
-              supabase
-                .from('profiles')
-                .update({ last_session_id: newSessionId })
-                .eq('id', data.user.id),
-              10000 // 10s timeout for profile update
-            );
-
-            if (res.error && isRowLevelSecurityError(res.error)) {
-              console.warn('⚠️ Login: RLS error on session update, trying admin fallback...');
-              const admin = getAdminClient(); // Use common helper
-              if (admin) {
-                res = await withTimeout(
-                  admin
-                    .from('profiles')
-                    .update({ last_session_id: newSessionId })
-                    .eq('id', data.user.id),
-                  10000
-                );
-              }
-            }
-            return res;
-          } catch (updateErr) {
-            console.error('❌ Login: Session update timed out or crashed:', updateErr);
-            return { error: updateErr };
+        // 2. Apenas se for Staff (admin, secretario, dentista) e tiver TOTP configurado
+        if (isStaffRole) {
+          const requiresMfa = await beginMfaChallengeIfRequired(data.user);
+          if (requiresMfa) {
+            awaitingMfaDecisionRef.current = false;
+            logger.info('Login aguardando verificacao MFA');
+            return { success: true, data: { ...data, mfaRequired: true } };
           }
-        };
-
-        const updateResult = (await runSessionUpdate()) as any;
-        if (updateResult.error) {
-          // CHECK IF COLUMN MISSING
-          if (updateResult.error.code === 'PGRST204' || String(updateResult.error.message).includes('column "last_session_id" does not exist')) {
-            console.error('❌ [SESS-ERROR] A coluna "last_session_id" não existe na tabela "profiles". ERRO CRÍTICO!');
-            console.error('👉 Por favor, execute o script em docs/SUPABASE_ADD_SESSION_TRACKING.sql no painel do Supabase.');
-          } else {
-            console.error('❌ [SESS-ERROR] Erro ao atualizar sessão no DB:', updateResult.error);
-          }
-        } else {
-          console.log(`✅ [SESS-ASYNC] Session ID [${tabInstanceId}] synchronized with DB.`);
-
-          // BROADCAST IMEDIATO para outros dispositivos (Mobile/Crosbrowse)
-          console.log(`📡 [SESS-SYNC] Broadcasting shift across devices...`);
-          const channel = supabase.channel(`session-guard-${data.user.id}`, {
-            config: { broadcast: { self: false } }
-          });
-
-          channel.subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-              // Mínimo delay para garantir recepção em outros dispositivos
-              setTimeout(async () => {
-                await channel.send({
-                  type: 'broadcast',
-                  event: 'SESSION_CHANGE',
-                  payload: { sessionId: newSessionId },
-                });
-                console.log('✅ [SESS-3] Cross-device broadcast sent.');
-                // Liberar canal após envio (o listener useEffect manterá outro canal ativo)
-                setTimeout(() => supabase.removeChannel(channel), 1000);
-              }, 50);
-            }
-          });
         }
+
+        awaitingMfaDecisionRef.current = false;
+        await finalizeAuthenticatedSession(data.user);
+        logger.info('Utilizador fez login com sucesso');
+        return { success: true, data };
       }
 
       logger.info('Utilizador fez login com sucesso');
       return { success: true, data };
     } catch (error) {
+      awaitingMfaDecisionRef.current = false;
       let handledError = handleError(error, 'AuthProvider.signIn');
 
       const rawMessage = String((error as any)?.message || '').toLowerCase();
@@ -927,8 +1124,134 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   /**
-   * FunÃ§Ã£o de registro
+   * Função de verificação de código MFA (WhatsApp ou TOTP)
    */
+  const verifyMfaCode = async (
+    code: string
+  ): Promise<{ success: boolean; data?: any; error?: HandledError }> => {
+    const cleanCode = code.replace(/\D/g, '').trim();
+
+    try {
+      if (!pendingMfaRef.current) {
+        throw new Error('Nao existe verificacao pendente. Faca login novamente.');
+      }
+
+      if (cleanCode.length !== 6) {
+        throw new Error('Informe o codigo de 6 digitos.');
+      }
+
+      setLoading(true);
+
+      // CASO 1: Verificação via WhatsApp
+      if (pendingMfaRef.current.factorType === 'whatsapp') {
+        const userId = pendingMfaRef.current.userId;
+        if (!userId) {
+          throw new Error('Sessão expirada. Inicie sessão novamente.');
+        }
+
+        const verifyRes = await verifyWhatsAppOtp(userId, cleanCode);
+        if (!verifyRes.success) {
+          throw new Error(verifyRes.error || 'Código incorreto ou expirado. Verifique o seu WhatsApp.');
+        }
+
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData?.user) {
+          throw new Error('Sessao nao encontrada apos validar codigo WhatsApp.');
+        }
+
+        await finalizeAuthenticatedSession(userData.user);
+        setPendingMfa(null);
+
+        Toast.show({
+          type: 'success',
+          text1: 'Acesso Autorizado',
+          text2: 'Identidade verificada com sucesso via WhatsApp.',
+        });
+
+        logger.info('MFA WhatsApp validado com sucesso');
+        return { success: true, data: userData };
+      }
+
+      // CASO 2: Verificação via Supabase Auth TOTP
+      const { data, error } = await supabase.auth.mfa.verify({
+        factorId: pendingMfaRef.current.factorId,
+        challengeId: pendingMfaRef.current.challengeId,
+        code: cleanCode,
+      });
+
+      if (error) throw error;
+
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!userData.user) throw new Error('Sessao nao encontrada apos validar MFA.');
+
+      await finalizeAuthenticatedSession(userData.user);
+      setPendingMfa(null);
+
+      Toast.show({
+        type: 'success',
+        text1: 'Verificacao concluida',
+        text2: 'Sessao protegida por MFA.',
+      });
+
+      logger.info('MFA validado com sucesso');
+      return { success: true, data };
+    } catch (error) {
+      const handledError = handleError(error, 'AuthProvider.verifyMfaCode');
+      Toast.show({
+        type: 'error',
+        text1: 'Codigo invalido',
+        text2: handledError.message,
+      });
+      logger.error('Erro ao validar MFA:', handledError);
+      return { success: false, error: handledError };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Reenvia o código de verificação para o WhatsApp
+   */
+  const resendWhatsAppMfa = async (): Promise<{ success: boolean; error?: string }> => {
+    if (!pendingMfaRef.current || pendingMfaRef.current.factorType !== 'whatsapp') {
+      return { success: false, error: 'Nenhum desafio WhatsApp pendente.' };
+    }
+    const { userId, nome, phone } = pendingMfaRef.current;
+    if (!userId || !phone) {
+      return { success: false, error: 'Dados incompletos para reenvio.' };
+    }
+
+    const res = await resendWhatsAppOtp(userId, nome || 'Utilizador', phone);
+    if (res.success) {
+      Toast.show({
+        type: 'success',
+        text1: 'Código reenviado',
+        text2: `Mensagem WhatsApp aberta para o número ${phone}.`,
+      });
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Erro ao reenviar',
+        text2: res.error || 'Não foi possível contactar o WhatsApp.',
+      });
+    }
+    return res;
+  };
+
+  const cancelMfaChallenge = async (): Promise<void> => {
+    setPendingMfa(null);
+    awaitingMfaDecisionRef.current = false;
+    setUser(null);
+    setProfile(null);
+
+    try {
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (error) {
+      logger.warn('Falha ao cancelar MFA com logout local:', error);
+    }
+  };
+
   const signUp = async (
     email: string,
     password: string,
@@ -960,12 +1283,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const signUpSessionId = generateSessionId();
         await universalStorage.setItem(`last_session_id_${data.user.id}`, signUpSessionId);
 
+        // senha_alterada: false → força mudança de senha no onboarding
+        // Propaga apenas se o caller definiu explicitamente o valor
         const profileUpdates = Object.fromEntries(
           Object.entries({
             telefone: userData.telefone,
             provincia: PROFILE_SCHEMA_FEATURES.hasProvincia ? userData.provincia : undefined,
             provincia_id: PROFILE_SCHEMA_FEATURES.usesProvinciaId ? provinciaId : undefined,
             last_session_id: signUpSessionId,
+            ...(userData.senha_alterada !== undefined
+              ? { senha_alterada: userData.senha_alterada }
+              : {}),
           }).filter(([, value]) => value !== undefined)
         );
 
@@ -975,7 +1303,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           .eq('id', data.user.id);
 
         if (profileError) {
-          logger.warn('Erro ao atualizar perfil apÃ³s signup:', profileError);
+          logger.warn('Erro ao atualizar perfil após signup:', profileError);
         }
       }
 
@@ -1033,6 +1361,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       setUser(null);
       setProfile(null);
+      setPendingMfa(null);
 
       Toast.show({
         type: 'success',
@@ -1195,19 +1524,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return null;
   };
 
+  // Objecto com todos os valores e funções expostos pelo contexto
   const value: AuthContextValue = {
-    user,
-    profile,
-    loading,
-    initializing,
-    login: signIn, // Alias para signIn
-    signIn,
-    signUp,
-    signOut,
-    updateProfile,
-    refreshProfile,
+    user,               // Utilizador autenticado
+    profile,            // Perfil completo
+    loading,            // Estado de carregamento
+    initializing,       // Estado de arranque
+    pendingMfa,         // Desafio MFA pendente
+    login: signIn,      // Alias de signIn (compatibilidade)
+    signIn,             // Função de login
+    verifyMfaCode,      // Verificação de código MFA
+    cancelMfaChallenge, // Cancelar desafio MFA
+    resendWhatsAppMfa,  // Reenviar código WhatsApp
+    signUp,             // Registo de novo utilizador
+    signOut,            // Logout
+    updateProfile,      // Actualizar dados do perfil
+    refreshProfile,     // Recarregar perfil da BD
   };
 
+  // Disponibiliza o contexto a todos os componentes filhos
   return (
     <AuthContext.Provider value={value}>
       {children}
@@ -1215,4 +1550,5 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   );
 };
 
+// Exportação por defeito do contexto (para uso avançado se necessário)
 export default AuthContext;

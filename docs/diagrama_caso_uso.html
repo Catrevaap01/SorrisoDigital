@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Diagrama de Casos de Uso — TeOdonto Angola</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d2e;
+      --surface2: #222640;
+      --border: #2e3250;
+      --accent: #5b8dee;
+      --accent2: #7c5cbf;
+      --green: #34d399;
+      --orange: #fb923c;
+      --pink: #f472b6;
+      --yellow: #fbbf24;
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 40px 24px 80px;
+    }
+
+    /* ── HEADER ────────────────────────────── */
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+    .badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #5b8dee22, #7c5cbf22);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 6px 18px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .header h1 {
+      font-size: clamp(26px, 4vw, 42px);
+      font-weight: 800;
+      background: linear-gradient(135deg, #e2e8f0, #5b8dee 60%, #7c5cbf);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.2;
+    }
+    .header p {
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 15px;
+      max-width: 620px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* ── LEGEND ────────────────────────────── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 40px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: transform 0.2s;
+    }
+    .legend-item:hover { transform: translateY(-2px); }
+    .dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── FILTER TABS ───────────────────────── */
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 32px;
+      justify-content: center;
+    }
+    .tab {
+      cursor: pointer;
+      padding: 8px 20px;
+      border-radius: 100px;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1.5px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      transition: all 0.2s;
+    }
+    .tab:hover { border-color: var(--accent); color: var(--accent); }
+    .tab.active {
+      background: linear-gradient(135deg, #5b8dee, #7c5cbf);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 4px 18px #5b8dee44;
+    }
+
+    /* ── TABLE WRAPPER ─────────────────────── */
+    .table-wrapper {
+      overflow-x: auto;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 40px #00000055;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+    }
+
+    thead tr {
+      background: var(--surface2);
+    }
+    thead th {
+      padding: 16px 20px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    thead th:first-child { border-radius: var(--radius) 0 0 0; }
+    thead th:last-child  { border-radius: 0 var(--radius) 0 0; }
+
+    tbody tr {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      transition: background 0.18s;
+    }
+    tbody tr:hover { background: var(--surface2); }
+    tbody tr.hidden { display: none; }
+
+    tbody tr:last-child { border-bottom: none; }
+
+    td {
+      padding: 14px 20px;
+      font-size: 14px;
+      vertical-align: middle;
+    }
+
+    /* UC ID */
+    .uc-id {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    /* Actor pills */
+    .actor-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 600;
+      margin: 2px 2px;
+      white-space: nowrap;
+    }
+    .actor-admin    { background: #5b8dee22; color: #5b8dee; border: 1px solid #5b8dee44; }
+    .actor-dentista { background: #34d39922; color: #34d399; border: 1px solid #34d39944; }
+    .actor-secret   { background: #fb923c22; color: #fb923c; border: 1px solid #fb923c44; }
+    .actor-paciente { background: #f472b622; color: #f472b6; border: 1px solid #f472b644; }
+    .actor-sistema  { background: #fbbf2422; color: #fbbf24; border: 1px solid #fbbf2444; }
+
+    /* Priority badge */
+    .prio {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 100px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .prio-alta   { background: #ef444422; color: #ef4444; border: 1px solid #ef444444; }
+    .prio-media  { background: #fbbf2422; color: #fbbf24; border: 1px solid #fbbf2444; }
+    .prio-baixa  { background: #34d39922; color: #34d399; border: 1px solid #34d39944; }
+
+    /* Type badge */
+    .type-tag {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 3px 9px;
+      border-radius: 6px;
+    }
+
+    /* Use case name */
+    .uc-name { font-weight: 600; color: var(--text); }
+    .uc-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* ── STATS ─────────────────────────────── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-3px); }
+    .stat-num {
+      font-size: 36px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #5b8dee, #7c5cbf);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .stat-label { font-size: 12px; color: var(--muted); margin-top: 4px; font-weight: 500; }
+
+    /* ── RELATION ROW ──────────────────────── */
+    .rel { font-size: 12px; color: var(--muted); font-style: italic; }
+
+    /* ── FOOTER ────────────────────────────── */
+    .footer {
+      margin-top: 48px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* ── SECTION DIVIDER ───────────────────── */
+    .section-row td {
+      padding: 8px 20px;
+      background: linear-gradient(90deg, #5b8dee11, transparent);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+    }
+
+    @media (max-width: 600px) {
+      body { padding: 20px 12px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="badge">📋 UML — Unified Modeling Language</div>
+  <h1>Diagrama de Casos de Uso<br/>Sistema TeOdonto Angola</h1>
+  <p>Tabela de especificação completa dos casos de uso do sistema de gestão de clínica odontológica, com actores, interacções e prioridades.</p>
+</div>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="stat-card"><div class="stat-num">5</div><div class="stat-label">Actores</div></div>
+  <div class="stat-card"><div class="stat-num">38</div><div class="stat-label">Casos de Uso</div></div>
+  <div class="stat-card"><div class="stat-num">8</div><div class="stat-label">Módulos</div></div>
+  <div class="stat-card"><div class="stat-num">3</div><div class="stat-label">Plataformas</div></div>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="legend-item"><span class="dot" style="background:#5b8dee"></span>Administrador</div>
+  <div class="legend-item"><span class="dot" style="background:#34d399"></span>Dentista</div>
+  <div class="legend-item"><span class="dot" style="background:#fb923c"></span>Secretário(a)</div>
+  <div class="legend-item"><span class="dot" style="background:#f472b6"></span>Paciente</div>
+  <div class="legend-item"><span class="dot" style="background:#fbbf24"></span>Sistema</div>
+</div>
+
+<!-- FILTER TABS -->
+<div class="tabs">
+  <button class="tab active" onclick="filter('all', this)">Todos</button>
+  <button class="tab" onclick="filter('admin', this)">Administrador</button>
+  <button class="tab" onclick="filter('dentista', this)">Dentista</button>
+  <button class="tab" onclick="filter('secretario', this)">Secretário(a)</button>
+  <button class="tab" onclick="filter('paciente', this)">Paciente</button>
+  <button class="tab" onclick="filter('alta', this)">🔴 Alta Prioridade</button>
+</div>
+
+<!-- TABLE -->
+<div class="table-wrapper">
+  <table id="uc-table">
+    <thead>
+      <tr>
+        <th>UC #</th>
+        <th>Caso de Uso</th>
+        <th>Actor(es)</th>
+        <th>Módulo</th>
+        <th>Tipo</th>
+        <th>Prioridade</th>
+        <th>Relações UML</th>
+      </tr>
+    </thead>
+    <tbody>
+
+      <!-- ═══════════════ AUTENTICAÇÃO ═══════════════ -->
+      <tr class="section-row"><td colspan="7">🔐 Módulo de Autenticação e Acesso</td></tr>
+
+      <tr data-actors="admin dentista secretario paciente" data-prio="alta">
+        <td class="uc-id">UC-01</td>
+        <td><div class="uc-name">Iniciar Sessão (Login)</div><div class="uc-desc">Autenticar com email e senha</div></td>
+        <td>
+          <span class="actor-pill actor-admin">Admin</span>
+          <span class="actor-pill actor-dentista">Dentista</span>
+          <span class="actor-pill actor-secret">Secretário</span>
+          <span class="actor-pill actor-paciente">Paciente</span>
+        </td>
+        <td>Auth</td>
+        <td><span class="type-tag">Primário</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«include» Validar Credenciais<br/>«extend» Recuperar Password</td>
+      </tr>
+
+      <tr data-actors="admin dentista secretario paciente" data-prio="alta">
+        <td class="uc-id">UC-02</td>
+        <td><div class="uc-name">Terminar Sessão (Logout)</div><div class="uc-desc">Encerrar sessão activa</div></td>
+        <td>
+          <span class="actor-pill actor-admin">Admin</span>
+          <span class="actor-pill actor-dentista">Dentista</span>
+          <span class="actor-pill actor-secret">Secretário</span>
+          <span class="actor-pill actor-paciente">Paciente</span>
+        </td>
+        <td>Auth</td>
+        <td><span class="type-tag">Primário</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">—</td>
+      </tr>
+
+      <tr data-actors="admin dentista secretario paciente" data-prio="alta">
+        <td class="uc-id">UC-03</td>
+        <td><div class="uc-name">Recuperar Password</div><div class="uc-desc">Solicitar redefinição via email/OTP</div></td>
+        <td>
+          <span class="actor-pill actor-admin">Admin</span>
+          <span class="actor-pill actor-dentista">Dentista</span>
+          <span class="actor-pill actor-secret">Secretário</span>
+          <span class="actor-pill actor-paciente">Paciente</span>
+        </td>
+        <td>Auth</td>
+        <td><span class="type-tag">Secundário</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«extend» UC-01<br/>«include» Enviar Email</td>
+      </tr>
+
+      <tr data-actors="admin dentista secretario paciente" data-prio="media">
+        <td class="uc-id">UC-04</td>
+        <td><div class="uc-name">Gerir Perfil</div><div class="uc-desc">Visualizar e actualizar dados pessoais</div></td>
+        <td>
+          <span class="actor-pill actor-admin">Admin</span>
+          <span class="actor-pill actor-dentista">Dentista</span>
+          <span class="actor-pill actor-secret">Secretário</span>
+          <span class="actor-pill actor-paciente">Paciente</span>
+        </td>
+        <td>Auth</td>
+        <td><span class="type-tag">Primário</span></td>
+        <td><span class="prio prio-media">Média</span></td>
+        <td class="rel">«extend» Alterar Password<br/>«extend» Actualizar Foto</td>
+      </tr>
+
+      <!-- ═══════════════ ADMINISTRAÇÃO ═══════════════ -->
+      <tr class="section-row"><td colspan="7">🛡️ Módulo de Administração</td></tr>
+
+      <tr data-actors="admin" data-prio="alta">
+        <td class="uc-id">UC-05</td>
+        <td><div class="uc-name">Gerir Secretários</div><div class="uc-desc">Criar, editar, activar/desactivar contas</div></td>
+        <td><span class="actor-pill actor-admin">Admin</span></td>
+        <td>Admin</td>
+        <td><span class="type-tag">CRUD</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«include» Definir Permissões<br/>«extend» Redefinir Password</td>
+      </tr>
+
+      <tr data-actors="admin" data-prio="alta">
+        <td class="uc-id">UC-06</td>
+        <td><div class="uc-name">Gerir Dentistas</div><div class="uc-desc">Registar, editar e remover dentistas</div></td>
+        <td><span class="actor-pill actor-admin">Admin</span></td>
+        <td>Admin</td>
+        <td><span class="type-tag">CRUD</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«include» Atribuir Especialidade</td>
+      </tr>
+
+      <tr data-actors="admin" data-prio="media">
+        <td class="uc-id">UC-07</td>
+        <td><div class="uc-name">Visualizar Dashboard Administrativo</div><div class="uc-desc">KPIs, estatísticas e métricas globais</div></td>
+        <td><span class="actor-pill actor-admin">Admin</span></td>
+        <td>Admin</td>
+        <td><span class="type-tag">Primário</span></td>
+        <td><span class="prio prio-media">Média</span></td>
+        <td class="rel">«include» Gerar Relatórios<br/>«include» Ver Auditoria</td>
+      </tr>
+
+      <tr data-actors="admin" data-prio="media">
+        <td class="uc-id">UC-08</td>
+        <td><div class="uc-name">Consultar Log de Auditoria</div><div class="uc-desc">Rastrear acções de todos os utilizadores</div></td>
+        <td><span class="actor-pill actor-admin">Admin</span></td>
+        <td>Admin</td>
+        <td><span class="type-tag">Relatório</span></td>
+        <td><span class="prio prio-media">Média</span></td>
+        <td class="rel">—</td>
+      </tr>
+
+      <tr data-actors="admin" data-prio="media">
+        <td class="uc-id">UC-09</td>
+        <td><div class="uc-name">Gerar Relatório Administrativo</div><div class="uc-desc">Exportar relatórios globais em PDF</div></td>
+        <td><span class="actor-pill actor-admin">Admin</span></td>
+        <td>Admin</td>
+        <td><span class="type-tag">Relatório</span></td>
+        <td><span class="prio prio-media">Média</span></td>
+        <td class="rel">«include» Exportar PDF</td>
+      </tr>
+
+      <!-- ═══════════════ PACIENTES ═══════════════ -->
+      <tr class="section-row"><td colspan="7">👥 Módulo de Gestão de Pacientes</td></tr>
+
+      <tr data-actors="dentista secretario" data-prio="alta">
+        <td class="uc-id">UC-10</td>
+        <td><div class="uc-name">Registar Paciente</div><div class="uc-desc">Criar ficha clínica com dados pessoais</div></td>
+        <td>
+          <span class="actor-pill actor-dentista">Dentista</span>
+          <span class="actor-pill actor-secret">Secretário</span>
+        </td>
+        <td>Pacientes</td>
+        <td><span class="type-tag">CRUD</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«include» Gerar Credentials<br/>«extend» Anexar Documento</td>
+      </tr>
+
+      <tr data-actors="dentista secretario" data-prio="alta">
+        <td class="uc-id">UC-11</td>
+        <td><div class="uc-name">Consultar/Editar Paciente</div><div class="uc-desc">Pesquisar e actualizar ficha do paciente</div></td>
+        <td>
+          <span class="actor-pill actor-dentista">Dentista</span>
+          <span class="actor-pill actor-secret">Secretário</span>
+        </td>
+        <td>Pacientes</td>
+        <td><span class="type-tag">CRUD</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«include» Histórico Clínico</td>
+      </tr>
+
+      <tr data-actors="dentista" data-prio="alta">
+        <td class="uc-id">UC-12</td>
+        <td><div class="uc-name">Visualizar Histórico Clínico</div><div class="uc-desc">Consultar toda a evolução do paciente</div></td>
+        <td><span class="actor-pill actor-dentista">Dentista</span></td>
+        <td>Pacientes</td>
+        <td><span class="type-tag">Leitura</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«extend» Exportar Ficha PDF</td>
+      </tr>
+
+      <tr data-actors="paciente" data-prio="media">
+        <td class="uc-id">UC-13</td>
+        <td><div class="uc-name">Consultar Próprio Histórico</div><div class="uc-desc">Paciente vê tratamentos e datas</div></td>
+        <td><span class="actor-pill actor-paciente">Paciente</span></td>
+        <td>Pacientes</td>
+        <td><span class="type-tag">Leitura</span></td>
+        <td><span class="prio prio-media">Média</span></td>
+        <td class="rel">«include» Ver Notificações</td>
+      </tr>
+
+      <!-- ═══════════════ AGENDAMENTOS ═══════════════ -->
+      <tr class="section-row"><td colspan="7">📅 Módulo de Agendamentos</td></tr>
+
+      <tr data-actors="paciente secretario" data-prio="alta">
+        <td class="uc-id">UC-14</td>
+        <td><div class="uc-name">Agendar Consulta</div><div class="uc-desc">Marcar nova consulta com data e dentista</div></td>
+        <td>
+          <span class="actor-pill actor-paciente">Paciente</span>
+          <span class="actor-pill actor-secret">Secretário</span>
+        </td>
+        <td>Agendamentos</td>
+        <td><span class="type-tag">Primário</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«include» Verificar Disponibilidade<br/>«extend» Enviar Notificação</td>
+      </tr>
+
+      <tr data-actors="secretario" data-prio="alta">
+        <td class="uc-id">UC-15</td>
+        <td><div class="uc-name">Gerir Agenda da Clínica</div><div class="uc-desc">Ver, confirmar e cancelar agendamentos</div></td>
+        <td><span class="actor-pill actor-secret">Secretário</span></td>
+        <td>Agendamentos</td>
+        <td><span class="type-tag">CRUD</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«extend» Atribuir Dentista<br/>«extend» Notificar Paciente</td>
+      </tr>
+
+      <tr data-actors="dentista" data-prio="alta">
+        <td class="uc-id">UC-16</td>
+        <td><div class="uc-name">Visualizar Agenda Pessoal</div><div class="uc-desc">Ver consultas do dentista por data</div></td>
+        <td><span class="actor-pill actor-dentista">Dentista</span></td>
+        <td>Agendamentos</td>
+        <td><span class="type-tag">Leitura</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«extend» Confirmar/Cancelar Consulta</td>
+      </tr>
+
+      <tr data-actors="secretario" data-prio="media">
+        <td class="uc-id">UC-17</td>
+        <td><div class="uc-name">Atribuir Dentista a Agendamento</div><div class="uc-desc">Definir dentista responsável pela consulta</div></td>
+        <td><span class="actor-pill actor-secret">Secretário</span></td>
+        <td>Agendamentos</td>
+        <td><span class="type-tag">Primário</span></td>
+        <td><span class="prio prio-media">Média</span></td>
+        <td class="rel">«include» UC-15</td>
+      </tr>
+
+      <!-- ═══════════════ TRIAGEM ═══════════════ -->
+      <tr class="section-row"><td colspan="7">🏥 Módulo de Triagem</td></tr>
+
+      <tr data-actors="secretario paciente" data-prio="alta">
+        <td class="uc-id">UC-18</td>
+        <td><div class="uc-name">Realizar Triagem</div><div class="uc-desc">Registar queixa, sintomas e urgência</div></td>
+        <td>
+          <span class="actor-pill actor-secret">Secretário</span>
+          <span class="actor-pill actor-paciente">Paciente</span>
+        </td>
+        <td>Triagem</td>
+        <td><span class="type-tag">Primário</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«include» Classificar Urgência<br/>«extend» Encaminhar Dentista</td>
+      </tr>
+
+      <tr data-actors="dentista" data-prio="alta">
+        <td class="uc-id">UC-19</td>
+        <td><div class="uc-name">Consultar Triagem do Paciente</div><div class="uc-desc">Ver ficha de triagem antes da consulta</div></td>
+        <td><span class="actor-pill actor-dentista">Dentista</span></td>
+        <td>Triagem</td>
+        <td><span class="type-tag">Leitura</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«include» UC-12</td>
+      </tr>
+
+      <!-- ═══════════════ CLÍNICO ═══════════════ -->
+      <tr class="section-row"><td colspan="7">🦷 Módulo Clínico (Dentista)</td></tr>
+
+      <tr data-actors="dentista" data-prio="alta">
+        <td class="uc-id">UC-20</td>
+        <td><div class="uc-name">Registar Anamnese</div><div class="uc-desc">Preencher histórico médico e alergias</div></td>
+        <td><span class="actor-pill actor-dentista">Dentista</span></td>
+        <td>Clínico</td>
+        <td><span class="type-tag">CRUD</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«include» UC-10</td>
+      </tr>
+
+      <tr data-actors="dentista" data-prio="alta">
+        <td class="uc-id">UC-21</td>
+        <td><div class="uc-name">Criar Plano de Tratamento</div><div class="uc-desc">Definir procedimentos e fases do tratamento</div></td>
+        <td><span class="actor-pill actor-dentista">Dentista</span></td>
+        <td>Clínico</td>
+        <td><span class="type-tag">CRUD</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«extend» Associar Orçamento<br/>«include» Seleccionar Procedimentos</td>
+      </tr>
+
+      <tr data-actors="dentista" data-prio="alta">
+        <td class="uc-id">UC-22</td>
+        <td><div class="uc-name">Registar Evolução Clínica</div><div class="uc-desc">Anotar progresso das sessões de tratamento</div></td>
+        <td><span class="actor-pill actor-dentista">Dentista</span></td>
+        <td>Clínico</td>
+        <td><span class="type-tag">CRUD</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«include» UC-21</td>
+      </tr>
+
+      <tr data-actors="dentista" data-prio="media">
+        <td class="uc-id">UC-23</td>
+        <td><div class="uc-name">Emitir Prescrição Médica</div><div class="uc-desc">Gerar receita de medicamentos</div></td>
+        <td><span class="actor-pill actor-dentista">Dentista</span></td>
+        <td>Clínico</td>
+        <td><span class="type-tag">Primário</span></td>
+        <td><span class="prio prio-media">Média</span></td>
+        <td class="rel">«extend» Exportar Prescrição</td>
+      </tr>
+
+      <tr data-actors="dentista" data-prio="media">
+        <td class="uc-id">UC-24</td>
+        <td><div class="uc-name">Exportar Ficha de Histórico (PDF)</div><div class="uc-desc">Gerar PDF com historial clínico completo</div></td>
+        <td><span class="actor-pill actor-dentista">Dentista</span></td>
+        <td>Clínico</td>
+        <td><span class="type-tag">Relatório</span></td>
+        <td><span class="prio prio-media">Média</span></td>
+        <td class="rel">«include» UC-12</td>
+      </tr>
+
+      <!-- ═══════════════ FINANCEIRO ═══════════════ -->
+      <tr class="section-row"><td colspan="7">💰 Módulo Financeiro</td></tr>
+
+      <tr data-actors="secretario" data-prio="alta">
+        <td class="uc-id">UC-25</td>
+        <td><div class="uc-name">Gerir Pagamentos de Pacientes</div><div class="uc-desc">Registar, confirmar e anular pagamentos</div></td>
+        <td><span class="actor-pill actor-secret">Secretário</span></td>
+        <td>Financeiro</td>
+        <td><span class="type-tag">CRUD</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«include» Calcular Saldo<br/>«extend» Emitir Factura</td>
+      </tr>
+
+      <tr data-actors="secretario" data-prio="alta">
+        <td class="uc-id">UC-26</td>
+        <td><div class="uc-name">Emitir e Unificar Facturas</div><div class="uc-desc">Consolidar tratamentos numa só factura</div></td>
+        <td><span class="actor-pill actor-secret">Secretário</span></td>
+        <td>Financeiro</td>
+        <td><span class="type-tag">Primário</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«include» UC-25</td>
+      </tr>
+
+      <tr data-actors="dentista" data-prio="alta">
+        <td class="uc-id">UC-27</td>
+        <td><div class="uc-name">Consultar Relatório Financeiro Pessoal</div><div class="uc-desc">Ver ganhos, pendentes e recebidos</div></td>
+        <td><span class="actor-pill actor-dentista">Dentista</span></td>
+        <td>Financeiro</td>
+        <td><span class="type-tag">Relatório</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«extend» Exportar Relatório PDF</td>
+      </tr>
+
+      <tr data-actors="admin" data-prio="media">
+        <td class="uc-id">UC-28</td>
+        <td><div class="uc-name">Consultar Relatório Financeiro Global</div><div class="uc-desc">Visão consolidada da clínica</div></td>
+        <td><span class="actor-pill actor-admin">Admin</span></td>
+        <td>Financeiro</td>
+        <td><span class="type-tag">Relatório</span></td>
+        <td><span class="prio prio-media">Média</span></td>
+        <td class="rel">«include» UC-09</td>
+      </tr>
+
+      <!-- ═══════════════ COMUNICAÇÃO ═══════════════ -->
+      <tr class="section-row"><td colspan="7">💬 Módulo de Comunicação</td></tr>
+
+      <tr data-actors="dentista secretario paciente" data-prio="alta">
+        <td class="uc-id">UC-29</td>
+        <td><div class="uc-name">Enviar/Receber Mensagens (Chat)</div><div class="uc-desc">Chat em tempo real entre utilizadores</div></td>
+        <td>
+          <span class="actor-pill actor-dentista">Dentista</span>
+          <span class="actor-pill actor-secret">Secretário</span>
+          <span class="actor-pill actor-paciente">Paciente</span>
+        </td>
+        <td>Comunicação</td>
+        <td><span class="type-tag">Primário</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«include» Indicador de Presença<br/>«extend» Notificação Push</td>
+      </tr>
+
+      <tr data-actors="sistema" data-prio="alta">
+        <td class="uc-id">UC-30</td>
+        <td><div class="uc-name">Indicador de Presença Online/Offline</div><div class="uc-desc">Mostrar estado real-time dos utilizadores</div></td>
+        <td><span class="actor-pill actor-sistema">Sistema</span></td>
+        <td>Comunicação</td>
+        <td><span class="type-tag">Automático</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«include» UC-29 (Supabase Realtime)</td>
+      </tr>
+
+      <tr data-actors="sistema paciente dentista secretario" data-prio="media">
+        <td class="uc-id">UC-31</td>
+        <td><div class="uc-name">Receber Notificações Push</div><div class="uc-desc">Alertas de consultas, mensagens e lembretes</div></td>
+        <td>
+          <span class="actor-pill actor-sistema">Sistema</span>
+          <span class="actor-pill actor-paciente">Paciente</span>
+          <span class="actor-pill actor-dentista">Dentista</span>
+        </td>
+        <td>Comunicação</td>
+        <td><span class="type-tag">Automático</span></td>
+        <td><span class="prio prio-media">Média</span></td>
+        <td class="rel">«extend» UC-14, UC-29</td>
+      </tr>
+
+      <!-- ═══════════════ EDUCAÇÃO ═══════════════ -->
+      <tr class="section-row"><td colspan="7">📚 Módulo de Educação &amp; Portal do Paciente</td></tr>
+
+      <tr data-actors="paciente" data-prio="media">
+        <td class="uc-id">UC-32</td>
+        <td><div class="uc-name">Aceder Conteúdo Educativo</div><div class="uc-desc">Artigos e vídeos sobre saúde oral</div></td>
+        <td><span class="actor-pill actor-paciente">Paciente</span></td>
+        <td>Educação</td>
+        <td><span class="type-tag">Leitura</span></td>
+        <td><span class="prio prio-media">Média</span></td>
+        <td class="rel">—</td>
+      </tr>
+
+      <tr data-actors="paciente" data-prio="baixa">
+        <td class="uc-id">UC-33</td>
+        <td><div class="uc-name">Consultar Termos e Privacidade</div><div class="uc-desc">Ver políticas de utilização e GDPR</div></td>
+        <td><span class="actor-pill actor-paciente">Paciente</span></td>
+        <td>Educação</td>
+        <td><span class="type-tag">Leitura</span></td>
+        <td><span class="prio prio-baixa">Baixa</span></td>
+        <td class="rel">—</td>
+      </tr>
+
+      <tr data-actors="paciente" data-prio="baixa">
+        <td class="uc-id">UC-34</td>
+        <td><div class="uc-name">Aceder Ajuda/FAQ</div><div class="uc-desc">Guia de utilização da aplicação</div></td>
+        <td><span class="actor-pill actor-paciente">Paciente</span></td>
+        <td>Educação</td>
+        <td><span class="type-tag">Leitura</span></td>
+        <td><span class="prio prio-baixa">Baixa</span></td>
+        <td class="rel">—</td>
+      </tr>
+
+      <!-- ═══════════════ SISTEMA ═══════════════ -->
+      <tr class="section-row"><td colspan="7">⚙️ Comportamentos do Sistema</td></tr>
+
+      <tr data-actors="sistema" data-prio="alta">
+        <td class="uc-id">UC-35</td>
+        <td><div class="uc-name">Sincronização Offline/Online</div><div class="uc-desc">Sincronizar dados após reconexão</div></td>
+        <td><span class="actor-pill actor-sistema">Sistema</span></td>
+        <td>Sistema</td>
+        <td><span class="type-tag">Automático</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«extend» Todos os UC de escrita</td>
+      </tr>
+
+      <tr data-actors="sistema" data-prio="alta">
+        <td class="uc-id">UC-36</td>
+        <td><div class="uc-name">Enviar Lembrete de Consulta</div><div class="uc-desc">Notificação automática 24h antes</div></td>
+        <td><span class="actor-pill actor-sistema">Sistema</span></td>
+        <td>Sistema</td>
+        <td><span class="type-tag">Automático</span></td>
+        <td><span class="prio prio-alta">Alta</span></td>
+        <td class="rel">«extend» UC-14<br/>«include» Serviço de Notificação</td>
+      </tr>
+
+      <tr data-actors="sistema" data-prio="media">
+        <td class="uc-id">UC-37</td>
+        <td><div class="uc-name">Registar Auditoria de Acções</div><div class="uc-desc">Log automático de operações críticas</div></td>
+        <td><span class="actor-pill actor-sistema">Sistema</span></td>
+        <td>Sistema</td>
+        <td><span class="type-tag">Automático</span></td>
+        <td><span class="prio prio-media">Média</span></td>
+        <td class="rel">«include» UC-08</td>
+      </tr>
+
+      <tr data-actors="sistema" data-prio="baixa">
+        <td class="uc-id">UC-38</td>
+        <td><div class="uc-name">Controlo de Acesso por Papel (RBAC)</div><div class="uc-desc">Restringir funcionalidades por perfil</div></td>
+        <td><span class="actor-pill actor-sistema">Sistema</span></td>
+        <td>Sistema</td>
+        <td><span class="type-tag">Automático</span></td>
+        <td><span class="prio prio-baixa">Baixa</span></td>
+        <td class="rel">«include» UC-01</td>
+      </tr>
+
+    </tbody>
+  </table>
+</div>
+
+<div class="footer">
+  <p>TeOdonto Angola &copy; 2026 &mdash; Tabela de Diagrama de Casos de Uso</p>
+  <p style="margin-top:6px;">Gerado automaticamente com base na arquitectura do sistema</p>
+</div>
+
+<script>
+  function filter(type, btn) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+
+    const rows = document.querySelectorAll('tbody tr:not(.section-row)');
+    rows.forEach(row => {
+      const actors = row.getAttribute('data-actors') || '';
+      const prio   = row.getAttribute('data-prio')   || '';
+
+      if (type === 'all') {
+        row.classList.remove('hidden');
+      } else if (type === 'alta') {
+        prio === 'alta' ? row.classList.remove('hidden') : row.classList.add('hidden');
+      } else {
+        actors.includes(type) ? row.classList.remove('hidden') : row.classList.add('hidden');
+      }
+    });
+
+    // hide section-rows if all their children are hidden
+    const sectionRows = document.querySelectorAll('.section-row');
+    sectionRows.forEach(section => {
+      let next = section.nextElementSibling;
+      let allHidden = true;
+      while (next && !next.classList.contains('section-row')) {
+        if (!next.classList.contains('hidden')) { allHidden = false; break; }
+        next = next.nextElementSibling;
+      }
+      allHidden ? section.classList.add('hidden') : section.classList.remove('hidden');
+    });
+  }
+</script>
+
+</body>
+</html>

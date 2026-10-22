@@ -21,6 +21,13 @@ export const useRealtimeRefresh = (options: {
     refresh,
   } = options;
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shouldRefreshRef = useRef(shouldRefresh);
+  const refreshRef = useRef(refresh);
+
+  useEffect(() => {
+    shouldRefreshRef.current = shouldRefresh;
+    refreshRef.current = refresh;
+  }, [shouldRefresh, refresh]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -31,12 +38,12 @@ export const useRealtimeRefresh = (options: {
       }
       timerRef.current = setTimeout(() => {
         timerRef.current = null;
-        refresh();
+        refreshRef.current();
       }, debounceMs);
     };
 
     const unsubDb = realtimeBus.on('db:change', (event) => {
-      if (!shouldRefresh(event)) return;
+      if (!shouldRefreshRef.current(event)) return;
       schedule();
     });
 
@@ -68,7 +75,5 @@ export const useRealtimeRefresh = (options: {
     refreshOnResume,
     refreshOnOnline,
     refreshOnReconnect,
-    shouldRefresh,
-    refresh,
   ]);
 };

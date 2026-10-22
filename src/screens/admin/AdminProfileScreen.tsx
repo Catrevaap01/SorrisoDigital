@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../config/supabase';
+import MfaSetupModal from '../../components/MfaSetupModal';
 import { COLORS, SHADOWS, SIZES, TYPOGRAPHY } from '../../styles/theme';
 
 const PROVINCIAS_ADMIN = [
@@ -25,16 +27,17 @@ const PROVINCIAS_ADMIN = [
 ];
 
 const AdminProfileScreen: React.FC = () => {
-  const { profile, updateProfile, signOut } = useAuth();
+  const { profile, updateProfile, signOut, refreshProfile } = useAuth();
   const [editando, setEditando] = useState(false);
   const [abrirChangePassword, setAbrirChangePassword] = useState(false);
   const [abrirProvincias, setAbrirProvincias] = useState(false);
+  const [abrirMfaSetup, setAbrirMfaSetup] = useState(false);
   const [processando, setProcessando] = useState(false);
 
   const [nome, setNome] = useState(profile?.nome || '');
   const [telefone, setTelefone] = useState(profile?.telefone || '');
   const [provincia, setProvincia] = useState(profile?.provincia || '');
-  const [twoStepEnabled, setTwoStepEnabled] = useState(profile?.two_step_enabled || false);
+  const [twoStepEnabled, setTwoStepEnabled] = useState(Boolean(profile?.two_step_enabled));
 
   const [senhaAtual, setSenhaAtual] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
@@ -43,14 +46,39 @@ const AdminProfileScreen: React.FC = () => {
   const [mostrarNovaSenha, setMostrarNovaSenha] = useState(false);
   const [mostrarConfirmaSenha, setMostrarConfirmaSenha] = useState(false);
 
+  // Check real MFA status from profile (WhatsApp 2FA) and Supabase Auth
+  const checkMfaStatus = useCallback(async () => {
+    try {
+      const isProfileEnabled = Boolean(profile?.two_step_enabled);
+      let hasVerifiedTotp = false;
+      try {
+        const { data } = await supabase.auth.mfa.listFactors();
+        hasVerifiedTotp = Boolean(
+          [...(data?.totp || []), ...(data?.all || [])].some((f: any) => f.status === 'verified')
+        );
+      } catch {}
+
+      setTwoStepEnabled(isProfileEnabled || hasVerifiedTotp);
+    } catch (e) {
+      console.warn('MFA status check error:', e);
+      setTwoStepEnabled(Boolean(profile?.two_step_enabled));
+    }
+  }, [profile?.two_step_enabled]);
+
+  useEffect(() => {
+    if (profile?.two_step_enabled !== undefined) {
+      setTwoStepEnabled(Boolean(profile.two_step_enabled));
+    }
+  }, [profile?.two_step_enabled]);
+
   useFocusEffect(
     useCallback(() => {
       setEditando(false);
       setNome(profile?.nome || '');
       setTelefone(profile?.telefone || '');
       setProvincia(profile?.provincia || '');
-      setTwoStepEnabled(profile?.two_step_enabled || false);
-    }, [profile])
+      checkMfaStatus();
+    }, [profile, checkMfaStatus])
   );
 
   const handleSalvarAlteracoes = async () => {
@@ -94,33 +122,46 @@ const AdminProfileScreen: React.FC = () => {
     }
 
     setProcessando(true);
-    // Simulação de mudança de senha (geralmente via Supabase Auth RPC ou API)
-    setTimeout(() => {
-      Toast.show({ type: 'info', text1: 'Funcionalidade em manutenção', text2: 'Contate o suporte técnico' });
-      setProcessando(false);
-    }, 1500);
-  };
+    try {
+      // Real password change via Supabase Auth
+      const { error } = await supabase.auth.updateUser({ password: novaSenha });
+      if (error) throw error;
 
-  const handleToggleTwoStep = async () => {
-    const novoEstado = !twoStepEnabled;
-    setProcessando(true);
-    const result = await updateProfile({ two_step_enabled: novoEstado });
-    
-    if (result.success) {
-      setTwoStepEnabled(novoEstado);
       Toast.show({
         type: 'success',
-        text1: 'Verificação atualizada',
-        text2: novoEstado ? 'Proteção 2FA ativada' : 'Proteção 2FA desativada',
+        text1: 'Senha alterada com sucesso',
+        text2: 'Use a nova senha no próximo login.',
       });
-    } else {
+      setSenhaAtual('');
+      setNovaSenha('');
+      setConfirmaSenha('');
+      setAbrirChangePassword(false);
+    } catch (err: any) {
       Toast.show({
         type: 'error',
-        text1: 'Erro ao atualizar 2FA',
-        text2: result.error?.message || 'Erro desconhecido',
+        text1: 'Erro ao alterar senha',
+        text2: err.message || 'Tente novamente mais tarde',
       });
+    } finally {
+      setProcessando(false);
     }
-    setProcessando(false);
+  };
+
+  const handleToggleTwoStep = () => {
+    // Open the real MFA Setup Modal (QR Code + Supabase Auth enroll/unenroll)
+    setAbrirMfaSetup(true);
+  };
+
+  const handleMfaSuccess = (mode: 'enroll' | 'unenroll') => {
+    setTwoStepEnabled(mode === 'enroll');
+    if (refreshProfile) {
+      void refreshProfile();
+    }
+    Toast.show({
+      type: 'success',
+      text1: mode === 'enroll' ? '2FA Ativado com sucesso!' : '2FA Desativado',
+      text2: mode === 'enroll' ? 'Verificação por WhatsApp ativada (ON)' : 'Verificação desativada (OFF)',
+    });
   };
 
   const handleLogout = () => {
@@ -263,7 +304,7 @@ const AdminProfileScreen: React.FC = () => {
             <TouchableOpacity style={styles.actionRow} onPress={handleToggleTwoStep} disabled={processando}>
               <View style={[styles.actionIcon, { backgroundColor: twoStepEnabled ? '#ECFDF5' : '#F1F5F9' }]}>
                 <Ionicons 
-                  name={twoStepEnabled ? "shield-checkmark-outline" : "shield-outline"} 
+                  name={twoStepEnabled ? "shield-checkmark" : "shield-outline"} 
                   size={20} 
                   color={twoStepEnabled ? COLORS.success : COLORS.textSecondary} 
                 />
@@ -271,17 +312,24 @@ const AdminProfileScreen: React.FC = () => {
               <View style={styles.actionContent}>
                 <Text style={styles.actionTitle}>Verificação Duas Etapas</Text>
                 <Text style={styles.actionSubtitle}>
-                  {twoStepEnabled ? 'Sua conta está mais protegida' : 'Recomendado para sua segurança'}
+                  {twoStepEnabled ? 'Proteção activa via WhatsApp' : 'Recomendado para sua segurança'}
                 </Text>
               </View>
               <View style={[styles.statusToggle, twoStepEnabled && styles.statusToggleActive]}>
                 <View style={[styles.statusDot, twoStepEnabled && styles.statusDotActive]} />
               </View>
-              <Text style={[styles.statusBadge, twoStepEnabled && { color: COLORS.success, backgroundColor: '#ECFDF5' }]}>
+              <Text style={[styles.statusBadge, twoStepEnabled && styles.statusBadgeActive]}>
                 {twoStepEnabled ? 'ON' : 'OFF'}
               </Text>
             </TouchableOpacity>
           </View>
+
+          {/* MFA Setup Modal (Real TOTP via Supabase Auth) */}
+          <MfaSetupModal
+            visible={abrirMfaSetup}
+            onClose={() => setAbrirMfaSetup(false)}
+            onSuccess={handleMfaSuccess}
+          />
 
           {/* Logout */}
           <TouchableOpacity style={styles.logoutCard} onPress={handleLogout}>
@@ -323,7 +371,7 @@ const AdminProfileScreen: React.FC = () => {
 
         <Modal visible={abrirChangePassword} animationType="slide" transparent>
           <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { height: '80%' }]}>
+            <View style={[styles.modalContent, styles.passwordModalContent]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Alterar Password</Text>
                 <TouchableOpacity onPress={() => setAbrirChangePassword(false)}>
@@ -398,7 +446,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
-  headerForeground: { position: 'absolute', bottom: -50, alignItems: 'center', width: '100%' },
+  headerForeground: {
+    position: 'absolute',
+    bottom: -50,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    paddingHorizontal: 20,
+  },
   avatarGlow: {
     padding: 4,
     borderRadius: 60,
@@ -416,7 +472,7 @@ const styles = StyleSheet.create({
     borderColor: 'white',
   },
   avatarTextLarge: { fontSize: 42, fontWeight: '700', color: 'white' },
-  profileName: { fontSize: 24, fontWeight: '800', color: COLORS.text, marginTop: 12 },
+  profileName: { fontSize: 24, fontWeight: '800', color: COLORS.text, marginTop: 12, textAlign: 'center' },
   badgeAdmin: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -430,7 +486,14 @@ const styles = StyleSheet.create({
   badgeText: { color: 'white', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
 
   // Content
-  mainContent: { marginTop: 70, paddingHorizontal: 20, gap: 20 },
+  mainContent: {
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    marginTop: 70,
+    paddingHorizontal: 20,
+    gap: 20,
+  },
   card: {
     backgroundColor: 'white',
     borderRadius: 24,
@@ -471,10 +534,11 @@ const styles = StyleSheet.create({
   actionTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text },
   actionSubtitle: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   divider: { height: 1, backgroundColor: '#F1F5F9', marginVertical: 10 },
-  statusBadge: { backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, color: COLORS.textSecondary, fontSize: 11, fontWeight: '900', marginLeft: 10 },
-  statusToggle: { width: 34, height: 18, borderRadius: 10, backgroundColor: '#CBD5E1', padding: 2 },
-  statusToggleActive: { backgroundColor: COLORS.success },
-  statusDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: 'white' },
+  statusBadge: { backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, color: '#64748B', fontSize: 11, fontWeight: '900', marginLeft: 8 },
+  statusBadgeActive: { backgroundColor: '#ECFDF5', color: '#059669' },
+  statusToggle: { width: 36, height: 20, borderRadius: 10, backgroundColor: '#CBD5E1', padding: 2, justifyContent: 'center' },
+  statusToggleActive: { backgroundColor: COLORS.success || '#10B981' },
+  statusDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: 'white', ...SHADOWS.sm },
   statusDotActive: { transform: [{ translateX: 16 }] },
 
   // Logout
@@ -487,8 +551,28 @@ const styles = StyleSheet.create({
   copyrightLabel: { fontSize: 11, color: COLORS.textLight, marginTop: 5 },
 
   // Modais
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.7)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: 'white', borderTopLeftRadius: 35, borderTopRightRadius: 35, padding: 25, height: '70%' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.7)',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
+    alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
+    paddingHorizontal: Platform.OS === 'web' ? 20 : 0,
+  },
+  modalContent: {
+    width: Platform.OS === 'web' ? '92%' : '100%',
+    maxWidth: 520,
+    backgroundColor: 'white',
+    borderTopLeftRadius: Platform.OS === 'web' ? 24 : 35,
+    borderTopRightRadius: Platform.OS === 'web' ? 24 : 35,
+    borderBottomLeftRadius: Platform.OS === 'web' ? 24 : 0,
+    borderBottomRightRadius: Platform.OS === 'web' ? 24 : 0,
+    padding: 25,
+    height: Platform.OS === 'web' ? '72%' : '70%',
+  },
+  passwordModalContent: {
+    height: Platform.OS === 'web' ? undefined : '80%',
+    maxHeight: Platform.OS === 'web' ? 520 : undefined,
+  },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
   modalTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
   modalList: { flex: 1 },

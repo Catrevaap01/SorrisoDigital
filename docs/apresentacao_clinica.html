@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TeOdonto Angola — Apresentação para a Clínica</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      color: #1a2236;
+      background: #fff;
+      font-size: 13px
+    }
+
+    /* ── PAGE SETUP ── */
+    @page {
+      size: A4;
+      margin: 18mm 15mm
+    }
+
+    @media print {
+      .page-break {
+        page-break-before: always
+      }
+
+      .no-print {
+        display: none
+      }
+
+      body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact
+      }
+    }
+
+    /* ── COVER ── */
+    .cover {
+      background: linear-gradient(135deg, #0d47a1 0%, #1976d2 50%, #42a5f5 100%);
+      color: #fff;
+      border-radius: 12px;
+      padding: 60px 50px;
+      margin-bottom: 36px;
+      min-height: 260px;
+      position: relative;
+      overflow: hidden
+    }
+
+    .cover::after {
+      content: '';
+      position: absolute;
+      right: -60px;
+      top: -60px;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, .07)
+    }
+
+    .cover .logo {
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 8px
+    }
+
+    .cover .logo span {
+      color: #90caf9
+    }
+
+    .cover .subtitle {
+      font-size: 16px;
+      font-weight: 300;
+      opacity: .9;
+      margin-bottom: 24px
+    }
+
+    .cover .meta {
+      font-size: 12px;
+      opacity: .7;
+      margin-top: 32px
+    }
+
+    .cover .badge {
+      display: inline-block;
+      background: rgba(255, 255, 255, .2);
+      border: 1px solid rgba(255, 255, 255, .35);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 11px;
+      font-weight: 500;
+      margin-right: 8px;
+      margin-top: 8px
+    }
+
+    /* ── SECTION HEADERS ── */
+    h2 {
+      font-size: 17px;
+      font-weight: 700;
+      color: #0d47a1;
+      border-left: 4px solid #1976d2;
+      padding-left: 12px;
+      margin: 32px 0 14px
+    }
+
+    h3 {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a2236;
+      margin: 18px 0 8px
+    }
+
+    /* ── CARDS GRID ── */
+    .grid {
+      display: grid;
+      gap: 14px
+    }
+
+    .grid-2 {
+      grid-template-columns: 1fr 1fr
+    }
+
+    .grid-3 {
+      grid-template-columns: 1fr 1fr 1fr
+    }
+
+    .card {
+      border: 1px solid #e3eaf5;
+      border-radius: 10px;
+      padding: 16px;
+      background: #f8faff
+    }
+
+    .card .icon {
+      font-size: 22px;
+      margin-bottom: 8px
+    }
+
+    .card h4 {
+      font-size: 12px;
+      font-weight: 700;
+      color: #0d47a1;
+      margin-bottom: 5px
+    }
+
+    .card p {
+      font-size: 11.5px;
+      color: #4a5568;
+      line-height: 1.5
+    }
+
+    /* ── ROLE CARDS ── */
+    .role {
+      border-radius: 10px;
+      padding: 16px;
+      color: #fff;
+      margin-bottom: 0
+    }
+
+    .role-admin {
+      background: linear-gradient(135deg, #6a1b9a, #8e24aa)
+    }
+
+    .role-dentist {
+      background: linear-gradient(135deg, #00695c, #00897b)
+    }
+
+    .role-secretary {
+      background: linear-gradient(135deg, #e65100, #f57c00)
+    }
+
+    .role h4 {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 6px
+    }
+
+    .role ul {
+      padding-left: 16px
+    }
+
+    .role ul li {
+      font-size: 11.5px;
+      margin-bottom: 3px;
+      opacity: .92
+    }
+
+    /* ── FEATURE LIST ── */
+    .feature-list {
+      list-style: none
+    }
+
+    .feature-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #eef1f8;
+      font-size: 12px
+    }
+
+    .feature-list li:last-child {
+      border-bottom: none
+    }
+
+    .feature-list .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #1976d2;
+      flex-shrink: 0;
+      margin-top: 4px
+    }
+
+    /* ── FLOW STEPS ── */
+    .steps {
+      display: flex;
+      gap: 0;
+      margin: 14px 0
+    }
+
+    .step {
+      flex: 1;
+      text-align: center;
+      padding: 14px 8px;
+      border-top: 3px solid #e3eaf5;
+      position: relative
+    }
+
+    .step.active {
+      border-top-color: #1976d2;
+      background: #f0f7ff;
+      border-radius: 0 0 8px 8px
+    }
+
+    .step .num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #1976d2;
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 6px
+    }
+
+    .step p {
+      font-size: 10.5px;
+      color: #4a5568;
+      line-height: 1.4
+    }
+
+    /* ── PLATFORM TABLE ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0
+    }
+
+    th {
+      background: #0d47a1;
+      color: #fff;
+      padding: 9px 12px;
+      font-size: 11.5px;
+      font-weight: 600;
+      text-align: left
+    }
+
+    td {
+      padding: 9px 12px;
+      font-size: 11.5px;
+      border-bottom: 1px solid #e3eaf5
+    }
+
+    tr:nth-child(even) td {
+      background: #f8faff
+    }
+
+    .check {
+      color: #00897b;
+      font-weight: 700
+    }
+
+    .cross {
+      color: #e53935
+    }
+
+    /* ── HIGHLIGHT BOX ── */
+    .highlight {
+      background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
+      border: 1px solid #a5d6a7;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin: 14px 0
+    }
+
+    .highlight p {
+      font-size: 12px;
+      color: #2e7d32;
+      line-height: 1.6
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #e3eaf5;
+      margin: 24px 0
+    }
+
+    .text-center {
+      text-align: center
+    }
+
+    .small {
+      font-size: 11px;
+      color: #718096
+    }
+
+    .footer {
+      text-align: center;
+      padding: 20px 0 0;
+      color: #a0aec0;
+      font-size: 10.5px
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ══════════════ CAPA ══════════════ -->
+  <div class="cover">
+    <div class="logo">Te<span>Odonto</span> Angola</div>
+    <div class="subtitle">Sistema Digital de Gestão Odontológica</div>
+    <p style="font-size:13px;opacity:.85;max-width:480px;line-height:1.7">
+      Solução completa para gestão de pacientes, agendamentos, triagens clínicas e
+      faturação — disponível em Mobile, Desktop e Web.
+    </p>
+    <div style="margin-top:20px">
+      <span class="badge">📱 Android APK</span>
+      <span class="badge">🖥️ Windows EXE</span>
+      <span class="badge">🌐 PWA Web</span>
+      <span class="badge">☁️ Supabase Cloud</span>
+      <span class="badge" style="background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4)">🔒 Segurança Auditada</span>
+    </div>
+    <div class="meta">
+      Versão 1.1.0 &nbsp;·&nbsp; Outubro 2026 &nbsp;·&nbsp; Sorriso Digital
+    </div>
+  </div>
+
+  <!-- ══════════════ 1. O QUE É ══════════════ -->
+  <h2>1. O que é o TeOdonto Angola?</h2>
+  <p style="font-size:12.5px;color:#4a5568;line-height:1.7;margin-bottom:14px">
+    O <strong>TeOdonto Angola</strong> é um sistema de informação clínica desenvolvido especificamente
+    para clínicas dentárias angolanas. Digitaliza todos os processos — do agendamento à faturação —
+    eliminando papel, reduzindo erros e melhorando o atendimento ao paciente.
+  </p>
+
+  <div class="grid grid-3">
+    <div class="card">
+      <div class="icon">🦷</div>
+      <h4>Gestão Clínica</h4>
+      <p>Fichas de pacientes, histórico de tratamentos, triagens e planos de saúde oral.</p>
+    </div>
+    <div class="card">
+      <div class="icon">📅</div>
+      <h4>Agendamentos</h4>
+      <p>Marcações online com lembretes automáticos por Email e WhatsApp 24h antes.</p>
+    </div>
+    <div class="card">
+      <div class="icon">💰</div>
+      <h4>Faturação</h4>
+      <p>Emissão de faturas, controlo de pagamentos e relatórios financeiros em tempo real.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════ 2. FUNCIONALIDADES ══════════════ -->
+  <h2>2. Funcionalidades Principais</h2>
+
+  <div class="grid grid-2">
+    <div>
+      <h3>🏥 Módulo Clínico & Atendimento</h3>
+      <ul class="feature-list">
+        <li>
+          <div class="dot"></div>Registo completo de pacientes com foto, dados pessoais e QR Code único
+        </li>
+        <li>
+          <div class="dot"></div>Triagem clínica inteligente com nível de urgência, sintomas e fotos bucais
+        </li>
+        <li>
+          <div class="dot"></div>Histórico detalhado, planos de tratamento odontológicos e prescrições médicas
+        </li>
+        <li>
+          <div class="dot"></div>Gestão clínica de dentistas, especialidades e atribuição de pacientes
+        </li>
+        <li>
+          <div class="dot"></div>Exportação de relatórios clínicos e atestados em formato PDF profissional
+        </li>
+      </ul>
+    </div>
+    <div>
+      <h3>⚙️ Módulo Administrativo & Governança</h3>
+      <ul class="feature-list">
+        <li>
+          <div class="dot"></div>Dashboard com KPIs em tempo real e faturamento financeiro em Kwanzas (Kz)
+        </li>
+        <li>
+          <div class="dot"></div>Autenticação em 2 Etapas (2FA) via WhatsApp para Admin, Secretário e Dentista
+        </li>
+        <li>
+          <div class="dot"></div>Audit Log imutável: rastreio completo de acessos, alterações e cadastros
+        </li>
+        <li>
+          <div class="dot"></div>Relatórios do Sistema em 4 eixos (Visão Geral, Dentistas, Secretários e PDFs)
+        </li>
+        <li>
+          <div class="dot"></div>Notificações automáticas multicanal (WhatsApp e E-mail 24h antes)
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════ 3. PERFIS DE UTILIZADORES ══════════════ -->
+  <h2>3. Perfis de Utilizadores e Controlo de Acesso (RBAC)</h2>
+  <div class="grid grid-3">
+    <div class="role role-admin">
+      <h4>👑 Administrador</h4>
+      <ul>
+        <li>Gestão total de dentistas e secretários</li>
+        <li>Relatórios financeiros (Receita Kz)</li>
+        <li>Audit Log e segurança global</li>
+        <li>2FA de alta segurança (WhatsApp / TOTP)</li>
+        <li>Exportação de relatórios consolidados em PDF</li>
+      </ul>
+    </div>
+    <div class="role role-dentist">
+      <h4>🦷 Dentista</h4>
+      <ul>
+        <li>Agenda pessoal e pacientes atribuídos</li>
+        <li>Realização e avaliação de triagens</li>
+        <li>Planos de tratamento e prescrições</li>
+        <li>Histórico clínico e prontuário digital</li>
+        <li>2FA obrigatório para proteção de dados clínicos</li>
+      </ul>
+    </div>
+    <div class="role role-secretary">
+      <h4>📋 Secretária</h4>
+      <ul>
+        <li>Receção de pacientes e check-in via QR Code</li>
+        <li>Gestão da agenda e triagem de consultas</li>
+        <li>Atribuição de dentistas a atendimentos</li>
+        <li>Faturação e registo de pagamentos</li>
+        <li>2FA de segurança para operações da clínica</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="margin-top:12px" class="grid grid-2">
+    <div class="card">
+      <div class="icon">👤</div>
+      <h4>Paciente / Utente (Mobile & PWA)</h4>
+      <p>Acesso ao histórico pessoal, agendamento de consultas, triagem prévia em casa com upload de fotos, e notificações sem complexidade de 2FA.</p>
+    </div>
+    <div class="card">
+      <div class="icon">🔒</div>
+      <h4>Protecção Especializada por Perfil</h4>
+      <p>Políticas SQL RLS e 2FA via WhatsApp ativas para o staff clínico e administrativo, garantindo sigilo médico e facilidade de acesso aos utentes.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════ PAGE BREAK ══════════════ -->
+  <div class="page-break"></div>
+
+  <!-- ══════════════ 4. FLUXO DE ATENDIMENTO ══════════════ -->
+  <h2>4. Fluxo de Atendimento</h2>
+  <div class="steps">
+    <div class="step active">
+      <div class="num">1</div>
+      <strong>Marcação</strong>
+      <p>Paciente agenda via app ou secretária marca no sistema</p>
+    </div>
+    <div class="step active">
+      <div class="num">2</div>
+      <strong>Lembrete</strong>
+      <p>Email + WhatsApp automático 24h antes da consulta</p>
+    </div>
+    <div class="step active">
+      <div class="num">3</div>
+      <strong>Receção</strong>
+      <p>Secretária confirma chegada via QR Code do paciente</p>
+    </div>
+    <div class="step active">
+      <div class="num">4</div>
+      <strong>Triagem</strong>
+      <p>Dentista regista queixas, urgência e sinais vitais</p>
+    </div>
+    <div class="step active">
+      <div class="num">5</div>
+      <strong>Consulta</strong>
+      <p>Tratamento registado com plano detalhado e materiais</p>
+    </div>
+    <div class="step active">
+      <div class="num">6</div>
+      <strong>Faturação</strong>
+      <p>Fatura emitida e enviada ao paciente em PDF</p>
+    </div>
+  </div>
+
+  <!-- ══════════════ 5. PLATAFORMAS ══════════════ -->
+  <h2>5. Plataformas Disponíveis</h2>
+  <table>
+    <tr>
+      <th>Plataforma</th>
+      <th>Quem usa</th>
+      <th>Funciona offline</th>
+      <th>Instalação necessária</th>
+      <th>Notificações</th>
+    </tr>
+    <tr>
+      <td>📱 <strong>Android (APK)</strong></td>
+      <td>Pacientes, Dentistas</td>
+      <td class="check">✔ Parcial</td>
+      <td>Instalar APK</td>
+      <td class="check">✔ Push + WhatsApp</td>
+    </tr>
+    <tr>
+      <td>🖥️ <strong>Windows (EXE)</strong></td>
+      <td>Secretária, Admin</td>
+      <td class="check">✔ Parcial</td>
+      <td>Instalar .exe</td>
+      <td class="check">✔ Sistema + Email</td>
+    </tr>
+    <tr>
+      <td>🌐 <strong>PWA (Web)</strong></td>
+      <td>Todos os perfis</td>
+      <td class="check">✔ Parcial</td>
+      <td>Nenhuma (browser)</td>
+      <td class="check">✔ Web Push</td>
+    </tr>
+    <tr>
+      <td>☁️ <strong>Supabase Cloud</strong></td>
+      <td>Backend / dados</td>
+      <td class="cross">✗</td>
+      <td>Nenhuma</td>
+      <td class="check">✔ Tempo real</td>
+    </tr>
+  </table>
+
+  <div class="highlight">
+    <p>
+      <strong>💡 Sincronização automática:</strong> Todas as plataformas partilham a mesma base de dados em
+      tempo real. Uma alteração feita no computador da secretária aparece imediatamente no telemóvel do
+      dentista e no sistema de notificações do paciente.
+    </p>
+  </div>
+
+  <!-- ══════════════ 6. LEMBRETES AUTOMÁTICOS ══════════════ -->
+  <h2>6. Sistema de Lembretes Automáticos</h2>
+  <div class="grid grid-3">
+    <div class="card">
+      <div class="icon">📧</div>
+      <h4>Email</h4>
+      <p>Enviado 24 horas antes da consulta com data, hora, dentista e instruções de preparação.</p>
+    </div>
+    <div class="card">
+      <div class="icon">💬</div>
+      <h4>WhatsApp</h4>
+      <p>Mensagem personalizada com link direto para confirmar, remarcar ou cancelar a consulta.</p>
+    </div>
+    <div class="card">
+      <div class="icon">🔔</div>
+      <h4>In-App</h4>
+      <p>Notificação push na aplicação com contagem regressiva e acesso rápido à ficha.</p>
+    </div>
+  </div>
+
+  <!-- ══════════════ 7. PRÓXIMOS PASSOS ══════════════ -->
+  <h2>7. Próximos Passos para a Clínica</h2>
+  <table>
+    <tr>
+      <th>#</th>
+      <th>Ação</th>
+      <th>Responsável</th>
+      <th>Prazo</th>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td>Instalar aplicação Windows nos computadores da receção</td>
+      <td>TI / Técnico</td>
+      <td>Semana 1</td>
+    </tr>
+    <tr>
+      <td>2</td>
+      <td>Criar contas para dentistas e secretárias</td>
+      <td>Administrador</td>
+      <td>Semana 1</td>
+    </tr>
+    <tr>
+      <td>3</td>
+      <td>Migrar lista de pacientes existentes</td>
+      <td>Secretária + TI</td>
+      <td>Semana 1–2</td>
+    </tr>
+    <tr>
+      <td>4</td>
+      <td>Formação das secretárias e dentistas (2h)</td>
+      <td>Sorriso Digital</td>
+      <td>Semana 2</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>Distribuição do APK aos pacientes</td>
+      <td>Secretária</td>
+      <td>Semana 2–3</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>Período de uso paralelo (papel + digital)</td>
+      <td>Toda a equipa</td>
+      <td>Semana 2–4</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>Transição total para o sistema digital</td>
+      <td>Administrador</td>
+      <td>Mês 2</td>
+    </tr>
+  </table>
+
+  <!-- ══════════════ 8. STACK TECNOLÓGICA ══════════════ -->
+  <h2>8. Tecnologia Utilizada</h2>
+  <div class="grid grid-3" style="margin-bottom:14px">
+    <div class="card">
+      <div class="icon">🖥️</div>
+      <h4>Frontend — Interface</h4>
+      <p><strong>TypeScript + React Native</strong><br>Linguagem principal de toda a aplicação. Permite detecção de erros antes de testar no telemóvel. Expo SDK facilita o build para Android, iOS e Web.</p>
+    </div>
+    <div class="card">
+      <div class="icon">⚙️</div>
+      <h4>Backend — Base de Dados</h4>
+      <p><strong>PostgreSQL + PL/pgSQL (SQL)</strong><br>Supabase actua como servidor gerido. O SQL define as tabelas, regras de acesso (RLS), funções automáticas (triggers) e agendamentos (pg_cron).</p>
+    </div>
+    <div class="card">
+      <div class="icon">☁️</div>
+      <h4>Automações — Edge Functions</h4>
+      <p><strong>TypeScript (Deno runtime)</strong><br>Funções serverless na cloud para envio de emails via Resend e mensagens WhatsApp. Sem servidor próprio para manter.</p>
+    </div>
+  </div>
+  <div class="highlight">
+    <p>✅ <strong>100% Open-Source:</strong> React Native (Meta/Facebook), PostgreSQL, Expo. Sem licenças proprietárias de custo elevado. Stack usada por empresas como Notion, GitHub e Twitter.</p>
+  </div>
+
+  <!-- ══════════════ 9. SEGURANÇA ══════════════ -->
+  <div class="page-break"></div>
+  <h2>9. Segurança de Dados — Melhorias Implementadas</h2>
+  <p style="font-size:12px;color:#4a5568;margin-bottom:14px">O sistema foi submetido a uma auditoria de segurança completa utilizando o Supabase Security Linter. Foram identificados e corrigidos <strong>16 problemas de segurança</strong> classificados em 4 categorias:</p>
+  <div class="grid grid-2">
+    <div>
+      <h3>🛡️ Problemas Corrigidos</h3>
+      <table>
+        <tr><th>Tipo de Problema</th><th>Status</th></tr>
+        <tr><td>View <code>triagem</code> com SECURITY DEFINER (ignorava RLS)</td><td class="check">✔ Corrigido</td></tr>
+        <tr><td>Tabela <code>provincias</code> sem RLS activo</td><td class="check">✔ Corrigido</td></tr>
+        <tr><td>9 funções SQL com search_path mutável (risco de injecção)</td><td class="check">✔ Corrigido</td></tr>
+        <tr><td>Funções admin acessíveis anonimamente pela API</td><td class="check">✔ Corrigido</td></tr>
+        <tr><td>Políticas RLS de escrita irrestrita em <code>notificacoes</code></td><td class="check">✔ Corrigido</td></tr>
+        <tr><td>Bucket de imagens médicas com listagem pública</td><td class="check">✔ Corrigido</td></tr>
+        <tr><td>Extensão pg_net exposta no schema público</td><td class="check">✔ Corrigido</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3>🔒 Mecanismos de Protecção Activos</h3>
+      <ul class="feature-list">
+        <li><div class="dot"></div><strong>Autenticação em 2 Etapas (2FA / MFA)</strong> — verificação via código de 6 dígitos no WhatsApp com fallback TOTP para Admin, Secretários e Dentistas.</li>
+        <li><div class="dot"></div><strong>JWT Authentication</strong> — cada utilizador tem um token assinado. Sem token válido, sem acesso.</li>
+        <li><div class="dot"></div><strong>Row Level Security (RLS)</strong> — políticas SQL garantem que cada utilizador só vê os seus próprios dados, mesmo que a API seja comprometida.</li>
+        <li><div class="dot"></div><strong>Audit Log Completo</strong> — rastreamento imutável de todas as ações sensíveis com operador, ação, timestamp e visualizador de metadados JSON.</li>
+        <li><div class="dot"></div><strong>REVOKE de permissões</strong> — funções administrativas não são acessíveis por utilizadores não autenticados.</li>
+        <li><div class="dot"></div><strong>Storage Policies</strong> — imagens médicas bucais acessíveis apenas pelo paciente dono ou staff autorizado.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ══════════════ 10. REQUISITOS MÍNIMOS ══════════════ -->
+  <h2>10. Requisitos Mínimos</h2>
+  <div class="grid grid-2">
+    <div class="card">
+      <div class="icon">🖥️</div>
+      <h4>Computadores (Windows)</h4>
+      <ul style="padding-left:16px;font-size:11.5px;color:#4a5568;line-height:1.8">
+        <li>Windows 10 ou superior (64-bit)</li>
+        <li>4 GB RAM mínimo (8 GB recomendado)</li>
+        <li>500 MB espaço em disco</li>
+        <li>Ligação à Internet (banda larga)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="icon">📱</div>
+      <h4>Telemóveis (Android)</h4>
+      <ul style="padding-left:16px;font-size:11.5px;color:#4a5568;line-height:1.8">
+        <li>Android 8.0 (Oreo) ou superior</li>
+        <li>2 GB RAM mínimo</li>
+        <li>100 MB espaço livre</li>
+        <li>Ligação à Internet (4G ou WiFi)</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- ══════════════ FOOTER ══════════════ -->
+  <div class="footer">
+    <strong>TeOdonto Angola</strong> &nbsp;·&nbsp; Desenvolvido por <strong>António Pio Macaia Tati</strong>
+    &nbsp;·&nbsp;
+    Versão 1.1.0 &nbsp;·&nbsp; Outubro 2026 &nbsp;·&nbsp; 🔒 Segurança & Auditoria Integrada<br>
+    <span class="small">Para suporte técnico ou formação, entre em contacto com a equipa Sorriso Digital. | Stack: TypeScript · React Native · PostgreSQL · Supabase · Deno</span>
+  </div>
+
+  <div class="no-print"
+    style="margin:40px auto;max-width:500px;text-align:center;padding:20px;background:#f0f7ff;border-radius:10px;border:1px solid #bbdefb">
+    <p style="font-size:13px;color:#1565c0;font-weight:600;margin-bottom:8px">💾 Como guardar em PDF</p>
+    <p style="font-size:12px;color:#4a5568">Prima <strong>Ctrl + P</strong> → selecione <strong>"Guardar como
+        PDF"</strong> na impressora → clique <strong>Guardar</strong>.</p>
+  </div>
+
+</body>
+
+</html>

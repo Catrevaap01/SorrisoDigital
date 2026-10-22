@@ -14,6 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, SHADOWS, SPACING, TYPOGRAPHY } from '../styles/theme';
 import { supabase } from '../config/supabase';
 import { formatRelativeTime } from '../utils/helpers';
+import QRCode from 'react-native-qrcode-svg';
+import Constants from 'expo-constants';
 
 interface PacienteDetalhesModalProps {
   visible: boolean;
@@ -137,6 +139,17 @@ const PacienteDetalhesModal: React.FC<PacienteDetalhesModalProps> = ({
                   </View>
                 </View>
 
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>QR-instalar o app</Text>
+                  <View style={styles.qrContainer}>
+                    <QRCode
+                      value={Constants.expoConfig?.extra?.APK_DOWNLOAD_URL || 'https://expo.dev/@antoniotati/TeOdontoAngola'}
+                      size={120}
+                      color={COLORS.primary}
+                    />
+                  </View>
+                </View>
+
                 {onVerHistorico && (
                   <TouchableOpacity 
                     style={styles.historyBtn} 
@@ -169,7 +182,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: SPACING.md,
+    paddingHorizontal: Platform.OS === 'web' ? 20 : SPACING.md,
+    paddingVertical: SPACING.md,
   },
   container: {
     backgroundColor: 'white',
@@ -178,16 +192,16 @@ const styles = StyleSheet.create({
     ...SHADOWS.md,
   },
   containerWeb: {
-    width: '100%',
-    maxWidth: 550,
-    maxHeight: '90%',
+    width: '92%',
+    maxWidth: 460,
+    maxHeight: '86%',
   },
   containerMobile: {
     width: '100%',
     maxHeight: '95%',
   },
   header: {
-    padding: SPACING.lg,
+    padding: Platform.OS === 'web' ? SPACING.md : SPACING.lg,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
     flexDirection: 'row',
@@ -196,7 +210,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: Platform.OS === 'web' ? 18 : 20,
     fontWeight: '700',
     color: '#1E293B',
   },
@@ -211,10 +225,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   scrollContent: {
-    padding: SPACING.lg,
+    padding: Platform.OS === 'web' ? SPACING.md : SPACING.lg,
   },
   section: {
-    marginBottom: SPACING.xl,
+    marginBottom: Platform.OS === 'web' ? SPACING.lg : SPACING.xl,
   },
   sectionTitle: {
     fontSize: 14,
@@ -230,8 +244,8 @@ const styles = StyleSheet.create({
   infoItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: SPACING.md,
-    padding: 12,
+    marginBottom: Platform.OS === 'web' ? SPACING.sm : SPACING.md,
+    padding: Platform.OS === 'web' ? 10 : 12,
     backgroundColor: '#F8FAFC',
     borderRadius: 12,
   },
@@ -253,7 +267,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   infoValue: {
-    fontSize: 15,
+    fontSize: Platform.OS === 'web' ? 14 : 15,
     fontWeight: '600',
     color: '#1E293B',
   },
@@ -277,6 +291,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#475569',
     lineHeight: 20,
+  },
+  qrContainer: {
+    alignItems: 'center',
+    padding: SPACING.md,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  qrText: {
+    marginTop: SPACING.sm,
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
   },
   historyBtn: {
     flexDirection: 'row',

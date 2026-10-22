@@ -47,13 +47,16 @@ CREATE TRIGGER on_auth_user_created
 -- ============================================
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
-CREATE OR REPLACE FUNCTION public.is_admin_user(check_user_id uuid)
+-- Drop anterior se necessário para permitir alteração de assinatura/parâmetros
+DROP FUNCTION IF EXISTS public.is_admin_user(uuid) CASCADE;
+
+CREATE OR REPLACE FUNCTION public.is_admin_user(user_id uuid)
 RETURNS boolean AS $$
   SELECT EXISTS (
     SELECT 1
     FROM public.profiles
-    WHERE id = check_user_id
-      AND tipo = 'admin'
+    WHERE profiles.id = user_id
+      AND profiles.tipo = 'admin'
   );
 $$ LANGUAGE sql SECURITY DEFINER STABLE SET search_path = public;
 

@@ -191,14 +191,22 @@
       if (banner) banner.style.display = 'none';
     }
 
-    // Auto-dismiss splash once React loads
+    // Auto-dismiss splash once React loads — polls every 50ms, max 4s fallback
     window.addEventListener('DOMContentLoaded', function() {
-      setTimeout(function() {
+      var startTime = Date.now();
+      var splashInterval = setInterval(function() {
+        var root = document.getElementById('root');
         var splash = document.getElementById('splash-loader');
-        if (splash && document.getElementById('root').children.length > 1) {
-          splash.style.display = 'none';
+        if (!splash) { clearInterval(splashInterval); return; }
+        var reactMounted = root && root.children.length > 1;
+        var timedOut = Date.now() - startTime > 4000;
+        if (reactMounted || timedOut) {
+          splash.style.transition = 'opacity 0.3s ease';
+          splash.style.opacity = '0';
+          setTimeout(function() { splash.style.display = 'none'; }, 300);
+          clearInterval(splashInterval);
         }
-      }, 3000);
+      }, 50);
     });
   </script>
 </body>

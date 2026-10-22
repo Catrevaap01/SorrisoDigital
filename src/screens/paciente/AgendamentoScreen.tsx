@@ -9,11 +9,16 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
 import { criarAgendamento } from '../../services/agendamentoService';
+import {
+  notificarAgendamentoDentista,
+  notificarConfirmacaoPaciente,
+} from '../../services/notificacoesService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { PacienteStackParamList } from '../../navigation/types';
@@ -76,6 +81,8 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     );
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const formularioPronto = !!tipoConsulta && !!dataSelecionada && !!horarioSelecionado && !loading;
+
   const formatarData = (data: Date) => {
     const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
@@ -89,6 +96,10 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
 
 
   const handleAgendar = async () => {
+    if (loading) {
+      return;
+    }
+
     if (!tipoConsulta) {
       Toast.show({ type: 'error', text1: 'Selecione o tipo de consulta' });
       return;
@@ -105,7 +116,7 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     const { dia, mes } = formatarData(dataSelecionada);
     const msg = `Deseja agendar para ${dia}/${mes} às ${horarioSelecionado}?`;
 
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
       // Web/PWA: usar confirm nativo do browser
       const ok = window.confirm(msg);
       if (ok) await processarAgendamento();
@@ -140,7 +151,11 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     //   status = 'agendamento_pendente_secretaria'
     // garantindo que o agendamento vai para a fila da secretaria.
     // Formatar data e hora separadamente para compatibilidade com o banco (DATE/TIME)
-    const dataYYYYMMDD = dataAgendamento.toISOString().split('T')[0];
+    const dataYYYYMMDD = [
+      dataAgendamento.getFullYear(),
+      String(dataAgendamento.getMonth() + 1).padStart(2, '0'),
+      String(dataAgendamento.getDate()).padStart(2, '0'),
+    ].join('-');
     const horaHHMMSS = `${hora}:${minuto}:00`;
 
     const result = await criarAgendamento({
@@ -154,6 +169,28 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     setLoading(false);
 
     if (result.success) {
+      // Format date/time for notification messages
+      const { dia, mes } = formatarData(dataSelecionada);
+      const dataHoraStr = `${dia}/${mes} às ${horarioSelecionado}`;
+      const agendamentoId = (result.data as any)?.id || '';
+      const labelTipo = tipoConsulta.charAt(0).toUpperCase() + tipoConsulta.slice(1).replace(/_/g, ' ');
+
+      // Fire notifications in parallel — non-blocking (don't await both)
+      Promise.all([
+        notificarAgendamentoDentista(
+          profile.nome || 'Paciente',
+          labelTipo,
+          dataHoraStr,
+          agendamentoId
+        ),
+        notificarConfirmacaoPaciente(
+          profile.id,
+          labelTipo,
+          dataHoraStr,
+          agendamentoId
+        ),
+      ]).catch((e) => console.warn('Notificação de agendamento falhou (non-blocking):', e));
+
       Toast.show({
         type: 'success',
         text1: 'Solicitação enviada!',
@@ -318,7 +355,24 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
         </View>
       )}
 
-      {/* Botão Agendar - Removido conforme solicitado */}
+      <TouchableOpacity
+        style={[
+          styles.agendarButton,
+          !formularioPronto && styles.buttonDisabled,
+        ]}
+        onPress={handleAgendar}
+        disabled={!formularioPronto}
+        activeOpacity={0.85}
+      >
+        {loading ? (
+          <ActivityIndicator color={COLORS.textInverse} />
+        ) : (
+          <>
+            <Ionicons name="send" size={20} color={COLORS.textInverse} />
+            <Text style={styles.agendarButtonText}>Enviar Agendamento</Text>
+          </>
+        )}
+      </TouchableOpacity>
 
       {/* Aviso */}
       <View style={styles.avisoContainer}>

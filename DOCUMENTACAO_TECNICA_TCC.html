@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeOdonto Angola — Documentação Técnica Completa para Defesa TCC</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @page {
+    size: A4;
+    margin: 20mm 25mm;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    color: #1a1a2e;
+    background: #fff;
+    line-height: 1.7;
+    font-size: 14px;
+  }
+
+  /* ─── Cover Page ─── */
+  .cover {
+    text-align: center;
+    padding: 80px 40px;
+    page-break-after: always;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(180deg, #f8faff 0%, #e8f4ff 100%);
+  }
+  .cover-icon { font-size: 80px; margin-bottom: 20px; }
+  .cover h1 {
+    font-size: 42px;
+    font-weight: 800;
+    color: #1E88E5;
+    margin-bottom: 8px;
+    letter-spacing: -1px;
+  }
+  .cover h2 {
+    font-size: 20px;
+    font-weight: 400;
+    color: #666;
+    margin-bottom: 40px;
+  }
+  .cover .meta {
+    font-size: 14px;
+    color: #888;
+    line-height: 2;
+  }
+  .cover .meta strong { color: #333; }
+
+  /* ─── TOC ─── */
+  .toc {
+    page-break-after: always;
+    padding: 40px 0;
+  }
+  .toc h2 {
+    font-size: 28px;
+    font-weight: 800;
+    color: #1E88E5;
+    border-bottom: 3px solid #1E88E5;
+    padding-bottom: 12px;
+    margin-bottom: 30px;
+  }
+  .toc-list {
+    list-style: none;
+    counter-reset: toc-counter;
+  }
+  .toc-list li {
+    counter-increment: toc-counter;
+    padding: 10px 0;
+    border-bottom: 1px dotted #ddd;
+    font-size: 15px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .toc-list li::before {
+    content: counter(toc-counter) ".";
+    font-weight: 700;
+    color: #1E88E5;
+    margin-right: 12px;
+    min-width: 28px;
+  }
+  .toc-section {
+    font-weight: 600;
+    color: #333;
+  }
+
+  /* ─── Section Headers ─── */
+  .section {
+    page-break-before: always;
+    margin-bottom: 40px;
+  }
+  .section:first-of-type { page-break-before: auto; }
+
+  h2.section-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: #1E88E5;
+    border-left: 5px solid #1E88E5;
+    padding-left: 16px;
+    margin-bottom: 24px;
+    margin-top: 40px;
+    line-height: 1.3;
+  }
+
+  h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: #333;
+    margin-top: 30px;
+    margin-bottom: 14px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #e8f4ff;
+  }
+
+  h4 {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1565C0;
+    margin-top: 20px;
+    margin-bottom: 10px;
+  }
+
+  p { margin-bottom: 12px; }
+
+  /* ─── Tables ─── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-size: 13px;
+  }
+  table th {
+    background: #1E88E5;
+    color: white;
+    padding: 10px 14px;
+    text-align: left;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+  }
+  table tr:nth-child(even) { background: #f9fbff; }
+  table tr:hover { background: #e8f4ff; }
+
+  /* ─── Code Blocks ─── */
+  pre {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    padding: 16px 20px;
+    border-radius: 10px;
+    font-family: 'Fira Code', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    overflow-x: auto;
+    margin: 12px 0 20px;
+    border: 1px solid #313244;
+  }
+  code {
+    font-family: 'Fira Code', monospace;
+    background: #e8f4ff;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12.5px;
+    color: #1565C0;
+  }
+
+  /* ─── Cards ─── */
+  .info-card {
+    background: #f0f7ff;
+    border: 1px solid #bbdefb;
+    border-left: 4px solid #1E88E5;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .info-card.green {
+    background: #f0fff4;
+    border-color: #a5d6a7;
+    border-left-color: #43A047;
+  }
+  .info-card.purple {
+    background: #f5f0ff;
+    border-color: #d1c4e9;
+    border-left-color: #7C3AED;
+  }
+  .info-card.orange {
+    background: #fff8f0;
+    border-color: #ffcc80;
+    border-left-color: #FF9800;
+  }
+  .info-card.red {
+    background: #fff5f5;
+    border-color: #ef9a9a;
+    border-left-color: #E53935;
+  }
+
+  .info-card h4 {
+    margin-top: 0;
+    color: inherit;
+  }
+
+  /* ─── Lists ─── */
+  ul, ol {
+    margin: 10px 0 16px 24px;
+  }
+  li { margin-bottom: 6px; }
+
+  /* ─── Badges ─── */
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .badge-blue { background: #e3f2fd; color: #1565c0; }
+  .badge-green { background: #e8f5e9; color: #2e7d32; }
+  .badge-purple { background: #ede7f6; color: #4a148c; }
+  .badge-orange { background: #fff3e0; color: #e65100; }
+  .badge-red { background: #ffebee; color: #b71c1c; }
+
+  /* ─── Folder Tree ─── */
+  .folder-tree {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    padding: 20px 24px;
+    border-radius: 10px;
+    font-family: 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.9;
+    margin: 16px 0 24px;
+    white-space: pre;
+  }
+  .folder-tree .folder { color: #89b4fa; font-weight: 600; }
+  .folder-tree .file { color: #a6e3a1; }
+  .folder-tree .comment { color: #6c7086; }
+
+  /* ─── Divider ─── */
+  hr {
+    border: none;
+    border-top: 2px solid #e8f4ff;
+    margin: 30px 0;
+  }
+
+  /* ─── Print button ─── */
+  .print-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #1E88E5;
+    color: white;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(30,136,229,0.3);
+    z-index: 1000;
+    transition: all 0.2s;
+  }
+  .print-btn:hover {
+    background: #1565C0;
+    transform: translateY(-2px);
+  }
+  @media print {
+    .print-btn { display: none; }
+  }
+
+  .flow-diagram {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 16px 0;
+    padding: 16px;
+    background: #f8faff;
+    border-radius: 10px;
+    border: 1px solid #e0e7ff;
+  }
+  .flow-box {
+    background: #1E88E5;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .flow-box.green { background: #43A047; }
+  .flow-box.purple { background: #7C3AED; }
+  .flow-box.orange { background: #FF9800; }
+  .flow-arrow { color: #999; font-size: 18px; }
+</style>
+</head>
+<body>
+
+<button class="print-btn" onclick="window.print()">📄 Gerar PDF (Ctrl+P)</button>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- CAPA -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-icon">🦷</div>
+  <h1>TeOdonto Angola</h1>
+  <h2>Documentação Técnica Completa do Projecto</h2>
+  <p style="font-size: 16px; color: #666; max-width: 600px; margin: 0 auto 40px;">
+    Sistema Digital de Gestão Odontológica — Aplicação Móvel e Web Multiplataforma
+  </p>
+  <div class="meta">
+    <strong>Trabalho de Conclusão de Curso (TCC)</strong><br>
+    Curso: Computação Móvel<br>
+    Projecto: Sorriso Digital<br>
+    Aluno: António Tati<br>
+    Orientador: [Nome do Orientador]<br>
+    Ano Lectivo: 2025/2026<br><br>
+    <em>Documento de referência para preparação da defesa</em>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- ÍNDICE -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="toc">
+  <h2>Índice</h2>
+  <ol class="toc-list">
+    <li><span class="toc-section">Visão Geral do Projecto</span></li>
+    <li><span class="toc-section">Stack Tecnológico e Justificativas</span></li>
+    <li><span class="toc-section">Arquitectura do Sistema</span></li>
+    <li><span class="toc-section">Estrutura Completa de Pastas e Ficheiros</span></li>
+    <li><span class="toc-section">Módulo de Autenticação e Segurança (AuthContext)</span></li>
+    <li><span class="toc-section">Serviços (Services Layer) — 22 Serviços</span></li>
+    <li><span class="toc-section">Contextos Globais (Context Providers)</span></li>
+    <li><span class="toc-section">Custom Hooks — 9 Hooks</span></li>
+    <li><span class="toc-section">Componentes Reutilizáveis</span></li>
+    <li><span class="toc-section">Sistema de Navegação (React Navigation)</span></li>
+    <li><span class="toc-section">Telas do Paciente — 16 Ecrãs</span></li>
+    <li><span class="toc-section">Telas do Dentista — 13 Ecrãs</span></li>
+    <li><span class="toc-section">Telas da Secretária — 5 Ecrãs</span></li>
+    <li><span class="toc-section">Telas do Administrador — 7 Ecrãs</span></li>
+    <li><span class="toc-section">Modelo de Dados (DER) e Base de Dados</span></li>
+    <li><span class="toc-section">Sistema em Tempo Real (Realtime)</span></li>
+    <li><span class="toc-section">Utilitários e Configurações</span></li>
+    <li><span class="toc-section">Deploy e Distribuição (Vercel, EAS, Electron)</span></li>
+    <li><span class="toc-section">Requisitos Funcionais e Não Funcionais</span></li>
+    <li><span class="toc-section">Perguntas Frequentes na Defesa</span></li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 1: VISÃO GERAL -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">1. Visão Geral do Projecto</h2>
+
+  <p>O <strong>TeOdonto Angola</strong> é um sistema digital de gestão odontológica desenvolvido para clínicas dentárias em Angola. A aplicação permite o controle completo do fluxo clínico — desde a pré-triagem digital feita pelo paciente, passando pelo agendamento, atendimento clínico, prescrição médica, até ao controle financeiro.</p>
+
+  <div class="info-card">
+    <h4>🎯 Objectivo Central</h4>
+    <p>Digitalizar o fluxo completo de uma clínica odontológica angolana, eliminando processos manuais (fichas de papel, agendas físicas) e garantindo rastreabilidade, segurança e eficiência no atendimento.</p>
+  </div>
+
+  <h3>Perfis de Utilizador</h3>
+  <table>
+    <thead>
+      <tr><th>Perfil</th><th>Cor do Tema</th><th>Funcionalidades Principais</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>🧑‍💼 Paciente</strong></td><td><span class="badge badge-blue">#1E88E5 Azul</span></td><td>Triagem digital, agendamento, chat, histórico, educação em saúde, perfil</td></tr>
+      <tr><td><strong>🦷 Dentista</strong></td><td><span class="badge badge-green">#43A047 Verde</span></td><td>Dashboard, agenda, prontuário, anamnese, evolução clínica, prescrição, relatórios</td></tr>
+      <tr><td><strong>👩‍💻 Secretária</strong></td><td><span class="badge badge-purple">#7C3AED Roxo</span></td><td>Fila de espera, atribuição de dentista, agendamentos, pagamentos, cadastro</td></tr>
+      <tr><td><strong>🛡️ Administrador</strong></td><td><span class="badge badge-red">#E53935 Vermelho</span></td><td>Dashboard global, gestão de utilizadores, relatórios, auditoria, recuperação de senhas</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Plataformas Suportadas</h3>
+  <ul>
+    <li><strong>Android</strong> — APK nativo via EAS Build (Expo)</li>
+    <li><strong>Web (PWA)</strong> — Deploy em Vercel com Service Worker para uso offline</li>
+    <li><strong>Desktop Windows</strong> — Empacotado com Electron (instalador NSIS)</li>
+    <li><strong>iOS</strong> — Suportado pelo framework (requer Apple Developer Account)</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 2: STACK TECNOLÓGICO -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">2. Stack Tecnológico e Justificativas</h2>
+
+  <table>
+    <thead>
+      <tr><th>Tecnologia</th><th>Versão</th><th>Função</th><th>Justificativa</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>React Native</strong></td><td>0.81.5</td><td>Framework de UI multiplataforma</td><td>Código único para Android, iOS e Web. Grande comunidade e ecossistema.</td></tr>
+      <tr><td><strong>Expo SDK</strong></td><td>54</td><td>Toolkit e build system</td><td>Simplifica setup, build (EAS), e acesso a APIs nativas (câmara, notificações).</td></tr>
+      <tr><td><strong>React</strong></td><td>19.1.0</td><td>Biblioteca de UI declarativa</td><td>Última versão com melhorias de performance e Concurrent Features.</td></tr>
+      <tr><td><strong>TypeScript</strong></td><td>5.9.2</td><td>Linguagem tipada</td><td>Segurança de tipos, auto-complete, detecção de erros em compilação.</td></tr>
+      <tr><td><strong>Supabase</strong></td><td>2.97.0</td><td>Backend-as-a-Service</td><td>Auth, PostgreSQL, Realtime, Storage e Edge Functions num só serviço.</td></tr>
+      <tr><td><strong>PostgreSQL</strong></td><td>15+</td><td>Base de dados relacional</td><td>RLS nativo, robustez, integridade referencial, JSON support.</td></tr>
+      <tr><td><strong>React Navigation</strong></td><td>7.x</td><td>Navegação (Stack + Tabs)</td><td>Standard da indústria para React Native com tipagem TypeScript.</td></tr>
+      <tr><td><strong>Electron</strong></td><td>38.4.0</td><td>App Desktop</td><td>Reutiliza a versão web em janela nativa Windows.</td></tr>
+      <tr><td><strong>Expo Print</strong></td><td>15.0</td><td>Geração de PDF</td><td>Cria PDFs de prescrições, fichas e relatórios directamente no dispositivo.</td></tr>
+      <tr><td><strong>date-fns</strong></td><td>2.30</td><td>Manipulação de datas</td><td>Biblioteca leve e modular para formatação e cálculos de datas.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info-card green">
+    <h4>💡 Por que Supabase e não Firebase?</h4>
+    <p>O Supabase utiliza PostgreSQL (base de dados relacional), que permite <strong>Row Level Security (RLS)</strong> nativo — essencial para um sistema de saúde onde dados clínicos devem ser estritamente controlados. O Firebase (NoSQL) não oferece este nível de controle granular ao nível da linha.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 3: ARQUITECTURA -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">3. Arquitectura do Sistema</h2>
+
+  <p>O sistema segue uma <strong>arquitectura em três camadas</strong> (Apresentação, Lógica de Negócio, Dados), com o backend totalmente gerido pelo Supabase (BaaS — Backend as a Service).</p>
+
+  <h3>3.1 Diagrama de Arquitectura</h3>
+
+  <div class="info-card">
+    <pre style="background: none; border: none; color: #333; padding: 0; font-size: 13px;">
+┌─────────────────────────────────────────────────────────────────┐
+│                   CAMADA DE APRESENTAÇÃO (UI)                    │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐    │
+│  │ Screens  │  │Components│  │Navigation│  │ Styles/Theme │    │
+│  │ (50+ UI) │  │(11 comp.)│  │(Tabs+Stk)│  │(COLORS,FONTS)│    │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────────┘    │
+├─────────────────────────────────────────────────────────────────┤
+│                CAMADA DE LÓGICA DE NEGÓCIO                       │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐    │
+│  │ Contexts │  │  Hooks   │  │ Services │  │    Utils     │    │
+│  │(5 provid)│  │(9 custom)│  │(22 svcs) │  │(15 utilitár)│    │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────────┘    │
+├─────────────────────────────────────────────────────────────────┤
+│              CAMADA DE DADOS (Supabase Cloud)                    │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐    │
+│  │Supabase  │  │PostgreSQL│  │ Realtime │  │Edge Functions│    │
+│  │  Auth    │  │  + RLS   │  │Websockets│  │  (Deno/TS)   │    │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────────┘    │
+└─────────────────────────────────────────────────────────────────┘
+    </pre>
+  </div>
+
+  <h3>3.2 Fluxo de Dados</h3>
+  <div class="flow-diagram">
+    <div class="flow-box">Utilizador (UI)</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-box green">Hook / Context</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-box purple">Service</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-box orange">Supabase SDK</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-box">PostgreSQL + RLS</div>
+  </div>
+
+  <h3>3.3 Padrão Provider → Hook → Screen</h3>
+  <p>O projecto segue o padrão <strong>React Context + Custom Hooks</strong> para gestão de estado global. Os <code>Contexts</code> encapsulam estado partilhado, os <code>Hooks</code> expõem lógica reutilizável, e os <code>Screens</code> consomem ambos para renderizar a UI.</p>
+
+  <pre>
+<span style="color:#ce93d8">// Exemplo do padrão:</span>
+
+<span style="color:#89b4fa">// 1. Context (AuthContext.tsx)</span>
+const AuthContext = createContext&lt;AuthContextValue&gt;(undefined);
+export const AuthProvider = ({ children }) =&gt; {
+  const [user, setUser] = useState(null);
+  // ... lógica de autenticação
+  return &lt;AuthContext.Provider value={{ user, login, signOut }}&gt;...
+
+<span style="color:#89b4fa">// 2. Hook (useAuth)</span>
+export const useAuth = () =&gt; useContext(AuthContext);
+
+<span style="color:#89b4fa">// 3. Screen</span>
+const HomeScreen = () =&gt; {
+  const { user, profile } = useAuth();
+  return &lt;View&gt;Olá, {profile?.nome}&lt;/View&gt;;
+};
+  </pre>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 4: ESTRUTURA DE PASTAS -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">4. Estrutura Completa de Pastas e Ficheiros</h2>
+
+  <div class="folder-tree"><span class="folder">TeOdontoAngola/</span>
+├── <span class="file">App.tsx</span>              <span class="comment">← Ponto de entrada: Providers + NavigationContainer</span>
+├── <span class="file">index.tsx</span>            <span class="comment">← registerRootComponent do Expo</span>
+├── <span class="file">app.json</span>             <span class="comment">← Configuração Expo (nome, ícones, plugins, chaves)</span>
+├── <span class="file">package.json</span>         <span class="comment">← Dependências e scripts (start, build:web, desktop)</span>
+├── <span class="file">tsconfig.json</span>        <span class="comment">← Configuração TypeScript</span>
+├── <span class="file">babel.config.js</span>      <span class="comment">← Babel com preset expo + remove-console</span>
+├── <span class="file">metro.config.js</span>      <span class="comment">← Metro bundler config com alias</span>
+├── <span class="file">eas.json</span>             <span class="comment">← EAS Build perfis (development, preview, production)</span>
+│
+├── <span class="folder">src/</span>
+│   ├── <span class="folder">screens/</span>         <span class="comment">← Todas as telas organizadas por perfil</span>
+│   │   ├── <span class="folder">auth/</span>        <span class="comment">← Login, Registo, Esqueci Senha, Mudar Senha (6 ecrãs)</span>
+│   │   ├── <span class="folder">paciente/</span>    <span class="comment">← Home, Triagem, Histórico, Educação, etc. (16 ecrãs)</span>
+│   │   ├── <span class="folder">dentista/</span>    <span class="comment">← Dashboard, Agenda, Caso, Anamnese, etc. (13 ecrãs)</span>
+│   │   ├── <span class="folder">secretario/</span>  <span class="comment">← Dashboard, Agendamentos, Atribuir Dentista (5 ecrãs)</span>
+│   │   ├── <span class="folder">admin/</span>       <span class="comment">← Dashboard, Relatórios, Secretários, Audit (7 ecrãs)</span>
+│   │   ├── <span class="folder">shared/</span>      <span class="comment">← Chat, Conversas, Notificações (3 ecrãs)</span>
+│   │   └── <span class="folder">appointments/</span><span class="comment">← Agendamentos por perfil (3 ecrãs)</span>
+│   │
+│   ├── <span class="folder">components/</span>      <span class="comment">← Componentes reutilizáveis</span>
+│   │   ├── <span class="file">AppointmentCard.tsx</span>       <span class="comment">← Card de consulta agendada</span>
+│   │   ├── <span class="file">AssignmentModal.tsx</span>       <span class="comment">← Modal de atribuição de dentista</span>
+│   │   ├── <span class="file">Card.tsx</span>                  <span class="comment">← Card genérico reutilizável</span>
+│   │   ├── <span class="file">FilasList.tsx</span>             <span class="comment">← Lista de filas de espera</span>
+│   │   ├── <span class="file">NetworkSyncStatus.tsx</span>     <span class="comment">← Indicador de estado de rede</span>
+│   │   ├── <span class="file">PacienteDetalhesModal.tsx</span> <span class="comment">← Modal de detalhes do paciente</span>
+│   │   ├── <span class="file">ProfileEditModal.tsx</span>      <span class="comment">← Modal de edição de perfil</span>
+│   │   ├── <span class="file">TratamentosFacturasPanel.tsx</span> <span class="comment">← Painel financeiro completo</span>
+│   │   └── <span class="folder">ui/</span>                     <span class="comment">← Componentes base da UI</span>
+│   │       ├── <span class="file">Button.tsx</span>            <span class="comment">← Botão estilizado com variantes</span>
+│   │       ├── <span class="file">Input.tsx</span>             <span class="comment">← Campo de entrada com validação</span>
+│   │       └── <span class="file">Loading.tsx</span>           <span class="comment">← Indicador de carregamento</span>
+│   │
+│   ├── <span class="folder">services/</span>        <span class="comment">← 22 serviços de acesso a dados e lógica</span>
+│   │   ├── <span class="file">authService.ts</span>           <span class="comment">← Autenticação, registo, login, MFA</span>
+│   │   ├── <span class="file">agendamentoService.ts</span>    <span class="comment">← CRUD de agendamentos</span>
+│   │   ├── <span class="file">appointmentsService.ts</span>   <span class="comment">← Consultas/appointments avançado</span>
+│   │   ├── <span class="file">triagemService.ts</span>        <span class="comment">← CRUD de triagens + atribuição</span>
+│   │   ├── <span class="file">pacienteService.ts</span>       <span class="comment">← Gestão de pacientes</span>
+│   │   ├── <span class="file">dentistaService.ts</span>       <span class="comment">← Gestão de dentistas</span>
+│   │   ├── <span class="file">secretarioService.ts</span>     <span class="comment">← Funções da secretária</span>
+│   │   ├── <span class="file">messagesService.ts</span>       <span class="comment">← Chat e mensagens</span>
+│   │   ├── <span class="file">fichaService.ts</span>          <span class="comment">← Ficha clínica / prontuário</span>
+│   │   ├── <span class="file">relatorioService.ts</span>      <span class="comment">← Relatórios e métricas</span>
+│   │   ├── <span class="file">pdfReportService.ts</span>      <span class="comment">← Geração de PDF</span>
+│   │   ├── <span class="file">emailService.ts</span>          <span class="comment">← Envio de emails via Edge Function</span>
+│   │   ├── <span class="file">notificacoesService.ts</span>   <span class="comment">← Notificações in-app</span>
+│   │   ├── <span class="file">localNotificationService.ts</span> <span class="comment">← Push notifications locais</span>
+│   │   ├── <span class="file">reminderService.ts</span>       <span class="comment">← Lembretes de consultas</span>
+│   │   ├── <span class="file">reminderWorkerService.ts</span> <span class="comment">← Worker de lembretes automáticos</span>
+│   │   ├── <span class="file">offlineSyncService.ts</span>    <span class="comment">← Sincronização offline</span>
+│   │   ├── <span class="file">auditService.ts</span>          <span class="comment">← Log de auditoria</span>
+│   │   ├── <span class="file">conteudoService.ts</span>       <span class="comment">← Conteúdos educativos</span>
+│   │   ├── <span class="file">passwordRecoveryService.ts</span> <span class="comment">← Recuperação de senhas</span>
+│   │   ├── <span class="file">storageService.ts</span>        <span class="comment">← Upload de imagens (Supabase Storage)</span>
+│   │   └── <span class="file">baseService.ts</span>           <span class="comment">← Serviço base CRUD genérico</span>
+│   │
+│   ├── <span class="folder">contexts/</span>        <span class="comment">← 5 Context Providers globais</span>
+│   │   ├── <span class="file">AuthContext.tsx</span>          <span class="comment">← Autenticação, sessão, perfil (1382 linhas)</span>
+│   │   ├── <span class="file">ThemeContext.tsx</span>         <span class="comment">← Tema claro/escuro</span>
+│   │   ├── <span class="file">DentistContext.tsx</span>       <span class="comment">← Estado do dentista seleccionado</span>
+│   │   ├── <span class="file">NetworkContext.tsx</span>       <span class="comment">← Estado de conectividade</span>
+│   │   └── <span class="file">RealtimeContext.tsx</span>      <span class="comment">← Subscrições Realtime do Supabase</span>
+│   │
+│   ├── <span class="folder">hooks/</span>           <span class="comment">← 9 Custom Hooks</span>
+│   │   ├── <span class="file">useAgendamentos.ts</span>      <span class="comment">← Lógica de agendamentos</span>
+│   │   ├── <span class="file">useAppointments.ts</span>      <span class="comment">← Consultas do sistema</span>
+│   │   ├── <span class="file">useConteudos.ts</span>         <span class="comment">← Conteúdos educativos</span>
+│   │   ├── <span class="file">useDentistas.ts</span>         <span class="comment">← Lista e selecção de dentistas</span>
+│   │   ├── <span class="file">useFilasSecretaria.ts</span>   <span class="comment">← Filas da secretária</span>
+│   │   ├── <span class="file">useNetworkSync.ts</span>       <span class="comment">← Sincronização com rede</span>
+│   │   ├── <span class="file">useRealTimeMessages.ts</span>  <span class="comment">← Mensagens em tempo real</span>
+│   │   ├── <span class="file">useRealtimeRefresh.ts</span>   <span class="comment">← Refresh automático via Realtime</span>
+│   │   └── <span class="file">useTriagens.ts</span>          <span class="comment">← Lógica de triagens</span>
+│   │
+│   ├── <span class="folder">navigation/</span>      <span class="comment">← Sistema de navegação</span>
+│   │   ├── <span class="file">AppNavigator.tsx</span>        <span class="comment">← Navegador principal (794 linhas)</span>
+│   │   ├── <span class="file">AdminNavigator.tsx</span>      <span class="comment">← Navegação do admin</span>
+│   │   ├── <span class="file">DentistaStackNavigator.tsx</span> <span class="comment">← Stack do dentista</span>
+│   │   └── <span class="file">types.ts</span>                <span class="comment">← Tipos TypeScript das rotas</span>
+│   │
+│   ├── <span class="folder">config/</span>          <span class="comment">← Configurações</span>
+│   │   ├── <span class="file">supabase.ts</span>             <span class="comment">← Cliente Supabase + admin client</span>
+│   │   └── <span class="file">specialtyConfig.ts</span>      <span class="comment">← 9 especialidades odontológicas</span>
+│   │
+│   ├── <span class="folder">styles/</span>          <span class="comment">← Design System</span>
+│   │   ├── <span class="file">theme.ts</span>                <span class="comment">← COLORS, FONTS, SIZES, SHADOWS, SPACING</span>
+│   │   └── <span class="file">themeColors.ts</span>          <span class="comment">← Cores por perfil</span>
+│   │
+│   ├── <span class="folder">utils/</span>           <span class="comment">← 15 ficheiros utilitários</span>
+│   │   ├── <span class="file">validators.ts</span>           <span class="comment">← Validação de email, telefone, BI</span>
+│   │   ├── <span class="file">errorHandler.ts</span>         <span class="comment">← Tratamento global de erros</span>
+│   │   ├── <span class="file">logger.ts</span>               <span class="comment">← Logging estruturado (DEBUG/INFO/WARN/ERROR)</span>
+│   │   ├── <span class="file">cacheService.ts</span>         <span class="comment">← Cache local com TTL</span>
+│   │   ├── <span class="file">constants.ts</span>            <span class="comment">← Constantes globais (províncias, especialidades)</span>
+│   │   ├── <span class="file">helpers.ts</span>              <span class="comment">← Funções auxiliares diversas</span>
+│   │   ├── <span class="file">pdfExportUtils.ts</span>       <span class="comment">← Utilitários de exportação PDF</span>
+│   │   ├── <span class="file">qrUtils.ts</span>              <span class="comment">← Geração de QR Code</span>
+│   │   ├── <span class="file">senhaUtils.ts</span>           <span class="comment">← Utilitários de gestão de senhas</span>
+│   │   ├── <span class="file">storage.ts</span>              <span class="comment">← AsyncStorage universal (web + mobile)</span>
+│   │   ├── <span class="file">platformUtils.ts</span>        <span class="comment">← Detecção de plataforma</span>
+│   │   ├── <span class="file">networkUtils.ts</span>         <span class="comment">← Verificação de conectividade</span>
+│   │   ├── <span class="file">navigationConstants.ts</span>  <span class="comment">← Nomes de rotas centralizados</span>
+│   │   └── <span class="file">withTimeout.ts</span>          <span class="comment">← Wrapper de timeout para Promises</span>
+│   │
+│   ├── <span class="folder">realtime/</span>        <span class="comment">← Sistema em tempo real</span>
+│   │   ├── <span class="file">realtime.ts</span>             <span class="comment">← Configuração de channels</span>
+│   │   ├── <span class="file">realtimeBus.ts</span>          <span class="comment">← Event bus para Realtime</span>
+│   │   └── <span class="file">realtimeEvents.ts</span>       <span class="comment">← Definição de eventos</span>
+│   │
+│   └── <span class="folder">types/</span>           <span class="comment">← Tipos TypeScript</span>
+│       ├── <span class="file">appointment.ts</span>          <span class="comment">← Tipos de consulta/agendamento</span>
+│       └── <span class="file">triagem.ts</span>              <span class="comment">← Tipos de triagem</span>
+│
+├── <span class="folder">supabase/functions/</span>  <span class="comment">← Edge Functions (Deno)</span>
+│   ├── <span class="folder">send-email/</span>              <span class="comment">← Envio de emails (Resend API)</span>
+│   └── <span class="folder">send-reminders/</span>          <span class="comment">← Lembretes automáticos</span>
+│
+├── <span class="folder">desktop/</span>             <span class="comment">← Configuração Electron</span>
+│   └── <span class="file">main.cjs</span>                <span class="comment">← Janela principal Electron</span>
+│
+├── <span class="folder">scripts/</span>             <span class="comment">← Scripts de automação</span>
+│   ├── <span class="file">create-admin.js</span>         <span class="comment">← Criar utilizador admin</span>
+│   ├── <span class="file">prepare-pwa.js</span>          <span class="comment">← Preparar PWA (service worker)</span>
+│   └── <span class="file">setup_reminder_tables.js</span> <span class="comment">← Criar tabelas de lembretes</span>
+│
+└── <span class="folder">web/</span>                 <span class="comment">← Ficheiros web estáticos (favicon, manifest)</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 5: AUTENTICAÇÃO -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">5. Módulo de Autenticação e Segurança</h2>
+
+  <p>O ficheiro <code>AuthContext.tsx</code> é o coração do sistema de segurança, com <strong>1382 linhas</strong> de código. É o Context Provider mais complexo do projecto.</p>
+
+  <h3>5.1 Funcionalidades do AuthContext</h3>
+  <table>
+    <thead><tr><th>Funcionalidade</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Login/Registo</strong></td><td>Autenticação via email/senha com Supabase Auth. Suporte a MFA (TOTP).</td></tr>
+      <tr><td><strong>Sessão Única</strong></td><td>Apenas 1 dispositivo activo por conta. Novo login expulsa sessões anteriores via Realtime Broadcast + Storage Event.</td></tr>
+      <tr><td><strong>Perfil (Profile)</strong></td><td>Busca e normaliza dados do perfil. Resolve província por ID. Suporta fallback para admin client em caso de RLS.</td></tr>
+      <tr><td><strong>MFA (2FA)</strong></td><td>Suporte a autenticação de dois factores via TOTP (Google Authenticator, Authy).</td></tr>
+      <tr><td><strong>Timeout de Inactividade</strong></td><td>Logout automático após 2 minutos sem interacção (configurável).</td></tr>
+      <tr><td><strong>Heartbeat</strong></td><td>Verificação de integridade de sessão a cada 1.5 segundos (fail-safe contra falhas Realtime).</td></tr>
+      <tr><td><strong>Tab/Instance ID</strong></td><td>ID único por aba (web) ou por dispositivo (mobile). Usado para detecção de sessão duplicada.</td></tr>
+      <tr><td><strong>Força Mudança de Senha</strong></td><td>Utilizadores com senha temporária são forçados a alterá-la no primeiro acesso.</td></tr>
+      <tr><td><strong>Completar Perfil</strong></td><td>Pacientes auto-registados devem preencher telefone e província antes de usar o sistema.</td></tr>
+      <tr><td><strong>Províncias de Angola</strong></td><td>18 províncias angolanas com normalização de nomes (acentos, variantes de escrita).</td></tr>
+    </tbody>
+  </table>
+
+  <h3>5.2 Fluxo de Autenticação</h3>
+  <div class="flow-diagram">
+    <div class="flow-box">Abrir App</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-box green">getSession()</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-box purple">MFA Necessário?</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-box orange">fetchProfile()</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-box">Verificar Sessão</div>
+    <span class="flow-arrow">→</span>
+    <div class="flow-box green">Redirecionar por Perfil</div>
+  </div>
+
+  <div class="info-card red">
+    <h4>🔐 Mecanismo de Sessão Única (Anti-Concurrent-Login)</h4>
+    <p>Quando um utilizador faz login, o sistema:</p>
+    <ol>
+      <li>Gera um <code>tabInstanceId</code> único para esta sessão</li>
+      <li>Grava o ID em <code>localStorage</code> (web) e na coluna <code>last_session_id</code> da tabela <code>profiles</code></li>
+      <li>Envia um Broadcast Realtime para todos os outros dispositivos/abas</li>
+      <li>Invalida sessões anteriores via <code>supabase.auth.signOut({ scope: 'others' })</code></li>
+      <li>Outras abas detectam via Storage Event e fazem logout imediato (&lt;1s)</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 6: SERVIÇOS -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">6. Serviços (Services Layer) — 22 Serviços</h2>
+
+  <p>A camada de serviços é a interface entre a UI e o Supabase. Cada serviço encapsula a lógica de acesso a dados de um domínio específico.</p>
+
+  <table>
+    <thead><tr><th>Serviço</th><th>Tamanho</th><th>Função</th></tr></thead>
+    <tbody>
+      <tr><td><code>authService.ts</code></td><td>28.5 KB</td><td>Login, registo, validação de perfil, criação de dentistas/secretários com senha temporária</td></tr>
+      <tr><td><code>triagemService.ts</code></td><td>33 KB</td><td>CRUD completo de triagens, atribuição de dentista, mudança de status, upload de fotos</td></tr>
+      <tr><td><code>relatorioService.ts</code></td><td>33.6 KB</td><td>Geração de relatórios: métricas financeiras, produtividade, filtros por período/dentista</td></tr>
+      <tr><td><code>agendamentoService.ts</code></td><td>30.5 KB</td><td>Agendamentos: criar, confirmar, cancelar, reagendar, buscar por dentista/paciente</td></tr>
+      <tr><td><code>pdfReportService.ts</code></td><td>30.2 KB</td><td>Geração de PDFs: prescrições, fichas clínicas, relatórios financeiros com template HTML</td></tr>
+      <tr><td><code>secretarioService.ts</code></td><td>27.7 KB</td><td>Funções da secretária: filas, atribuições, pagamentos, dashboard</td></tr>
+      <tr><td><code>pacienteService.ts</code></td><td>25.7 KB</td><td>Gestão de pacientes: listagem, busca, perfil, histórico completo</td></tr>
+      <tr><td><code>appointmentsService.ts</code></td><td>22.6 KB</td><td>Sistema avançado de consultas com suporte a múltiplos perfis</td></tr>
+      <tr><td><code>dentistaService.ts</code></td><td>21.1 KB</td><td>Gestão de dentistas: perfil, especialidade, agenda, métricas</td></tr>
+      <tr><td><code>messagesService.ts</code></td><td>15.1 KB</td><td>Chat: enviar/receber mensagens, contagem de não lidas, conversas</td></tr>
+      <tr><td><code>reminderWorkerService.ts</code></td><td>12.4 KB</td><td>Worker que verifica consultas de amanhã e envia lembretes (email + push + WhatsApp)</td></tr>
+      <tr><td><code>notificacoesService.ts</code></td><td>11.6 KB</td><td>Notificações in-app: criar, listar, marcar como lida</td></tr>
+      <tr><td><code>reminderService.ts</code></td><td>9.2 KB</td><td>Lógica de lembretes: cálculo de prazos, verificação de envio</td></tr>
+      <tr><td><code>localNotificationService.ts</code></td><td>9.3 KB</td><td>Push notifications locais via Expo Notifications</td></tr>
+      <tr><td><code>emailService.ts</code></td><td>8.9 KB</td><td>Envio de emails via Supabase Edge Function (send-email)</td></tr>
+      <tr><td><code>fichaService.ts</code></td><td>8.7 KB</td><td>Ficha clínica / prontuário: anamnese, evolução, plano de tratamento</td></tr>
+      <tr><td><code>auditService.ts</code></td><td>8 KB</td><td>Log de auditoria: quem fez o quê, quando e onde</td></tr>
+      <tr><td><code>passwordRecoveryService.ts</code></td><td>6.7 KB</td><td>Recuperação de senha por email com token</td></tr>
+      <tr><td><code>offlineSyncService.ts</code></td><td>4.5 KB</td><td>Fila offline com AsyncStorage, sincronização automática ao reconectar</td></tr>
+      <tr><td><code>baseService.ts</code></td><td>4.4 KB</td><td>Serviço base genérico com CRUD reutilizável</td></tr>
+      <tr><td><code>storageService.ts</code></td><td>2.3 KB</td><td>Upload de imagens para Supabase Storage</td></tr>
+      <tr><td><code>conteudoService.ts</code></td><td>1.7 KB</td><td>Buscar conteúdos educativos de saúde bucal</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info-card green">
+    <h4>📦 Padrão de Retorno dos Serviços</h4>
+    <p>Todos os serviços seguem o padrão de retorno: <code>{ success: boolean, data?: T, error?: HandledError, count?: number }</code>. Isso permite tratamento consistente de erros em toda a aplicação.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 7: CONTEXTOS -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">7. Contextos Globais (Context Providers)</h2>
+
+  <table>
+    <thead><tr><th>Context</th><th>Ficheiro</th><th>Função</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>AuthProvider</strong></td>
+        <td><code>AuthContext.tsx</code> (47.7 KB)</td>
+        <td>Estado de autenticação, utilizador, perfil, login/logout, MFA, sessão única, timeout de inactividade. O maior e mais complexo do projecto.</td>
+      </tr>
+      <tr>
+        <td><strong>ThemeProvider</strong></td>
+        <td><code>ThemeContext.tsx</code> (1.3 KB)</td>
+        <td>Gestão de tema claro/escuro. Expõe <code>isDark</code> e <code>toggleTheme()</code>.</td>
+      </tr>
+      <tr>
+        <td><strong>DentistProvider</strong></td>
+        <td><code>DentistContext.tsx</code> (1.7 KB)</td>
+        <td>Armazena o dentista actualmente seleccionado (usado pela secretária ao atribuir casos).</td>
+      </tr>
+      <tr>
+        <td><strong>NetworkProvider</strong></td>
+        <td><code>NetworkContext.tsx</code> (1.4 KB)</td>
+        <td>Monitoriza estado de conectividade (online/offline) usando <code>@react-native-community/netinfo</code>.</td>
+      </tr>
+      <tr>
+        <td><strong>RealtimeProvider</strong></td>
+        <td><code>RealtimeContext.tsx</code> (3.5 KB)</td>
+        <td>Gere subscrições Realtime do Supabase para atualizações instantâneas em toda a app.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>7.1 Hierarquia de Providers (App.tsx)</h3>
+  <pre>
+&lt;SafeAreaProvider&gt;
+  &lt;NetworkProvider&gt;        <span style="color:#6c7086">← Detecta online/offline</span>
+    &lt;ThemeProvider&gt;         <span style="color:#6c7086">← Tema claro/escuro</span>
+      &lt;AuthProvider&gt;        <span style="color:#6c7086">← Autenticação e perfil</span>
+        &lt;DentistProvider&gt;   <span style="color:#6c7086">← Dentista seleccionado</span>
+          &lt;RealtimeProvider&gt;<span style="color:#6c7086">← Websockets em tempo real</span>
+            &lt;NavigationContainer&gt;
+              &lt;AppContent /&gt; <span style="color:#6c7086">← Navegação + Sync + Lembretes</span>
+            &lt;/NavigationContainer&gt;
+          &lt;/RealtimeProvider&gt;
+        &lt;/DentistProvider&gt;
+      &lt;/AuthProvider&gt;
+    &lt;/ThemeProvider&gt;
+  &lt;/NetworkProvider&gt;
+&lt;/SafeAreaProvider&gt;
+  </pre>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 8: HOOKS -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">8. Custom Hooks — 9 Hooks</h2>
+
+  <p>Os Custom Hooks encapsulam lógica reutilizável que combina estado, efeitos colaterais e chamadas a serviços. São consumidos pelas Screens.</p>
+
+  <table>
+    <thead><tr><th>Hook</th><th>Consumido por</th><th>Função</th></tr></thead>
+    <tbody>
+      <tr><td><code>useAgendamentos</code></td><td>AgendamentoScreen, SecretarioAgendamentos</td><td>Listar, criar, cancelar e confirmar agendamentos. Estado de loading e erro.</td></tr>
+      <tr><td><code>useAppointments</code></td><td>PatientAppointments, DentistAppointments</td><td>Buscar consultas filtradas por perfil do utilizador logado.</td></tr>
+      <tr><td><code>useTriagens</code></td><td>TriagemScreen, DashboardScreen</td><td>CRUD de triagens: submeter, listar pendentes, buscar por paciente.</td></tr>
+      <tr><td><code>useDentistas</code></td><td>AtribuirDentistaScreen, ChooseDentista</td><td>Listar dentistas disponíveis, filtrar por especialidade.</td></tr>
+      <tr><td><code>useFilasSecretaria</code></td><td>SecretarioDashboardScreen</td><td>Filas de espera em tempo real da secretária: pendentes, em atendimento.</td></tr>
+      <tr><td><code>useConteudos</code></td><td>EducacaoScreen</td><td>Buscar conteúdos educativos de saúde bucal do Supabase.</td></tr>
+      <tr><td><code>useNetworkSync</code></td><td>App.tsx, NetworkSyncStatus</td><td>Monitorar conectividade e disparar sincronização offline.</td></tr>
+      <tr><td><code>useRealTimeMessages</code></td><td>ChatScreen, MensagensScreen</td><td>Subscrição Realtime para mensagens: receber em tempo real, marcar como lida.</td></tr>
+      <tr><td><code>useRealtimeRefresh</code></td><td>Múltiplas screens</td><td>Refresh automático de dados quando o Supabase Realtime detecta mudanças.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 9: COMPONENTES -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">9. Componentes Reutilizáveis</h2>
+
+  <table>
+    <thead><tr><th>Componente</th><th>Tamanho</th><th>Função e Uso</th></tr></thead>
+    <tbody>
+      <tr><td><code>TratamentosFacturasPanel</code></td><td>47.6 KB</td><td>O maior componente — painel financeiro completo com listagem de tratamentos, facturas, status de pagamento, filtros e ações. Usado pelo dentista e secretária.</td></tr>
+      <tr><td><code>ProfileEditModal</code></td><td>12.1 KB</td><td>Modal de edição de perfil com campos dinâmicos, upload de foto, validação de campos.</td></tr>
+      <tr><td><code>PacienteDetalhesModal</code></td><td>10.5 KB</td><td>Modal com detalhes completos do paciente: dados pessoais, triagens, consultas, histórico.</td></tr>
+      <tr><td><code>FilasList</code></td><td>10.9 KB</td><td>Componente de lista de filas de espera com status em tempo real, usado na secretária.</td></tr>
+      <tr><td><code>AssignmentModal</code></td><td>9.4 KB</td><td>Modal para atribuir dentista a uma triagem ou agendamento, com selecção por especialidade.</td></tr>
+      <tr><td><code>AppointmentCard</code></td><td>3.3 KB</td><td>Card visual de consulta agendada com data, dentista, status e ações rápidas.</td></tr>
+      <tr><td><code>Card</code></td><td>2.1 KB</td><td>Componente Card genérico com sombra, borda arredondada e estilos configuráveis.</td></tr>
+      <tr><td><code>NetworkSyncStatus</code></td><td>2.7 KB</td><td>Indicador visual de estado de rede e sincronização no topo do ecrã.</td></tr>
+      <tr><td><code>ui/Button</code></td><td>3.8 KB</td><td>Botão estilizado com variantes (primary, secondary, danger, outline), loading state.</td></tr>
+      <tr><td><code>ui/Input</code></td><td>4.7 KB</td><td>Campo de entrada com label, ícone, validação visual (erro/sucesso), máscara.</td></tr>
+      <tr><td><code>ui/Loading</code></td><td>1.4 KB</td><td>Componente de loading centralizado com ActivityIndicator e mensagem.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 10: NAVEGAÇÃO -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">10. Sistema de Navegação (React Navigation)</h2>
+
+  <p>O <code>AppNavigator.tsx</code> (794 linhas) é responsável por toda a navegação da aplicação, com routing condicional baseado no perfil do utilizador.</p>
+
+  <h3>10.1 Estrutura de Navegação por Perfil</h3>
+  <table>
+    <thead><tr><th>Perfil</th><th>Navegador</th><th>Tabs Inferiores</th></tr></thead>
+    <tbody>
+      <tr><td>Não Autenticado</td><td>AuthStack</td><td>N/A (Welcome → Login → Register → ForgotPassword)</td></tr>
+      <tr><td>Paciente</td><td>PacienteStack + PacienteTabs</td><td>Início, Triagem, Educação, Histórico, Mensagens, Perfil</td></tr>
+      <tr><td>Dentista</td><td>DentistaStack + DentistaTabs</td><td>Dashboard, Agenda, Pacientes, Relatórios, Mensagens, Perfil</td></tr>
+      <tr><td>Secretária</td><td>SecretarioStack + SecretarioTabs</td><td>Painel, Agendamentos, Pacientes, Mensagens, Perfil</td></tr>
+      <tr><td>Admin</td><td>AdminNavigator</td><td>Dashboard, Secretários, Relatórios, Perfil</td></tr>
+    </tbody>
+  </table>
+
+  <h3>10.2 Lazy Loading</h3>
+  <p>Telas pesadas são carregadas sob demanda com <code>React.lazy()</code> e <code>Suspense</code>, melhorando o tempo de carregamento inicial. Apenas telas essenciais (Home, Dashboard, Login) são importadas estaticamente.</p>
+
+  <h3>10.3 Fluxo Condicional no AppNavigator</h3>
+  <pre>
+<span style="color:#6c7086">// Lógica de decisão do AppNavigator:</span>
+if (!user) → AuthStack (Welcome/Login/Register)
+else if (paciente && !perfilCompleto) → CompleteProfile
+else if (precisaMudarSenha) → ChangePassword
+else if (admin) → AdminNavigator
+else if (secretario) → SecretarioStack
+else if (dentista) → DentistaStack
+else → PacienteStack
+  </pre>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 11-14: TELAS POR PERFIL -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">11. Telas do Paciente — 16 Ecrãs</h2>
+
+  <table>
+    <thead><tr><th>Tela</th><th>Tamanho</th><th>Descrição Funcional</th></tr></thead>
+    <tbody>
+      <tr><td><code>HomeScreen</code></td><td>13.8 KB</td><td>Dashboard pessoal: resumo de triagens pendentes, próximas consultas, acesso rápido a funções. Cards com contadores.</td></tr>
+      <tr><td><code>TriagemScreen</code></td><td>33.8 KB</td><td>Formulário de pré-triagem: selecção de sintomas, escala de dor (0-10), região afetada (mapa dental), upload de fotos, campo de observações. Lista de triagens anteriores com status.</td></tr>
+      <tr><td><code>HistoricoScreen</code></td><td>45.1 KB</td><td>Timeline completa: triagens, consultas, evoluções clínicas, prescrições, pagamentos. Filtros por tipo e período. O maior ecrã do paciente.</td></tr>
+      <tr><td><code>PerfilScreen</code></td><td>32.7 KB</td><td>Perfil do utilizador: dados pessoais, foto, telefone, província, QR code de identificação. Edição via modal. Partilhado entre todos os perfis.</td></tr>
+      <tr><td><code>AgendamentoScreen</code></td><td>17.4 KB</td><td>Formulário de agendamento: escolha de data (calendário), tipo de consulta, motivo, selecção de dentista preferido.</td></tr>
+      <tr><td><code>EducacaoScreen</code></td><td>12 KB</td><td>Conteúdos educativos de saúde bucal: artigos, vídeos, dicas. Carregados do Supabase via conteudoService.</td></tr>
+      <tr><td><code>MensagensScreen</code></td><td>8.6 KB</td><td>Ponto de entrada para o chat: redireciona para a lista de conversas (ConversationsListScreen).</td></tr>
+      <tr><td><code>ChooseDentistaScreen</code></td><td>5.7 KB</td><td>Selecção de dentista para agendamento: lista com foto, nome, especialidade e disponibilidade.</td></tr>
+      <tr><td><code>NotificacoesScreen</code></td><td>2.6 KB</td><td>Lista de notificações in-app: lembretes, confirmações, alertas do sistema.</td></tr>
+      <tr><td><code>NotificacoesDetalheScreen</code></td><td>5.7 KB</td><td>Detalhe de uma notificação específica com acção associada.</td></tr>
+      <tr><td><code>TriagemDetalheScreen</code></td><td>7.8 KB</td><td>Detalhe de uma triagem: sintomas, fotos, resposta do dentista, evolução.</td></tr>
+      <tr><td><code>SettingsScreen</code></td><td>3.2 KB</td><td>Configurações: notificações, tema, idioma, sobre o app.</td></tr>
+      <tr><td><code>AjudaScreen</code></td><td>9.2 KB</td><td>FAQ e ajuda: perguntas frequentes, como usar o sistema, contactos da clínica.</td></tr>
+      <tr><td><code>PrivacidadeScreen</code></td><td>2.4 KB</td><td>Política de privacidade e tratamento de dados pessoais.</td></tr>
+      <tr><td><code>TermosUsoScreen</code></td><td>2.5 KB</td><td>Termos e condições de uso do sistema.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2 class="section-title">12. Telas do Dentista — 13 Ecrãs</h2>
+
+  <table>
+    <thead><tr><th>Tela</th><th>Tamanho</th><th>Descrição Funcional</th></tr></thead>
+    <tbody>
+      <tr><td><code>AgendaDentistaScreen</code></td><td>64.3 KB</td><td>A maior tela do projecto. Agenda completa com visualização diária/semanal, filtros por status, drag-and-drop de consultas, confirmação e cancelamento.</td></tr>
+      <tr><td><code>DashboardScreen</code></td><td>54.6 KB</td><td>Painel do dentista: métricas do dia (pacientes, urgências, consultas), gráficos, triagens pendentes, acesso rápido. Adaptado pela especialidade.</td></tr>
+      <tr><td><code>DentistaRelatorioScreen</code></td><td>37.4 KB</td><td>Relatórios do dentista: produtividade, procedimentos, receita, filtros por período. Exportação PDF.</td></tr>
+      <tr><td><code>CasoDetalheScreen</code></td><td>34.1 KB</td><td>Detalhes completos de um caso: triagem original, anamnese, plano de tratamento, evoluções, prescrições, procedimentos e pagamentos.</td></tr>
+      <tr><td><code>GerirPacientesScreen</code></td><td>33.9 KB</td><td>Gestão de pacientes: busca, listagem, filtros, detalhes rápidos. Acesso ao histórico completo.</td></tr>
+      <tr><td><code>NovoPacienteScreen</code></td><td>18.8 KB</td><td>Cadastro de novo paciente pelo dentista/secretária: dados pessoais, contacto, província.</td></tr>
+      <tr><td><code>PlanoTratamentoScreen</code></td><td>19.4 KB</td><td>Criação e edição de planos de tratamento: procedimentos, valores, prioridades, notas.</td></tr>
+      <tr><td><code>EvolucaoClinicaScreen</code></td><td>15.9 KB</td><td>Registo de evolução clínica pós-atendimento: observações, procedimentos realizados.</td></tr>
+      <tr><td><code>PrescricaoScreen</code></td><td>14.3 KB</td><td>Emissão de prescrições digitais: medicamentos, posologia, duração. Geração de PDF.</td></tr>
+      <tr><td><code>AnamneseScreen</code></td><td>13.3 KB</td><td>Formulário de anamnese: histórico médico, alergias, medicações, condições.</td></tr>
+      <tr><td><code>PacienteHistoricoScreen</code></td><td>11.1 KB</td><td>Histórico completo de um paciente específico, visto pelo dentista.</td></tr>
+      <tr><td><code>DentistaMensagensScreen</code></td><td>1.8 KB</td><td>Entrada para o sistema de mensagens do dentista.</td></tr>
+      <tr><td><code>gerarFichaHistorico</code></td><td>6.2 KB</td><td>Utilitário para gerar ficha de histórico em PDF do paciente.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2 class="section-title">13. Telas da Secretária — 5 Ecrãs</h2>
+
+  <table>
+    <thead><tr><th>Tela</th><th>Tamanho</th><th>Descrição Funcional</th></tr></thead>
+    <tbody>
+      <tr><td><code>SecretarioDashboardScreen</code></td><td>67.1 KB</td><td>O maior ecrã do projecto inteiro. Dashboard completo: fila de espera em tempo real, triagens pendentes, contadores, alertas, gráficos de movimento diário, ações rápidas.</td></tr>
+      <tr><td><code>SecretarioAgendamentosScreen</code></td><td>20.7 KB</td><td>Gestão completa de agendamentos: confirmar, cancelar, reagendar, pré-agendar. Filtros por status, data e dentista.</td></tr>
+      <tr><td><code>AtribuirDentistaScreen</code></td><td>11.7 KB</td><td>Selecção de dentista para atribuir a uma triagem: lista por especialidade, disponibilidade.</td></tr>
+      <tr><td><code>AtribuirDentistaAgendamentoScreen</code></td><td>11.7 KB</td><td>Selecção de dentista para pré-agendar uma consulta. Similar ao anterior mas para agendamentos.</td></tr>
+      <tr><td><code>SecretarioMensagensScreen</code></td><td>10.1 KB</td><td>Sistema de mensagens da secretária: comunicação com pacientes e dentistas.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2 class="section-title">14. Telas do Administrador — 7 Ecrãs</h2>
+
+  <table>
+    <thead><tr><th>Tela</th><th>Tamanho</th><th>Descrição Funcional</th></tr></thead>
+    <tbody>
+      <tr><td><code>AdminDashboardScreen</code></td><td>52.2 KB</td><td>Dashboard global: total de pacientes, dentistas activos, receita mensal/anual, produtividade, gráficos, ranking de dentistas.</td></tr>
+      <tr><td><code>AdminSecretariosScreen</code></td><td>34.6 KB</td><td>Gestão de secretários: criar novo, editar permissões, activar/desactivar, monitorar actividade.</td></tr>
+      <tr><td><code>AuditLogScreen</code></td><td>31.1 KB</td><td>Log de auditoria completo: todas as acções do sistema com filtros por utilizador, tipo de acção, data.</td></tr>
+      <tr><td><code>AdminProfileScreen</code></td><td>22.6 KB</td><td>Perfil do administrador com edição de dados pessoais.</td></tr>
+      <tr><td><code>RelatorioScreen</code></td><td>22.5 KB</td><td>Relatório geral da clínica: consolidação de dados, exportação PDF.</td></tr>
+      <tr><td><code>AdminReportsScreen</code></td><td>19.2 KB</td><td>Relatórios avançados: financeiro, produtividade, tendências. Filtros complexos.</td></tr>
+      <tr><td><code>AdminPasswordRecoveryScreen</code></td><td>17.6 KB</td><td>Gestão de recuperação de senhas para dentistas e secretários.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 15: DER -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">15. Modelo de Dados (DER) e Base de Dados</h2>
+
+  <h3>15.1 Entidades Principais</h3>
+  <table>
+    <thead><tr><th>Entidade</th><th>Chave Primária</th><th>Atributos Principais</th><th>Relacionamentos</th></tr></thead>
+    <tbody>
+      <tr><td><strong>USUARIOS</strong></td><td>UUID (id)</td><td>email, senha_hash, role, created_at</td><td>1:0..1 com Pacientes, Dentistas, Secretários</td></tr>
+      <tr><td><strong>PACIENTES</strong></td><td>UUID (id)</td><td>nome, telefone, provincia_id, data_nascimento</td><td>1:N com Triagens, Consultas, Prescrições</td></tr>
+      <tr><td><strong>DENTISTAS</strong></td><td>UUID (id)</td><td>nome, CRM, especialidade, foto_url</td><td>1:N com Consultas, Evoluções, Prescrições</td></tr>
+      <tr><td><strong>SECRETARIOS</strong></td><td>UUID (id)</td><td>nome, turno</td><td>1:N com Pagamentos</td></tr>
+      <tr><td><strong>TRIAGENS</strong></td><td>UUID (id)</td><td>sintomas, nivel_dor, status, fotos</td><td>N:1 com Pacientes, N:1 com Dentistas</td></tr>
+      <tr><td><strong>CONSULTAS</strong></td><td>UUID (id)</td><td>data_hora, tipo, status, notas</td><td>N:1 com Pacientes, N:1 com Dentistas</td></tr>
+      <tr><td><strong>PRONTUARIOS</strong></td><td>UUID (id)</td><td>data_abertura</td><td>1:1 com Pacientes, 1:N com Evoluções</td></tr>
+      <tr><td><strong>EVOLUCOES_CLINICAS</strong></td><td>UUID (id)</td><td>observacao_clinica, data</td><td>N:1 com Prontuários, N:1 com Dentistas</td></tr>
+      <tr><td><strong>PRESCRICOES</strong></td><td>UUID (id)</td><td>medicamentos, posologia, validade</td><td>N:1 com Pacientes, N:1 com Dentistas</td></tr>
+      <tr><td><strong>PROCEDIMENTOS</strong></td><td>UUID (id)</td><td>descricao, valor</td><td>N:1 com Pacientes, N:1 com Dentistas</td></tr>
+      <tr><td><strong>PAGAMENTOS</strong></td><td>UUID (id)</td><td>valor_pago, status_pagamento</td><td>N:1 com Procedimentos, N:1 com Secretários</td></tr>
+      <tr><td><strong>MENSAGENS</strong></td><td>UUID (id)</td><td>conteudo, enviada_em, lida</td><td>N:1 com Remetente, N:1 com Destinatário</td></tr>
+    </tbody>
+  </table>
+
+  <h3>15.2 Cardinalidades Principais</h3>
+  <ul>
+    <li>Um Paciente pode realizar <strong>várias Triagens</strong> (1:N)</li>
+    <li>Um Paciente pode ter <strong>várias Consultas</strong> (1:N)</li>
+    <li>Um Paciente possui <strong>um Prontuário</strong> (1:1)</li>
+    <li>Um Dentista atende <strong>várias Consultas</strong> (1:N)</li>
+    <li>Um Dentista registra <strong>várias Evoluções Clínicas</strong> (1:N)</li>
+    <li>Um Procedimento gera <strong>um Pagamento</strong> (1:0..1)</li>
+    <li>Uma Secretária registra <strong>vários Pagamentos</strong> (1:N)</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 16: REALTIME -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">16. Sistema em Tempo Real (Realtime)</h2>
+
+  <p>O sistema utiliza <strong>Supabase Realtime</strong> baseado em Websockets para garantir actualizações instantâneas entre todos os utilizadores conectados.</p>
+
+  <h3>16.1 Canais Realtime</h3>
+  <table>
+    <thead><tr><th>Canal</th><th>Tabela Monitorada</th><th>Função</th></tr></thead>
+    <tbody>
+      <tr><td><code>messages-realtime-badge</code></td><td>messages</td><td>Actualiza o contador de mensagens não lidas na tab bar em tempo real.</td></tr>
+      <tr><td><code>session-guard-{userId}</code></td><td>profiles</td><td>Detecta alterações na coluna <code>last_session_id</code> para expulsar sessões duplicadas.</td></tr>
+      <tr><td>Postgres Changes</td><td>triagens, agendamentos</td><td>Refresh automático de listas quando dados mudam no banco.</td></tr>
+      <tr><td>Broadcast</td><td>N/A</td><td>Comunicação instantânea entre dispositivos para sessão única.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>16.2 Ficheiros do módulo Realtime</h3>
+  <table>
+    <thead><tr><th>Ficheiro</th><th>Função</th></tr></thead>
+    <tbody>
+      <tr><td><code>realtime.ts</code></td><td>Configuração e criação de channels do Supabase.</td></tr>
+      <tr><td><code>realtimeBus.ts</code></td><td>Event Bus centralizado: permite que qualquer componente escute eventos Realtime sem criar channels duplicados.</td></tr>
+      <tr><td><code>realtimeEvents.ts</code></td><td>Definição dos tipos de eventos (INSERT, UPDATE, DELETE) e filtros.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info-card">
+    <h4>⚡ Performance do Realtime</h4>
+    <p>O sistema está configurado com <code>eventsPerSecond: 20</code> e <code>heartbeatIntervalMs: 15000</code>. O polling de mensagens é de 3 segundos como fallback. A reconexão automática após falha usa backoff exponencial com máximo de 10 segundos.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 17: UTILITÁRIOS -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">17. Utilitários e Configurações</h2>
+
+  <h3>17.1 Ficheiros Utilitários (src/utils/)</h3>
+  <table>
+    <thead><tr><th>Ficheiro</th><th>Função</th></tr></thead>
+    <tbody>
+      <tr><td><code>validators.ts</code></td><td>Validação de email, telefone angolano, BI, NIF, senha forte. Usado em formulários de registo e edição.</td></tr>
+      <tr><td><code>errorHandler.ts</code></td><td>Tratamento global de erros: transforma erros do Supabase em mensagens amigáveis ao utilizador. Classe <code>HandledError</code>.</td></tr>
+      <tr><td><code>logger.ts</code></td><td>Logging estruturado com níveis (DEBUG, INFO, WARN, ERROR). Em produção, console.log é removido pelo babel plugin.</td></tr>
+      <tr><td><code>constants.ts</code></td><td>Constantes globais: lista das 18 províncias de Angola, especialidades, tipos de consulta, status.</td></tr>
+      <tr><td><code>cacheService.ts</code></td><td>Cache local com TTL (Time To Live). Usa AsyncStorage. Evita chamadas repetitivas ao backend.</td></tr>
+      <tr><td><code>helpers.ts</code></td><td>Funções auxiliares: formatação de datas, truncar texto, calcular idade, capitalizar nome.</td></tr>
+      <tr><td><code>pdfExportUtils.ts</code></td><td>Templates HTML para geração de PDFs: prescrições, fichas, relatórios com logotipo e formatação.</td></tr>
+      <tr><td><code>qrUtils.ts</code></td><td>Geração de dados para QR code de identificação do paciente.</td></tr>
+      <tr><td><code>senhaUtils.ts</code></td><td>Geração de senhas temporárias seguras, validação de força de senha.</td></tr>
+      <tr><td><code>storage.ts</code></td><td>Abstracção de AsyncStorage que funciona tanto no mobile (SecureStore) quanto no web (localStorage).</td></tr>
+      <tr><td><code>platformUtils.ts</code></td><td>Detecção de plataforma: isWeb, isMobile, isAndroid, isIOS, isDesktop.</td></tr>
+      <tr><td><code>withTimeout.ts</code></td><td>Wrapper que adiciona timeout a qualquer Promise, evitando esperas infinitas.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>17.2 Configuração de Especialidades (specialtyConfig.ts)</h3>
+  <p>O sistema suporta <strong>9 especialidades odontológicas</strong>, cada uma com configuração visual e funcional própria:</p>
+  <table>
+    <thead><tr><th>Especialidade</th><th>Cor</th><th>Tipos de Consulta</th></tr></thead>
+    <tbody>
+      <tr><td>Clínica Geral</td><td><span class="badge badge-blue">#1E88E5</span></td><td>consulta, avaliação, retorno, urgência, profilaxia, restauração, raio_x</td></tr>
+      <tr><td>Ortodontia</td><td><span class="badge badge-purple">#7B1FA2</span></td><td>ortodontia, avaliação, retorno, panorâmico</td></tr>
+      <tr><td>Endodontia</td><td><span class="badge badge-orange">#E65100</span></td><td>canal, avaliação, retorno, raio_x, urgência</td></tr>
+      <tr><td>Periodontia</td><td><span class="badge badge-green">#2E7D32</span></td><td>consulta, profilaxia, avaliação, retorno</td></tr>
+      <tr><td>Cirurgia Oral</td><td><span class="badge badge-red">#C62828</span></td><td>consulta, avaliação, urgência, panorâmico</td></tr>
+      <tr><td>Odontopediatria</td><td><span class="badge badge-green">#00897B</span></td><td>consulta, profilaxia, restauração, urgência</td></tr>
+      <tr><td>Prótese Dentária</td><td><span class="badge badge-purple">#4527A0</span></td><td>consulta, avaliação, retorno, panorâmico</td></tr>
+      <tr><td>Implantodontia</td><td><span class="badge badge-blue">#01579B</span></td><td>consulta, avaliação, retorno, panorâmico</td></tr>
+      <tr><td>Estética Dental</td><td><span class="badge badge-red">#AD1457</span></td><td>branqueamento, consulta, avaliação, restauração</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 18: DEPLOY -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">18. Deploy e Distribuição</h2>
+
+  <h3>18.1 Plataformas de Deploy</h3>
+  <table>
+    <thead><tr><th>Plataforma</th><th>Tipo</th><th>Comando</th><th>URL</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Vercel</strong></td><td>Web (PWA)</td><td><code>npm run build:web</code></td><td>teodontoangola.vercel.app</td></tr>
+      <tr><td><strong>EAS Build</strong></td><td>Android (APK)</td><td><code>eas build --platform android</code></td><td>expo.dev/builds/...</td></tr>
+      <tr><td><strong>Electron</strong></td><td>Desktop Windows</td><td><code>npm run dist:win</code></td><td>Instalador NSIS local</td></tr>
+    </tbody>
+  </table>
+
+  <h3>18.2 Scripts Disponíveis</h3>
+  <table>
+    <thead><tr><th>Script</th><th>Descrição</th></tr></thead>
+    <tbody>
+      <tr><td><code>npm start</code></td><td>Inicia o Expo Dev Server</td></tr>
+      <tr><td><code>npm run web</code></td><td>Abre a versão web no navegador</td></tr>
+      <tr><td><code>npm run android</code></td><td>Compila e executa no Android</td></tr>
+      <tr><td><code>npm run build:web</code></td><td>Build de produção web + PWA</td></tr>
+      <tr><td><code>npm run desktop</code></td><td>Compila web + abre no Electron</td></tr>
+      <tr><td><code>npm run dist:win</code></td><td>Gera instalador Windows (NSIS)</td></tr>
+      <tr><td><code>npm run preview</code></td><td>Build + serve local na porta 3000</td></tr>
+      <tr><td><code>npm run typecheck</code></td><td>Verifica tipos TypeScript</td></tr>
+    </tbody>
+  </table>
+
+  <h3>18.3 Edge Functions (Supabase)</h3>
+  <p>O projecto possui 2 Edge Functions escritas em Deno/TypeScript:</p>
+  <ul>
+    <li><strong>send-email</strong> — Envia emails transacionais (confirmação de consulta, lembrete, recuperação de senha) via API Resend.</li>
+    <li><strong>send-reminders</strong> — Função scheduled que verifica consultas de amanhã e envia lembretes automáticos.</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 19: REQUISITOS -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">19. Requisitos Funcionais e Não Funcionais</h2>
+
+  <h3>19.1 Requisitos Funcionais (RF)</h3>
+  <table>
+    <thead><tr><th>Código</th><th>Requisito</th><th>Implementação</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge badge-blue">RF01</span></td><td>Gestão de Usuários e Perfis</td><td><code>AuthContext</code> + <code>authService</code> + <code>CompleteProfileScreen</code></td></tr>
+      <tr><td><span class="badge badge-blue">RF02</span></td><td>Triagem Digital</td><td><code>TriagemScreen</code> + <code>triagemService</code> + <code>useTriagens</code></td></tr>
+      <tr><td><span class="badge badge-blue">RF03</span></td><td>Agendamento de Consultas</td><td><code>AgendamentoScreen</code> + <code>agendamentoService</code> + <code>useAgendamentos</code></td></tr>
+      <tr><td><span class="badge badge-blue">RF04</span></td><td>Gestão de Recepção</td><td><code>SecretarioDashboard</code> + <code>secretarioService</code> + <code>FilasList</code></td></tr>
+      <tr><td><span class="badge badge-blue">RF05</span></td><td>Atribuição Profissional</td><td><code>AtribuirDentistaScreen</code> + <code>AssignmentModal</code></td></tr>
+      <tr><td><span class="badge badge-green">RF06</span></td><td>Painel Exclusivo</td><td><code>DashboardScreen</code> (dentista) — filtra por dentista_id</td></tr>
+      <tr><td><span class="badge badge-green">RF07</span></td><td>Prontuário Electrónico</td><td><code>CasoDetalheScreen</code> + <code>AnamneseScreen</code> + <code>EvolucaoClinicaScreen</code></td></tr>
+      <tr><td><span class="badge badge-green">RF08</span></td><td>Prescrições Digitais</td><td><code>PrescricaoScreen</code> + <code>pdfReportService</code></td></tr>
+      <tr><td><span class="badge badge-orange">RF09</span></td><td>Controle Financeiro</td><td><code>TratamentosFacturasPanel</code> + <code>PlanoTratamentoScreen</code></td></tr>
+      <tr><td><span class="badge badge-orange">RF10</span></td><td>Chat Interno</td><td><code>ChatScreen</code> + <code>messagesService</code> + <code>useRealTimeMessages</code></td></tr>
+      <tr><td><span class="badge badge-purple">RF11</span></td><td>Dashboard Admin</td><td><code>AdminDashboardScreen</code> + <code>relatorioService</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>19.2 Requisitos Não Funcionais (RNF)</h3>
+  <table>
+    <thead><tr><th>Código</th><th>Categoria</th><th>Implementação</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge badge-red">RNF01</span></td><td>Segurança (RLS)</td><td>PostgreSQL RLS + <code>AuthContext</code> sessão única + MFA + timeout</td></tr>
+      <tr><td><span class="badge badge-blue">RNF02</span></td><td>Multiplataforma</td><td>React Native + Expo (Android/Web) + Electron (Desktop)</td></tr>
+      <tr><td><span class="badge badge-green">RNF03</span></td><td>Tempo Real</td><td>Supabase Realtime Websockets + <code>RealtimeContext</code> + hooks</td></tr>
+      <tr><td><span class="badge badge-purple">RNF04</span></td><td>Usabilidade</td><td>UI por perfil + tema consistente + <code>theme.ts</code> + Bottom Tabs</td></tr>
+      <tr><td><span class="badge badge-blue">RNF05</span></td><td>Disponibilidade</td><td>Supabase Cloud + Vercel + PWA + modo offline</td></tr>
+      <tr><td><span class="badge badge-orange">RNF06</span></td><td>Integridade</td><td>FK constraints + PostgreSQL + <code>validators.ts</code></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- SECÇÃO 20: PERGUNTAS -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <h2 class="section-title">20. Perguntas Frequentes na Defesa</h2>
+
+  <div class="info-card">
+    <h4>❓ "Por que React Native e não Flutter ou desenvolvimento nativo?"</h4>
+    <p>React Native permite código único para Android, iOS, Web e Desktop. O ecossistema JavaScript/TypeScript é mais acessível, e o Expo simplifica drasticamente o build e deploy. Flutter exigiria aprender Dart, e desenvolvimento nativo duplicaria o esforço.</p>
+  </div>
+
+  <div class="info-card green">
+    <h4>❓ "Como funciona a segurança de dados clínicos?"</h4>
+    <p>Três camadas: (1) <strong>Autenticação</strong> via Supabase Auth com email/senha e suporte a MFA; (2) <strong>Row Level Security (RLS)</strong> no PostgreSQL que garante que cada utilizador aceda apenas seus dados; (3) <strong>Sessão única</strong> que impede acesso concorrente e expulsa sessões anteriores em menos de 1 segundo.</p>
+  </div>
+
+  <div class="info-card purple">
+    <h4>❓ "O que acontece se a internet cair durante o uso?"</h4>
+    <p>O <code>offlineSyncService</code> utiliza uma fila offline armazenada no AsyncStorage. Acções como criação de triagens e agendamentos são armazenadas localmente. Quando a conectividade é restaurada, o <code>NetworkContext</code> detecta e o <code>processOfflineQueue()</code> sincroniza automaticamente com o servidor, notificando o utilizador do resultado.</p>
+  </div>
+
+  <div class="info-card orange">
+    <h4>❓ "Como o sistema distingue entre os 4 perfis de utilizador?"</h4>
+    <p>Cada utilizador tem um campo <code>tipo</code> na tabela <code>profiles</code> (paciente/dentista/secretário/admin). O <code>AppNavigator</code> lê esse campo e renderiza condicionalmente o Stack de navegação correspondente. As RLS policies no PostgreSQL usam este campo para controlar o acesso aos dados.</p>
+  </div>
+
+  <div class="info-card red">
+    <h4>❓ "Por que Supabase e não um backend tradicional (Node.js/Django)?"</h4>
+    <p>O Supabase oferece: (1) PostgreSQL gerido com RLS nativo; (2) Autenticação pronta; (3) Realtime via Websockets sem configuração; (4) Edge Functions para lógica server-side; (5) Storage para imagens. Tudo num único serviço, reduzindo drasticamente o tempo de desenvolvimento e a complexidade de infraestrutura.</p>
+  </div>
+
+  <div class="info-card">
+    <h4>❓ "Qual o diferencial do projecto em relação a outros sistemas de gestão?"</h4>
+    <p>O TeOdonto foi desenhado especificamente para a realidade angolana: (1) Suporte às 18 províncias de Angola; (2) Modo offline para áreas com conectividade instável; (3) Multiplataforma (mobile para pacientes, web/desktop para a clínica); (4) Triagem digital que reduz o tempo de espera; (5) 9 especialidades odontológicas configuráveis.</p>
+  </div>
+
+  <div class="info-card green">
+    <h4>❓ "Como garantem que o dentista vê apenas os pacientes dele?"</h4>
+    <p>Duas camadas: (1) No <strong>frontend</strong>, o <code>DashboardScreen</code> filtra consultas e triagens pelo <code>dentista_id</code> do utilizador logado; (2) No <strong>backend</strong>, as políticas RLS do PostgreSQL impedem qualquer SELECT que tente aceder dados de outro dentista, mesmo que o frontend seja manipulado.</p>
+  </div>
+
+  <div class="info-card purple">
+    <h4>❓ "Como funciona a geração de PDF?"</h4>
+    <p>O <code>pdfReportService.ts</code> gera templates HTML com CSS embutido (logotipo, tabelas, formatação profissional). O <code>expo-print</code> converte esse HTML em PDF directamente no dispositivo. O ficheiro pode ser partilhado via <code>expo-sharing</code> ou impresso. Funciona offline.</p>
+  </div>
+
+  <div class="info-card orange">
+    <h4>❓ "Quantas linhas de código tem o projecto?"</h4>
+    <p>O projecto tem mais de <strong>50 telas</strong>, <strong>22 serviços</strong>, <strong>9 hooks</strong>, <strong>11 componentes</strong> e <strong>15 utilitários</strong>. Apenas o <code>AuthContext.tsx</code> tem 1382 linhas. O <code>SecretarioDashboardScreen</code> tem 67.1 KB. Estima-se mais de <strong>30.000+ linhas</strong> de código TypeScript/TSX no total.</p>
+  </div>
+</div>
+
+<!-- Footer -->
+<div style="text-align: center; padding: 40px; color: #888; border-top: 2px solid #e8f4ff; margin-top: 40px;">
+  <p style="font-size: 16px; font-weight: 600; color: #1E88E5;">🦷 TeOdonto Angola</p>
+  <p>Sistema Digital de Gestão Odontológica</p>
+  <p style="font-size: 12px; margin-top: 10px;">Documento gerado para preparação da defesa de TCC</p>
+  <p style="font-size: 12px;">© 2026 — António Tati</p>
+</div>
+
+</body>
+</html>

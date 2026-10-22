@@ -745,15 +745,6 @@ export const responderTriagem = async (
   }
 };
 
-// Handlers for Sync
-registerSyncHandler('criarTriagem', async (payload: any) => {
-  return criarTriagem(payload.dados, payload.imageUris, payload.pacienteId);
-});
-
-registerSyncHandler('responderTriagem', async (payload: any) => {
-  return responderTriagem(payload.triagemId, payload.dentistaId, payload.resposta, payload.extras);
-});
-
 /**
  * Secretário atribui uma triagem a um dentista específico
  */

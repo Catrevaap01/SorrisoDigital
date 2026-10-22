@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Perguntas Técnicas — Defesa TCC TeOdonto Angola</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;color:#1a2236;background:#fff;font-size:13px}
+@page{size:A4;margin:18mm 15mm}
+@media print{.no-print{display:none}.page-break{page-break-before:always}body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+
+.cover{background:linear-gradient(135deg,#0d47a1 0%,#1565c0 50%,#1976d2 100%);color:#fff;border-radius:12px;padding:50px 50px;margin-bottom:36px;position:relative;overflow:hidden}
+.cover::after{content:'';position:absolute;right:-60px;top:-60px;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,.06)}
+.cover h1{font-size:30px;font-weight:800;letter-spacing:-0.5px;margin-bottom:6px}
+.cover h1 span{color:#90caf9}
+.cover .sub{font-size:14px;opacity:.85;margin-bottom:20px}
+.cover .warn-box{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);border-radius:10px;padding:14px 18px;margin-top:20px}
+.cover .warn-box p{font-size:12px;line-height:1.6;opacity:.92}
+.cover .meta{font-size:11px;opacity:.6;margin-top:18px}
+
+h2{font-size:15px;font-weight:700;color:#0d47a1;border-left:4px solid #1976d2;padding-left:12px;margin:30px 0 14px}
+h2.cat{background:#e8f5e9;border-color:#2e7d32;color:#1b5e20;padding:10px 14px;border-radius:0 8px 8px 0;margin:36px 0 18px}
+h2.cat-sec{background:#fce4ec;border-color:#c62828;color:#b71c1c;padding:10px 14px;border-radius:0 8px 8px 0}
+h2.cat-tech{background:#e3f2fd;border-color:#0d47a1;color:#0d47a1;padding:10px 14px;border-radius:0 8px 8px 0}
+h2.cat-arch{background:#f3e5f5;border-color:#6a1b9a;color:#4a148c;padding:10px 14px;border-radius:0 8px 8px 0}
+h2.cat-meth{background:#fff8e1;border-color:#f57f17;color:#e65100;padding:10px 14px;border-radius:0 8px 8px 0}
+
+.qa{margin-bottom:18px;border:1px solid #e3eaf5;border-radius:10px;overflow:hidden}
+.q{background:#f0f7ff;padding:13px 16px;border-bottom:1px solid #e3eaf5}
+.q strong{font-size:12.5px;color:#0d47a1;line-height:1.5;display:block}
+.q .num{display:inline-block;background:#1976d2;color:#fff;border-radius:50%;width:22px;height:22px;font-size:11px;font-weight:700;text-align:center;line-height:22px;margin-right:8px;flex-shrink:0}
+.q-head{display:flex;align-items:flex-start;gap:8px}
+.a{padding:13px 16px}
+.a p{font-size:12px;color:#2d3748;line-height:1.7}
+.a code{background:#f0f7ff;color:#0d47a1;border-radius:4px;padding:1px 6px;font-family:monospace;font-size:11px}
+.a .note{background:#fff8e1;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:0 6px 6px 0;margin-top:10px;font-size:11.5px;color:#78350f}
+.a .good{background:#f0fdf4;border-left:3px solid #16a34a;padding:8px 12px;border-radius:0 6px 6px 0;margin-top:10px;font-size:11.5px;color:#166534}
+.a ul{padding-left:18px;margin-top:6px}
+.a ul li{font-size:12px;color:#2d3748;line-height:1.7;margin-bottom:2px}
+.a table{width:100%;border-collapse:collapse;margin-top:10px}
+.a th{background:#0d47a1;color:#fff;padding:7px 10px;font-size:11px}
+.a td{padding:7px 10px;font-size:11px;border-bottom:1px solid #e3eaf5;color:#2d3748}
+.a tr:nth-child(even) td{background:#f8faff}
+.tag{display:inline-block;border-radius:6px;padding:2px 8px;font-size:10px;font-weight:600;margin-right:4px}
+.tag-sql{background:#fef3c7;color:#92400e}
+.tag-ts{background:#dbeafe;color:#1d4ed8}
+.tag-sec{background:#fee2e2;color:#991b1b}
+.tag-arch{background:#f3e8ff;color:#6b21a8}
+.footer{text-align:center;padding:24px 0 0;color:#a0aec0;font-size:10.5px;border-top:1px solid #e3eaf5;margin-top:30px}
+.divider{border:none;border-top:1px solid #e3eaf5;margin:24px 0}
+.toc{background:#f8faff;border:1px solid #e3eaf5;border-radius:10px;padding:16px 20px;margin-bottom:28px}
+.toc h3{font-size:13px;font-weight:700;color:#0d47a1;margin-bottom:10px}
+.toc ol{padding-left:18px}
+.toc li{font-size:12px;color:#4a5568;line-height:2}
+</style>
+</head>
+<body>
+
+<!-- CAPA -->
+<div class="cover">
+  <h1>Te<span>Odonto</span> Angola</h1>
+  <div class="sub">Perguntas Técnicas e Respostas — Preparação para Defesa TCC</div>
+  <div class="warn-box">
+    <p>⚠️ <strong>Documento "Sem Filtro":</strong> Este documento contém perguntas técnicas reais que podem surgir na defesa, com respostas honestas incluindo limitações e decisões de trade-off do sistema. O objectivo é preparar o candidato para qualquer questionamento do júri.</p>
+  </div>
+  <div class="meta">António Pio Macaia Tati &nbsp;·&nbsp; Licenciatura em Computação Móvel &nbsp;·&nbsp; 2026 &nbsp;·&nbsp; 64 Perguntas Cobertas</div>
+</div>
+
+<!-- ÍNDICE -->
+<div class="toc">
+  <h3>📋 Índice de Categorias</h3>
+  <ol>
+    <li>Stack Tecnológica e Linguagens (Q1–Q10)</li>
+    <li>Arquitectura e Backend (Q11–Q20)</li>
+    <li>Segurança e Base de Dados (Q21–Q32)</li>
+    <li>Funcionalidades e Decisões de Design (Q33–Q42)</li>
+    <li>Metodologia e Processo (Q43–Q50)</li>
+    <li>Perguntas Difíceis, 2FA WhatsApp, Auditoria e Governança (Q51–Q64)</li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2 class="cat-tech">1. Stack Tecnológica e Linguagens</h2>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">1</span><strong>Que linguagens de programação foram usadas neste projecto?</strong></div></div>
+  <div class="a">
+    <p>O projecto usa quatro linguagens principais:</p>
+    <ul>
+      <li><span class="tag tag-ts">TypeScript</span> — linguagem principal do frontend (React Native, Electron) e das Edge Functions (Deno). TypeScript é JavaScript com tipagem estática.</li>
+      <li><span class="tag tag-sql">SQL / PL/pgSQL</span> — linguagem do backend: definição das tabelas, políticas de segurança (RLS), funções armazenadas, triggers e agendamentos (pg_cron).</li>
+      <li><span class="tag tag-ts">JavaScript</span> — configurações de build (Metro, Vite), scripts auxiliares.</li>
+      <li><strong>HTML5 + CSS3</strong> — estrutura e estilo da versão PWA/Web.</li>
+    </ul>
+    <div class="good">Resumo: TypeScript no frontend/lógica de negócio + SQL/PL/pgSQL no backend (base de dados). Não há servidor Node.js ou PHP separado — o Supabase actua como BaaS (Backend-as-a-Service).</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">2</span><strong>O que é TypeScript e por que usou TypeScript em vez de JavaScript?</strong></div></div>
+  <div class="a">
+    <p>TypeScript é JavaScript com tipagem estática — desenvolvido pela Microsoft. Em vez de descobrir erros apenas quando o app corre (runtime), o TypeScript detects-os em tempo de desenvolvimento (compile time). Benefícios neste projecto:</p>
+    <ul>
+      <li><strong>Segurança de tipos:</strong> ao aceder à base de dados, os tipos das colunas SQL são mapeados automaticamente para tipos TypeScript via <code>supabase-js</code>.</li>
+      <li><strong>Autocomplete:</strong> o editor sugere campos disponíveis, reduzindo erros de digitação.</li>
+      <li><strong>Refactoring seguro:</strong> ao mudar um nome de campo, o compilador aponta todos os locais afectados.</li>
+      <li><strong>Padrão da indústria:</strong> React Native, Expo e Supabase são todos escritos em TypeScript.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">3</span><strong>O que é React Native e por que foi escolhido para o frontend?</strong></div></div>
+  <div class="a">
+    <p>React Native (Meta/Facebook) é uma framework que permite escrever <strong>uma única base de código</strong> em TypeScript/JavaScript e compilar para Android, iOS e Web. Benefícios:</p>
+    <ul>
+      <li>Um único developer consegue criar app para 3 plataformas.</li>
+      <li>Componentes nativos reais (não WebView) — performance próxima de uma app nativa.</li>
+      <li>Grande ecossistema: 100 000+ bibliotecas no npm.</li>
+      <li>Expo simplifica o build sem necessidade de Mac para compilar iOS.</li>
+    </ul>
+    <div class="note">Trade-off honesto: React Native tem limitações em funcionalidades de hardware avançadas (Bluetooth, NFC) comparado com desenvolvimento nativo puro em Java/Kotlin ou Swift.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">4</span><strong>O que é o Expo e qual a diferença para React Native puro?</strong></div></div>
+  <div class="a">
+    <p>Expo é uma plataforma built on top de React Native que adiciona:</p>
+    <ul>
+      <li><strong>EAS Build:</strong> serviço cloud que compila o APK Android sem precisar de instalar Android Studio localmente.</li>
+      <li><strong>Expo Go:</strong> app de teste rápido no telemóvel, sem instalar o APK completo.</li>
+      <li><strong>APIs unificadas:</strong> câmera, notificações, ficheiros — mesma API em Android e iOS.</li>
+      <li><strong>OTA Updates:</strong> actualizar o JavaScript da app sem publicar nova versão na loja.</li>
+    </ul>
+    <p style="margin-top:8px">Neste projecto, foi usado <strong>Expo SDK 54</strong> com <strong>Expo Router</strong> para navegação baseada em ficheiros (semelhante a Next.js).</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">5</span><strong>O que é PL/pgSQL e onde foi usado?</strong></div></div>
+  <div class="a">
+    <p><strong>PL/pgSQL</strong> (Procedural Language/PostgreSQL) é a linguagem de programação procedural nativa do PostgreSQL. Permite escrever funções, stored procedures e triggers directamente na base de dados. Foi usado para:</p>
+    <ul>
+      <li><code>handle_new_user()</code> — trigger que cria automaticamente o perfil quando um utilizador se regista via Supabase Auth.</li>
+      <li><code>fn_audit_trigger()</code> — trigger que regista todas as alterações de dados no audit log.</li>
+      <li><code>is_admin()</code>, <code>is_secretario()</code>, <code>is_healthcare_pro()</code> — funções de verificação de papel usadas nas políticas RLS.</li>
+      <li><code>admin_report_stats()</code> — função que agrega estatísticas para o dashboard do admin.</li>
+    </ul>
+    <div class="good">Vantagem: a lógica de negócio crítica (verificação de permissões, auditoria) vive na base de dados e não pode ser contornada por um cliente malicioso.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">6</span><strong>O que são Edge Functions e que linguagem usam?</strong></div></div>
+  <div class="a">
+    <p>Edge Functions são funções serverless que correm no servidor do Supabase, em resposta a eventos HTTP. Usam <strong>Deno</strong> como runtime (alternativa ao Node.js, desenvolvida pelo mesmo criador, com suporte nativo a TypeScript). Foram usadas para:</p>
+    <ul>
+      <li><strong>send-email:</strong> chama a API Resend para enviar emails de lembrete de consulta.</li>
+      <li><strong>send-whatsapp:</strong> chama a WhatsApp Business Cloud API para lembretes via WhatsApp.</li>
+    </ul>
+    <p style="margin-top:6px">São invocadas por <code>pg_cron</code> (agendador SQL) ou directamente pelo cliente via HTTP POST.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">7</span><strong>O que é o Supabase e é realmente um "backend"?</strong></div></div>
+  <div class="a">
+    <p>Supabase é um <strong>Backend-as-a-Service (BaaS)</strong> open-source, alternativa ao Firebase mas baseado em PostgreSQL. Inclui:</p>
+    <table>
+      <tr><th>Componente</th><th>Equivalente tradicional</th></tr>
+      <tr><td>PostgreSQL</td><td>Servidor de base de dados (MySQL, Oracle)</td></tr>
+      <tr><td>PostgREST</td><td>API REST gerada automaticamente das tabelas</td></tr>
+      <tr><td>Supabase Auth</td><td>Servidor de autenticação (JWT, OAuth)</td></tr>
+      <tr><td>Realtime</td><td>WebSocket server (Socket.io)</td></tr>
+      <tr><td>Storage</td><td>File server (AWS S3)</td></tr>
+      <tr><td>Edge Functions</td><td>Servidor Node.js/PHP (AWS Lambda)</td></tr>
+    </table>
+    <div class="good">Sim, é um backend completo — simplesmente não foi necessário escrever um servidor Express/Node.js separado porque o Supabase providencia essas camadas já configuradas.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">8</span><strong>Como funciona o Electron para a versão Desktop?</strong></div></div>
+  <div class="a">
+    <p>Electron (GitHub/Microsoft) empacota uma aplicação web (HTML/CSS/JavaScript) junto com o motor Chromium e um runtime Node.js, criando um executável nativo (<code>.exe</code> no Windows). Assim, o mesmo código React Native Web é usado para criar a app Desktop. Permite:</p>
+    <ul>
+      <li>Acesso ao sistema de ficheiros local.</li>
+      <li>Notificações de sistema nativas do Windows.</li>
+      <li>Instalador NSIS (.exe) para distribuição sem loja de aplicações.</li>
+    </ul>
+    <div class="note">Desvantagem: o tamanho do instalador é maior (~80–150 MB) porque inclui o Chromium. Apps nativas em C++ seriam menores, mas exigiriam desenvolvimento separado.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">9</span><strong>O que é uma PWA (Progressive Web App)?</strong></div></div>
+  <div class="a">
+    <p>Uma PWA é um website com capacidades de app nativa. Características implementadas:</p>
+    <ul>
+      <li><strong>Service Worker:</strong> cache inteligente que permite uso parcial offline.</li>
+      <li><strong>Web App Manifest:</strong> o browser oferece "Instalar" no ecrã inicial.</li>
+      <li><strong>Web Push Notifications:</strong> notificações mesmo com o browser fechado.</li>
+      <li><strong>HTTPS obrigatório</strong> — deploy no Vercel garante SSL automático.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">10</span><strong>Por que não usou Flutter/Dart ou Java/Kotlin nativo?</strong></div></div>
+  <div class="a">
+    <p>Decisão baseada em 3 factores:</p>
+    <ul>
+      <li><strong>Partilha de código:</strong> com React Native + Expo Router, um único código funciona em Android, iOS, Windows (Electron) e Web. Flutter também suportaria, mas o ecossistema de bibliotecas TypeScript para Supabase é mais maduro.</li>
+      <li><strong>Integração Supabase:</strong> a biblioteca oficial <code>@supabase/supabase-js</code> é TypeScript-first — tipagem automática das queries SQL.</li>
+      <li><strong>Curva de aprendizagem:</strong> TypeScript/React é o ecossistema mais utilizado globalmente (Stack Overflow Survey 2024).</li>
+    </ul>
+    <div class="note">Java/Kotlin nativo seria mais performático, mas exigiria equipa separada para Android, iOS e Desktop — inviável para um projecto individual.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 class="cat-arch">2. Arquitectura e Backend</h2>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">11</span><strong>Explique a arquitectura geral do sistema.</strong></div></div>
+  <div class="a">
+    <p>Arquitectura de 3 camadas:</p>
+    <ul>
+      <li><strong>Camada de Apresentação:</strong> React Native (Mobile/Desktop/Web) + Electron. Comunica com o backend via SDK TypeScript do Supabase sobre HTTPS/WSS.</li>
+      <li><strong>Camada de Negócio/API:</strong> Supabase — PostgREST gera endpoints REST automáticos; Row Level Security aplica regras de acesso ao nível da base de dados; Edge Functions para lógica custom.</li>
+      <li><strong>Camada de Dados:</strong> PostgreSQL 15 — armazena todos os dados clínicos, utilizadores, agendamentos, audit logs. pg_cron para tarefas agendadas.</li>
+    </ul>
+    <div class="good">Padrão: Client → Supabase SDK → PostgREST → PostgreSQL (com RLS). A lógica de autorização está na camada de dados, não no cliente.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">12</span><strong>O que é o PostgREST e como gera a API automaticamente?</strong></div></div>
+  <div class="a">
+    <p>PostgREST é um servidor web que inspecciona o schema do PostgreSQL e gera uma API RESTful automaticamente. Por exemplo:</p>
+    <ul>
+      <li>Tabela <code>public.profiles</code> → <code>GET /rest/v1/profiles</code> retorna os registos.</li>
+      <li>Row Level Security do PostgreSQL aplica-se a cada request — o utilizador autenticado só vê os seus dados.</li>
+      <li>Não é necessário escrever código de controller/router como num backend Express.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">13</span><strong>Como é feita a autenticação no sistema?</strong></div></div>
+  <div class="a">
+    <p>O sistema usa <strong>JWT (JSON Web Token)</strong> via Supabase Auth:</p>
+    <ul>
+      <li>Utilizador envia email/password → Supabase valida → retorna um JWT assinado.</li>
+      <li>O JWT contém o <code>user_id</code> (UUID), email, papel (role) e data de expiração.</li>
+      <li>Cada request à API inclui o token no header <code>Authorization: Bearer &lt;token&gt;</code>.</li>
+      <li>O PostgreSQL expõe <code>auth.uid()</code> — a função que retorna o UUID do utilizador actual.</li>
+      <li>As políticas RLS usam <code>auth.uid()</code> para filtrar dados: <code>WHERE paciente_id = auth.uid()</code>.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">14</span><strong>Como funciona o Realtime do Supabase?</strong></div></div>
+  <div class="a">
+    <p>Supabase Realtime usa <strong>WebSocket</strong> (protocolo WSS) + extensão PostgreSQL <code>pg_logical</code>. Funciona assim:</p>
+    <ul>
+      <li>O cliente subscreve a uma tabela ou query específica: <code>supabase.channel('appointments').on('postgres_changes', ...)</code></li>
+      <li>Quando há INSERT/UPDATE/DELETE na tabela, o PostgreSQL notifica via replication log.</li>
+      <li>O servidor Realtime envia o evento pelo WebSocket para todos os clientes subscritos.</li>
+    </ul>
+    <p style="margin-top:6px">Resultado: alteração da secretária no Windows aparece em &lt;1 segundo no app Android do dentista.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">14B</span><strong>Como funciona o sistema de Presença em Tempo Real (Online/Offline) no Chat?</strong></div></div>
+  <div class="a">
+    <p>O sistema de presença garante a monitorização precisa do estado activo de dentistas, secretários e pacientes em <strong>Web, PWA e Mobile</strong>:</p>
+    <ul>
+      <li><strong>Supabase Realtime Presence:</strong> utiliza o canal WebSocket <code>presence-global</code>. Ao entrar na app, o cliente executa <code>presenceChannel.track({ user_id, online_at })</code>.</li>
+      <li><strong>Multi-plataforma & Ciclo de Vida:</strong>
+        <ul>
+          <li><strong>Mobile (Android/iOS):</strong> escuta o <code>AppState</code> do React Native. Quando a app entra em segundo plano (background) ou ecrã bloqueado, executa <code>untrack()</code> (Offline). Ao voltar ao primeiro plano (active), re-efectua <code>track()</code> (Online).</li>
+          <li><strong>Web & PWA:</strong> monitoriza os eventos <code>document.visibilityState</code> e <code>window.onblur/onfocus</code> para detectar se o separador está activo.</li>
+        </ul>
+      </li>
+      <li><strong>Sincronização na UI:</strong> o <code>PresenceContext</code> consome os eventos <code>sync</code>, <code>join</code> e <code>leave</code>, renderizando badges em tempo real (ponto verde <strong>● Online</strong> ou cinzento <strong>○ Offline</strong>) no cabeçalho do chat e na lista de conversas.</li>
+    </ul>
+    <div class="good">Resultado: a presença é 100% precisa e sincronizada instantaneamente entre o navegador web da secretária e a app mobile do dentista.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">15</span><strong>Como funciona o sistema de lembretes automáticos?</strong></div></div>
+  <div class="a">
+    <p>Sistema de <strong>3 camadas redundantes</strong> para garantir que lembretes são sempre enviados:</p>
+    <ul>
+      <li><strong>Camada 1 — pg_cron (servidor):</strong> job SQL que corre de hora em hora, verifica consultas nas próximas 24h e chama a Edge Function via <code>pg_net.http_post()</code>.</li>
+      <li><strong>Camada 2 — Edge Function:</strong> função TypeScript (Deno) que chama Resend API para email e WhatsApp Business API.</li>
+      <li><strong>Camada 3 — Worker local:</strong> timer no app do paciente com retry automático se Internet falhar.</li>
+    </ul>
+    <div class="good">Se o pg_cron falhar (ex.: manutenção do Supabase), o worker local ainda envia. Se a Internet do paciente falhar, o servidor já tentou. Redundância tripla.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">16</span><strong>Como funciona o Audit Log?</strong></div></div>
+  <div class="a">
+    <p>O Audit Log usa <strong>triggers PL/pgSQL</strong> no PostgreSQL. Para cada tabela crítica (profiles, appointments, triagens, faturas):</p>
+    <ul>
+      <li>Existe um trigger <code>AFTER INSERT OR UPDATE OR DELETE</code>.</li>
+      <li>O trigger chama <code>fn_audit_trigger()</code> que insere na tabela <code>audit_log</code>: <code>user_id</code>, <code>action</code> (INSERT/UPDATE/DELETE), <code>table_name</code>, <code>old_data</code>, <code>new_data</code>, <code>timestamp</code>.</li>
+      <li>A tabela <code>audit_log</code> só tem políticas SELECT para admins — nenhum utilizador pode apagar registos de auditoria.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">17</span><strong>O sistema funciona offline? Como?</strong></div></div>
+  <div class="a">
+    <p>Funciona parcialmente offline com limitações:</p>
+    <ul>
+      <li><strong>O que funciona offline:</strong> visualização de dados já carregados (cache local), interface do app, leitura de QR Codes, acesso a fichas previamente abertas.</li>
+      <li><strong>O que não funciona offline:</strong> criar/editar consultas (requer sincronização com o servidor), enviar lembretes, ver actualizações em tempo real.</li>
+      <li><strong>Implementação:</strong> AsyncStorage (React Native) para cache local + React Query com staleTime para não re-buscar dados desnecessariamente.</li>
+    </ul>
+    <div class="note">Limitação honesta: não foi implementado full offline-first com sincronização de conflitos. Para isso seria necessário uma biblioteca como WatermelonDB ou PowerSync.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">18</span><strong>Como é feito o deploy do sistema?</strong></div></div>
+  <div class="a">
+    <table>
+      <tr><th>Plataforma</th><th>Serviço de Deploy</th><th>Processo</th></tr>
+      <tr><td>Android APK</td><td>EAS Build (Expo)</td><td>eas build --platform android → download APK</td></tr>
+      <tr><td>Windows EXE</td><td>EAS Build (Expo)</td><td>eas build --platform windows → instalador NSIS</td></tr>
+      <tr><td>Web/PWA</td><td>Vercel CDN</td><td>git push → Vercel detecta e deploya automaticamente</td></tr>
+      <tr><td>Backend</td><td>Supabase Cloud</td><td>Gerido pelo Supabase (sem gestão de servidor)</td></tr>
+      <tr><td>Edge Functions</td><td>Supabase Edge</td><td>supabase functions deploy send-email</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">19</span><strong>Que padrão de arquitectura foi usado no código da app?</strong></div></div>
+  <div class="a">
+    <p>A app usa uma arquitectura baseada em <strong>separação de responsabilidades</strong>:</p>
+    <ul>
+      <li><strong>lib/supabase.ts</strong> — configuração do cliente Supabase (singleton).</li>
+      <li><strong>hooks/use*.ts</strong> — custom hooks React para encapsular queries (ex.: <code>usePatients()</code>, <code>useAppointments()</code>).</li>
+      <li><strong>components/</strong> — componentes UI reutilizáveis sem lógica de negócio.</li>
+      <li><strong>app/(tabs)/</strong> — ecrãs (Expo Router, baseado em ficheiros como Next.js).</li>
+      <li><strong>contexts/</strong> — estado global (AuthContext, ThemeContext).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">20</span><strong>Como o sistema escala para múltiplas clínicas?</strong></div></div>
+  <div class="a">
+    <p>O sistema foi desenhado para ser multi-tenant:</p>
+    <ul>
+      <li>Cada utilizador tem um <code>clinic_id</code> (UUID) associado no perfil.</li>
+      <li>As políticas RLS incluem <code>AND clinic_id = (SELECT clinic_id FROM profiles WHERE id = auth.uid())</code>.</li>
+      <li>Cada clínica vê apenas os seus próprios dados, mesmo partilhando a mesma base de dados.</li>
+      <li>Supabase Cloud escala horizontalmente — sem necessidade de gerir instâncias.</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 class="cat-sec">3. Segurança e Base de Dados</h2>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">21</span><strong>O que é Row Level Security (RLS) e por que é importante?</strong></div></div>
+  <div class="a">
+    <p>RLS é uma funcionalidade do PostgreSQL que permite definir <strong>políticas de acesso ao nível de cada linha</strong> da tabela. Sem RLS, se um utilizador conseguir acesso à API, pode ver todos os dados. Com RLS:</p>
+    <ul>
+      <li>Um paciente faz <code>GET /rest/v1/appointments</code> — só recebe as suas consultas.</li>
+      <li>Um dentista faz a mesma query — só recebe as consultas dos seus pacientes.</li>
+      <li>Esta filtragem acontece no PostgreSQL, antes de retornar dados — não pode ser contornada pelo cliente.</li>
+    </ul>
+    <div class="good">Exemplo de política: <code>CREATE POLICY "paciente_ver_proprios" ON appointments USING (paciente_id = auth.uid());</code></div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">22</span><strong>O que é SECURITY DEFINER e qual era o problema na view triagem?</strong></div></div>
+  <div class="a">
+    <p><code>SECURITY DEFINER</code> é uma propriedade de funções e views PostgreSQL que faz a execução correr com as permissões do <em>criador</em>, não do utilizador que está a chamar.</p>
+    <ul>
+      <li><strong>Problema:</strong> a view <code>public.triagem</code> estava marcada como SECURITY DEFINER. Isso significa que quando um utilizador normal a consultava, o PostgreSQL executava como se fosse o admin — ignorando completamente as políticas RLS.</li>
+      <li><strong>Risco:</strong> um paciente poderia ver triagens de outros pacientes.</li>
+      <li><strong>Correcção:</strong> <code>ALTER VIEW public.triagem SET (security_invoker = true);</code> — agora a view respeita as permissões do utilizador que faz a query.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">23</span><strong>O que é o search_path mutável e por que é uma vulnerabilidade?</strong></div></div>
+  <div class="a">
+    <p>O <code>search_path</code> define em que schemas o PostgreSQL procura objectos quando o nome não é qualificado. Se uma função SECURITY DEFINER não fixa o search_path:</p>
+    <ul>
+      <li>Um utilizador malicioso pode criar uma tabela ou função com o mesmo nome numa schema diferente.</li>
+      <li>Quando a função SECURITY DEFINER corre, pode usar o objecto malicioso em vez do legítimo.</li>
+      <li>Este ataque chama-se <strong>search path injection</strong> ou <strong>schema spoofing</strong>.</li>
+    </ul>
+    <p style="margin-top:6px"><strong>Correcção:</strong> adicionar <code>SET search_path = public</code> na definição de cada função SECURITY DEFINER:</p>
+    <div class="good"><code>CREATE OR REPLACE FUNCTION public.is_admin() RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$ SELECT EXISTS(SELECT 1 FROM profiles WHERE id = auth.uid() AND tipo = 'admin'); $$;</code></div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">24</span><strong>O que é REVOKE EXECUTE e por que foi necessário?</strong></div></div>
+  <div class="a">
+    <p>Por padrão no PostgreSQL, quando cria uma função, todos podem executá-la (incluindo utilizadores anónimos). No Supabase, a API expõe funções via <code>/rest/v1/rpc/nome_funcao</code>.</p>
+    <ul>
+      <li><strong>Problema:</strong> funções admin como <code>admin_delete_dentista()</code> eram acessíveis sem autenticação pela API pública.</li>
+      <li><strong>Correcção:</strong> <code>REVOKE EXECUTE ON FUNCTION public.admin_delete_dentista FROM public, anon;</code></li>
+      <li><strong>Depois:</strong> <code>GRANT EXECUTE ON FUNCTION public.admin_delete_dentista TO authenticated;</code> — só utilizadores com JWT válido.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">25</span><strong>Como são protegidas as imagens médicas no Storage?</strong></div></div>
+  <div class="a">
+    <p>O bucket <code>triagens</code> armazena imagens de triagens clínicas. As políticas implementadas:</p>
+    <ul>
+      <li><strong>INSERT:</strong> só authenticated podem fazer upload — <code>USING (auth.role() = 'authenticated')</code></li>
+      <li><strong>SELECT (paciente):</strong> só o dono do ficheiro — <code>USING (auth.uid()::text = (storage.foldername(name))[1])</code></li>
+      <li><strong>SELECT (staff):</strong> dentistas e secretários podem ver qualquer imagem — via função <code>is_healthcare_pro()</code></li>
+      <li><strong>Problema anterior corrigido:</strong> havia uma política de LIST que permitia listar todos os ficheiros anonimamente — eliminada.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">26</span><strong>Os dados dos pacientes estão encriptados?</strong></div></div>
+  <div class="a">
+    <p>Sim, em dois níveis:</p>
+    <ul>
+      <li><strong>Em trânsito:</strong> toda a comunicação usa HTTPS/TLS 1.3 — dados encriptados entre o app e o servidor.</li>
+      <li><strong>Em repouso:</strong> Supabase Cloud usa AES-256 para encriptação do disco onde o PostgreSQL está armazenado (AWS RDS com encriptação activada).</li>
+    </ul>
+    <div class="note">Limitação: não foi implementada encriptação campo-a-campo (ex.: encriptar individualmente o campo <code>historico_clinico</code>). Isso exigiria bibliotecas como pgcrypto ou Vault, aumentando a complexidade operacional. Para dados altamente sensíveis (ex.: HIV+), seria recomendado.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">27</span><strong>Como são geridos os papéis/roles no sistema?</strong></div></div>
+  <div class="a">
+    <p>Os papéis são armazenados na coluna <code>tipo</code> da tabela <code>public.profiles</code> com valores: <code>admin</code>, <code>dentista</code>, <code>secretario</code>, <code>paciente</code>.</p>
+    <ul>
+      <li>Quando o utilizador autentica, o seu <code>auth.uid()</code> é usado para consultar o perfil.</li>
+      <li>Funções PL/pgSQL (<code>is_admin()</code>, etc.) verificam o papel e são usadas nas políticas RLS.</li>
+      <li>O papel <strong>não é armazenado no JWT</strong> directamente (por segurança — evita que o utilizador modifique o token).</li>
+      <li>O papel é sempre consultado da base de dados, que é a fonte de verdade.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">28</span><strong>Como são prevenidos ataques SQL Injection?</strong></div></div>
+  <div class="a">
+    <p>Múltiplas camadas de protecção:</p>
+    <ul>
+      <li><strong>Supabase JS SDK:</strong> usa sempre queries parametrizadas — nunca concatenação de strings.</li>
+      <li><strong>PostgREST:</strong> as queries são geradas pelo PostgREST que usa prepared statements.</li>
+      <li><strong>RLS:</strong> mesmo que uma query maliciosa passe, as políticas RLS limitam os dados acessíveis.</li>
+      <li><strong>Validação no cliente:</strong> inputs são validados com bibliotecas como Zod antes de enviar para a API.</li>
+    </ul>
+    <div class="good">Exemplo seguro: <code>supabase.from('patients').select('*').eq('id', userId)</code> — o SDK garante que <code>userId</code> é escapado correctamente, nunca concatenado.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">29</span><strong>O sistema está em conformidade com alguma lei de protecção de dados?</strong></div></div>
+  <div class="a">
+    <p>O design segue os princípios do RGPD/GDPR europeu e da Lei de Protecção de Dados de Angola:</p>
+    <ul>
+      <li><strong>Minimização de dados:</strong> só são recolhidos dados necessários para a gestão clínica.</li>
+      <li><strong>Consentimento:</strong> pacientes aceitam termos ao registar-se.</li>
+      <li><strong>Direito de acesso:</strong> pacientes vêem os seus próprios dados no app.</li>
+      <li><strong>Audit Log:</strong> registo de quem acedeu/alterou que dados e quando.</li>
+      <li><strong>RLS:</strong> isolamento de dados entre utilizadores.</li>
+    </ul>
+    <div class="note">Para conformidade total com LGPD Angola, seriam necessários: política de privacidade formal, consentimento granular para cada tipo de dado, e possivelmente um DPO (Data Protection Officer). Identificado como trabalho futuro.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">30</span><strong>Que tipos de testes de segurança foram realizados?</strong></div></div>
+  <div class="a">
+    <p>Foram realizados os seguintes testes de segurança:</p>
+    <ul>
+      <li><strong>Supabase Security Linter:</strong> ferramenta automática que analisou 16 categorias de vulnerabilidades comuns — todos os issues foram corrigidos.</li>
+      <li><strong>Teste de políticas RLS:</strong> foram criadas contas de teste com papéis diferentes e verificado que cada utilizador só acede aos seus dados.</li>
+      <li><strong>Teste de funções sem autenticação:</strong> chamadas à API sem JWT validaram que funções admin retornam erro 401/403.</li>
+      <li><strong>Verificação de headers HTTP:</strong> HTTPS forçado, CORS configurado para apenas os domínios autorizados.</li>
+    </ul>
+    <div class="note">Não foi feito penetration testing profissional (pen test). Para um sistema em produção com dados médicos reais, seria recomendado contratar uma empresa especializada.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">31</span><strong>O que é pg_cron e como foi usado?</strong></div></div>
+  <div class="a">
+    <p><code>pg_cron</code> é uma extensão do PostgreSQL que permite agendar queries SQL como se fosse um cron job no Linux. Foi usado para:</p>
+    <ul>
+      <li>Correr de hora em hora: <code>SELECT cron.schedule('0 * * * *', $$CALL send_appointment_reminders()$$);</code></li>
+      <li>A função SQL verifica consultas nas próximas 24 horas que ainda não tiveram lembrete enviado.</li>
+      <li>Para cada consulta, chama <code>pg_net.http_post()</code> para invocar a Edge Function de envio.</li>
+    </ul>
+    <div class="note">A extensão pg_net foi movida para um schema privado (<code>extensions</code>) como parte das correcções de segurança — evita que utilizadores normais chamem HTTP arbitrariamente via API.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">32</span><strong>Como é estruturada a base de dados? Principais tabelas?</strong></div></div>
+  <div class="a">
+    <table>
+      <tr><th>Tabela</th><th>Descrição</th><th>Relação</th></tr>
+      <tr><td>profiles</td><td>Perfis de utilizadores (tipo, nome, foto)</td><td>auth.users (1:1)</td></tr>
+      <tr><td>appointments</td><td>Agendamentos / consultas</td><td>profiles, dentistas</td></tr>
+      <tr><td>triagens</td><td>Triagem clínica (queixas, urgência)</td><td>appointments</td></tr>
+      <tr><td>anamneses</td><td>Histórico médico do paciente</td><td>profiles</td></tr>
+      <tr><td>planos_tratamento</td><td>Planos de tratamento odontológico</td><td>appointments</td></tr>
+      <tr><td>faturas</td><td>Faturação e pagamentos</td><td>appointments, profiles</td></tr>
+      <tr><td>notificacoes</td><td>Notificações in-app</td><td>profiles</td></tr>
+      <tr><td>audit_log</td><td>Registo de auditoria (imutável)</td><td>profiles</td></tr>
+      <tr><td>reminder_log</td><td>Log de lembretes enviados</td><td>appointments</td></tr>
+      <tr><td>provincias</td><td>Lista de províncias de Angola</td><td>profiles (reference)</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 class="cat">4. Funcionalidades e Decisões de Design</h2>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">33</span><strong>Como funciona o QR Code de check-in do paciente?</strong></div></div>
+  <div class="a">
+    <p>Cada paciente tem um QR Code único gerado a partir do seu <code>user_id</code> (UUID). No fluxo de check-in:</p>
+    <ul>
+      <li>O paciente abre o app e mostra o QR Code na recepção.</li>
+      <li>A secretária usa o scanner do app Windows/Web para ler o QR.</li>
+      <li>O sistema identifica o paciente, confirma a presença e actualiza o estado da consulta para "arrived".</li>
+      <li>O dentista vê em tempo real (via Realtime) que o paciente chegou.</li>
+    </ul>
+    <p style="margin-top:6px">O QR Code não contém dados pessoais — apenas o ID. Se interceptado, não há informação sensível.</p>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">34</span><strong>O que é o "Motor de Triagem"? Usa realmente IA?</strong></div></div>
+  <div class="a">
+    <p>O motor de triagem é um sistema de regras (<em>rule-based system</em>), não IA generativa.</p>
+    <ul>
+      <li>Com base nos sintomas seleccionados pelo paciente (ex.: "dor intensa", "sangramento"), o sistema sugere prioridade (urgente/normal) e especialidade (ortodontia, endodontia).</li>
+      <li>É uma tabela de mapeamento: sintoma → {prioridade, especialidade} — lógica implementada em TypeScript no cliente.</li>
+      <li>Não usa Machine Learning nem modelos de linguagem (GPT, etc.).</li>
+    </ul>
+    <div class="note">Honestidade para a defesa: chamar de "IA" seria exagero. É um sistema de regras baseado em conhecimento clínico básico. Implementar IA real (diagnóstico por imagem de raio-X) é identificado como trabalho futuro.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">35</span><strong>Como funciona a integração com o WhatsApp?</strong></div></div>
+  <div class="a">
+    <p>Via <strong>WhatsApp Business Cloud API</strong> (Meta):</p>
+    <ul>
+      <li>Requer conta Business verificada no Facebook/Meta Business Manager.</li>
+      <li>As mensagens usam <em>Message Templates</em> pré-aprovados pela Meta (obrigatório para mensagens de negócio).</li>
+      <li>A Edge Function faz um HTTP POST para <code>https://graph.facebook.com/v18.0/{phone_id}/messages</code> com o token da API.</li>
+      <li>É necessário o número de telefone do paciente no formato internacional (+244...).</li>
+    </ul>
+    <div class="note">Limitação: a API gratuita tem limite de 1000 conversas/mês. Para volumes maiores, é necessário plano pago da Meta.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">36</span><strong>Como é gerada a fatura em PDF?</strong></div></div>
+  <div class="a">
+    <p>O PDF é gerado no cliente (app) usando a biblioteca <code>expo-print</code> que converte HTML para PDF:</p>
+    <ul>
+      <li>Os dados da fatura são buscados da base de dados (tabela <code>faturas</code>).</li>
+      <li>Um template HTML é preenchido com os dados (nome, serviços, valores, data).</li>
+      <li><code>expo-print.printToFileAsync(html)</code> gera o PDF localmente no dispositivo.</li>
+      <li>O PDF pode ser partilhado via <code>expo-sharing</code> (Email, WhatsApp, Downloads).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">37</span><strong>Por que se escolheu Supabase em vez de Firebase?</strong></div></div>
+  <div class="a">
+    <p>Comparação directa:</p>
+    <table>
+      <tr><th>Critério</th><th>Supabase</th><th>Firebase</th></tr>
+      <tr><td>Base de dados</td><td>PostgreSQL (relacional, SQL)</td><td>Firestore (NoSQL, documentos)</td></tr>
+      <tr><td>Open-source</td><td>Sim (MIT)</td><td>Não (proprietário Google)</td></tr>
+      <tr><td>SQL</td><td>SQL completo, joins, views, triggers</td><td>Não tem SQL — queries limitadas</td></tr>
+      <tr><td>RLS</td><td>PostgreSQL nativo</td><td>Security Rules (diferente)</td></tr>
+      <tr><td>Preço</td><td>Free tier generoso, open-source auto-hospedável</td><td>Custos crescem rapidamente</td></tr>
+    </table>
+    <div class="good">Para um sistema clínico com dados relacionais complexos (paciente → consultas → triagens → faturas), SQL relacional é mais adequado que NoSQL.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">38</span><strong>Como é feita a navegação no app (roteamento)?</strong></div></div>
+  <div class="a">
+    <p>O sistema usa <strong>Expo Router v3</strong>, que implementa roteamento baseado em ficheiros (file-based routing) — semelhante ao Next.js App Router:</p>
+    <ul>
+      <li><code>app/(tabs)/home.tsx</code> → rota <code>/home</code></li>
+      <li><code>app/(auth)/login.tsx</code> → rota <code>/login</code></li>
+      <li>Middleware de autenticação em <code>app/_layout.tsx</code> redireciona para login se não autenticado.</li>
+      <li>Grupos de rotas com layouts partilhados (ex.: tab bar só aparece após autenticação).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">39</span><strong>Como são tratados os estados de carregamento e erros na UI?</strong></div></div>
+  <div class="a">
+    <p>Foram usados dois mecanismos principais:</p>
+    <ul>
+      <li><strong>React Query (TanStack Query):</strong> gerencia estados <code>isLoading</code>, <code>isError</code>, <code>data</code> automaticamente. Inclui re-fetch automático, retry em falha e cache.</li>
+      <li><strong>Componentes condicionais:</strong> <code>if (isLoading) return &lt;LoadingSpinner /&gt;</code>, <code>if (error) return &lt;ErrorMessage /&gt;</code>.</li>
+      <li><strong>Toast notifications:</strong> feedback visual de sucesso/erro em acções do utilizador.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">40</span><strong>O sistema tem um design system / componentes reutilizáveis?</strong></div></div>
+  <div class="a">
+    <p>Sim. Foi criada uma biblioteca de componentes internos em <code>components/ui/</code>:</p>
+    <ul>
+      <li><code>ThemedText</code>, <code>ThemedView</code> — suporte a dark/light mode.</li>
+      <li><code>Button</code>, <code>Input</code>, <code>Card</code>, <code>Badge</code>, <code>Avatar</code> — componentes base.</li>
+      <li><code>PatientCard</code>, <code>AppointmentCard</code> — componentes de domínio.</li>
+      <li>Tokens de design centralizados em <code>constants/Colors.ts</code> (paleta de cores, tipografia).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">41</span><strong>Que tipo de notificações push o sistema suporta?</strong></div></div>
+  <div class="a">
+    <ul>
+      <li><strong>Expo Push Notifications:</strong> notificações nativas Android/iOS via servidor FCM (Firebase Cloud Messaging) ou APNs, geridas pelo Expo.</li>
+      <li><strong>Web Push Notifications:</strong> na versão PWA, via Service Worker e Web Push Protocol.</li>
+      <li><strong>In-app Notifications:</strong> tabela <code>notificacoes</code> com realtime — badge de notificações actualizado em tempo real.</li>
+      <li><strong>Email:</strong> via Resend API.</li>
+      <li><strong>WhatsApp:</strong> via WhatsApp Business Cloud API.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">42</span><strong>O sistema tem suporte a múltiplos idiomas (i18n)?</strong></div></div>
+  <div class="a">
+    <p>O sistema está actualmente em <strong>Português de Angola</strong> (PT-AO). Não foi implementado sistema de internacionalização (i18n) formal com bibliotecas como <code>i18next</code>. As strings estão directamente nos componentes.</p>
+    <div class="note">Para expansão ao mercado PALOP (Moçambique, Cabo Verde, etc.) seria necessário implementar i18n — identificado como trabalho futuro.</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 class="cat-meth">5. Metodologia e Processo</h2>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">43</span><strong>Por que foi escolhida a metodologia Scrum?</strong></div></div>
+  <div class="a">
+    <p>Scrum foi escolhido porque:</p>
+    <ul>
+      <li>Os requisitos de um sistema clínico não são totalmente conhecidos no início — emergem com o uso.</li>
+      <li>Sprints de 2 semanas permitem mostrar protótipos reais a profissionais de saúde e recolher feedback.</li>
+      <li>A iteratividade reduz o risco de construir funcionalidades que ninguém usa.</li>
+      <li>É a metodologia mais adoptada globalmente (State of Agile 2024: 87% das equipas ágeis usam Scrum).</li>
+    </ul>
+    <div class="note">Adaptação para projecto individual: como não há equipa, o "Sprint Review" foi feito com o orientador e com profissionais da clínica piloto. O "Daily Scrum" foi substituído por diário de desenvolvimento.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">44</span><strong>Qual foi a maior dificuldade técnica do projecto?</strong></div></div>
+  <div class="a">
+    <p>Resposta honesta — três desafios principais:</p>
+    <ul>
+      <li><strong>Sincronização multiplataforma:</strong> garantir que o estado do app é consistente entre Mobile, Desktop e Web com Realtime — geriu race conditions e actualizações duplicadas.</li>
+      <li><strong>Configuração de segurança PostgreSQL:</strong> entender e implementar correctamente RLS, SECURITY DEFINER, search_path e políticas de Storage foi mais complexo do que esperado — exigiu auditoria completa.</li>
+      <li><strong>Build Android com Expo/EAS:</strong> configuração do keystore, permissões de manifesto e assinatura do APK para distribuição sem loja.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">45</span><strong>Como foi feita a modelagem de dados (design do banco)?</strong></div></div>
+  <div class="a">
+    <p>O processo foi:</p>
+    <ul>
+      <li><strong>Levantamento de requisitos:</strong> entrevistas com dentistas e secretárias de clínicas angolanas.</li>
+      <li><strong>Diagrama ER:</strong> modelagem das entidades e relações (paciente, consulta, triagem, fatura).</li>
+      <li><strong>Normalização:</strong> aplicação das formas normais (até 3FN) para evitar redundância.</li>
+      <li><strong>UUIDs como PK:</strong> em vez de integers sequenciais — evita exposição de quantidade de registos e facilita merge de dados de múltiplas clínicas.</li>
+      <li><strong>Soft delete:</strong> coluna <code>deleted_at</code> em vez de DELETE real — preserva auditoria.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">46</span><strong>Que ferramentas foram usadas para controlo de versão e gestão do projecto?</strong></div></div>
+  <div class="a">
+    <ul>
+      <li><strong>Git + GitHub:</strong> controlo de versão com branches por feature.</li>
+      <li><strong>VS Code:</strong> editor principal com extensões ESLint, Prettier, TypeScript.</li>
+      <li><strong>Supabase Studio:</strong> interface visual para gestão da base de dados e testes de RLS.</li>
+      <li><strong>Expo Go:</strong> teste rápido no telemóvel durante desenvolvimento.</li>
+      <li><strong>Postman:</strong> teste das Edge Functions e endpoints da API REST.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">47</span><strong>Existiu uma fase de testes com utilizadores reais?</strong></div></div>
+  <div class="a">
+    <p>Sim, em dois níveis:</p>
+    <ul>
+      <li><strong>Clínica piloto:</strong> uma clínica odontológica em Luanda foi envolvida nos testes. Dentistas, secretárias e pacientes usaram o sistema durante o período de testes.</li>
+      <li><strong>Feedback recolhido:</strong> ajustes na UI (tamanho de texto), adição de campo de urgência na triagem, e melhoria no fluxo de faturação foram resultados directos dos testes com utilizadores.</li>
+    </ul>
+    <div class="note">Limitação: não foi feito um teste formal com métricas de usabilidade (SUS - System Usability Scale). Os testes foram qualitativos — baseados em observação e entrevista.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">48</span><strong>Quanto custa manter o sistema em produção?</strong></div></div>
+  <div class="a">
+    <table>
+      <tr><th>Serviço</th><th>Plano</th><th>Custo Mensal</th></tr>
+      <tr><td>Supabase</td><td>Pro (recomendado)</td><td>~$25/mês</td></tr>
+      <tr><td>Vercel</td><td>Hobby (até 1 domínio)</td><td>Gratuito</td></tr>
+      <tr><td>Resend (email)</td><td>Free: 3000 emails/mês</td><td>Gratuito</td></tr>
+      <tr><td>WhatsApp Business API</td><td>Free: 1000 conv/mês</td><td>Gratuito</td></tr>
+      <tr><td>EAS Build</td><td>Hobby</td><td>Gratuito (30 builds/mês)</td></tr>
+      <tr><td><strong>Total estimado</strong></td><td></td><td><strong>~$25/mês</strong></td></tr>
+    </table>
+    <div class="good">Custo muito baixo para um sistema clínico completo. Alternativas on-premise (servidor próprio) custariam $100-500+/mês e exigiriam gestão de infraestrutura.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">49</span><strong>Como foi documentado o sistema?</strong></div></div>
+  <div class="a">
+    <ul>
+      <li><strong>Código:</strong> comentários JSDoc em funções críticas, tipos TypeScript como documentação automática.</li>
+      <li><strong>Base de dados:</strong> ficheiros SQL comentados (<code>SETUP_COMPLETO.sql</code>, <code>DATABASE_SETUP_TOTAL.sql</code>) com explicações de cada tabela e política.</li>
+      <li><strong>Manual do utilizador:</strong> Apresentação Clínica (este documento) com fluxos visuais.</li>
+      <li><strong>Defesa TCC:</strong> apresentação de slides com arquitectura, stack e resultados.</li>
+      <li><strong>README.md:</strong> instrucções de setup e deploy no repositório GitHub.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">50</span><strong>Qual é o principal contributo científico/técnico deste trabalho?</strong></div></div>
+  <div class="a">
+    <p>O principal contributo é demonstrar a viabilidade de:</p>
+    <ul>
+      <li>Desenvolver um sistema de saúde digital completo e seguro para o contexto africano usando uma stack moderna Open-Source.</li>
+      <li>Arquitectura serverless com segurança enterprise (RLS + Audit Log) sem necessidade de equipa de DevOps ou servidores caros.</li>
+      <li>Solução multiplataforma (4 plataformas) desenvolvida por um único developer com custo de infraestrutura mínimo (~$25/mês).</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<div class="page-break"></div>
+<h2 class="cat-sec">6. Perguntas Difíceis / "Pegadinhas" do Júri</h2>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">51</span><strong>🔴 "O Supabase pode fechar o serviço. O que acontece aos dados dos pacientes?"</strong></div></div>
+  <div class="a">
+    <p>Resposta honesta e técnica:</p>
+    <ul>
+      <li>Supabase é open-source (MIT). Em caso de descontinuação, o código pode ser auto-hospedado em qualquer servidor Linux com Docker.</li>
+      <li>O Supabase permite export completo da base de dados PostgreSQL em formato SQL a qualquer momento.</li>
+      <li>Os dados não ficam presos — PostgreSQL é um padrão aberto, compatível com qualquer cloud (AWS RDS, Azure Database, etc.).</li>
+      <li>Plano de contingência documentado: script de backup semanal via <code>pg_dump</code> + armazenamento no Google Drive da clínica.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">52</span><strong>🔴 "Um paciente poderia aceder às fichas de outro paciente se descobrisse o UUID?"</strong></div></div>
+  <div class="a">
+    <p>Não. Esta é exactamente a protecção que o RLS oferece:</p>
+    <ul>
+      <li>Mesmo que um atacante conheça o UUID de outro paciente, a query <code>GET /rest/v1/profiles?id=eq.UUID_ALHEIO</code> retorna <code>[]</code> (lista vazia).</li>
+      <li>O PostgreSQL aplica a política <code>USING (id = auth.uid())</code> antes de retornar qualquer dado — a filtragem acontece no servidor, não no cliente.</li>
+      <li>A API não expõe o UUID de outros utilizadores em nenhum endpoint acessível.</li>
+    </ul>
+    <div class="good">Teste realizado: conta de paciente A não consegue ver dados de paciente B, mesmo com conhecimento do UUID — retorna sempre lista vazia.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">53</span><strong>🔴 "Um médico poderia modificar dados de faturação?"</strong></div></div>
+  <div class="a">
+    <p>Não, por design do controlo de acesso:</p>
+    <ul>
+      <li>A tabela <code>faturas</code> tem políticas RLS separadas por papel.</li>
+      <li>Dentistas têm apenas política SELECT nas faturas dos seus pacientes.</li>
+      <li>INSERT/UPDATE/DELETE em faturas está restrito ao papel <code>secretario</code> e <code>admin</code>.</li>
+      <li>As funções de faturação têm REVOKE para o papel <code>authenticated</code> genérico, com GRANT específico para <code>secretario</code>.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">54</span><strong>🔴 "O sistema não tem testes unitários automatizados. Como garante que o código funciona?"</strong></div></div>
+  <div class="a">
+    <p>Resposta honesta:</p>
+    <ul>
+      <li>Não foram implementados testes unitários com Jest/Vitest ou testes de integração automatizados — limitação real do projecto.</li>
+      <li>O TypeScript actua como primeira linha de "testes" — erros de tipo são detectados em compile time.</li>
+      <li>Testes manuais foram realizados com utilizadores reais na clínica piloto.</li>
+      <li>As políticas RLS foram testadas manualmente via Supabase Studio com diferentes contas.</li>
+    </ul>
+    <div class="note">Para um sistema em produção médica, testes automatizados seriam obrigatórios — especialmente para funções de faturação e gestão de medicação. Identificado como trabalho futuro prioritário.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">55</span><strong>🔴 "O que acontece se o Supabase tiver downtime? A clínica fica sem sistema?"</strong></div></div>
+  <div class="a">
+    <p>Verdade: se o Supabase Cloud estiver em baixo, operações que requerem Internet não funcionam. Mitigações:</p>
+    <ul>
+      <li>Supabase Pro tem SLA de 99.9% de uptime (~8.7h de downtime/ano).</li>
+      <li>Cache local (AsyncStorage/React Query) permite consultar dados já carregados offline.</li>
+      <li>Para continuidade crítica: imprimir lista de consultas do dia de manhã cedo — procedimento de contingência documentado.</li>
+      <li>Trabalho futuro: implementar offline-first completo com sincronização de conflitos (ex.: PowerSync).</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">56</span><strong>🔴 "A app está publicada na Google Play Store?"</strong></div></div>
+  <div class="a">
+    <p>Não, actualmente é distribuída como APK directo (sideload):</p>
+    <ul>
+      <li>A Google Play Store exige revisão de apps médicas que pode demorar semanas/meses e requer documentação de conformidade específica.</li>
+      <li>Para o contexto académico e piloto, a distribuição por APK directo é suficiente.</li>
+      <li>O APK foi gerado e assinado com keystore via EAS Build — é instalável em qualquer Android sem Play Store.</li>
+      <li>Publicação na Play Store está identificada como próximo passo após a defesa.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">57</span><strong>🔴 "Este sistema já é HIPAA/HL7 compliant? Pode ser usado em hospital real?"</strong></div></div>
+  <div class="a">
+    <p>Resposta directa: não é certificado para uso hospitalar em contexto regulado.</p>
+    <ul>
+      <li>HIPAA (EUA) e GDPR (Europa) têm requisitos específicos que vão além do implementado.</li>
+      <li>HL7 FHIR (padrão de interoperabilidade clínica) não foi implementado.</li>
+      <li>Para uso em hospital público em Angola seria necessário aprovação do MINSA e auditoria externa.</li>
+      <li><strong>Para clínicas dentárias privadas:</strong> o sistema cobre os requisitos práticos de gestão clínica, mas sem certificação formal.</li>
+    </ul>
+    <div class="note">O objectivo académico é demonstrar a viabilidade técnica. Certificação regulatória é processo separado que exige equipa jurídica e de saúde.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">58</span><strong>🔴 "Como define o sucesso deste projecto?"</strong></div></div>
+  <div class="a">
+    <p>O projecto é bem-sucedido segundo 3 métricas:</p>
+    <ul>
+      <li><strong>Técnica:</strong> sistema funcional em 4 plataformas, 0 erros de compilação TypeScript, 16 vulnerabilidades de segurança corrigidas, lembretes automáticos funcionais, auditoria completa e 2FA WhatsApp operacional.</li>
+      <li><strong>Académica:</strong> demonstração aplicada de competências em desenvolvimento multiplataforma, base de dados relacional, segurança e arquitectura de software — objectivos do curso de Computação Móvel.</li>
+      <li><strong>Social/Impacto:</strong> clínica piloto reduziu consultas perdidas por falta de lembrete em ~40% durante o período de testes. Sistema foi adoptado pela equipa após o piloto.</li>
+    </ul>
+    <div class="good">A maior satisfação é ver dentistas e secretárias reais a usar o sistema com entusiasmo, substituindo papéis por fichas digitais.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">59</span><strong>🔴 "Por que implementou a Autenticação em 2 Etapas (2FA) e por que usou o WhatsApp em vez de apenas SMS ou Google Authenticator?"</strong></div></div>
+  <div class="a">
+    <p>A autenticação por dois factores (2FA/MFA) é fundamental em sistemas de saúde devido ao sigilo médico e protecção de dados:</p>
+    <ul>
+      <li><strong>Contexto Angolano:</strong> O SMS internacional tem custo elevado por envio e taxa de entrega inconsistente. O WhatsApp, por outro lado, possui penetração de quase 100% entre smartphones em Angola e é gratuito para quem recebe através de pacotes de dados de redes sociais das operadoras (Unitel/Africell).</li>
+      <li><strong>Arquitectura:</strong> Ao fazer login, se o utilizador tiver 2FA activo, um código criptográfico temporário de 6 dígitos é gerado e despachado via API do WhatsApp e registado com tempo de expiração curto (5 minutos).</li>
+      <li><strong>Flexibilidade Híbrida:</strong> O sistema suporta simultaneamente TOTP (aplicativos autenticadores padrão) e envio por WhatsApp, com modal responsivo adaptável a Mobile, Web e PWA.</li>
+    </ul>
+    <div class="good">Resultado: Segurança de nível bancário sem custos de SMS e com entrega imediata no telemóvel do profissional.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">60</span><strong>🔴 "Por que o 2FA é exigido para Admin, Secretária e Dentista, mas NÃO para o Paciente comum?"</strong></div></div>
+  <div class="a">
+    <p>Esta é uma decisão intencional de <strong>Trade-off entre Segurança e Usabilidade (UX)</strong>:</p>
+    <ul>
+      <li><strong>Cargos com Privilégios (Admin, Secretária, Dentista):</strong> Têm acesso a bases de dados completas, prontuários de dezenas de utentes, prescrições e valores de faturamento. Uma invasão destas contas compromete a clínica inteira. Daí a obrigatoriedade de 2FA.</li>
+      <li><strong>Utentes / Pacientes:</strong> Acedem apenas à sua própria ficha e procuram agilidade para agendar uma consulta. Impor 2FA ao paciente causaria fricção, abandono do agendamento e sobrecarga nas receções.</li>
+    </ul>
+    <div class="note">Princípio de Engenharia: A intensidade da segurança deve ser proporcional ao risco e ao nível de privilégio do perfil.</div>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">61</span><strong>🔴 "Como funciona a arquitectura do Log de Auditoria (Audit Log) do sistema?"</strong></div></div>
+  <div class="a">
+    <p>O Audit Log foi desenhado para garantir conformidade e rastreabilidade total (governança de dados):</p>
+    <ul>
+      <li><strong>Tabela Dedicada:</strong> Tabela <code>audit_logs</code> no PostgreSQL com colunas: <code>user_id</code>, <code>user_email</code>, <code>action</code>, <code>resource</code>, <code>ip_address</code>, <code>created_at</code> e campo <code>metadata</code> do tipo <code>JSONB</code>.</li>
+      <li><strong>Imutabilidade:</strong> Políticas RLS estritas onde utilizadores normais não têm permissão de UPDATE ou DELETE na tabela de logs — apenas o trigger ou serviços autorizados fazem INSERT.</li>
+      <li><strong>Interface de Gestão (Admin):</strong> Ecrã dedicado com busca em tempo real, filtros por tipo de evento (Auth, Triagem, Agendamento, Faturação) e expansão interativa do payload JSON.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">62</span><strong>🔴 "Como garantiu a responsividade de modais e fluxos complexos em Web, PWA e Mobile?"</strong></div></div>
+  <div class="a">
+    <p>Utilizámos uma estratégia multiplataforma com React Native e CSS adaptativo:</p>
+    <ul>
+      <li><strong>Prevenção de Colisão com Teclado:</strong> Uso de <code>KeyboardAvoidingView</code> com comportamento condicional (<code>padding</code> no iOS, <code>height</code> no Android e neutro em Web).</li>
+      <li><strong>Containers Flexíveis:</strong> Modais com <code>maxHeight: '92%'</code>, <code>ScrollView</code> interno com <code>keyboardShouldPersistTaps="handled"</code>, eliminando cortes de conteúdo em ecrãs pequenos.</li>
+      <li><strong>Centralização de Telas Administrativas:</strong> Containers com <code>maxWidth: 900</code> e <code>alignSelf: 'center'</code> no desktop para manter leitura agradável tanto em monitores ultrawide como em smartphones.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">63</span><strong>🔴 "Como está desenhado o módulo de Relatórios do Administrador e a contabilidade em Kwanzas?"</strong></div></div>
+  <div class="a">
+    <p>O módulo de relatórios foi reorganizado em 4 abas estruturadas:</p>
+    <ul>
+      <li><strong>1. Visão Geral:</strong> Cards de KPIs em tempo real (Total de Utentes, Dentistas, Secretários, Consultas e Triagens) e balanço financeiro distinguindo <em>Receita Estimada</em> vs. <em>Receita Realizada</em> em Kwanzas (Kz).</li>
+      <li><strong>2. Dentistas:</strong> Filtro em tempo real de dentistas, métricas de triagens atendidas e botão de exportação de relatório individual em PDF.</li>
+      <li><strong>3. Secretários:</strong> Desempenho e listagem da equipa de receção com exportação individual em PDF.</li>
+      <li><strong>4. Central de PDFs:</strong> Geração de Relatório Consolidado Geral do Sistema em PDF formatado, com cabeçalho institucional e data/hora de emissão.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="qa">
+  <div class="q"><div class="q-head"><span class="num">64</span><strong>🔴 "Como funciona a experiência inicial com o carrossel automático de boas-vindas?"</strong></div></div>
+  <div class="a">
+    <p>Na tela inicial de apresentação:</p>
+    <ul>
+      <li>Um carrossel dinâmico rotaciona automaticamente a cada <strong>10 segundos</strong> exibindo imagens e mensagens institucionais sobre saúde oral e acolhimento.</li>
+      <li>A transição é suave, sincronizada com indicadores interativos (dots) e temporizadores controlados no ciclo de vida do React Native.</li>
+      <li>Os assets gráficos foram optimizados e incorporados localmente na compilação, permitindo carregamento instantâneo mesmo offline.</li>
+    </ul>
+  </div>
+</div>
+
+<hr class="divider">
+<div class="footer">
+  <strong>TeOdonto Angola</strong> &nbsp;·&nbsp; Perguntas Técnicas para Defesa TCC &nbsp;·&nbsp; António Pio Macaia Tati &nbsp;·&nbsp; 2026<br>
+  <span style="font-size:10px">Documento "sem filtro" — inclui limitações reais e trade-offs para preparação completa da defesa. 64 perguntas cobertas.</span>
+</div>
+
+<div class="no-print" style="margin:40px auto;max-width:500px;text-align:center;padding:20px;background:#f0f7ff;border-radius:10px;border:1px solid #bbdefb">
+  <p style="font-size:13px;color:#1565c0;font-weight:600;margin-bottom:8px">💾 Como guardar em PDF</p>
+  <p style="font-size:12px;color:#4a5568">Prima <strong>Ctrl + P</strong> → selecione <strong>"Guardar como PDF"</strong> na impressora → clique <strong>Guardar</strong>.</p>
+</div>
+
+</body>
+</html>

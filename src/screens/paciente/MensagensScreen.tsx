@@ -24,6 +24,7 @@ const MensagensScreen: React.FC = () => {
   const [conversaSelecionada, setConversaSelecionada] = useState<string | null>(null);
   const [outroNome, setOutroNome] = useState('');
   const [outroAvatar, setOutroAvatar] = useState<string | undefined>(undefined);
+  const [outroUserId, setOutroUserId] = useState<string | undefined>(undefined);
 
   const [showNovoModal, setShowNovoModal] = useState(false);
   const [loadingDentistas, setLoadingDentistas] = useState(false);
@@ -47,11 +48,13 @@ const MensagensScreen: React.FC = () => {
   const handleSelectConversa = (
     conversationId: string,
     otherUserName: string,
-    otherUserAvatar?: string
+    otherUserAvatar?: string,
+    otherUserId?: string
   ) => {
     setConversaSelecionada(conversationId);
     setOutroNome(otherUserName);
     setOutroAvatar(otherUserAvatar);
+    setOutroUserId(otherUserId);
   };
 
   const handleBackFromChat = () => {
@@ -67,7 +70,9 @@ const MensagensScreen: React.FC = () => {
         result = await listarDentistas({ forceRefresh: true });
       }
       if (result.success && result.data) {
-        setDentistas(result.data);
+        // Filter out the current user to prevent self-conversations
+        const filteredDentistas = result.data.filter((d) => d.id !== user?.id);
+        setDentistas(filteredDentistas);
       } else {
         Toast.show({
           type: 'error',
@@ -134,6 +139,7 @@ const MensagensScreen: React.FC = () => {
           conversationId={conversaSelecionada}
           otherUserName={outroNome}
           otherUserAvatar={outroAvatar}
+          otherUserId={outroUserId}
           onBack={handleBackFromChat}
         />
       </View>

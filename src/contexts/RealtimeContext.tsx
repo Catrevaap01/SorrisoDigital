@@ -22,7 +22,7 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
     const userId = user?.id || '';
     const role = (profile?.tipo as string | undefined) || (user?.user_metadata?.tipo as string | undefined) || undefined;
 
-    if (!userId) {
+    if (!userId || !isOnline) {
       channelRef.current = null;
       stopRef.current?.();
       stopRef.current = null;
@@ -34,11 +34,23 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
     stopRef.current = null;
     setConnected(false);
 
-    const { channel, stop } = startRealtime({ userId, role, enabled: true });
+    const { channel, stop } = startRealtime({ userId, role, enabled: isOnline });
     channelRef.current = channel;
     stopRef.current = stop;
 
-    const statusUnsub = realtimeBus.on('db:change', (evt: DbChangeEvent) => {
+    const cacheUnsub = realtimeBus.on('db:change', (evt: DbChangeEvent) => {
+      // Listener para notificações push em tempo real (dentistas e pacientes)
+      if (evt.table === 'notificacoes' && evt.eventType === 'INSERT' && evt.new) {
+        if (evt.new.user_id === userId) {
+          import('../services/localNotificationService').then(({ notifyNewMessage }) => {
+            notifyNewMessage(
+              evt.new.titulo || 'Nova Notificação',
+              evt.new.mensagem || 'Você tem uma nova notificação'
+            ).catch(console.error);
+          });
+        }
+      }
+
       if (evt.table !== 'profiles') return;
       const rowId = String(evt.new?.id || evt.old?.id || '');
       if (!rowId) return;
@@ -48,16 +60,14 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
       invalidateDentistasCache();
     });
 
-    // best-effort: infer "connected" from channel state
-    const interval = setInterval(() => {
-      const state = (channelRef.current as any)?.state;
-      setConnected(state === 'joined');
-    }, 1000);
+    const statusUnsub = realtimeBus.on('realtime:status', (status) => {
+      setConnected(status.connected);
+    });
 
     logger.info('RealtimeProvider: started');
 
     return () => {
-      clearInterval(interval);
+      cacheUnsub();
       statusUnsub();
       stop();
       channelRef.current = null;
@@ -65,7 +75,7 @@ export const RealtimeProvider: React.FC<{ children: ReactNode }> = ({ children }
       setConnected(false);
       logger.info('RealtimeProvider: stopped');
     };
-  }, [user?.id, profile?.tipo]);
+  }, [user?.id, profile?.tipo, isOnline]);
 
   // Emit events to force refresh on resume/focus (important for PWA/background).
   useEffect(() => {

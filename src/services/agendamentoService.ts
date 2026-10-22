@@ -1,6 +1,6 @@
 /**
-
- * Operações relacionadas a agendamentos de consultas
+ * Operações relacionadas a agendamentos de consultas.
+ * Lembretes de consulta (email, WhatsApp, in-app, push) são geridos pelo reminderService.
  */
 
 import { supabase, getAdminClient } from '../config/supabase';
@@ -11,6 +11,7 @@ import { HandledError, handleError } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
 import { notificarAgendamentoPaciente } from './notificacoesService';
 import { scheduleAppointmentReminder } from './localNotificationService';
+import { enviarLembretesConsulta } from './reminderService';
 import NetInfo from '@react-native-community/netinfo';
 import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
 import { fetchWithCache } from '../utils/cacheService';
@@ -26,6 +27,23 @@ function _handleTableMissing(error: any): string | null {
   }
   return null;
 }
+
+const shouldRetryWithLegacyStatus = (error: any): boolean => {
+  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+  return (
+    message.includes('agendamento_pendente_secretaria') ||
+    message.includes('solicitado') ||
+    message.includes('invalid input value for enum') ||
+    (message.includes('status') && message.includes('check constraint')) ||
+    (message.includes('status') && message.includes('violates'))
+  );
+};
+
+const CREATE_APPOINTMENT_STATUS_CANDIDATES = [
+  'agendamento_pendente_secretaria',
+  'solicitado',
+  'pendente',
+] as const;
 
 export interface Agendamento {
   id: string;
@@ -88,11 +106,10 @@ export const criarAgendamento = async (
     // Garantir que agendamentos começam na fila da secretária
     const dataWithStatus = {
       ...dados,
-      status: 'agendamento_pendente_secretaria' as any,
       symptoms: dados.symptoms || dados.tipo,
     };
 
-    const runInsert = async (p: any) => {
+    const runInsert = async (p: any, statusOverride?: string) => {
       // Remover campos virtuais e garantir campos obrigatórios
       const { tipo, ...dadosLimpos } = p;
       
@@ -104,7 +121,7 @@ export const criarAgendamento = async (
         appointment_time: dadosLimpos.appointment_time,
         notes: dadosLimpos.notes || dadosLimpos.observacoes || '',
         symptoms: dadosLimpos.symptoms || tipo || 'Consulta solicitada',
-        status: dadosLimpos.status || 'agendamento_pendente_secretaria',
+        status: statusOverride || dadosLimpos.status || CREATE_APPOINTMENT_STATUS_CANDIDATES[0],
         priority: dadosLimpos.priority || 'normal',
         urgency: dadosLimpos.urgency || 'normal',
         triagem_id: dadosLimpos.triagem_id || null,
@@ -124,7 +141,24 @@ export const criarAgendamento = async (
       return res;
     };
 
-    const { data, error } = await runInsert(dataWithStatus);
+    let data: any = null;
+    let error: any = null;
+
+    for (const status of CREATE_APPOINTMENT_STATUS_CANDIDATES) {
+      const result = await runInsert(dataWithStatus, status);
+      data = result.data;
+      error = result.error;
+
+      if (!error) {
+        break;
+      }
+
+      if (!shouldRetryWithLegacyStatus(error)) {
+        break;
+      }
+
+      logger.warn(`Status ${status} recusado pelo banco; tentando proximo status compativel`, error);
+    }
 
     if (error) {
       const msg = _handleTableMissing(error) || error.message || 'Erro desconhecido ao salvar no banco';
@@ -302,6 +336,17 @@ export const agendarAgendamento = async (
   try {
     const admin = getAdminClient();
     const client = admin || supabase;
+
+    // Buscar nome do dentista para enriquecer os lembretes
+    let nomeDentista: string | undefined;
+    try {
+      const { data: dentistaProfile } = await (admin || supabase)
+        .from('profiles')
+        .select('nome')
+        .eq('id', dentistaId)
+        .single();
+      nomeDentista = dentistaProfile?.nome;
+    } catch { /* não crítico */ }
     
     const { data, error } = await client
       .from('appointments')
@@ -312,20 +357,14 @@ export const agendarAgendamento = async (
 
     if (error) throw error;
 
+    // ── Lembretes: 3 canais (in-app + email + WhatsApp) + push local 24h antes ──
     if (data?.patient_id) {
-      await notificarAgendamentoPaciente(
-        data.patient_id,
-        'Pré-agendamento realizado',
-        `Sua solicitação foi pré-agendada para ${formatDate(data.appointment_date, "dd/MM/yyyy 'às' HH:mm")}.
-        `,
-        { agendamento_id: agendamentoId }
-      );
-      await scheduleAppointmentReminder(
-        'Lembrete da consulta',
-        `Sua consulta está prevista para ${formatDate(data.appointment_date, "dd/MM/yyyy 'às' HH:mm")}.
-        `,
-        data.appointment_date
-      );
+      // Fire-and-forget: não bloqueia o fluxo principal
+      enviarLembretesConsulta({
+        agendamento: data as Agendamento,
+        nomeDentista,
+        modo: 'agendado',
+      }).catch((e) => logger.warn('Erro nos lembretes (agendarAgendamento)', e));
     }
 
     return { success: true, data: data as Agendamento };
@@ -360,6 +399,17 @@ export const confirmarAgendamento = async (
   try {
     const admin = getAdminClient();
     const client = admin || supabase;
+
+    // Buscar nome do dentista para enriquecer os lembretes
+    let nomeDentista: string | undefined;
+    try {
+      const { data: dentistaProfile } = await (admin || supabase)
+        .from('profiles')
+        .select('nome')
+        .eq('id', dentistaId)
+        .single();
+      nomeDentista = dentistaProfile?.nome;
+    } catch { /* não crítico */ }
     
     const { data, error } = await client
       .from('appointments')
@@ -370,20 +420,14 @@ export const confirmarAgendamento = async (
 
     if (error) throw error;
 
+    // ── Lembretes: 3 canais (in-app + email + WhatsApp) + push local 24h antes ──
     if (data?.patient_id) {
-      await notificarAgendamentoPaciente(
-        data.patient_id,
-        'Consulta confirmada',
-        `Seu agendamento foi confirmado para ${formatDate(data.appointment_date, "dd/MM/yyyy 'às' HH:mm")}.
-        `,
-        { agendamento_id: agendamentoId }
-      );
-      await scheduleAppointmentReminder(
-        'Lembrete da consulta confirmada',
-        `Sua consulta confirmada é em ${formatDate(data.appointment_date, "dd/MM/yyyy 'às' HH:mm")}.
-        `,
-        data.appointment_date
-      );
+      // Fire-and-forget: não bloqueia o fluxo principal
+      enviarLembretesConsulta({
+        agendamento: data as Agendamento,
+        nomeDentista,
+        modo: 'confirmado',
+      }).catch((e) => logger.warn('Erro nos lembretes (confirmarAgendamento)', e));
     }
 
     return { success: true, data: data as Agendamento };

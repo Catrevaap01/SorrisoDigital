@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ServiÃ§o de recuperaÃ§Ã£o de senha
  * FunÃ§Ãµes para gerar senhas aleatÃ³rias e recuperar senhas
  */
@@ -123,35 +123,40 @@ export const recuperarSenhaPaciente = async (
   error?: string;
 }> => {
   try {
-    const adminClient = getAdminClient();
-    const authApi = adminClient?.auth.admin || supabase.auth.admin;
+    // 1. Consultar a tabela profiles para encontrar o ID do usuário e confirmar se é paciente
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, nome, tipo')
+      .eq('email', pacienteEmail.trim().toLowerCase())
+      .single();
 
-    const { data: listData, error: listError } = await authApi.listUsers();
-    if (listError) {
-      return { success: false, error: listError.message };
-    }
-    const allUsers = ((listData?.users as Array<{ email?: string; user_metadata?: any; id: string }>) || []);
-    const users = allUsers.filter(
-      (candidate) =>
-        candidate.email?.trim().toLowerCase() ===
-        pacienteEmail.trim().toLowerCase()
-    );
-    if (users.length === 0) {
+    if (profileError || !profileData) {
       return { success: false, error: 'Usuário não encontrado' };
     }
-    const user = users[0];
-    const tipo = (user.user_metadata?.tipo || '').toString();
-    if (tipo !== 'paciente') {
+
+    if (profileData.tipo !== 'paciente') {
       return {
         success: false,
         error: 'Recuperação apenas disponível para pacientes',
       };
     }
 
-    const novaSenha = gerarSenhaAleatoria();
-    const currentMetadata = user.user_metadata || {};
+    const userId = profileData.id;
+    const nome = profileData.nome || '';
 
-    const { error: updateError } = await authApi.updateUserById(user.id, {
+    // 2. Redefinir a senha usando a API de administração
+    const adminClient = getAdminClient();
+    const authApi = adminClient?.auth.admin || supabase.auth.admin;
+
+    const { data: userData, error: getUserError } = await authApi.getUserById(userId);
+    if (getUserError) {
+      return { success: false, error: getUserError.message };
+    }
+    const currentMetadata = userData?.user?.user_metadata || {};
+
+    const novaSenha = gerarSenhaAleatoria();
+
+    const { error: updateError } = await authApi.updateUserById(userId, {
       password: novaSenha,
       user_metadata: {
         ...currentMetadata,
@@ -164,22 +169,22 @@ export const recuperarSenhaPaciente = async (
     }
 
     if (PROFILE_SCHEMA_FEATURES.hasSenhaAlterada) {
-      const { error: profileError } = await supabase
+      const { error: profileErrorUpdate } = await supabase
         .from('profiles')
         .update({
           senha_alterada: false,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', user.id);
-      if (profileError) {
-        return { success: false, error: profileError.message };
+        .eq('id', userId);
+      if (profileErrorUpdate) {
+        return { success: false, error: profileErrorUpdate.message };
       }
     }
 
+    // 3. Enviar o email de recuperação
     const emailResult = await sendPasswordRecoveryEmail(
-      pacienteEmail,
-      // nome de metadata ou vazio
-      (user.user_metadata?.nome as string) || '',
+      pacienteEmail.trim().toLowerCase(),
+      nome,
       novaSenha
     );
 

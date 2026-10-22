@@ -14,16 +14,18 @@ require('dotenv').config();
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 // Para operações administrativas precisamos da service_role key
 const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.SUPABASE_SERVICE_KEY ||
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error('❌ Erro: variáveis de ambiente do Supabase não estão definidas. Certifique-se de definir SUPABASE_SERVICE_KEY (recomendado) ou ANON_KEY.');
+  console.error('❌ Erro: variáveis de ambiente do Supabase não estão definidas.');
   process.exit(1);
 }
 
-if (!process.env.SUPABASE_SERVICE_KEY) {
+const isServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY);
+if (!isServiceRole) {
   console.warn('⚠️ Aviso: usando chave anônima em modo admin. Isso pode falhar se não tiver privilégios.');
 }
 
@@ -53,21 +55,30 @@ async function criarAdmin(email, nome, senha) {
     }
 
     if (authError) {
-      console.log('DEBUG authError:', authError);
-      // se já existe, buscar o usuário existente
+      console.log('DEBUG authError:', authError.message || authError);
+      // se já existe, buscar o usuário existente e atualizar senha
       const msg = authError.message || authError.error || authError;
       if (
         authError.code === 'email_exists' ||
-        /already.*registered/i.test(msg)
+        /already.*registered/i.test(msg) ||
+        /email.*exists/i.test(msg)
       ) {
-        console.warn('⚠️ Usuário já registrado, recuperando dados existentes');
-        const listRes = await supabase.auth.admin.listUsers({
-          email,
-        });
-        if (listRes.error || !listRes.data.users || listRes.data.users.length === 0) {
-          throw new Error(`Erro ao obter usuário existente: ${listRes.error?.message}`);
+        console.warn('⚠️ Usuário já registrado, atualizando dados e senha...');
+        const listRes = await supabase.auth.admin.listUsers();
+        const found = listRes.data?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+        if (!found) {
+          throw new Error(`Erro ao obter usuário existente: ${listRes.error?.message || 'Usuário não encontrado na lista'}`);
         }
-        authData = { user: listRes.data.users[0] };
+        await supabase.auth.admin.updateUserById(found.id, {
+          password: senha,
+          email_confirm: true,
+          user_metadata: {
+            nome,
+            tipo: 'admin',
+          },
+        });
+        authData = { user: found };
+        console.log('✅ Senha e metadata atualizados com sucesso no Supabase Auth.');
       } else {
         throw new Error(`Erro ao criar usuário auth: ${msg}`);
       }

@@ -67,6 +67,10 @@ export const obterOuCriarConversa = async (
   user2Avatar?: string | null
 ): Promise<{ success: boolean; data?: Conversation; error?: string }> => {
   try {
+    if (userId1 === userId2) {
+      return { success: false, error: 'Não é possível iniciar uma conversa consigo mesmo' };
+    }
+
     // Verificar se conversa já existe
     // try to fetch any existing conversation between the two users
     // limit(1) avoids errors if multiple rows exist due to bug/duplicates and

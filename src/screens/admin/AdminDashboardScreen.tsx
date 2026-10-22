@@ -37,7 +37,7 @@ import {
 } from '../../services/dentistaService';
 import { authService } from '../../services/authService';
 import { validators } from '../../utils/validators';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
+import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 
 const ESPECIALIDADES_DENTISTA = [
   'Ortodontia',
@@ -562,7 +562,7 @@ const AdminDashboardScreen: React.FC = () => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={Platform.OS === 'web' && styles.headerContent}>
+        <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Gerenciar Dentistas</Text>
           <Pressable
             style={styles.botaoCriar}
@@ -1210,18 +1210,17 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
+    backgroundColor: COLORS.surface,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
   },
   headerTitle: {
-    fontSize: TYPOGRAPHY.sizes.h2,
-    fontWeight: 'bold',
+    fontSize: TYPOGRAPHY.sizes.xl,
+    fontWeight: '700',
     color: COLORS.text,
+    flex: 1,
   },
   headerContent: {
     width: '100%',
@@ -1232,7 +1231,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   botaoCriar: {
-    padding: SPACING.sm,
+    padding: 4,
   },
   acoesRapidasContainer: {
     flexDirection: 'row',
@@ -1269,24 +1268,23 @@ const styles = StyleSheet.create({
   buscaContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.backgroundSecondary,
-    marginHorizontal: SPACING.lg,
-    marginVertical: SPACING.md,
-    paddingHorizontal: SPACING.md,
-    borderRadius: 8,
+    gap: 8,
+    backgroundColor: COLORS.surface,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
+    paddingHorizontal: SPACING.md,
+    margin: SPACING.md,
+    height: 44,
   },
   buscaInput: {
     flex: 1,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.md,
     color: COLORS.text,
-    fontSize: TYPOGRAPHY.sizes.body,
+    fontSize: 14,
   },
   listaContainer: {
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.lg,
+    paddingBottom: 40,
+    paddingHorizontal: SPACING.md,
   },
   webListaContainer: {
     maxWidth: 900,
@@ -1294,16 +1292,14 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   dentistaCard: {
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'stretch',
-    backgroundColor: COLORS.card,
-    borderRadius: 12,
+    backgroundColor: COLORS.surface,
+    borderRadius: 14,
+    marginBottom: SPACING.sm,
     padding: SPACING.md,
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
+    overflow: 'hidden',
     borderLeftWidth: 4,
     borderLeftColor: COLORS.primary,
+    ...SHADOWS.sm,
   },
   dentistaInfo: {
     flexDirection: 'row',
@@ -1412,80 +1408,79 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
     alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
+    paddingHorizontal: Platform.OS === 'web' ? 18 : 0,
   },
   keyboardAvoidingModal: {
-    width: '100%',
-    maxWidth: Platform.OS === 'web' ? 600 : '100%',
+    width: Platform.OS === 'web' ? '92%' : '100%',
+    maxWidth: Platform.OS === 'web' ? 540 : undefined,
     justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
-    alignSelf: 'center',
   },
   modalContent: {
-    backgroundColor: COLORS.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderBottomLeftRadius: Platform.OS === 'web' ? 20 : 0,
-    borderBottomRightRadius: Platform.OS === 'web' ? 20 : 0,
-    paddingTop: SPACING.lg,
-    maxHeight: Platform.OS === 'web' ? '80%' : '90%',
-    paddingBottom: SPACING.lg,
+    width: '100%',
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderBottomLeftRadius: Platform.OS === 'web' ? 24 : 0,
+    borderBottomRightRadius: Platform.OS === 'web' ? 24 : 0,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    maxHeight: Platform.OS === 'web' ? '84%' : '90%',
     overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.md,
+    justifyContent: 'space-between',
+    padding: SPACING.md,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
   modalTitle: {
-    fontSize: TYPOGRAPHY.sizes.h2,
-    fontWeight: 'bold',
+    flex: 1,
+    paddingRight: SPACING.md,
+    fontSize: 18,
+    fontWeight: '700',
     color: COLORS.text,
   },
   modalForm: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.lg,
+    padding: SPACING.md,
     flexShrink: 1,
   },
   formGroup: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   formLabel: {
-    fontSize: TYPOGRAPHY.sizes.body,
+    fontSize: 13,
     fontWeight: '600',
     color: COLORS.text,
-    marginBottom: SPACING.sm,
+    marginBottom: 6,
   },
   formInput: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
+    paddingVertical: Platform.OS === 'web' ? 10 : SPACING.sm,
     fontSize: TYPOGRAPHY.sizes.body,
     color: COLORS.text,
     backgroundColor: COLORS.backgroundSecondary,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   passwordInput: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 8,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
+    borderRadius: 10,
+    paddingRight: 12,
     backgroundColor: COLORS.backgroundSecondary,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    height: 46,
   },
   passwordInputField: {
     flex: 1,
-    fontSize: TYPOGRAPHY.sizes.body,
+    paddingHorizontal: SPACING.sm,
+    fontSize: 14,
     color: COLORS.text,
-    marginRight: SPACING.sm,
   },
   formReadOnlyValue: {
     fontSize: TYPOGRAPHY.sizes.body,
@@ -1498,16 +1493,15 @@ const styles = StyleSheet.create({
   },
   modalFooter: {
     flexDirection: 'row',
-    gap: SPACING.md,
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.md,
+    gap: SPACING.sm,
+    padding: SPACING.md,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },
   botaoModal: {
     flex: 1,
-    paddingVertical: SPACING.md,
-    borderRadius: 8,
+    padding: SPACING.md,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     flexDirection: 'row',
@@ -1573,7 +1567,6 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
     marginBottom: SPACING.xs,
     borderRadius: 8,
-    marginHorizontal: SPACING.md,
   },
   sectionTitle: {
     flex: 1,

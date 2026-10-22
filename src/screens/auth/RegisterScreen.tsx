@@ -1,6 +1,8 @@
 /**
- * Tela de Cadastro
- * Permite ao usuário criar conta informando nome, email e senha
+ * RegisterScreen.tsx
+ *
+ * Auto-registo de pacientes.
+ * ✅ Compatível com: iOS · Android · Web · PWA
  */
 
 import React, { useState } from 'react';
@@ -13,9 +15,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../../contexts/AuthContext';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
@@ -23,86 +26,168 @@ import { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>;
 
-const RegisterScreen: React.FC<Props> = ({ navigation }) => {
-  const [nome, setNome] = useState<string>('');
-  const [email, setEmail] = useState<string>('');
-  const [password, setPassword] = useState<string>('');
-  const [showPassword, setShowPassword] = useState<boolean>(false);
-  const { signUp, loading } = useAuth();
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-  const handleRegister = async () => {
-    if (!nome.trim() || !email.trim() || !password.trim()) {
-      Alert.alert('Preencha todos os campos');
-      return;
+const showError = (title: string, message: string) =>
+  Toast.show({ type: 'error', text1: title, text2: message, visibilityTime: 4000 });
+
+const showSuccess = (title: string, message: string) =>
+  Toast.show({ type: 'success', text1: title, text2: message, visibilityTime: 5000 });
+
+// ─── Componente ───────────────────────────────────────────────────────────────
+
+const RegisterScreen: React.FC<Props> = ({ navigation }) => {
+  const [nome, setNome] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const { signUp } = useAuth();
+
+  // ── Validação ──────────────────────────────────────────────────────────────
+  const validate = (): boolean => {
+    if (!nome.trim() || !email.trim() || !password || !confirmPassword) {
+      showError('Campos obrigatórios', 'Por favor preencha todos os campos.');
+      return false;
     }
-    const result = await signUp(email.trim(), password, { nome: nome.trim() });
-    if (result.success) {
-      const hasSession = Boolean(result.data?.session);
-      if (!hasSession) {
-        Alert.alert('Conta criada com sucesso', 'Faca login para continuar');
-        navigation.replace('Login');
+    if (!email.includes('@') || email.split('@')[1]?.indexOf('.') === -1) {
+      showError('Email inválido', 'Insira um endereço de email válido.');
+      return false;
+    }
+    if (password.length < 6) {
+      showError('Senha fraca', 'A senha deve ter pelo menos 6 caracteres.');
+      return false;
+    }
+    if (password !== confirmPassword) {
+      showError('Senhas não coincidem', 'As duas senhas têm de ser iguais.');
+      return false;
+    }
+    return true;
+  };
+
+  // ── Registo ────────────────────────────────────────────────────────────────
+  const handleRegister = async () => {
+    if (!validate()) return;
+    setLoading(true);
+    try {
+      const result = await signUp(email.trim().toLowerCase(), password, {
+        nome: nome.trim(),
+        tipo: 'paciente',
+        senha_alterada: false, // onboarding → forçar mudança de senha
+      });
+
+      if (result.success) {
+        const hasSession = Boolean(result.data?.session);
+        if (!hasSession) {
+          // Supabase confirmação por email activada
+          showSuccess(
+            '✅ Conta criada!',
+            'Verifique o seu email para confirmar a conta e depois faça login.'
+          );
+          setTimeout(() => navigation.replace('Login'), 2500);
+        }
+        // hasSession=true → AppNavigator detecta needsProfileCompletion → CompleteProfile
+      } else {
+        const msg =
+          (result.error as any)?.message || 'Erro ao criar conta. Tente novamente.';
+        showError('Erro no registo', msg);
       }
+    } finally {
+      setLoading(false);
     }
   };
 
+  // ── KAV behavior cross-platform ────────────────────────────────────────────
+  const kavBehavior = Platform.select<'padding' | 'height' | 'position' | undefined>({
+    ios: 'padding',
+    android: 'height',
+    default: undefined,
+  });
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior="padding"
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      behavior={kavBehavior}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Logo */}
+        {/* Logo / Cabeçalho */}
         <View style={styles.logoContainer}>
           <View style={styles.logoCircle}>
-            <Ionicons name="medical" size={50} color={COLORS.primary} />
+            <Ionicons name="person-add" size={40} color={COLORS.primary} />
           </View>
-          <Text style={styles.title}>Odontologia</Text>
-          <Text style={styles.subtitle}>Angola</Text>
-          <Text style={styles.tagline}>Bem-vindo! Crie sua conta</Text>
+          <Text style={styles.title} accessibilityRole="header">Criar Conta</Text>
+          <Text style={styles.subtitle}>Paciente</Text>
+          <Text style={styles.tagline}>Registe-se para começar a usar o TeOdonto Angola</Text>
         </View>
 
         {/* Formulário */}
         <View style={styles.formContainer}>
+
+          {/* Nome */}
+          <Text style={styles.fieldLabel}>Nome completo</Text>
           <View style={styles.inputContainer}>
             <Ionicons name="person-outline" size={20} color={COLORS.textSecondary} />
             <TextInput
               style={styles.input}
-              placeholder="Nome completo"
+              placeholder="O seu nome completo"
               placeholderTextColor={COLORS.textLight}
               value={nome}
               onChangeText={setNome}
+              autoCapitalize="words"
+              returnKeyType="next"
+              autoComplete={Platform.OS === 'web' ? 'name' : 'off'}
+              accessibilityLabel="Nome completo"
             />
           </View>
 
+          {/* Email */}
+          <Text style={styles.fieldLabel}>Email</Text>
           <View style={styles.inputContainer}>
             <Ionicons name="mail-outline" size={20} color={COLORS.textSecondary} />
             <TextInput
               style={styles.input}
-              placeholder="Email"
+              placeholder="email@exemplo.com"
               placeholderTextColor={COLORS.textLight}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              returnKeyType="next"
+              autoComplete={Platform.OS === 'web' ? 'email' : 'off'}
+              accessibilityLabel="Email"
             />
           </View>
 
+          {/* Senha */}
+          <Text style={styles.fieldLabel}>Senha</Text>
           <View style={styles.inputContainer}>
             <Ionicons name="lock-closed-outline" size={20} color={COLORS.textSecondary} />
             <TextInput
               style={styles.input}
-              placeholder="Senha"
+              placeholder="Mínimo 6 caracteres"
               placeholderTextColor={COLORS.textLight}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
+              returnKeyType="next"
+              autoComplete={Platform.OS === 'web' ? 'new-password' : 'off'}
+              accessibilityLabel="Senha"
             />
-            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <TouchableOpacity
+              onPress={() => setShowPassword(!showPassword)}
+              accessibilityRole="button"
+              accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+            >
               <Ionicons
                 name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                 size={20}
@@ -111,46 +196,88 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={[styles.button, styles.buttonDisabled]}
-            disabled={true}
-          >
-            <Text style={[styles.buttonText, { opacity: 0.5 }]}>Cadastro pelo Dentista</Text>
-          </TouchableOpacity>
-
-          <View style={styles.infoBox}>
-            <Ionicons name="information-circle-outline" size={20} color={COLORS.primary} />
-            <Text style={styles.infoText}>
-              O cadastro é realizado pelo dentista responsável.
-            </Text>
+          {/* Confirmar Senha */}
+          <Text style={styles.fieldLabel}>Confirmar senha</Text>
+          <View style={styles.inputContainer}>
+            <Ionicons name="lock-closed-outline" size={20} color={COLORS.textSecondary} />
+            <TextInput
+              style={styles.input}
+              placeholder="Repita a senha"
+              placeholderTextColor={COLORS.textLight}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry={!showConfirm}
+              returnKeyType="done"
+              onSubmitEditing={handleRegister}
+              autoComplete={Platform.OS === 'web' ? 'new-password' : 'off'}
+              accessibilityLabel="Confirmar senha"
+            />
+            <TouchableOpacity
+              onPress={() => setShowConfirm(!showConfirm)}
+              accessibilityRole="button"
+              accessibilityLabel={showConfirm ? 'Ocultar confirmação' : 'Mostrar confirmação'}
+            >
+              <Ionicons
+                name={showConfirm ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color={COLORS.textSecondary}
+              />
+            </TouchableOpacity>
           </View>
 
-
+          {/* Botão */}
           <TouchableOpacity
-            style={styles.registerLink}
-            onPress={() => navigation.navigate('Login')}
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleRegister}
+            disabled={loading}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Criar conta"
           >
-            <Text style={styles.registerText}>
+            {loading
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <>
+                  <Text style={styles.buttonText}>Criar Conta</Text>
+                  <Ionicons name="arrow-forward-circle" size={22} color="#fff" />
+                </>
+            }
+          </TouchableOpacity>
+
+          {/* Passos seguintes */}
+          <View style={styles.stepsInfo}>
+            <Text style={styles.stepsTitle}>O que acontece a seguir:</Text>
+            {[
+              'Completar os dados de contacto',
+              'Definir a sua senha pessoal',
+              'Aceder ao app 🎉',
+            ].map((step, i) => (
+              <View key={i} style={styles.stepRow}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>{i + 1}</Text>
+                </View>
+                <Text style={styles.stepText}>{step}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* Já tem conta */}
+          <TouchableOpacity
+            style={styles.loginLink}
+            onPress={() => navigation.replace('Login')}
+            accessibilityRole="link"
+          >
+            <Text style={styles.loginText}>
               Já tem conta?{' '}
-              <Text style={styles.registerTextBold}>Faça login</Text>
+              <Text style={styles.loginTextBold}>Faça login</Text>
             </Text>
           </TouchableOpacity>
-
-          <View style={styles.infoBox}>
-            <Ionicons name="information-circle-outline" size={20} color={COLORS.primary} />
-            <Text style={styles.infoText}>
-              O cadastro é realizado pelo dentista responsável.
-            </Text>
-          </View>
         </View>
 
-
-        {/* Aviso Legal */}
+        {/* Disclaimer */}
         <View style={styles.disclaimer}>
-          <Ionicons name="information-circle-outline" size={16} color={COLORS.accent} />
+          <Ionicons name="shield-checkmark-outline" size={16} color={COLORS.primary} />
           <Text style={styles.disclaimerText}>
-            Este aplicativo não substitui consulta presencial com dentista.
-            Use apenas para orientação inicial.
+            Os seus dados são protegidos. Este app não substitui consulta presencial.
           </Text>
         </View>
       </ScrollView>
@@ -158,39 +285,26 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
+// ─── Estilos ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#F0F4F8',
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: SIZES.lg,
+    paddingHorizontal: SIZES.lg,
+    paddingBottom: SIZES.xxl,
+    paddingTop: Platform.select({ ios: 60, android: 40, default: 32 }) as number,
   },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E3F2FD',
-    padding: SIZES.md,
-    borderRadius: SIZES.radiusMd,
-    marginTop: SIZES.md,
-  },
-  infoText: {
-    flex: 1,
-    marginLeft: SIZES.sm,
-    fontSize: SIZES.fontSm,
-    color: COLORS.primary,
-  },
-
   logoContainer: {
     alignItems: 'center',
     marginBottom: SIZES.xl,
   },
   logoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
@@ -198,83 +312,115 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.md,
   },
   title: {
-    fontSize: SIZES.fontDisplay,
-    fontWeight: 'bold',
+    fontSize: 26,
+    fontWeight: '800',
     color: COLORS.primary,
   },
   subtitle: {
     fontSize: SIZES.fontXl,
     fontWeight: '600',
     color: COLORS.secondary,
-    marginTop: -5,
+    marginTop: -2,
   },
   tagline: {
     fontSize: SIZES.fontMd,
     color: COLORS.textSecondary,
     marginTop: SIZES.sm,
+    textAlign: 'center',
   },
   formContainer: {
     backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusLg,
+    borderRadius: SIZES.radiusXl,
     padding: SIZES.lg,
     ...SHADOWS.md,
+    marginBottom: SIZES.lg,
+  },
+  fieldLabel: {
+    fontSize: SIZES.fontSm,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    marginBottom: 6,
+    marginTop: SIZES.xs,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: '#F8FAFC',
     borderRadius: SIZES.radiusMd,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     paddingHorizontal: SIZES.md,
     marginBottom: SIZES.md,
-    height: 55,
+    height: 52,
   },
   input: {
     flex: 1,
     marginLeft: SIZES.sm,
-    fontSize: SIZES.fontLg,
+    fontSize: SIZES.fontMd,
     color: COLORS.text,
+    // Web: remove o outline azul do browser
+    ...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} }),
   },
   button: {
     backgroundColor: COLORS.primary,
     borderRadius: SIZES.radiusMd,
-    height: 55,
+    height: 54,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: SIZES.sm,
     marginTop: SIZES.sm,
+    ...SHADOWS.sm,
   },
-  buttonDisabled: {
-    backgroundColor: COLORS.primaryLight,
-  },
+  buttonDisabled: { opacity: 0.7 },
   buttonText: {
-    color: COLORS.textInverse,
+    color: '#fff',
     fontSize: SIZES.fontLg,
-    fontWeight: 'bold',
-    marginRight: SIZES.sm,
+    fontWeight: '700',
   },
-  registerLink: {
-    alignItems: 'center',
+  stepsInfo: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: SIZES.radiusMd,
+    padding: SIZES.md,
     marginTop: SIZES.lg,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
   },
-  registerText: {
-    color: COLORS.textSecondary,
-    fontSize: SIZES.fontMd,
+  stepsTitle: {
+    fontSize: SIZES.fontSm,
+    fontWeight: '700',
+    color: '#166534',
+    marginBottom: SIZES.sm,
   },
-  registerTextBold: {
-    color: COLORS.primary,
-    fontWeight: 'bold',
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: SIZES.sm,
   },
+  stepBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  stepText: { fontSize: SIZES.fontSm, color: '#166534', flex: 1 },
+  loginLink: { alignItems: 'center', marginTop: SIZES.lg },
+  loginText: { color: COLORS.textSecondary, fontSize: SIZES.fontMd },
+  loginTextBold: { color: COLORS.primary, fontWeight: '700' },
   disclaimer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#FFF8E1',
+    backgroundColor: '#EFF6FF',
     borderRadius: SIZES.radiusMd,
     padding: SIZES.md,
-    marginTop: SIZES.xl,
+    gap: SIZES.sm,
   },
   disclaimerText: {
     flex: 1,
-    marginLeft: SIZES.sm,
     fontSize: SIZES.fontSm,
     color: COLORS.textSecondary,
     lineHeight: 18,
@@ -282,4 +428,3 @@ const styles = StyleSheet.create({
 });
 
 export default RegisterScreen;
-

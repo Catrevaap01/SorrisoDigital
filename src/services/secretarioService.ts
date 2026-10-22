@@ -7,6 +7,7 @@ import { supabase, getAdminClient } from '../config/supabase';
 import { withTimeout } from '../utils/withTimeout';
 import { handleError } from '../utils/errorHandler';
 import { DentistaProfile } from './dentistaService';
+import { auditService } from './auditService';
 
 // ═══════════════════════════════════════════════
 // Motor de Triagem Inteligente
@@ -428,6 +429,14 @@ export const atribuirTriagemAoDentista = async (
 
     if (error) throw error;
 
+    void auditService.log({
+      acao: 'ATRIBUIR_DENTISTA',
+      tabela: 'triagens',
+      registo_id: triagemId,
+      descricao: `Triagem ${triagemId} atribuída ao dentista ${dentistaId}`,
+      dados_depois: { dentistaId, secretarioId, observacoes },
+    });
+
     console.log(`✅ Triagem ${triagemId} atribuída ao dentista ${dentistaId}`);
     return { success: true };
   } catch (err: any) {
@@ -458,6 +467,14 @@ export const recusarTriagem = async (
       .eq('id', triagemId);
 
     if (error) throw error;
+
+    void auditService.log({
+      acao: 'RECUSAR_TRIAGEM',
+      tabela: 'triagens',
+      registo_id: triagemId,
+      descricao: `Triagem recusada. Motivo: ${motivo}`,
+      dados_depois: { secretarioId, motivo },
+    });
 
     console.log(`❌ Triagem ${triagemId} recusada pelo secretário`);
     return { success: true };
@@ -516,6 +533,14 @@ export const atribuirAgendamentoAoDentista = async (
       .eq('id', agendamentoId);
 
     if (error) throw error;
+
+    void auditService.log({
+      acao: 'ATRIBUIR_DENTISTA',
+      tabela: 'appointments',
+      registo_id: agendamentoId,
+      descricao: `Agendamento ${agendamentoId} atribuído ao dentista ${dentistaId}`,
+      dados_depois: { dentistaId, secretarioId, dataAgendamento, horaAgendamento },
+    });
 
     console.log(`✅ Agendamento ${agendamentoId} atribuído ao dentista ${dentistaId}`);
     return { success: true };
@@ -598,6 +623,14 @@ export const rejeitarAgendamento = async (
       .eq('id', agendamentoId);
 
     if (error) throw error;
+
+    void auditService.log({
+      acao: 'REJEITAR_AGENDAMENTO',
+      tabela: 'appointments',
+      registo_id: agendamentoId,
+      descricao: `Agendamento rejeitado. Motivo: ${motivo}`,
+      dados_depois: { secretarioId, motivo },
+    });
 
     console.log(`❌ Agendamento ${agendamentoId} rejeitado pelo secretário`);
     return { success: true };

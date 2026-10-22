@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { 
-  ActivityIndicator as _ActivityIndicator, 
-  StyleSheet, 
-  Text, 
-  View, 
+import React, { useCallback, useEffect, useState, lazy, Suspense } from 'react';
+import {
+  ActivityIndicator as _ActivityIndicator,
+  StyleSheet,
+  Text,
+  View,
   Pressable,
   Platform,
 } from 'react-native';
@@ -30,37 +30,80 @@ import {
   RootStackParamList,
 } from './types';
 
+// ── Ecrãs de autenticação (sempre necessários ao startup — import estático) ────
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import ChangePasswordScreen from '../screens/auth/ChangePasswordScreen';
 import ForgotPasswordScreen from '../screens/auth/ForgotPasswordScreen';
+import CompleteProfileScreen from '../screens/auth/CompleteProfileScreen';
 
+// ── Ecrãs do paciente — tab principal estática, pesados com lazy ──────────────
 import HomeScreen from '../screens/paciente/HomeScreen';
-import TriagemScreen from '../screens/paciente/TriagemScreen';
-import HistoricoScreen from '../screens/paciente/HistoricoScreen';
-import EducacaoScreen from '../screens/paciente/EducacaoScreen';
-import AgendamentoScreen from '../screens/paciente/AgendamentoScreen';
 import PerfilScreen from '../screens/paciente/PerfilScreen';
 import MensagensScreen from '../screens/paciente/MensagensScreen';
+// Lazy: carregados apenas quando o utilizador navega
+const TriagemScreen = lazy(() => import('../screens/paciente/TriagemScreen'));
+const HistoricoScreen = lazy(() => import('../screens/paciente/HistoricoScreen'));
+const EducacaoScreen = lazy(() => import('../screens/paciente/EducacaoScreen'));
+const AgendamentoScreen = lazy(() => import('../screens/paciente/AgendamentoScreen'));
 
+// ── Ecrãs do dentista — dashboard estático, resto lazy ───────────────────────
 import DashboardScreen from '../screens/dentista/DashboardScreen';
-import DentistaRelatorioScreen from '../screens/dentista/DentistaRelatorioScreen';
-import CasoDetalheScreen from '../screens/dentista/CasoDetalheScreen';
-import PacienteHistoricoScreen from '../screens/dentista/PacienteHistoricoScreen';
-import DentistaMensagensScreen from '../screens/dentista/DentistaMensagensScreen';
-import NovoPacienteScreen from '../screens/dentista/NovoPacienteScreen';
-import GerirPacientesScreen from '../screens/dentista/GerirPacientesScreen';
 import AgendaDentistaScreen from '../screens/dentista/AgendaDentistaScreen';
-import AdminNavigator from './AdminNavigator';
+import DentistaMensagensScreen from '../screens/dentista/DentistaMensagensScreen';
+// Lazy: módulos pesados carregados sob pedido
+const DentistaRelatorioScreen = lazy(() => import('../screens/dentista/DentistaRelatorioScreen'));
+const CasoDetalheScreen = lazy(() => import('../screens/dentista/CasoDetalheScreen'));
+const PacienteHistoricoScreen = lazy(() => import('../screens/dentista/PacienteHistoricoScreen'));
+const NovoPacienteScreen = lazy(() => import('../screens/dentista/NovoPacienteScreen'));
+const GerirPacientesScreen = lazy(() => import('../screens/dentista/GerirPacientesScreen'));
+// Módulo clínico — carregado apenas se abrir um caso
+const AnamneseScreen = lazy(() => import('../screens/dentista/AnamneseScreen'));
+const PlanoTratamentoScreen = lazy(() => import('../screens/dentista/PlanoTratamentoScreen'));
+const PrescricaoScreen = lazy(() => import('../screens/dentista/PrescricaoScreen'));
+
+// ── Secretário ────────────────────────────────────────────────────────────────
 import SecretarioDashboardScreen from '../screens/secretario/SecretarioDashboardScreen';
 import SecretarioAgendamentosScreen from '../screens/secretario/SecretarioAgendamentosScreen';
-import AtribuirDentistaScreen from '../screens/secretario/AtribuirDentistaScreen';
-import AtribuirDentistaAgendamentoScreen from '../screens/secretario/AtribuirDentistaAgendamentoScreen';
-import AnamneseScreen from '../screens/dentista/AnamneseScreen';
-import PlanoTratamentoScreen from '../screens/dentista/PlanoTratamentoScreen';
-import PrescricaoScreen from '../screens/dentista/PrescricaoScreen';
+const AtribuirDentistaScreen = lazy(() => import('../screens/secretario/AtribuirDentistaScreen'));
+const AtribuirDentistaAgendamentoScreen = lazy(() => import('../screens/secretario/AtribuirDentistaAgendamentoScreen'));
 
+import AdminNavigator from './AdminNavigator';
+
+// ── Fallback spinner para Suspense ────────────────────────────────────────────
+const LazyFallback: React.FC = () => (
+  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F5F5' }}>
+    <ActivityIndicator size="large" color={COLORS.primary} />
+  </View>
+);
+
+/** Wrapper de Suspense para ecrãs lazy */
+function withSuspense<P extends object>(Component: React.LazyExoticComponent<React.ComponentType<P>>) {
+  return function SuspenseWrapper(props: P) {
+    return (
+      <Suspense fallback={<LazyFallback />}>
+        <Component {...props} />
+      </Suspense>
+    );
+  };
+}
+
+// Aplicar wrapper apenas nos ecrãs lazy do paciente (para uso em Stack.Screen)
+const TriagemScreenLazy = withSuspense(TriagemScreen as any);
+const HistoricoScreenLazy = withSuspense(HistoricoScreen as any);
+const EducacaoScreenLazy = withSuspense(EducacaoScreen as any);
+const AgendamentoScreenLazy = withSuspense(AgendamentoScreen as any);
+const DentistaRelatorioScreenLazy = withSuspense(DentistaRelatorioScreen as any);
+const CasoDetalheScreenLazy = withSuspense(CasoDetalheScreen as any);
+const PacienteHistoricoScreenLazy = withSuspense(PacienteHistoricoScreen as any);
+const NovoPacienteScreenLazy = withSuspense(NovoPacienteScreen as any);
+const GerirPacientesScreenLazy = withSuspense(GerirPacientesScreen as any);
+const AnamneseScreenLazy = withSuspense(AnamneseScreen as any);
+const PlanoTratamentoScreenLazy = withSuspense(PlanoTratamentoScreen as any);
+const PrescricaoScreenLazy = withSuspense(PrescricaoScreen as any);
+const AtribuirDentistaScreenLazy = withSuspense(AtribuirDentistaScreen as any);
+const AtribuirDentistaAgendamentoScreenLazy = withSuspense(AtribuirDentistaAgendamentoScreen as any);
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -296,7 +339,7 @@ const SecretarioTabs: React.FC<TabsProps> = ({ unreadCount }) => (
     />
     <SecretarioTab.Screen
       name="Pacientes"
-      component={require('../screens/dentista/GerirPacientesScreen').default}
+      component={GerirPacientesScreenLazy}
       options={{ title: 'Pacientes' }}
     />
     <SecretarioTab.Screen
@@ -317,7 +360,7 @@ const PacienteStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
       </PacienteStackNav.Screen>
       <PacienteStackNav.Screen
         name="Agendamento"
-        component={AgendamentoScreen}
+        component={AgendamentoScreenLazy}
         options={{
           title: 'Agendar Consulta',
           headerStyle: { backgroundColor: COLORS.primary },
@@ -391,7 +434,7 @@ const DentistaStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
       </DentistaStackNav.Screen>
       <DentistaStackNav.Screen
         name="CasoDetalhe"
-        component={CasoDetalheScreen}
+        component={CasoDetalheScreenLazy}
         options={{
           title: 'Detalhes do Caso',
           headerStyle: { backgroundColor: COLORS.secondary },
@@ -400,7 +443,7 @@ const DentistaStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
       />
       <DentistaStackNav.Screen
         name="PacienteHistorico"
-        component={PacienteHistoricoScreen}
+        component={PacienteHistoricoScreenLazy}
         options={{
           title: 'Histórico do Paciente',
           headerStyle: { backgroundColor: COLORS.secondary || '#43A047' },
@@ -465,33 +508,21 @@ const DentistaStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
         }}
       />
 
-      {/* ── Módulo Clínico ── */}
+      {/* ── Módulo Clínico — lazy loaded ── */}
       <DentistaStackNav.Screen
         name="Anamnese"
-        component={AnamneseScreen}
-        options={{
-          title: 'Anamnese',
-          headerStyle: { backgroundColor: '#7C3AED' },
-          headerTintColor: '#fff',
-        }}
+        component={AnamneseScreenLazy}
+        options={{ title: 'Anamnese', headerStyle: { backgroundColor: '#7C3AED' }, headerTintColor: '#fff' }}
       />
       <DentistaStackNav.Screen
         name="PlanoTratamento"
-        component={PlanoTratamentoScreen}
-        options={{
-          title: 'Plano de Tratamento',
-          headerStyle: { backgroundColor: COLORS.primary },
-          headerTintColor: '#fff',
-        }}
+        component={PlanoTratamentoScreenLazy}
+        options={{ title: 'Plano de Tratamento', headerStyle: { backgroundColor: COLORS.primary }, headerTintColor: '#fff' }}
       />
       <DentistaStackNav.Screen
         name="Prescricao"
-        component={PrescricaoScreen}
-        options={{
-          title: 'Prescrição',
-          headerStyle: { backgroundColor: '#E91E63' },
-          headerTintColor: '#fff',
-        }}
+        component={PrescricaoScreenLazy}
+        options={{ title: 'Prescrição', headerStyle: { backgroundColor: '#E91E63' }, headerTintColor: '#fff' }}
       />
     </DentistaStackNav.Navigator>
   );
@@ -506,12 +537,8 @@ const SecretarioStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
       </SecretarioStackNav.Screen>
       <SecretarioStackNav.Screen
         name="AtribuirDentista"
-        component={AtribuirDentistaScreen}
-        options={{
-          title: 'Atribuir Dentista',
-          headerStyle: { backgroundColor: '#7C3AED' },
-          headerTintColor: COLORS.textInverse,
-        }}
+        component={AtribuirDentistaScreenLazy}
+        options={{ title: 'Atribuir Dentista', headerStyle: { backgroundColor: '#7C3AED' }, headerTintColor: COLORS.textInverse }}
       />
       <SecretarioStackNav.Screen
         name="AtribuirAgendamento"
@@ -593,7 +620,7 @@ export const markUnreadAsSeen = () => {
 };
 
 const AppNavigator: React.FC = () => {
-  const { user, profile, initializing, loading } = useAuth();
+  const { user, profile, initializing, loading, pendingMfa } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const unreadSuppressedRef = React.useRef(false);
 
@@ -710,8 +737,13 @@ const AppNavigator: React.FC = () => {
   };
 
   return (
-    <Stack.Navigator id="RootStack" screenOptions={{ headerShown: false }} initialRouteName={!user ? 'Welcome' : undefined}>
+    <Stack.Navigator
+      id="RootStack"
+      screenOptions={{ headerShown: false }}
+      initialRouteName={!user ? (pendingMfa ? 'Login' : 'Welcome') : undefined}
+    >
       {!user ? (
+        // ── Não autenticado ─────────────────────────────────────────────────
         <>
           <Stack.Screen name="Welcome" component={WelcomeScreen} />
           <Stack.Screen name="Login" component={LoginScreen} />
@@ -722,9 +754,20 @@ const AppNavigator: React.FC = () => {
             options={{ title: 'Recuperar senha' }}
           />
         </>
+      ) : currentRole === 'paciente' && needsProfileCompletion(profile) ? (
+        // ── PASSO 1: Paciente auto-registado → completar dados obrigatórios ──
+        // (telefone + província antes de qualquer outra coisa)
+        <Stack.Screen
+          name="CompleteProfile"
+          component={CompleteProfileScreen}
+          options={{ headerShown: false }}
+        />
       ) : precisaMudarSenha ? (
+        // ── PASSO 2: Forçar mudança de senha (pacientes auto-registados
+        //            e dentistas com senha temporária) ──────────────────────
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
       ) : currentRole === 'admin' ? (
+        // ── App normal por perfil ───────────────────────────────────────────
         <Stack.Screen name="AdminMain" component={AdminNavigator} />
       ) : currentRole === 'secretario' ? (
         <Stack.Screen name="SecretarioMain">
@@ -734,13 +777,6 @@ const AppNavigator: React.FC = () => {
         <Stack.Screen name="DentistaMain">
           {() => <DentistaStack unreadCount={unreadCount} role={currentRole} />}
         </Stack.Screen>
-      ) : currentRole === 'paciente' && needsProfileCompletion(profile) ? (
-        <Stack.Screen
-          name="CompleteProfile"
-          component={PerfilScreen}
-          options={{ headerShown: false }}
-          initialParams={{ forceEdit: true }}
-        />
       ) : (
         <Stack.Screen name="PacienteMain">
           {() => <PacienteStack unreadCount={unreadCount} role={currentRole} />}

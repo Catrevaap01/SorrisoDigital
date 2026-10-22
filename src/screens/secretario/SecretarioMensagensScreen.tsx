@@ -30,6 +30,7 @@ const SecretarioMensagensScreen: React.FC<Props> = ({ route, navigation }) => {
   const [conversaSelecionada, setConversaSelecionada] = useState<string | null>(null);
   const [outroNome, setOutroNome] = useState('');
   const [outroAvatar, setOutroAvatar] = useState<string | undefined>(undefined);
+  const [outroUserId, setOutroUserId] = useState<string | undefined>(undefined);
   
   // Modal para nova conversa
   const [showNovoModal, setShowNovoModal] = useState(false);
@@ -42,11 +43,13 @@ const SecretarioMensagensScreen: React.FC<Props> = ({ route, navigation }) => {
   const handleSelectConversa = (
     conversationId: string,
     otherUserName: string,
-    otherUserAvatar?: string
+    otherUserAvatar?: string,
+    otherUserId?: string
   ) => {
     setConversaSelecionada(conversationId);
     setOutroNome(otherUserName);
     setOutroAvatar(otherUserAvatar);
+    setOutroUserId(otherUserId);
   };
 
   const handleBackFromChat = () => {
@@ -71,8 +74,11 @@ const SecretarioMensagensScreen: React.FC<Props> = ({ route, navigation }) => {
         allContatos.push(...pacResult.data);
       }
 
-      setDentistas(dentResult.data || []);
-      setPacientes(pacResult.data || []);
+      // Filter out the current user to prevent self-conversations
+      allContatos = allContatos.filter((c) => c.id !== user?.id);
+      
+      setDentistas(dentResult.data?.filter((c) => c.id !== user?.id) || []);
+      setPacientes(pacResult.data?.filter((c) => c.id !== user?.id) || []);
       setContatos(allContatos);
     } catch (error) {
       Toast.show({
@@ -83,7 +89,7 @@ const SecretarioMensagensScreen: React.FC<Props> = ({ route, navigation }) => {
     } finally {
       setLoadingContatos(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useRealtimeRefresh({
     enabled: showNovoModal,
@@ -155,6 +161,7 @@ const iniciarConversa = async (contato: DentistaProfile | PacienteProfile) => {
         conversationId={conversaSelecionada}
         otherUserName={outroNome}
         otherUserAvatar={outroAvatar}
+        otherUserId={outroUserId}
         onBack={handleBackFromChat}
       />
     );

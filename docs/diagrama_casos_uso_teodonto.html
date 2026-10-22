@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Diagrama de Casos de Uso – TeOdonto</title>
+  <style>
+    body { margin: 0; background: #f8fafc; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 2rem; }
+    h1 { text-align:center; padding: 1rem 0 .5rem; color: #0f172a; font-size: 1.8rem; }
+    p.sub { text-align:center; color: #64748b; font-size: 1rem; margin-bottom:1.5rem; }
+    
+    .svg-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        padding: 2rem;
+        max-width: 1400px;
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    svg { display: block; margin: 0 auto; width: 1200px; height: 900px; }
+
+    /* Actor */
+    .actor-head { fill: #fff; stroke: #334155; stroke-width: 2.5; }
+    .actor-body { stroke: #334155; stroke-width: 2.5; stroke-linecap: round; fill: none; }
+    .actor-label { font-size: 15px; font-weight: 700; fill: #0f172a; text-anchor: middle; }
+
+    /* Use Case ellipses */
+    .uc-patient   { fill: #eff6ff; stroke: #3b82f6; stroke-width: 2; }
+    .uc-secretary { fill: #fff7ed; stroke: #f59e0b; stroke-width: 2; }
+    .uc-dentist   { fill: #f0fdf4; stroke: #22c55e; stroke-width: 2; }
+    .uc-admin     { fill: #fdf4ff; stroke: #a855f7; stroke-width: 2; }
+    
+    ellipse:hover { filter: drop-shadow(0 4px 6px rgba(0,0,0,0.15)); cursor: pointer; }
+
+    .uc-label { font-size: 11px; fill: #0f172a; text-anchor: middle; dominant-baseline: central; font-weight: 700; pointer-events: none; }
+
+    /* System boundary */
+    .boundary { fill: none; stroke: #94a3b8; stroke-width: 2; stroke-dasharray: 8 4; rx: 12; }
+    .boundary-inner { fill: rgba(241, 245, 249, 0.4); stroke: none; rx: 12; }
+    .boundary-label { font-size: 18px; font-weight: 800; fill: #475569; text-anchor: middle; letter-spacing:.05em; }
+
+    /* Legend */
+    .legend-box { fill: white; stroke: #cbd5e1; rx: 8; stroke-width: 1.5; }
+
+    line { stroke: #64748b; stroke-width: 1.5; }
+    .assoc { stroke: #475569; stroke-width: 1.5; stroke-dasharray: none; marker-end: none; }
+  </style>
+</head>
+<body>
+  <div>
+    <h1>Diagrama de Casos de Uso (UML)</h1>
+    <p class="sub">Plataforma de Gestão Odontológica — <strong>TeOdonto</strong></p>
+  </div>
+
+<div class="svg-container">
+<svg viewBox="0 0 1200 900" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- =================== SYSTEM BOUNDARY =================== -->
+  <rect x="250" y="40" width="700" height="800" class="boundary-inner"/>
+  <rect x="250" y="40" width="700" height="800" class="boundary"/>
+  <text x="600" y="75" class="boundary-label">SISTEMA TeOdonto</text>
+
+  <!-- =================== ACTORS =================== -->
+
+  <!-- Paciente (left-top) -->
+  <g transform="translate(120, 240)">
+    <circle cx="0" cy="-20" r="18" class="actor-head"/>
+    <line x1="0" y1="-2" x2="0" y2="40" class="actor-body"/>
+    <line x1="-22" y1="12" x2="22" y2="12" class="actor-body"/>
+    <line x1="0" y1="40" x2="-18" y2="70" class="actor-body"/>
+    <line x1="0" y1="40" x2="18" y2="70" class="actor-body"/>
+    <text x="0" y="100" class="actor-label">Paciente</text>
+  </g>
+
+  <!-- Secretaria (left-bottom) -->
+  <g transform="translate(120, 600)">
+    <circle cx="0" cy="-20" r="18" class="actor-head"/>
+    <line x1="0" y1="-2" x2="0" y2="40" class="actor-body"/>
+    <line x1="-22" y1="12" x2="22" y2="12" class="actor-body"/>
+    <line x1="0" y1="40" x2="-18" y2="70" class="actor-body"/>
+    <line x1="0" y1="40" x2="18" y2="70" class="actor-body"/>
+    <text x="0" y="100" class="actor-label">Secretaria</text>
+  </g>
+
+  <!-- Dentista (right-top) -->
+  <g transform="translate(1080, 280)">
+    <circle cx="0" cy="-20" r="18" class="actor-head"/>
+    <line x1="0" y1="-2" x2="0" y2="40" class="actor-body"/>
+    <line x1="-22" y1="12" x2="22" y2="12" class="actor-body"/>
+    <line x1="0" y1="40" x2="-18" y2="70" class="actor-body"/>
+    <line x1="0" y1="40" x2="18" y2="70" class="actor-body"/>
+    <text x="0" y="100" class="actor-label">Dentista</text>
+  </g>
+
+  <!-- Administrador (right-bottom) -->
+  <g transform="translate(1080, 600)">
+    <circle cx="0" cy="-20" r="18" class="actor-head"/>
+    <line x1="0" y1="-2" x2="0" y2="40" class="actor-body"/>
+    <line x1="-22" y1="12" x2="22" y2="12" class="actor-body"/>
+    <line x1="0" y1="40" x2="-18" y2="70" class="actor-body"/>
+    <line x1="0" y1="40" x2="18" y2="70" class="actor-body"/>
+    <text x="0" y="100" class="actor-label">Administrador</text>
+  </g>
+
+  <!-- =================== USE CASES (Centralizados na boundary) =================== -->
+
+  <!-- =================== PACIENTE (Azul) =================== -->
+  <!-- UC01 -->
+  <ellipse cx="440" cy="140" rx="100" ry="26" class="uc-patient"/>
+  <text x="440" y="140" class="uc-label">UC01 – Efetuar Login</text>
+  
+  <!-- UC02 -->
+  <ellipse cx="440" cy="220" rx="100" ry="26" class="uc-patient"/>
+  <text x="440" y="220" class="uc-label">UC02 – Realizar Triagem Digital</text>
+  
+  <!-- UC03 -->
+  <ellipse cx="440" cy="300" rx="100" ry="26" class="uc-patient"/>
+  <text x="440" y="300" class="uc-label">UC03 – Solicitar Agendamento</text>
+  
+  <!-- UC04 -->
+  <ellipse cx="440" cy="380" rx="100" ry="26" class="uc-patient"/>
+  <text x="440" y="380" class="uc-label">UC04 – Enviar Mensagem no Chat</text>
+
+
+  <!-- =================== SECRETARIA (Laranja) =================== -->
+  <!-- UC05 -->
+  <ellipse cx="440" cy="500" rx="105" ry="26" class="uc-secretary"/>
+  <text x="440" y="500" class="uc-label">UC05 – Gerenciar Agendamentos</text>
+
+  <!-- UC06 -->
+  <ellipse cx="440" cy="580" rx="105" ry="26" class="uc-secretary"/>
+  <text x="440" y="580" class="uc-label">UC06 – Acompanhar Fila de Espera</text>
+
+  <!-- UC07 -->
+  <ellipse cx="440" cy="660" rx="105" ry="26" class="uc-secretary"/>
+  <text x="440" y="660" class="uc-label">UC07 – Atribuir Dentista</text>
+
+  <!-- UC08 -->
+  <ellipse cx="440" cy="740" rx="105" ry="26" class="uc-secretary"/>
+  <text x="440" y="740" class="uc-label">UC08 – Registrar Pagamentos</text>
+
+
+  <!-- =================== DENTISTA (Verde) =================== -->
+  <!-- UC09 -->
+  <ellipse cx="760" cy="180" rx="105" ry="26" class="uc-dentist"/>
+  <text x="760" y="180" class="uc-label">UC09 – Visualizar Painel Exclusivo</text>
+
+  <!-- UC10 -->
+  <ellipse cx="760" cy="260" rx="105" ry="26" class="uc-dentist"/>
+  <text x="760" y="260" class="uc-label">UC10 – Consultar Prontuário</text>
+
+  <!-- UC11 -->
+  <ellipse cx="760" cy="340" rx="105" ry="26" class="uc-dentist"/>
+  <text x="760" y="340" class="uc-label">UC11 – Registrar Evolução Clínica</text>
+
+  <!-- UC12 -->
+  <ellipse cx="760" cy="420" rx="105" ry="26" class="uc-dentist"/>
+  <text x="760" y="420" class="uc-label">UC12 – Emitir Prescrição</text>
+
+  <!-- UC13 -->
+  <ellipse cx="760" cy="500" rx="105" ry="26" class="uc-dentist"/>
+  <text x="760" y="500" class="uc-label">UC13 – Lançar Procedimentos</text>
+
+
+  <!-- =================== ADMINISTRADOR (Roxo) =================== -->
+  <!-- UC14 -->
+  <ellipse cx="760" cy="640" rx="105" ry="26" class="uc-admin"/>
+  <text x="760" y="640" class="uc-label">UC14 – Gerenciar Usuários</text>
+
+  <!-- UC15 -->
+  <ellipse cx="760" cy="720" rx="105" ry="26" class="uc-admin"/>
+  <text x="760" y="720" class="uc-label">UC15 – Visualizar Dashboard</text>
+
+
+  <!-- =================== ASSOCIATIONS =================== -->
+  
+  <!-- Paciente Connections -->
+  <line x1="145" y1="230" x2="340" y2="140" class="assoc"/>
+  <line x1="145" y1="230" x2="340" y2="220" class="assoc"/>
+  <line x1="145" y1="230" x2="340" y2="300" class="assoc"/>
+  <line x1="145" y1="230" x2="340" y2="380" class="assoc"/>
+
+  <!-- Secretaria Connections -->
+  <line x1="145" y1="630" x2="335" y2="500" class="assoc"/>
+  <line x1="145" y1="630" x2="335" y2="580" class="assoc"/>
+  <line x1="145" y1="630" x2="335" y2="660" class="assoc"/>
+  <line x1="145" y1="630" x2="335" y2="740" class="assoc"/>
+
+  <!-- Dentista Connections -->
+  <line x1="1055" y1="310" x2="865" y2="180" class="assoc"/>
+  <line x1="1055" y1="310" x2="865" y2="260" class="assoc"/>
+  <line x1="1055" y1="310" x2="865" y2="340" class="assoc"/>
+  <line x1="1055" y1="310" x2="865" y2="420" class="assoc"/>
+  <line x1="1055" y1="310" x2="865" y2="500" class="assoc"/>
+
+  <!-- Administrador Connections -->
+  <line x1="1055" y1="630" x2="865" y2="640" class="assoc"/>
+  <line x1="1055" y1="630" x2="865" y2="720" class="assoc"/>
+
+
+  <!-- =================== LEGEND =================== -->
+  <rect x="270" y="780" width="130" height="40" rx="8" class="legend-box"/>
+  <text x="335" y="805" font-size="13" font-weight="800" fill="#334155">UML 2.0</text>
+
+  <text x="600" y="870" font-size="12" fill="#64748b" text-anchor="middle">Figura 1 – Diagrama de Casos de Uso (Sistema TeOdonto) – Fonte: Autor, 2026</text>
+</svg>
+</div>
+
+</body>
+</html>

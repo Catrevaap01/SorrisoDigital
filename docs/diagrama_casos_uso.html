@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Diagrama de Casos de Uso – Sorriso Digital</title>
+  <style>
+    body { margin: 0; background: #f1f5f9; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; padding: 2rem; }
+    h1 { text-align:center; padding: 1.5rem 0 .5rem; color: #0c1a3a; font-size: 1.8rem; }
+    p.sub { text-align:center; color: #6b7280; font-size: 1rem; margin-bottom:1.5rem; }
+    
+    .svg-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        padding: 2rem;
+        max-width: 1400px;
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    svg { display: block; margin: 0 auto; width: 1200px; height: 900px; }
+
+    /* Actor */
+    .actor-head { fill: #fff; stroke: #1e4db7; stroke-width: 2.5; }
+    .actor-body { stroke: #1e4db7; stroke-width: 2.5; stroke-linecap: round; fill: none; }
+    .actor-label { font-size: 14px; font-weight: 700; fill: #0c1a3a; text-anchor: middle; }
+    .actor-label-sub { font-size: 12px; font-weight: 600; fill: #6b7280; text-anchor: middle; }
+
+    /* Use Case ellipses */
+    .uc-patient   { fill: #eff6ff; stroke: #3b82f6; stroke-width: 2; transition: all .2s; }
+    .uc-secretary { fill: #fff7ed; stroke: #f59e0b; stroke-width: 2; transition: all .2s; }
+    .uc-dentist   { fill: #f0fdf4; stroke: #22c55e; stroke-width: 2; transition: all .2s; }
+    .uc-admin     { fill: #fdf4ff; stroke: #a855f7; stroke-width: 2; transition: all .2s; }
+    .uc-shared    { fill: #f8fafc; stroke: #94a3b8; stroke-width: 2; stroke-dasharray: 6 3; transition: all .2s; }
+
+    ellipse:hover { filter: drop-shadow(0 4px 6px rgba(0,0,0,0.15)); cursor: pointer; }
+
+    .uc-label { font-size: 11px; fill: #0c1a3a; text-anchor: middle; dominant-baseline: central; font-weight: 700; pointer-events: none; }
+
+    /* System boundary */
+    .boundary { fill: none; stroke: #cbd5e1; stroke-width: 2; stroke-dasharray: 10 5; rx: 14; }
+    .boundary-inner { fill: rgba(248, 250, 252, 0.5); stroke: none; rx: 14; }
+    .boundary-label { font-size: 16px; font-weight: 800; fill: #64748b; text-anchor: middle; letter-spacing:.05em; }
+
+    /* Legend */
+    .legend-box { fill: white; stroke: #e5e7eb; rx: 8; stroke-width: 2; }
+
+    line { stroke: #64748b; stroke-width: 1.5; marker-end: url(#arrow); }
+    .assoc { stroke: #475569; stroke-width: 1.8; stroke-dasharray: none; marker-end: none; }
+    .include-line { stroke: #94a3b8; stroke-width: 1.5; stroke-dasharray: 4 4; marker-end: url(#arrow); }
+    .include-text { font-size: 10px; font-style: italic; fill: #64748b; font-weight: 600;}
+  </style>
+</head>
+<body>
+  <div>
+    <h1>Diagrama de Casos de Uso (UML) — Sorriso Digital</h1>
+    <p class="sub">Representação completa do Sistema de Gestão Odontológica (100% Revisto)</p>
+  </div>
+
+<div class="svg-container">
+<svg viewBox="0 0 1200 900" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L0,8 L8,4 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <!-- =================== SYSTEM BOUNDARY =================== -->
+  <rect x="220" y="40" width="760" height="820" class="boundary-inner"/>
+  <rect x="220" y="40" width="760" height="820" class="boundary"/>
+  <text x="600" y="70" class="boundary-label">SISTEMA SORRISO DIGITAL (Fronteira UML)</text>
+
+  <!-- =================== ACTORS =================== -->
+
+  <!-- Utente (left-top) -->
+  <g transform="translate(100, 250)">
+    <circle cx="0" cy="-20" r="18" class="actor-head"/>
+    <line x1="0" y1="-2" x2="0" y2="40" class="actor-body"/>
+    <line x1="-22" y1="12" x2="22" y2="12" class="actor-body"/>
+    <line x1="0" y1="40" x2="-18" y2="70" class="actor-body"/>
+    <line x1="0" y1="40" x2="18" y2="70" class="actor-body"/>
+    <text x="0" y="95" class="actor-label">Utente</text>
+    <text x="0" y="110" class="actor-label-sub">(Paciente)</text>
+  </g>
+
+  <!-- Secretário (left-bottom) -->
+  <g transform="translate(100, 600)">
+    <circle cx="0" cy="-20" r="18" class="actor-head"/>
+    <line x1="0" y1="-2" x2="0" y2="40" class="actor-body"/>
+    <line x1="-22" y1="12" x2="22" y2="12" class="actor-body"/>
+    <line x1="0" y1="40" x2="-18" y2="70" class="actor-body"/>
+    <line x1="0" y1="40" x2="18" y2="70" class="actor-body"/>
+    <text x="0" y="95" class="actor-label">Secretário(a)</text>
+  </g>
+
+  <!-- Dentista (right-top) -->
+  <g transform="translate(1100, 250)">
+    <circle cx="0" cy="-20" r="18" class="actor-head"/>
+    <line x1="0" y1="-2" x2="0" y2="40" class="actor-body"/>
+    <line x1="-22" y1="12" x2="22" y2="12" class="actor-body"/>
+    <line x1="0" y1="40" x2="-18" y2="70" class="actor-body"/>
+    <line x1="0" y1="40" x2="18" y2="70" class="actor-body"/>
+    <text x="0" y="95" class="actor-label">Médico</text>
+    <text x="0" y="110" class="actor-label-sub">Dentista</text>
+  </g>
+
+  <!-- Administrador (right-bottom) -->
+  <g transform="translate(1100, 600)">
+    <circle cx="0" cy="-20" r="18" class="actor-head"/>
+    <line x1="0" y1="-2" x2="0" y2="40" class="actor-body"/>
+    <line x1="-22" y1="12" x2="22" y2="12" class="actor-body"/>
+    <line x1="0" y1="40" x2="-18" y2="70" class="actor-body"/>
+    <line x1="0" y1="40" x2="18" y2="70" class="actor-body"/>
+    <text x="0" y="95" class="actor-label">Administrador</text>
+  </g>
+
+  <!-- =================== SHARED / SYSTEM USE CASES (Top/Middle) =================== -->
+  <!-- UC01 Autenticação System -->
+  <ellipse cx="600" cy="120" rx="120" ry="26" class="uc-shared"/>
+  <text x="600" y="120" class="uc-label">UC01 – Efetuar Login (Sistema Auth)</text>
+
+  <!-- =================== USE CASES — UTENTE (Azul, Left) =================== -->
+  <!-- UC02 Triagem -->
+  <ellipse cx="400" cy="200" rx="100" ry="26" class="uc-patient"/>
+  <text x="400" y="200" class="uc-label">UC02 – Triagem Digital</text>
+
+  <!-- UC03 Agendamento -->
+  <ellipse cx="400" cy="270" rx="100" ry="26" class="uc-patient"/>
+  <text x="400" y="270" class="uc-label">UC03 – Solicitar Agendamento</text>
+
+  <!-- UC04 Chat -->
+  <ellipse cx="400" cy="340" rx="100" ry="26" class="uc-patient"/>
+  <text x="400" y="340" class="uc-label">UC04 – Chat Direto</text>
+
+  <!-- UC-GPS Localizar (Extra Feature) -->
+  <ellipse cx="400" cy="410" rx="100" ry="26" class="uc-patient"/>
+  <text x="400" y="410" class="uc-label">UC-GPS – Localizar Clínica (Mapa)</text>
+
+  <!-- =================== USE CASES — SECRETÁRIO (Laranja, Left-Bottom) =================== -->
+  <!-- UC05 Gerir Fila -->
+  <ellipse cx="400" cy="530" rx="105" ry="26" class="uc-secretary"/>
+  <text x="400" y="530" class="uc-label">UC05 – Gerir Fila de Espera</text>
+
+  <!-- UC06 Atribuir/Confirmar -->
+  <ellipse cx="400" cy="600" rx="105" ry="26" class="uc-secretary"/>
+  <text x="400" y="600" class="uc-label">UC06 – Confirmar / Atribuir Dentista</text>
+
+  <!-- UC07 Cadastrar -->
+  <ellipse cx="400" cy="670" rx="105" ry="26" class="uc-secretary"/>
+  <text x="400" y="670" class="uc-label">UC07 – Cadastrar Utilizador Manual</text>
+
+  <!-- UC08 Registar Pagamentos -->
+  <ellipse cx="400" cy="740" rx="105" ry="26" class="uc-secretary"/>
+  <text x="400" y="740" class="uc-label">UC08 – Registar Transações Financeiras</text>
+
+
+  <!-- =================== USE CASES — DENTISTA (Verde, Right-Top) =================== -->
+  <!-- UC09 Prontuário -->
+  <ellipse cx="800" cy="200" rx="105" ry="26" class="uc-dentist"/>
+  <text x="800" y="200" class="uc-label">UC09 – Aceder Prontuário Eletrónico</text>
+
+  <!-- UC10 Evolução Clínica -->
+  <ellipse cx="800" cy="270" rx="105" ry="26" class="uc-dentist"/>
+  <text x="800" y="270" class="uc-label">UC10 – Registar Evolução Clínica</text>
+
+  <!-- UC11 Prescrições -->
+  <ellipse cx="800" cy="340" rx="105" ry="26" class="uc-dentist"/>
+  <text x="800" y="340" class="uc-label">UC11 – Emitir Prescrição</text>
+
+  <!-- UC12 Agenda Médica -->
+  <ellipse cx="800" cy="410" rx="105" ry="26" class="uc-dentist"/>
+  <text x="800" y="410" class="uc-label">UC12 – Visualizar Agenda Pessoal</text>
+
+  <!-- UC13 Procedimentos -->
+  <ellipse cx="800" cy="480" rx="105" ry="26" class="uc-dentist"/>
+  <text x="800" y="480" class="uc-label">UC13 – Concluir Lançar Procedimentos</text>
+
+
+  <!-- =================== USE CASES — ADMIN (Roxo, Right-Bottom) =================== -->
+  <!-- UC14 Gerir Acessos -->
+  <ellipse cx="800" cy="650" rx="105" ry="26" class="uc-admin"/>
+  <text x="800" y="650" class="uc-label">UC14 – Controlo de Acessos (RBAC)</text>
+
+  <!-- UC15 Dashboards -->
+  <ellipse cx="800" cy="720" rx="105" ry="26" class="uc-admin"/>
+  <text x="800" y="720" class="uc-label">UC15 – Visualizar Relatórios (KPIs)</text>
+
+  <!-- =================== ASSOCIATIONS =================== -->
+  <!-- Utente Connections -->
+  <line x1="125" y1="260" x2="300" y2="200" class="assoc"/>
+  <line x1="125" y1="260" x2="300" y2="270" class="assoc"/>
+  <line x1="125" y1="260" x2="300" y2="340" class="assoc"/>
+  <line x1="125" y1="260" x2="300" y2="410" class="assoc"/>
+
+  <!-- Secretário Connections -->
+  <line x1="125" y1="610" x2="295" y2="530" class="assoc"/>
+  <line x1="125" y1="610" x2="295" y2="600" class="assoc"/>
+  <line x1="125" y1="610" x2="295" y2="670" class="assoc"/>
+  <line x1="125" y1="610" x2="295" y2="740" class="assoc"/>
+
+  <!-- Médico Dentista Connections -->
+  <line x1="1075" y1="260" x2="905" y2="200" class="assoc"/>
+  <line x1="1075" y1="260" x2="905" y2="270" class="assoc"/>
+  <line x1="1075" y1="260" x2="905" y2="340" class="assoc"/>
+  <line x1="1075" y1="260" x2="905" y2="410" class="assoc"/>
+  <line x1="1075" y1="260" x2="905" y2="480" class="assoc"/>
+
+  <!-- Admin Connections -->
+  <line x1="1075" y1="610" x2="905" y2="650" class="assoc"/>
+  <line x1="1075" y1="610" x2="905" y2="720" class="assoc"/>
+
+
+  <!-- =================== «include» RELATIONS TO LOGIN (UC01) =================== -->
+  <!-- Utente -> Auth -->
+  <line x1="120" y1="230" x2="480" y2="130" class="assoc" stroke-dasharray="3 3"/>
+  <text x="210" y="170" transform="rotate(-15 210,170)" font-size="11" fill="#64748b" font-weight="600">Acede à plataforma</text>
+
+  <!-- Secretary -> Auth -->
+  <line x1="120" y1="580" x2="480" y2="130" class="assoc" stroke-dasharray="3 3"/>
+  
+  <!-- Dentist -> Auth -->
+  <line x1="1080" y1="230" x2="720" y2="130" class="assoc" stroke-dasharray="3 3"/>
+
+  <!-- Admin -> Auth -->
+  <line x1="1080" y1="580" x2="720" y2="130" class="assoc" stroke-dasharray="3 3"/>
+  
+
+  <!-- =================== INTERNAL «include» and «extend» RELATIONS =================== -->
+  <!-- Agendamento extends Triagem? Or includes? No strict rule, just visually connecting them -->
+  <path d="M 400 226 L 400 244" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 2" marker-end="url(#arrow)"/>
+  <text x="410" y="238" font-size="9" fill="#94a3b8">«include»</text>
+
+  <path d="M 800 226 L 800 244" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 2" marker-end="url(#arrow)"/>
+  <text x="810" y="238" font-size="9" fill="#94a3b8">«include»</text>
+
+
+  <!-- =================== LEGEND =================== -->
+  <rect x="235" y="800" width="180" height="40" rx="8" class="legend-box"/>
+  <text x="280" y="825" font-size="13" font-weight="800" fill="#334155">Ator Principal / Fronteira: UML 2.0</text>
+
+  <text x="600" y="875" font-size="12" fill="#94a3b8" text-anchor="middle">Figura 1 – Diagrama de Casos de Uso com 16 Módulos (Revisão Técnica 100%) – Fonte: Autor, 2026</text>
+</svg>
+</div>
+
+</body>
+</html>

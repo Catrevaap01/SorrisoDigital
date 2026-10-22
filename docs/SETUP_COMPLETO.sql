@@ -10,9 +10,9 @@ CREATE TABLE IF NOT EXISTS provincias (
 );
 
 INSERT INTO provincias (nome) VALUES
-  ('Luanda'), ('Benguela'), ('Huambo'), ('Huila'), ('Bie'),
+  ('Luanda'), ('Benguela'), ('Huambo'), ('Icoli e Bengo'), ('Huila'), ('Bie'),
   ('Malanje'), ('Uige'), ('Zaire'), ('Cabinda'), ('Cunene'),
-  ('Cuando Cubango'), ('Cuanza Norte'), ('Cuanza Sul'),
+  ('Cuando '), ('Cubango'), ('Cuanza Norte'), ('Cuanza Sul'),
   ('Lunda Norte'), ('Lunda Sul'), ('Moxico'), ('Namibe'), ('Bengo')
 ON CONFLICT DO NOTHING;
 
@@ -262,25 +262,30 @@ ALTER TABLE evolucoes_clinicas ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prescricoes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE provincias ENABLE ROW LEVEL SECURITY;
 
-CREATE OR REPLACE FUNCTION public.is_admin() RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
+CREATE OR REPLACE FUNCTION public.is_admin() RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS(SELECT 1 FROM profiles WHERE id = auth.uid() AND tipo = 'admin');
 $$;
+REVOKE EXECUTE ON FUNCTION public.is_admin() FROM public;
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
 
-CREATE OR REPLACE FUNCTION public.is_secretario() RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
+CREATE OR REPLACE FUNCTION public.is_secretario() RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS(SELECT 1 FROM profiles WHERE id = auth.uid() AND tipo = 'secretario');
 $$;
+REVOKE EXECUTE ON FUNCTION public.is_secretario() FROM public;
 GRANT EXECUTE ON FUNCTION public.is_secretario() TO authenticated;
 
-CREATE OR REPLACE FUNCTION public.is_healthcare_pro() RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
+CREATE OR REPLACE FUNCTION public.is_healthcare_pro() RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS(SELECT 1 FROM profiles WHERE id = auth.uid() AND tipo IN ('dentista','medico','secretario','admin'));
 $$;
+REVOKE EXECUTE ON FUNCTION public.is_healthcare_pro() FROM public;
 GRANT EXECUTE ON FUNCTION public.is_healthcare_pro() TO authenticated;
 
-CREATE OR REPLACE FUNCTION public.current_user_tipo() RETURNS TEXT LANGUAGE sql STABLE SECURITY DEFINER AS $$
+CREATE OR REPLACE FUNCTION public.current_user_tipo() RETURNS TEXT LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT tipo FROM profiles WHERE id = auth.uid() LIMIT 1;
 $$;
+REVOKE EXECUTE ON FUNCTION public.current_user_tipo() FROM public;
 GRANT EXECUTE ON FUNCTION public.current_user_tipo() TO authenticated;
 
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
@@ -303,6 +308,12 @@ BEGIN
 END;
 $$;
 CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+-- Politicas para a tabela provincias (Leitura publica, escrita apenas admin)
+DROP POLICY IF EXISTS "provincias_select" ON provincias;
+DROP POLICY IF EXISTS "provincias_admin" ON provincias;
+CREATE POLICY "provincias_select" ON provincias FOR SELECT USING (true);
+CREATE POLICY "provincias_admin" ON provincias FOR ALL USING (public.is_admin());
 
 DROP POLICY IF EXISTS "profiles_own_access" ON profiles;
 DROP POLICY IF EXISTS "profiles_pro_public" ON profiles;
@@ -392,6 +403,9 @@ CREATE POLICY "messages_via_conversation" ON messages FOR ALL USING (
   )
 );
 CREATE POLICY "messages_admin_all" ON messages FOR ALL USING (public.is_admin());
+
+-- Configurar a view triagem (se existir) para usar security_invoker = true
+ALTER VIEW IF EXISTS public.triagem SET (security_invoker = true);
 
 SELECT 'SETUP COMPLETO EXECUTADO COM SUCESSO!' AS status;
 SELECT count(*) AS tabelas_criadas

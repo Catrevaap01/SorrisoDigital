@@ -226,6 +226,13 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
 
     const statusInfo = STATUS_TRIAGEM[effectiveStatus] || STATUS_TRIAGEM.pendente;
 
+    const imagens = Array.isArray(item.imagens)
+      ? item.imagens
+      : (item.imagens && typeof item.imagens === 'string'
+        ? [item.imagens]
+        : []);
+    const temImagens = imagens.length > 0;
+
     return (
       <TouchableOpacity
         key={item.id}
@@ -242,6 +249,21 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
           <Text style={styles.cardDescricao} numberOfLines={2}>
             {item.descricao || (temResposta ? 'Caso analisado pelo dentista' : 'Aguardando análise profissional')}
           </Text>
+
+          {temImagens && (
+            <View style={styles.previewImagensContainer}>
+              {imagens.slice(0, 4).map((uri: string, idx: number) => (
+                <View key={idx} style={styles.previewImagemWrapper}>
+                  <Image source={{ uri }} style={styles.previewImagem} />
+                  {idx === 3 && imagens.length > 4 && (
+                    <View style={styles.previewImagemOverlay}>
+                      <Text style={styles.previewImagemOverlayText}>+{imagens.length - 4}</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
 
           <View style={styles.cardFooter}>
             <View style={[styles.categoriaBadge, { backgroundColor: statusInfo.color + '20' }]}>
@@ -850,6 +872,40 @@ const styles = StyleSheet.create({
     fontSize: SIZES.fontMd,
     color: COLORS.textSecondary,
     marginBottom: SIZES.sm,
+  },
+  previewImagensContainer: {
+    flexDirection: 'row',
+    marginTop: SIZES.xs,
+    marginBottom: SIZES.sm,
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  previewImagemWrapper: {
+    position: 'relative',
+    width: 50,
+    height: 50,
+    borderRadius: 6,
+    overflow: 'hidden',
+    backgroundColor: COLORS.divider,
+  },
+  previewImagem: {
+    width: '100%',
+    height: '100%',
+  },
+  previewImagemOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewImagemOverlayText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   valorConsulta: {
     fontSize: SIZES.fontSm,

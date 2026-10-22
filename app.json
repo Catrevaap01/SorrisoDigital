@@ -3,6 +3,8 @@
     "name": "Odontologia de Angola",
     "slug": "TeOdontoAngola",
     "version": "1.0.0",
+    "scheme": "teodonto",
+    "jsEngine": "hermes",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -21,7 +23,11 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "package": "com.antoniotati.teodontoangola"
+      "package": "com.antoniotati.teodontoangola",
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -36,25 +42,36 @@
       "scope": "/"
     },
     "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#1E88E5",
+          "defaultChannel": "default"
+        }
+      ],
       "expo-secure-store",
       "expo-font",
       [
         "expo-build-properties",
         {
           "android": {
-            "newArchEnabled": false
+            "newArchEnabled": false,
+            "enableProguardInReleaseBuilds": true
           },
           "ios": {
             "newArchEnabled": false
           }
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "APP_URL": "https://teodontoangola.vercel.app",
       "SUPABASE_URL": "https://yyscwmcghokyzhtcluif.supabase.co",
       "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5c2N3bWNnaG9reXpodGNsdWlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwNjgyOTYsImV4cCI6MjA4NzY0NDI5Nn0.cgpvENp4tnmblre10I2x7PxqSKOtrOPUAEOIi5RyOeg",
       "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5c2N3bWNnaG9reXpodGNsdWlmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjA2ODI5NiwiZXhwIjoyMDg3NjQ0Mjk2fQ.FwA-pcwih72mOv36lawPFYWhRb7BiKCQksITjrNzwFg",
+      "APK_DOWNLOAD_URL": "https://expo.dev/accounts/antoniotati/projects/TeOdontoAngola/builds/6dfc1ab6-5217-4ea3-8015-5db1cd6d8696",
       "eas": {
         "projectId": "ed431c97-315b-4ee8-83b7-ce79f64af353"
       }

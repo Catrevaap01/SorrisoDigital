@@ -14,12 +14,14 @@ import AdminReportsScreen from '../screens/admin/AdminReportsScreen';
 import AdminPasswordRecoveryScreen from '../screens/admin/AdminPasswordRecoveryScreen';
 import AdminProfileScreen from '../screens/admin/AdminProfileScreen';
 import AdminSecretariosScreen from '../screens/admin/AdminSecretariosScreen';
+import AuditLogScreen from '../screens/admin/AuditLogScreen';
 
 export type AdminTabParamList = {
   AdminDashboard: undefined;
   AdminSecretarios: undefined;
   AdminReports: undefined;
   AdminPasswordRecovery: undefined;
+  AdminAuditLog: undefined;
   AdminProfile: undefined;
 };
 
@@ -58,6 +60,9 @@ const AdminNavigator: React.FC = () => {
               break;
             case 'AdminPasswordRecovery':
               iconName = focused ? 'key' : 'key-outline';
+              break;
+            case 'AdminAuditLog':
+              iconName = focused ? 'shield-checkmark' : 'shield-checkmark-outline';
               break;
             case 'AdminProfile':
               iconName = focused ? 'person' : 'person-outline';
@@ -143,6 +148,14 @@ const AdminNavigator: React.FC = () => {
         options={{
           title: 'Recuperar Senha',
           tabBarLabel: 'Senhas',
+        }}
+      />
+      <Tab.Screen
+        name="AdminAuditLog"
+        component={AuditLogScreen}
+        options={{
+          title: 'Auditoria',
+          tabBarLabel: 'Auditoria',
         }}
       />
       <Tab.Screen

@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePresence } from '../../contexts/PresenceContext';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 import { supabase } from '../../config/supabase';
 import {
@@ -32,12 +33,14 @@ import {
 } from '../../services/messagesService';
 import { listarPacientes, PacienteProfile } from '../../services/pacienteService';
 import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
+import * as AppNavigator from '../../navigation/AppNavigator';
 
 interface ConversationsListScreenProps {
   onSelectConversation: (
     conversationId: string,
     otherUserName: string,
-    otherUserAvatar?: string
+    otherUserAvatar?: string,
+    otherUserId?: string
   ) => void;
 }
 
@@ -45,6 +48,7 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
   onSelectConversation,
 }) => {
   const { user, profile } = useAuth();
+  const { isUserOnline } = usePresence();
   const [conversas, setConversas] = useState<
     (Conversation & { naoLidas: number })[]
   >([]);
@@ -173,13 +177,13 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
     } finally {
       setLoading(false);
       // sincroniza também a badge do menu
-      import('../../navigation/AppNavigator').then(m => m.triggerUnreadRefresh());
+      AppNavigator.triggerUnreadRefresh();
     }
   }, [user?.id]);
 
   useFocusEffect(
     useCallback(() => {
-      import('../../navigation/AppNavigator').then((m) => m.markUnreadAsSeen());
+      AppNavigator.markUnreadAsSeen();
       carregarConversas();
     }, [carregarConversas])
   );
@@ -230,8 +234,10 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
     try {
       const resp = await listarPacientes();
       if (resp.success && resp.data) {
-        setPacientes(resp.data);
-        setPacientesOrig(resp.data);
+        // Filter out the current user to prevent self-conversations
+        const filteredPacientes = resp.data.filter((p) => p.id !== user?.id);
+        setPacientes(filteredPacientes);
+        setPacientesOrig(filteredPacientes);
       }
     } catch (e) {
       console.error('Erro ao carregar pacientes:', e);
@@ -305,12 +311,15 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
     item: Conversation & { naoLidas: number };
   }) => {
     const isParticipant1 = user?.id === item.participant_1_id;
+    const otherUserId = isParticipant1 ? item.participant_2_id : item.participant_1_id;
     const otherUserName = isParticipant1
       ? item.participant_2_name || 'Sem nome'
       : item.participant_1_name || 'Sem nome';
     const otherUserAvatar = isParticipant1
       ? item.participant_2_avatar
       : item.participant_1_avatar;
+
+    const isOnline = isUserOnline(otherUserId);
 
     return (
       <TouchableOpacity
@@ -319,12 +328,10 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
           if (user?.id) {
             const unreadToClear = item.naoLidas || 0;
             if (unreadToClear > 0) {
-              await import('../../navigation/AppNavigator').then((m) =>
-                m.adjustUnreadCount(-unreadToClear)
-              );
+              AppNavigator.adjustUnreadCount(-unreadToClear);
             }
             await marcarMensagensComoLidas(item.id, user.id);
-            await import('../../navigation/AppNavigator').then((m) => m.triggerUnreadRefresh());
+            AppNavigator.triggerUnreadRefresh();
           }
 
           setConversas((prev) =>
@@ -337,11 +344,14 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
               conversa.id === item.id ? { ...conversa, naoLidas: 0 } : conversa
             )
           );
-          onSelectConversation(item.id, otherUserName, otherUserAvatar);
+          onSelectConversation(item.id, otherUserName, otherUserAvatar, otherUserId);
         }}
       >
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{otherUserName.charAt(0).toUpperCase()}</Text>
+        <View style={styles.avatarContainer}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{otherUserName.charAt(0).toUpperCase()}</Text>
+          </View>
+          <View style={[styles.presenceDot, isOnline ? styles.dotOnline : styles.dotOffline]} />
         </View>
 
         <View style={styles.conversaInfo}>
@@ -607,10 +617,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  avatarContainer: {
+    position: 'relative',
+  },
   avatarText: {
     fontSize: 18,
     fontWeight: '700',
     color: COLORS.textInverse,
+  },
+  presenceDot: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 13,
+    height: 13,
+    borderRadius: 6.5,
+    borderWidth: 2,
+    borderColor: COLORS.surface,
+  },
+  dotOnline: {
+    backgroundColor: '#22C55E',
+  },
+  dotOffline: {
+    backgroundColor: '#94A3B8',
   },
   conversaInfo: {
     flex: 1,

@@ -38,7 +38,7 @@ export const useTriagens = (pacienteId: string | null = null): UseTriagensResult
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<HandledError | null>(null);
   const lastFiltersRef = useRef<Record<string, any>>({});
-  const hasLoadedRef = useRef(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   /**
    * Buscar triagens
@@ -67,7 +67,7 @@ export const useTriagens = (pacienteId: string | null = null): UseTriagensResult
         if (queryError) throw queryError;
 
         setTriagens(data as Triagem[] || []);
-        hasLoadedRef.current = true;
+        setHasLoaded(true);
         logger.info('Triagens buscadas com sucesso');
         return { success: true, data: data as Triagem[] };
       } catch (err) {
@@ -82,8 +82,8 @@ export const useTriagens = (pacienteId: string | null = null): UseTriagensResult
   );
 
   useRealtimeRefresh({
-    enabled: hasLoadedRef.current,
-    debounceMs: 700,
+    enabled: hasLoaded,
+    debounceMs: 150,
     shouldRefresh: (event) => {
       if (event.table !== 'triagens' && event.table !== 'respostas_triagem') return false;
       if (!pacienteId) return true;
@@ -111,7 +111,7 @@ export const useTriagens = (pacienteId: string | null = null): UseTriagensResult
 
         if (createError) throw createError;
 
-        setTriagens([data as Triagem, ...triagens]);
+        setTriagens((current) => [data as Triagem, ...current]);
         logger.info('Triagem criada com sucesso');
         return { success: true, data: data as Triagem };
       } catch (err) {
@@ -122,7 +122,7 @@ export const useTriagens = (pacienteId: string | null = null): UseTriagensResult
         setLoading(false);
       }
     },
-    [triagens]
+    []
   );
 
   /**
@@ -142,7 +142,7 @@ export const useTriagens = (pacienteId: string | null = null): UseTriagensResult
 
         if (updateError) throw updateError;
 
-        setTriagens(triagens.map((t) => (t.id === id ? (data as Triagem) : t)));
+        setTriagens((current) => current.map((t) => (t.id === id ? (data as Triagem) : t)));
         logger.info('Triagem atualizada com sucesso');
         return { success: true, data: data as Triagem };
       } catch (err) {
@@ -153,7 +153,7 @@ export const useTriagens = (pacienteId: string | null = null): UseTriagensResult
         setLoading(false);
       }
     },
-    [triagens]
+    []
   );
 
   return {

@@ -1,0 +1,1600 @@
+<!DOCTYPE html>
+<html lang="pt-AO">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Manual de Telas – Sorriso Digital</title>
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:   #0ea5e9;
+      --blue-d: #0369a1;
+      --green:  #10b981;
+      --amber:  #f59e0b;
+      --rose:   #f43f5e;
+      --purple: #8b5cf6;
+      --slate:  #0f172a;
+      --gray:   #64748b;
+      --bg:     #f8fafc;
+      --white:  #ffffff;
+    }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: var(--bg);
+      color: #1e293b;
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    /* ===== COVER PAGE ===== */
+    .cover {
+      width: 100%;
+      min-height: 100vh;
+      background: linear-gradient(145deg, var(--slate) 0%, var(--blue-d) 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 40px;
+      page-break-after: always;
+      text-align: center;
+    }
+    .cover-logo {
+      width: 100px; height: 100px;
+      background: rgba(255,255,255,0.12);
+      border: 2px solid rgba(255,255,255,0.25);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 48px; margin-bottom: 28px;
+    }
+    .cover h1 { font-size: 3rem; color: #fff; margin-bottom: 10px; }
+    .cover h2 { font-size: 1.25rem; color: #bae6fd; font-weight: 400; margin-bottom: 40px; }
+    .cover .meta {
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 12px;
+      padding: 28px 40px;
+      color: #e2e8f0;
+      line-height: 2;
+      font-size: 1rem;
+    }
+    .cover .meta strong { color: #fff; }
+
+    /* ===== TOC ===== */
+    .toc-page {
+      page-break-after: always;
+      padding: 60px 80px;
+      background: var(--white);
+      min-height: 100vh;
+    }
+    .toc-page h2 { font-size: 1.8rem; color: var(--blue-d); border-bottom: 3px solid var(--blue); padding-bottom: 10px; margin-bottom: 28px; }
+    .toc-group { margin-bottom: 20px; }
+    .toc-group-title { font-size: 1rem; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+    .toc-item { display: flex; align-items: center; padding: 6px 0; border-bottom: 1px dotted #cbd5e1; font-size: 0.95rem; }
+    .toc-num { min-width: 38px; font-weight: 700; color: var(--blue); }
+    .toc-name { flex: 1; }
+    .toc-role { font-size: 0.78rem; color: var(--gray); margin-left: 8px; }
+
+    /* ===== CHAPTER HEADER ===== */
+    .chapter-header {
+      page-break-before: always;
+      padding: 50px 80px 30px;
+      background: linear-gradient(135deg, var(--slate) 0%, #1e3a5f 100%);
+      color: #fff;
+    }
+    .chapter-header .ch-tag {
+      display: inline-block;
+      background: rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 0.78rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .chapter-header h2 { font-size: 2rem; }
+    .chapter-header p { color: #94a3b8; margin-top: 8px; font-size: 0.95rem; }
+
+    /* ===== SCREEN CARD ===== */
+    .screen-section {
+      padding: 40px 80px;
+      background: var(--white);
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .screen-section:last-of-type { border-bottom: none; }
+    .screen-header {
+      display: flex; align-items: flex-start; gap: 18px;
+      margin-bottom: 24px;
+    }
+    .screen-icon {
+      width: 56px; height: 56px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; flex-shrink: 0;
+    }
+    .screen-header-text h3 { font-size: 1.4rem; color: var(--slate); margin-bottom: 4px; }
+    .screen-header-text .file-badge {
+      display: inline-block;
+      background: #f1f5f9;
+      color: var(--gray);
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+      padding: 2px 10px;
+      border-radius: 6px;
+    }
+
+    .screen-body { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 800px) { .screen-body { grid-template-columns: 1fr; } }
+
+    .desc-block { grid-column: 1 / -1; }
+    .desc-block p { font-size: 0.95rem; color: #334155; margin-bottom: 10px; }
+
+    .info-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 18px;
+    }
+    .info-card h4 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: .07em; color: var(--gray); margin-bottom: 12px; }
+    .info-card ul { padding-left: 18px; }
+    .info-card ul li { font-size: 0.92rem; margin-bottom: 7px; color: #334155; }
+
+    .features-list { list-style: none; padding: 0; }
+    .features-list li { display: flex; align-items: flex-start; gap: 8px; font-size: 0.92rem; margin-bottom: 8px; color: #334155; }
+    .features-list li::before { content: "✔"; color: var(--green); font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+
+    .flow-list { counter-reset: flow; padding: 0; list-style: none; }
+    .flow-list li { counter-increment: flow; display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; font-size: 0.92rem; }
+    .flow-list li::before { content: counter(flow); background: var(--blue); color: #fff; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+
+    .badge {
+      display: inline-block; border-radius: 20px;
+      padding: 3px 10px; font-size: 0.75rem; font-weight: 600;
+    }
+    .badge-blue   { background: #e0f2fe; color: #0369a1; }
+    .badge-green  { background: #d1fae5; color: #065f46; }
+    .badge-amber  { background: #fef3c7; color: #92400e; }
+    .badge-rose   { background: #ffe4e6; color: #9f1239; }
+    .badge-purple { background: #ede9fe; color: #6b21a8; }
+
+    /* Roles tag in section */
+    .roles-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+    .role-tag {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 13px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+    }
+
+    /* Separator between screen groups */
+    .page-break { page-break-before: always; }
+
+    /* ===== PRINT ===== */
+    @media print {
+      body { background: #fff; font-size: 12px; }
+      .cover { min-height: 100vh; }
+      .chapter-header { padding: 40px 60px 24px; }
+      .screen-section { padding: 30px 60px; }
+      .toc-page { padding: 50px 60px; }
+      @page { size: A4; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ========== CAPA ========== -->
+<div class="cover">
+  <div class="cover-logo">🦷</div>
+  <h1>Sorriso Digital</h1>
+  <h2>Manual de Telas do Sistema — Documentação Técnica TCC</h2>
+  <div class="meta">
+    <div><strong>Autor:</strong> António Pio Macaia Tati</div>
+    <div><strong>Orientador:</strong> Engº Judilson Nambalo</div>
+    <div><strong>Curso:</strong> Engenharia Informática</div>
+    <div><strong>Instituição:</strong> Instituto Superior Politécnico Independente (ISPI)</div>
+    <div><strong>Plataforma:</strong> React Native + Supabase (iOS / Android / Web)</div>
+    <div><strong>Lubango, Huíla — 2026</strong></div>
+  </div>
+</div>
+
+<!-- ========== ÍNDICE ========== -->
+<div class="toc-page">
+  <h2>Índice — Telas do Sistema</h2>
+
+  <div class="toc-group">
+    <div class="toc-group-title">Módulo de Autenticação</div>
+    <div class="toc-item"><span class="toc-num">1.1</span><span class="toc-name">Tela de Boas-Vindas (Welcome)</span><span class="toc-role badge badge-blue">Todos</span></div>
+    <div class="toc-item"><span class="toc-num">1.2</span><span class="toc-name">Tela de Login</span><span class="toc-role badge badge-blue">Todos</span></div>
+    <div class="toc-item"><span class="toc-num">1.3</span><span class="toc-name">Tela de Cadastro</span><span class="toc-role badge badge-green">Paciente</span></div>
+    <div class="toc-item"><span class="toc-num">1.4</span><span class="toc-name">Recuperação de Senha</span><span class="toc-role badge badge-blue">Todos</span></div>
+    <div class="toc-item"><span class="toc-num">1.5</span><span class="toc-name">Completar Perfil</span><span class="toc-role badge badge-green">Paciente</span></div>
+    <div class="toc-item"><span class="toc-num">1.6</span><span class="toc-name">Alterar Senha</span><span class="toc-role badge badge-blue">Todos</span></div>
+  </div>
+
+  <div class="toc-group">
+    <div class="toc-group-title">Módulo do Paciente (Utente)</div>
+    <div class="toc-item"><span class="toc-num">2.1</span><span class="toc-name">Início (Home) — Painel do Paciente</span><span class="toc-role badge badge-green">Paciente</span></div>
+    <div class="toc-item"><span class="toc-num">2.2</span><span class="toc-name">Triagem Digital</span><span class="toc-role badge badge-green">Paciente</span></div>
+    <div class="toc-item"><span class="toc-num">2.3</span><span class="toc-name">Agendamento de Consulta</span><span class="toc-role badge badge-green">Paciente</span></div>
+    <div class="toc-item"><span class="toc-num">2.4</span><span class="toc-name">Histórico de Triagens</span><span class="toc-role badge badge-green">Paciente</span></div>
+    <div class="toc-item"><span class="toc-num">2.5</span><span class="toc-name">Detalhe da Triagem</span><span class="toc-role badge badge-green">Paciente</span></div>
+    <div class="toc-item"><span class="toc-num">2.6</span><span class="toc-name">Perfil do Paciente</span><span class="toc-role badge badge-green">Paciente</span></div>
+    <div class="toc-item"><span class="toc-num">2.7</span><span class="toc-name">Mensagens / Chat</span><span class="toc-role badge badge-green">Paciente</span></div>
+    <div class="toc-item"><span class="toc-num">2.8</span><span class="toc-name">Educação em Saúde Bucal</span><span class="toc-role badge badge-green">Paciente</span></div>
+    <div class="toc-item"><span class="toc-num">2.9</span><span class="toc-name">Notificações</span><span class="toc-role badge badge-green">Paciente</span></div>
+    <div class="toc-item"><span class="toc-num">2.10</span><span class="toc-name">Escolher Dentista</span><span class="toc-role badge badge-green">Paciente</span></div>
+  </div>
+
+  <div class="toc-group">
+    <div class="toc-group-title">Módulo do Dentista</div>
+    <div class="toc-item"><span class="toc-num">3.1</span><span class="toc-name">Dashboard do Dentista</span><span class="toc-role badge badge-blue">Dentista</span></div>
+    <div class="toc-item"><span class="toc-num">3.2</span><span class="toc-name">Agenda do Dentista</span><span class="toc-role badge badge-blue">Dentista</span></div>
+    <div class="toc-item"><span class="toc-num">3.3</span><span class="toc-name">Gerir Pacientes</span><span class="toc-role badge badge-blue">Dentista</span></div>
+    <div class="toc-item"><span class="toc-num">3.4</span><span class="toc-name">Histórico Clínico do Paciente</span><span class="toc-role badge badge-blue">Dentista</span></div>
+    <div class="toc-item"><span class="toc-num">3.5</span><span class="toc-name">Evolução Clínica</span><span class="toc-role badge badge-blue">Dentista</span></div>
+    <div class="toc-item"><span class="toc-num">3.6</span><span class="toc-name">Prescrição Médica</span><span class="toc-role badge badge-blue">Dentista</span></div>
+    <div class="toc-item"><span class="toc-num">3.7</span><span class="toc-name">Plano de Tratamento</span><span class="toc-role badge badge-blue">Dentista</span></div>
+    <div class="toc-item"><span class="toc-num">3.8</span><span class="toc-name">Anamnese</span><span class="toc-role badge badge-blue">Dentista</span></div>
+    <div class="toc-item"><span class="toc-num">3.9</span><span class="toc-name">Caso Clínico em Detalhe</span><span class="toc-role badge badge-blue">Dentista</span></div>
+    <div class="toc-item"><span class="toc-num">3.10</span><span class="toc-name">Relatório do Dentista</span><span class="toc-role badge badge-blue">Dentista</span></div>
+    <div class="toc-item"><span class="toc-num">3.11</span><span class="toc-name">Novo Paciente (Dentista)</span><span class="toc-role badge badge-blue">Dentista</span></div>
+  </div>
+
+  <div class="toc-group">
+    <div class="toc-group-title">Módulo da Secretária</div>
+    <div class="toc-item"><span class="toc-num">4.1</span><span class="toc-name">Dashboard da Secretária</span><span class="toc-role badge badge-amber">Secretária</span></div>
+    <div class="toc-item"><span class="toc-num">4.2</span><span class="toc-name">Agendamentos (Secretária)</span><span class="toc-role badge badge-amber">Secretária</span></div>
+    <div class="toc-item"><span class="toc-num">4.3</span><span class="toc-name">Atribuir Dentista — Triagem</span><span class="toc-role badge badge-amber">Secretária</span></div>
+    <div class="toc-item"><span class="toc-num">4.4</span><span class="toc-name">Atribuir Dentista — Agendamento</span><span class="toc-role badge badge-amber">Secretária</span></div>
+    <div class="toc-item"><span class="toc-num">4.5</span><span class="toc-name">Mensagens (Secretária)</span><span class="toc-role badge badge-amber">Secretária</span></div>
+  </div>
+
+  <div class="toc-group">
+    <div class="toc-group-title">Módulo do Administrador</div>
+    <div class="toc-item"><span class="toc-num">5.1</span><span class="toc-name">Dashboard do Administrador</span><span class="toc-role badge badge-rose">Admin</span></div>
+    <div class="toc-item"><span class="toc-num">5.2</span><span class="toc-name">Gestão de Secretários</span><span class="toc-role badge badge-rose">Admin</span></div>
+    <div class="toc-item"><span class="toc-num">5.3</span><span class="toc-name">Relatórios Financeiros</span><span class="toc-role badge badge-rose">Admin</span></div>
+    <div class="toc-item"><span class="toc-num">5.4</span><span class="toc-name">Log de Auditoria</span><span class="toc-role badge badge-rose">Admin</span></div>
+    <div class="toc-item"><span class="toc-num">5.5</span><span class="toc-name">Recuperação de Senha (Admin)</span><span class="toc-role badge badge-rose">Admin</span></div>
+    <div class="toc-item"><span class="toc-num">5.6</span><span class="toc-name">Perfil do Administrador</span><span class="toc-role badge badge-rose">Admin</span></div>
+  </div>
+
+  <div class="toc-group">
+    <div class="toc-group-title">Módulo Compartilhado</div>
+    <div class="toc-item"><span class="toc-num">6.1</span><span class="toc-name">Chat (Geral)</span><span class="toc-role badge badge-purple">Todos</span></div>
+    <div class="toc-item"><span class="toc-num">6.2</span><span class="toc-name">Lista de Conversas</span><span class="toc-role badge badge-purple">Todos</span></div>
+    <div class="toc-item"><span class="toc-num">6.3</span><span class="toc-name">Notificações (Geral)</span><span class="toc-role badge badge-purple">Todos</span></div>
+  </div>
+</div>
+
+
+<!-- ====================================================== -->
+<!-- CAPÍTULO 1 — AUTENTICAÇÃO -->
+<!-- ====================================================== -->
+<div class="chapter-header">
+  <div class="ch-tag">Capítulo 1</div>
+  <h2>Módulo de Autenticação</h2>
+  <p>Telas responsáveis pelo acesso seguro ao sistema, gestão de contas e recuperação de credenciais.</p>
+</div>
+
+<!-- 1.1 Welcome -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#e0f2fe;">🏠</div>
+    <div class="screen-header-text">
+      <h3>1.1 — Tela de Boas-Vindas (Welcome Screen)</h3>
+      <span class="file-badge">src/screens/auth/WelcomeScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-blue">Acessível por: Todos os utilizadores</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>É a primeira tela apresentada ao utilizador ao abrir o aplicativo. Funciona como um portal de acolhimento institucional moderno, incorporando um <strong>Carrossel Automático Dinâmico</strong> que transita suavemente a cada <strong>10 segundos</strong> entre 5 ilustrações odontológicas de alta qualidade. Apresenta o logotipo oficial, a marca <strong>"Sorriso Digital / TeOdonto Angola"</strong> e o slogan <em>"O seu sorriso em boas mãos"</em> com acabamento em glassmorphism refinado.</p>
+      <p>Conduz o utilizador intuitivamente para a tela de Login através do botão "Começar" ou por toque nos indicadores visuais do carrossel.</p>
+    </div>
+    <div class="info-card">
+      <h4>Elementos da Interface</h4>
+      <ul class="features-list">
+        <li>Carrossel inteligente com 5 slides odontológicos reais</li>
+        <li>Transição automática a cada 10 segundos com animação fluida</li>
+        <li>Indicadores interativos de paginação (dots) com estado ativo destacado</li>
+        <li>Gradiente protetor escuro sobre a imagem para contraste de texto perfeito</li>
+        <li>Ícone médico estilizado em container de vidro fosco (glassmorphism)</li>
+        <li>Título institucional com tipografia Inter moderna</li>
+        <li>Botão de ação principal "Começar" com ícone direcional</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Fluxo de Navegação</h4>
+      <ol class="flow-list">
+        <li>Utilizador abre a aplicação</li>
+        <li>Carrossel inicia a exibição automática dos slides (10s por imagem)</li>
+        <li>Utilizador pode aguardar ou interagir diretamente</li>
+        <li>Ao clicar em "Começar", é direcionado para a Tela de Login</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- 1.2 Login -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#dbeafe;">🔐</div>
+    <div class="screen-header-text">
+      <h3>1.2 — Tela de Login com Verificação em Duas Etapas (2FA)</h3>
+      <span class="file-badge">src/screens/auth/LoginScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-blue">Acessível por: Todos (com 2FA ativo para Staff)</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Tela de autenticação principal da plataforma integrada ao Supabase Auth. Após validar as credenciais de e-mail e senha, o sistema direciona automaticamente pelo papel (RBAC): Paciente → Painel do Paciente; Dentista → Dashboard Clínico; Secretária → Dashboard Secretária; Administrador → Painel Executivo.</p>
+      <p><strong>Autenticação em 2 Etapas (2FA via WhatsApp e TOTP):</strong> Obrigatória e ativa para cargos com acesso a dados confidenciais (<strong>Administrador, Secretário e Dentista</strong>). O utente comum (paciente) acede de forma ágil sem 2FA. O modal de desafio do código de 6 dígitos foi desenhado para ser 100% responsivo em qualquer dispositivo (Web, PWA e Mobile), com <code>KeyboardAvoidingView</code> e <code>ScrollView</code> que garantem que o teclado virtual nunca cubra os campos de digitação.</p>
+    </div>
+    <div class="info-card">
+      <h4>Funcionalidades & Experiência</h4>
+      <ul class="features-list">
+        <li>Campo de e-mail com validação em tempo real</li>
+        <li>Campo de senha com alternador visual de visibilidade</li>
+        <li>Detecção automática de exigência de 2FA baseada no perfil</li>
+        <li>Modal responsivo de código de verificação via WhatsApp / TOTP</li>
+        <li>Suporte completo a telas pequenas em Web, PWA e Mobile sem corte</li>
+        <li>Recuperação de acesso via "Esqueceu a senha?"</li>
+        <li>Atalho para auto-cadastro de novos pacientes</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Segurança Implementada</h4>
+      <ul class="features-list">
+        <li>Sessões criptografadas com tokens JWT de alta segurança</li>
+        <li>2FA direcionado para staff clínico e administrativo via WhatsApp</li>
+        <li>Proteção contra força bruta e cancelamento seguro de sessão</li>
+        <li>Prevenção de sobreposição por teclado em dispositivos móveis</li>
+        <li>Feedback claro de erros sem vazamento de metadados</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 1.3 Register -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#d1fae5;">📝</div>
+    <div class="screen-header-text">
+      <h3>1.3 — Tela de Cadastro (Register)</h3>
+      <span class="file-badge">src/screens/auth/RegisterScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-green">Acessível por: Paciente (auto-registo)</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Tela de criação de conta para novos pacientes. Coleta as informações básicas necessárias para criar uma conta no sistema. Após o cadastro com sucesso, o utilizador é redirecionado para completar o seu perfil. Dentistas e secretários são criados diretamente pelo Administrador, não tendo acesso a esta tela.</p>
+    </div>
+    <div class="info-card">
+      <h4>Campos do Formulário</h4>
+      <ul>
+        <li>Nome completo</li>
+        <li>E-mail (validação de formato)</li>
+        <li>Senha (mínimo 6 caracteres)</li>
+        <li>Confirmar senha</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Comportamento</h4>
+      <ul class="features-list">
+        <li>Validações em tempo real nos campos</li>
+        <li>Criação de conta via Supabase Auth</li>
+        <li>Redirecionamento para "Completar Perfil" após cadastro</li>
+        <li>Link para retornar ao Login</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 1.4 ForgotPassword -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#fef3c7;">🔑</div>
+    <div class="screen-header-text">
+      <h3>1.4 — Recuperação de Senha</h3>
+      <span class="file-badge">src/screens/auth/ForgotPasswordScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-blue">Acessível por: Todos</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Permite ao utilizador solicitar a redefinição da senha através do e-mail cadastrado. O Supabase envia um e-mail com link seguro para redefinição. Esta tela é acessível pela plataforma móvel. Para o Admin, existe uma tela específica (<em>AdminPasswordRecoveryScreen</em>) dentro do painel administrativo para redefinir senhas de outros utilizadores.</p>
+    </div>
+    <div class="info-card">
+      <h4>Processo</h4>
+      <ol class="flow-list">
+        <li>Utilizador insere o e-mail cadastrado</li>
+        <li>Sistema envia e-mail de recuperação (Supabase)</li>
+        <li>Utilizador recebe link e redefine senha</li>
+        <li>Redireciona de volta ao Login</li>
+      </ol>
+    </div>
+    <div class="info-card">
+      <h4>Elementos</h4>
+      <ul class="features-list">
+        <li>Campo de e-mail com validação</li>
+        <li>Botão "Enviar Link"</li>
+        <li>Feedback de sucesso/erro via Toast</li>
+        <li>Link "Voltar ao Login"</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 1.5 CompleteProfile -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#ede9fe;">👤</div>
+    <div class="screen-header-text">
+      <h3>1.5 — Completar Perfil</h3>
+      <span class="file-badge">src/screens/auth/CompleteProfileScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-green">Acessível por: Novos Pacientes</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Exibida após o primeiro login de um novo paciente. Coleta dados complementares obrigatórios para a criação do perfil completo no sistema. Enquanto o perfil não estiver completo, o utilizador não acede ao painel principal.</p>
+    </div>
+    <div class="info-card">
+      <h4>Dados Solicitados</h4>
+      <ul>
+        <li>Data de nascimento</li>
+        <li>Número de telefone</li>
+        <li>Género</li>
+        <li>Endereço / Bairro</li>
+        <li>Número do BI (Bilhete de Identidade)</li>
+        <li>Foto de perfil (opcional)</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Após Completar</h4>
+      <ul class="features-list">
+        <li>Dados guardados na tabela <code>profiles</code> do Supabase</li>
+        <li>Utilizador redirecionado para o Home do Paciente</li>
+        <li>Perfil marcado como completo no sistema</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====================================================== -->
+<!-- CAPÍTULO 2 — MÓDULO PACIENTE -->
+<!-- ====================================================== -->
+<div class="chapter-header page-break">
+  <div class="ch-tag">Capítulo 2</div>
+  <h2>Módulo do Paciente (Utente)</h2>
+  <p>Conjunto de telas dedicadas ao utente, permitindo triagem, agendamento, acompanhamento e comunicação com a clínica.</p>
+</div>
+
+<!-- 2.1 Home Paciente -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#d1fae5;">🏠</div>
+    <div class="screen-header-text">
+      <h3>2.1 — Início — Painel do Paciente (Home Screen)</h3>
+      <span class="file-badge">src/screens/paciente/HomeScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-green">Paciente</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Tela principal do paciente após autenticação. Funciona como um painel de controlo compacto, apresentando saudação personalizada com o nome do utilizador, acesso rápido às funcionalidades principais e um resumo das triagens mais recentes. Os dados são atualizados em tempo real via <strong>WebSocket (Supabase Realtime)</strong>.</p>
+    </div>
+    <div class="info-card">
+      <h4>Secções da Tela</h4>
+      <ul class="features-list">
+        <li><strong>Header:</strong> Saudação "Olá, [Nome]! 👋" + avatar com iniciais</li>
+        <li><strong>Ações Rápidas:</strong> 3 botões — Nova Triagem, Educação, Agendar</li>
+        <li><strong>Dica do Dia:</strong> Card com dica aleatória de saúde bucal</li>
+        <li><strong>Triagens Recentes:</strong> Lista das 3 últimas triagens com status</li>
+        <li><strong>Aviso Legal:</strong> Lembrete de que o app não substitui consulta presencial</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Status das Triagens</h4>
+      <ul>
+        <li>🟡 <strong>Pendente:</strong> Aguardando resposta do dentista</li>
+        <li>🔴 <strong>Urgente:</strong> Dor intensa ou prioridade alta</li>
+        <li>🟢 <strong>Respondido:</strong> Dentista já respondeu com orientação</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 2.2 Triagem -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#e0f2fe;">📷</div>
+    <div class="screen-header-text">
+      <h3>2.2 — Triagem Digital</h3>
+      <span class="file-badge">src/screens/paciente/TriagemScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-green">Paciente</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>É a funcionalidade mais inovadora do sistema. Permite ao paciente descrever o seu problema dentário de forma estruturada e enviar fotos dos dentes, sem precisar de ir fisicamente à clínica. O paciente interage com um <strong>odontograma SVG interativo</strong> (mapa dos 32 dentes) para indicar quais dentes apresentam dor ou problema, o que torna o processo muito mais preciso para o dentista que irá analisar.</p>
+    </div>
+    <div class="info-card">
+      <h4>Campos do Formulário de Triagem</h4>
+      <ul>
+        <li>Sintoma principal (seleção de lista)</li>
+        <li>Intensidade da dor (escala 0–10)</li>
+        <li>Duração do problema (ex.: "há 2 dias")</li>
+        <li>Localização no odontograma SVG interativo</li>
+        <li>Descrição livre do problema</li>
+        <li>Fotos dos dentes (galeria ou câmera)</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Funcionalidades Técnicas</h4>
+      <ul class="features-list">
+        <li>Odontograma SVG gerado programaticamente (React Native SVG)</li>
+        <li>Seleção de múltiplos dentes (arcada superior e inferior)</li>
+        <li>Upload de fotos via <code>expo-image-picker</code></li>
+        <li>Armazenamento de imagens no Supabase Storage</li>
+        <li>Notificação em tempo real para o dentista responsável</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 2.3 Agendamento -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#fef3c7;">📅</div>
+    <div class="screen-header-text">
+      <h3>2.3 — Agendamento de Consulta</h3>
+      <span class="file-badge">src/screens/paciente/AgendamentoScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-green">Paciente</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Permite ao paciente solicitar o agendamento de uma consulta diretamente pelo aplicativo. O pedido entra como "pendente" na fila de trabalho da secretária, que irá confirmar, atribuir um dentista e definir o horário definitivo. O paciente recebe notificação quando o agendamento é confirmado.</p>
+    </div>
+    <div class="info-card">
+      <h4>Dados Necessários</h4>
+      <ul>
+        <li>Tipo de consulta (Consulta Geral, Avaliação, Retorno, etc.)</li>
+        <li>Data pretendida</li>
+        <li>Período preferido (Manhã / Tarde)</li>
+        <li>Observações adicionais (campo livre)</li>
+        <li>Preferência de dentista (opcional)</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Fluxo após Submissão</h4>
+      <ol class="flow-list">
+        <li>Pedido enviado ao sistema com status "Pendente"</li>
+        <li>Secretária recebe notificação no seu dashboard</li>
+        <li>Secretária confirma e atribui dentista e hora</li>
+        <li>Paciente recebe confirmação no app</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- 2.4 Histórico -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#f1f5f9;">📋</div>
+    <div class="screen-header-text">
+      <h3>2.4 — Histórico de Triagens</h3>
+      <span class="file-badge">src/screens/paciente/HistoricoScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-green">Paciente</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Exibe o histórico completo de todas as triagens realizadas pelo paciente. Cada item mostra o estado atual, a data, o sintoma principal e, se já respondida, uma pré-visualização da orientação do dentista. O paciente pode tocar em qualquer triagem para ver os detalhes completos.</p>
+    </div>
+    <div class="info-card">
+      <h4>Informações por Triagem</h4>
+      <ul class="features-list">
+        <li>Badge de status colorido (Pendente / Urgente / Respondido)</li>
+        <li>Data relativa ("há 2 horas", "ontem")</li>
+        <li>Sintoma principal descrito</li>
+        <li>Nome do dentista que respondeu (se aplicável)</li>
+        <li>Orientação resumida do dentista</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Funcionalidades</h4>
+      <ul class="features-list">
+        <li>Lista completa com atualização em tempo real</li>
+        <li>Filtros por status (Todos, Pendente, Respondido)</li>
+        <li>Pull-to-refresh para recarregar dados</li>
+        <li>Toque para ver detalhes completos</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 2.5 TriagemDetalhe -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#e0f2fe;">🔍</div>
+    <div class="screen-header-text">
+      <h3>2.5 — Detalhe da Triagem</h3>
+      <span class="file-badge">src/screens/paciente/TriagemDetalheScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-green">Paciente</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Exibe todos os detalhes de uma triagem específica: dados que o paciente enviou (sintoma, intensidade, localização, fotos) e a resposta completa do dentista (orientação, recomendação, nível de urgência avaliado). Se não houver ainda resposta, é exibida uma mensagem de aguardo.</p>
+    </div>
+    <div class="info-card">
+      <h4>Conteúdo Exibido</h4>
+      <ul>
+        <li>Data e hora da triagem</li>
+        <li>Sintoma principal e intensidade de dor</li>
+        <li>Localização dos dentes afetados</li>
+        <li>Fotos enviadas pelo paciente</li>
+        <li>Resposta e orientação do dentista</li>
+        <li>Recomendação (nível de urgência sugerido)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 2.6 Perfil Paciente -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#ede9fe;">👤</div>
+    <div class="screen-header-text">
+      <h3>2.6 — Perfil do Paciente</h3>
+      <span class="file-badge">src/screens/paciente/PerfilScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-green">Paciente</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Área pessoal do paciente onde pode consultar e editar os seus dados pessoais, aceder a configurações da conta, navegar para as políticas de privacidade e termos de uso, e fazer logout do sistema.</p>
+    </div>
+    <div class="info-card">
+      <h4>Secções</h4>
+      <ul class="features-list">
+        <li>Foto de perfil e dados básicos (nome, e-mail)</li>
+        <li>Dados pessoais editáveis (telefone, BI, endereço)</li>
+        <li>Acesso às configurações (Ajuda, Privacidade, Termos)</li>
+        <li>Botão de logout</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 2.7 Mensagens -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#d1fae5;">💬</div>
+    <div class="screen-header-text">
+      <h3>2.7 — Mensagens / Chat do Paciente</h3>
+      <span class="file-badge">src/screens/paciente/MensagensScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-green">Paciente</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Sistema de chat interno que permite ao paciente comunicar diretamente com o dentista ou secretária. As mensagens são entregues em tempo real via <strong>Supabase Realtime (WebSocket)</strong>. Elimina a necessidade de contactos externos (telefone, WhatsApp) para questões clínicas.</p>
+    </div>
+    <div class="info-card">
+      <h4>Funcionalidades</h4>
+      <ul class="features-list">
+        <li>Envio e recepção de mensagens em tempo real</li>
+        <li>Indicador de mensagens não lidas</li>
+        <li>Histórico completo de conversas</li>
+        <li>Navegação para lista de conversas</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 2.8 Educação -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#fef3c7;">📚</div>
+    <div class="screen-header-text">
+      <h3>2.8 — Educação em Saúde Bucal</h3>
+      <span class="file-badge">src/screens/paciente/EducacaoScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-green">Paciente</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Módulo educativo com artigos, dicas e conteúdos sobre saúde bucal. Promove a prevenção e consciencialização dos pacientes, disponibilizando informações de qualidade diretamente no aplicativo. Inclui temas como higiene oral, alimentação saudável, doenças dentárias comuns e cuidados pós-tratamento.</p>
+    </div>
+    <div class="info-card">
+      <h4>Categorias de Conteúdo</h4>
+      <ul>
+        <li>Higiene oral (escovagem, fio dental)</li>
+        <li>Alimentação e saúde dentária</li>
+        <li>Doenças comuns (cárie, gengivite, bruxismo)</li>
+        <li>Cuidados pós-procedimentos</li>
+        <li>Saúde bucal infantil</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====================================================== -->
+<!-- CAPÍTULO 3 — MÓDULO DENTISTA -->
+<!-- ====================================================== -->
+<div class="chapter-header page-break">
+  <div class="ch-tag">Capítulo 3</div>
+  <h2>Módulo do Dentista</h2>
+  <p>Conjunto de telas para o profissional de odontologia gerir triagens, consultas, prontuários, evoluções e prescrições dos seus pacientes.</p>
+</div>
+
+<!-- 3.1 Dashboard Dentista -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#dbeafe;">🦷</div>
+    <div class="screen-header-text">
+      <h3>3.1 — Dashboard do Dentista</h3>
+      <span class="file-badge">src/screens/dentista/DashboardScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-blue">Dentista</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>O painel central do dentista é a tela mais completa e rica em funcionalidades do módulo. Apresenta um resumo de toda a atividade clínica: triagens pendentes para resposta, agenda do dia, indicadores financeiros e documentos clínicos recentes. A interface adapta-se à especialidade registada (ex.: Ortodontia, Implantologia) com configurações visuais específicas (<em>getEspecialidadeConfig</em>).</p>
+    </div>
+    <div class="info-card">
+      <h4>Contadores e Indicadores (Cards de Topo)</h4>
+      <ul class="features-list">
+        <li>Total de triagens recebidas</li>
+        <li>Triagens pendentes de resposta</li>
+        <li>Triagens urgentes (dor &gt; 6 ou prioridade alta)</li>
+        <li>Tratamentos realizados (faturados)</li>
+        <li>Prescrições emitidas</li>
+        <li>Receita do período (em Kz)</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Filtros e Ações da Lista</h4>
+      <ul class="features-list">
+        <li>Filtros: Todos / Pendente / Urgente / Respondido / Realizados</li>
+        <li>Atualização em tempo real (Supabase Realtime)</li>
+        <li>Acesso à triagem com opção de responder</li>
+        <li>Exportação de documentos (PDF): Anamnese, Plano de Tratamento, Prescrição, Histórico</li>
+        <li>Pull-to-refresh para atualização manual</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 3.2 Agenda Dentista -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#e0f2fe;">📆</div>
+    <div class="screen-header-text">
+      <h3>3.2 — Agenda do Dentista</h3>
+      <span class="file-badge">src/screens/dentista/AgendaDentistaScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-blue">Dentista</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Visão calendarizada de todos os agendamentos do dentista. Permite ao profissional visualizar consultas por dia, semana ou mês, consultar detalhes de cada consulta e gerir o seu horário de trabalho. É a principal ferramenta de organização temporal para o dentista.</p>
+    </div>
+    <div class="info-card">
+      <h4>Funcionalidades</h4>
+      <ul class="features-list">
+        <li>Calendário interativo com navegação por mês</li>
+        <li>Lista de consultas do dia selecionado</li>
+        <li>Card por consulta: paciente, tipo, horário, status</li>
+        <li>Status: Agendado, Confirmado, Realizado, Cancelado</li>
+        <li>Atualização em tempo real</li>
+        <li>Acesso ao prontuário do paciente diretamente da agenda</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Tipos de Consulta Suportados</h4>
+      <ul>
+        <li>Consulta Geral, Avaliação, Retorno</li>
+        <li>Urgência, Raio-X, Panorâmico</li>
+        <li>Profilaxia, Branqueamento, Canal</li>
+        <li>Ortodontia, Restauração</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 3.3 Gerir Pacientes -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#d1fae5;">👥</div>
+    <div class="screen-header-text">
+      <h3>3.3 — Gerir Pacientes</h3>
+      <span class="file-badge">src/screens/dentista/GerirPacientesScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-blue">Dentista</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Lista completa dos pacientes associados ao dentista. Permite pesquisa por nome, acesso rápido ao prontuário de cada paciente e navegação para funções clínicas específicas. É o ponto de partida para qualquer interação clínica com um paciente já registado.</p>
+    </div>
+    <div class="info-card">
+      <h4>Funcionalidades</h4>
+      <ul class="features-list">
+        <li>Lista de pacientes com foto/avatar e dados básicos</li>
+        <li>Campo de pesquisa por nome</li>
+        <li>Acesso ao histórico clínico completo</li>
+        <li>Botão para criar novo paciente</li>
+        <li>Status do paciente (ativo/inativo)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 3.4 Histórico Clínico -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#fef3c7;">📁</div>
+    <div class="screen-header-text">
+      <h3>3.4 — Histórico Clínico do Paciente</h3>
+      <span class="file-badge">src/screens/dentista/PacienteHistoricoScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-blue">Dentista</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Prontuário eletrónico completo do paciente. Apresenta de forma organizada todo o histórico clínico: triagens anteriores, evoluções de consulta, planos de tratamento, prescrições emitidas e anamnese. É o <strong>coração clínico digital</strong> do sistema, substituindo inteiramente as fichas em papel.</p>
+    </div>
+    <div class="info-card">
+      <h4>Abas do Prontuário</h4>
+      <ul>
+        <li>🩺 <strong>Triagens:</strong> Histórico de triagens com fotos e respostas</li>
+        <li>📈 <strong>Evoluções:</strong> Registos de evolução clínica por consulta</li>
+        <li>📋 <strong>Plano de Tratamento:</strong> Procedimentos planejados e realizados</li>
+        <li>💊 <strong>Prescrições:</strong> Medicamentos prescritos</li>
+        <li>📝 <strong>Anamnese:</strong> Histórico médico e alergias</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Exportação PDF</h4>
+      <ul class="features-list">
+        <li>Ficha de Histórico completa em PDF</li>
+        <li>Inclui dados do paciente, dentista e clínica</li>
+        <li>Gerado localmente sem servidor externo</li>
+        <li>Partilhável por e-mail ou WhatsApp</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 3.5 Evolução Clínica -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#dbeafe;">📝</div>
+    <div class="screen-header-text">
+      <h3>3.5 — Evolução Clínica</h3>
+      <span class="file-badge">src/screens/dentista/EvolucaoClinicaScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-blue">Dentista</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Permite ao dentista registar a evolução clínica de cada consulta realizada. É o diário clínico digital, documentando o que foi feito em cada atendimento, as observações do dentista e o próximo passo do tratamento.</p>
+    </div>
+    <div class="info-card">
+      <h4>Campos Registados</h4>
+      <ul>
+        <li>Data da consulta</li>
+        <li>Procedimento(s) realizado(s)</li>
+        <li>Queixa principal na consulta</li>
+        <li>Observações clínicas do dentista</li>
+        <li>Próximos passos / plano</li>
+        <li>Dente(s) tratado(s) (odontograma)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 3.6 Prescrição -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#d1fae5;">💊</div>
+    <div class="screen-header-text">
+      <h3>3.6 — Prescrição Médica</h3>
+      <span class="file-badge">src/screens/dentista/PrescricaoScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-blue">Dentista</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Módulo para emissão de prescrições de medicamentos. O dentista cria a receita digital diretamente no aplicativo, que fica registada no prontuário do paciente e pode ser exportada como PDF para impressão ou envio.</p>
+    </div>
+    <div class="info-card">
+      <h4>Dados da Prescrição</h4>
+      <ul>
+        <li>Paciente e data</li>
+        <li>Medicamento (nome comercial/genérico)</li>
+        <li>Dosagem e posologia</li>
+        <li>Duração do tratamento</li>
+        <li>Observações adicionais</li>
+        <li>Assinatura digital (nome e CRM do dentista)</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Exportação</h4>
+      <ul class="features-list">
+        <li>Geração de PDF com cabeçalho da clínica</li>
+        <li>Dados completos do dentista (CRM, especialidade)</li>
+        <li>Dados completos do paciente</li>
+        <li>Partilhável diretamente do app</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 3.7 Plano de Tratamento -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#ede9fe;">🗂️</div>
+    <div class="screen-header-text">
+      <h3>3.7 — Plano de Tratamento</h3>
+      <span class="file-badge">src/screens/dentista/PlanoTratamentoScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-blue">Dentista</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Permite ao dentista criar e gerir o plano de tratamento completo de um paciente, listando todos os procedimentos recomendados com custo estimado, status de cada etapa e observações. O plano é partilhado com o paciente e serve também como base para a faturação.</p>
+    </div>
+    <div class="info-card">
+      <h4>Estrutura do Plano</h4>
+      <ul>
+        <li>Lista de procedimentos planejados</li>
+        <li>Status: Pendente / Em andamento / Concluído</li>
+        <li>Custo estimado por procedimento (em Kz)</li>
+        <li>Total do plano de tratamento</li>
+        <li>Dente(s) alvo de cada procedimento</li>
+        <li>Observações e justificativa clínica</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 3.8 Anamnese -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#fef3c7;">📋</div>
+    <div class="screen-header-text">
+      <h3>3.8 — Anamnese</h3>
+      <span class="file-badge">src/screens/dentista/AnamneseScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-blue">Dentista</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Formulário de anamnese clínica digital. Regista o histórico de saúde geral do paciente, alergias, medicamentos em uso, doenças sistémicas e histórico odontológico anterior. É o primeiro documento clínico a ser preenchido numa nova relação dentista-paciente.</p>
+    </div>
+    <div class="info-card">
+      <h4>Campos da Anamnese</h4>
+      <ul>
+        <li>Queixa principal</li>
+        <li>Alergias medicamentosas</li>
+        <li>Doenças sistémicas (diabetes, hipertensão, etc.)</li>
+        <li>Medicamentos em uso contínuo</li>
+        <li>Histórico de cirurgias e tratamentos anteriores</li>
+        <li>Hábitos (tabagismo, bruxismo, etc.)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 3.9 Caso Detalhe -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#e0f2fe;">🔬</div>
+    <div class="screen-header-text">
+      <h3>3.9 — Caso Clínico em Detalhe</h3>
+      <span class="file-badge">src/screens/dentista/CasoDetalheScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-blue">Dentista</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Apresenta uma visão consolidada de um caso específico (triagem), exibindo todas as informações enviadas pelo paciente (fotos, sintomas, localização no odontograma) e permitindo ao dentista registar a sua resposta, orientação e nível de urgência avaliado.</p>
+    </div>
+    <div class="info-card">
+      <h4>Ações Disponíveis</h4>
+      <ul class="features-list">
+        <li>Visualizar fotos em ecrã completo</li>
+        <li>Ver localização no odontograma</li>
+        <li>Registar resposta/orientação ao paciente</li>
+        <li>Definir nível de urgência clínica</li>
+        <li>Adicionar recomendação de consulta</li>
+        <li>Marcar como respondido</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 3.10 Relatório Dentista -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#d1fae5;">📊</div>
+    <div class="screen-header-text">
+      <h3>3.10 — Relatório do Dentista</h3>
+      <span class="file-badge">src/screens/dentista/DentistaRelatorioScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-blue">Dentista</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Painel de relatórios financeiros e de produtividade do dentista. Apresenta totais de consultas realizadas, receitas geradas por período e ranking de procedimentos mais frequentes. Permite ao dentista exportar o relatório de faturação em PDF para controlo pessoal ou prestação de contas à clínica.</p>
+    </div>
+    <div class="info-card">
+      <h4>Métricas Apresentadas</h4>
+      <ul class="features-list">
+        <li>Total de consultas por período</li>
+        <li>Receita total gerada (em Kz)</li>
+        <li>Consultas por tipo (breakdown)</li>
+        <li>Evolução mensal de atendimentos</li>
+        <li>Exportação de relatório financeiro em PDF</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====================================================== -->
+<!-- CAPÍTULO 4 — MÓDULO SECRETÁRIA -->
+<!-- ====================================================== -->
+<div class="chapter-header page-break">
+  <div class="ch-tag">Capítulo 4</div>
+  <h2>Módulo da Secretária</h2>
+  <p>Telas para a gestão operacional da clínica: triagens, agendamentos, atribuição de dentistas e controlo financeiro.</p>
+</div>
+
+<!-- 4.1 Dashboard Secretária -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#fef3c7;">🗂️</div>
+    <div class="screen-header-text">
+      <h3>4.1 — Dashboard da Secretária</h3>
+      <span class="file-badge">src/screens/secretario/SecretarioDashboardScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-amber">Secretária</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>O painel operacional mais completo do sistema. É o centro de controlo da secretária, agregando triagens, agendamentos e dados financeiros em abas organizadas. Apresenta filas de trabalho em tempo real: todas as triagens e agendamentos que necessitam de ação imediata (atribuição de dentista, confirmação, registo de pagamento).</p>
+    </div>
+    <div class="info-card">
+      <h4>Abas do Dashboard (Tabs)</h4>
+      <ul>
+        <li>⚙️ <strong>Operações:</strong> Fila de triagens e agendamentos pendentes de ação</li>
+        <li>📋 <strong>Acompanhamento:</strong> Consultas confirmadas e em andamento</li>
+        <li>💰 <strong>Financeiro:</strong> Tratamentos e faturas — registo de pagamentos</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Funcionalidades Chave</h4>
+      <ul class="features-list">
+        <li>Fila de triagens com prioridade (urgentes primeiro)</li>
+        <li>Modal de atribuição de dentista</li>
+        <li>Modal de detalhes do paciente</li>
+        <li>Registo e confirmação de pagamentos</li>
+        <li>Geração de relatório geral da clínica (PDF)</li>
+        <li>Atualização em tempo real (Supabase Realtime)</li>
+        <li>Recusar triagem ou rejeitar agendamento</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 4.2 Agendamentos Secretária -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#e0f2fe;">📅</div>
+    <div class="screen-header-text">
+      <h3>4.2 — Agendamentos (Secretária)</h3>
+      <span class="file-badge">src/screens/secretario/SecretarioAgendamentosScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-amber">Secretária</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Gestão completa dos agendamentos de toda a clínica. A secretária visualiza todos os pedidos de agendamento, pode filtrar por status, confirmar, reagendar ou cancelar consultas, e definir o horário exato de cada uma.</p>
+    </div>
+    <div class="info-card">
+      <h4>Ações por Agendamento</h4>
+      <ul class="features-list">
+        <li>Confirmar agendamento (definir data/hora exata)</li>
+        <li>Atribuir dentista ao agendamento</li>
+        <li>Reagendar para nova data</li>
+        <li>Cancelar agendamento</li>
+        <li>Marcar como "Realizado" após consulta</li>
+        <li>Ver histórico do paciente antes da consulta</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 4.3 Atribuir Dentista Triagem -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#d1fae5;">👨‍⚕️</div>
+    <div class="screen-header-text">
+      <h3>4.3 — Atribuir Dentista — Triagem</h3>
+      <span class="file-badge">src/screens/secretario/AtribuirDentistaScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-amber">Secretária</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Tela modal usada para atribuir uma triagem digital a um dentista específico. A secretária seleciona o dentista da lista de disponíveis e confirma a atribuição. O dentista recebe uma notificação em tempo real para responder à triagem.</p>
+    </div>
+    <div class="info-card">
+      <h4>Processo</h4>
+      <ol class="flow-list">
+        <li>Secretária seleciona triagem pendente</li>
+        <li>Abre modal de atribuição</li>
+        <li>Seleciona dentista da lista</li>
+        <li>Confirma atribuição</li>
+        <li>Dentista recebe notificação</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<!-- 4.4 Atribuir Dentista Agendamento -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#fef3c7;">🔗</div>
+    <div class="screen-header-text">
+      <h3>4.4 — Atribuir Dentista — Agendamento</h3>
+      <span class="file-badge">src/screens/secretario/AtribuirDentistaAgendamentoScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-amber">Secretária</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Similar ao anterior, mas específica para atribuição de dentistas a pedidos de agendamento de consulta. Permite adicionalmente definir a data e hora confirmada para o atendimento.</p>
+    </div>
+    <div class="info-card">
+      <h4>Dados Definidos</h4>
+      <ul>
+        <li>Dentista responsável</li>
+        <li>Data confirmada da consulta</li>
+        <li>Hora confirmada</li>
+        <li>Observações internas (secretária)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====================================================== -->
+<!-- CAPÍTULO 5 — MÓDULO ADMINISTRADOR -->
+<!-- ====================================================== -->
+<div class="chapter-header page-break">
+  <div class="ch-tag">Capítulo 5</div>
+  <h2>Módulo do Administrador</h2>
+  <p>Painel de gestão estratégica da clínica: criação de utilizadores, relatórios gerais, auditoria e configurações avançadas do sistema.</p>
+</div>
+
+<!-- 5.1 Admin Dashboard -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#ffe4e6;">⚙️</div>
+    <div class="screen-header-text">
+      <h3>5.1 — Dashboard do Administrador (Gestão de Dentistas)</h3>
+      <span class="file-badge">src/screens/admin/AdminDashboardScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-rose">Administrador</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Painel de controlo principal da equipa médica. A interface foi otimizada com um design centralizado (<code>maxWidth: 900</code>) padronizado ao mesmo nível visual da tela de gestão de secretários. O Administrador pode cadastrar novos médicos com especialidade e número de registro CRM, editar perfis, resetar senhas provisórias com cópia para a área de transferência e desativar acessos com confirmação de segurança.</p>
+    </div>
+    <div class="info-card">
+      <h4>Gestão Clínica de Dentistas</h4>
+      <ul class="features-list">
+        <li>Layout unificado e centralizado idêntico ao de secretários</li>
+        <li>Busca em tempo real por nome, e-mail ou especialidade</li>
+        <li>Cadastro rápido com credenciais provisórias</li>
+        <li>Atribuição de CRM e província de atendimento em Angola</li>
+        <li>Cópia de senha provisória com 1 toque no Clipboard</li>
+        <li>Desativação e reativação segura de contas</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Especialidades Odontológicas Suportadas</h4>
+      <ul>
+        <li>Ortodontia, Implantologia, Endodontia</li>
+        <li>Periodontia, Odontopediatria</li>
+        <li>Cirurgia Bucomaxilofacial</li>
+        <li>Clínica Geral, Próteses Dentárias</li>
+        <li>Estética Dental, Radiologia Odontológica</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 5.2 Admin Secretários -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#fef3c7;">👩‍💼</div>
+    <div class="screen-header-text">
+      <h3>5.2 — Gestão de Secretários</h3>
+      <span class="file-badge">src/screens/admin/AdminSecretariosScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-rose">Administrador</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Painel centralizado para gestão dos operadores de receção. Permite criar, listar, editar e inativar contas de secretárias. Interface limpa, centrada e livre de contadores redundantes, com pesquisa instantânea e ações diretas em cada cartão de colaborador.</p>
+    </div>
+    <div class="info-card">
+      <h4>Funcionalidades</h4>
+      <ul class="features-list">
+        <li>Criação de contas com e-mail, telefone e senha inicial</li>
+        <li>Edição instantânea de contactos e estado do utilizador</li>
+        <li>Cópia de credenciais para envio direto ao colaborador</li>
+        <li>Busca rápida e filtragem sem recarregamento</li>
+        <li>Interface responsiva e perfeitamente centrada</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Segurança do Perfil</h4>
+      <ul>
+        <li>Papel fixo <code>secretario</code> com permissões estritas</li>
+        <li>Acesso protegido por 2FA via WhatsApp obrigatório</li>
+        <li>Todas as criações de contas são registradas no Audit Log</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 5.3 Admin Relatórios -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#d1fae5;">📈</div>
+    <div class="screen-header-text">
+      <h3>5.3 — Relatórios do Sistema & Faturamento (Admin)</h3>
+      <span class="file-badge">src/screens/admin/AdminReportsScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-rose">Administrador</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Centro executivo de Business Intelligence e governança da clínica, totalmente reformulado e organizado em <strong>4 Abas Intuitivas</strong> de fácil manuseio: <em>Visão Geral</em>, <em>Dentistas</em>, <em>Secretários</em> e <em>Central de PDFs</em>.</p>
+    </div>
+    <div class="info-card">
+      <h4>As 4 Abas do Relatório</h4>
+      <ul class="features-list">
+        <li><strong>Visão Geral:</strong> KPIs de utilizadores, consultas, triagens e métricas financeiras (Receita Realizada vs. Estimada em Kwanzas - Kz) mais evolução mensal.</li>
+        <li><strong>Dentistas:</strong> Desempenho individual, número de triagens concluídas, pesquisa rápida e botão de exportação de relatório individual em PDF.</li>
+        <li><strong>Secretários:</strong> Listagem com contatos e botão de exportação de PDF individual por colaborador.</li>
+        <li><strong>Central de PDFs:</strong> Botão em destaque para geração do Relatório Consolidado Geral do Sistema em PDF formatado.</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Destaques de Engenharia</h4>
+      <ul>
+        <li>Design responsivo com <code>maxWidth: 960</code> centrado</li>
+        <li>Cálculos em Kwanzas com formatação monetária angolana</li>
+        <li>Geração client-side de PDFs via <code>expo-print</code> / HTML renderizado</li>
+        <li>Estados vazios (empty states) elegantes para buscas sem resultados</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 5.4 Audit Log -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#dbeafe;">🛡️</div>
+    <div class="screen-header-text">
+      <h3>5.4 — Log de Auditoria (Audit Log)</h3>
+      <span class="file-badge">src/screens/admin/AdminAuditLogScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-rose">Administrador</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Módulo de conformidade e rastreabilidade total. Apresenta o histórico cronológico de todas as ações sensíveis realizadas no sistema (autenticações, triagens, agendamentos, edições de perfil e faturamento). A interface foi redesenhada para permitir filtros rápidos, pesquisa por operador e visualização detalhada de dados técnicos em JSON.</p>
+    </div>
+    <div class="info-card">
+      <h4>Recursos de Interface</h4>
+      <ul class="features-list">
+        <li>Barra de pesquisa em tempo real por utilizador, ação ou recurso</li>
+        <li>Chips/Filtros rápidos por categoria de evento</li>
+        <li>Badges coloridas com nível de criticidade e ação</li>
+        <li>Card expansível para visualização de metadados em JSON formatado</li>
+        <li>Data, hora e IP do cliente registrados</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Garantias de Segurança</h4>
+      <ul>
+        <li>Tabela imutável com políticas SQL RLS (sem permissão de DELETE/UPDATE)</li>
+        <li>Registo transparente de alterações clínicas e de staff</li>
+        <li>Conformidade com boas práticas de governança de dados médicos</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 5.5 Recuperação de Senha Admin -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#f3e8ff;">🔑</div>
+    <div class="screen-header-text">
+      <h3>5.5 — Recuperação de Senha & Redefinição</h3>
+      <span class="file-badge">src/screens/auth/ForgotPasswordScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-rose">Administrador</span>
+    <span class="role-tag badge-blue">Todos os Usuários</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Fluxo de autosserviço para recuperação de credenciais de acesso através de envio de link seguro com token criptográfico assinado por e-mail, integrado ao serviço Supabase Auth.</p>
+    </div>
+    <div class="info-card">
+      <h4>Fluxo de Recuperação</h4>
+      <ul class="features-list">
+        <li>Inserção do e-mail cadastrado na plataforma</li>
+        <li>Envio de mensagem com token de uso único</li>
+        <li>Redefinição de senha em tela dedicada com validação de força</li>
+        <li>Redirecionamento automático pós-atualização</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 5.6 Admin Profile -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#e0f2fe;">👤</div>
+    <div class="screen-header-text">
+      <h3>5.6 — Perfil do Administrador & Configuração de 2FA</h3>
+      <span class="file-badge">src/screens/admin/AdminProfileScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-rose">Administrador</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Gestão dos dados pessoais do Administrador, credenciais de acesso e segurança avançada. Inclui o controle central da <strong>Verificação em Duas Etapas (2FA)</strong> com indicador visual de alta visibilidade <strong>"ON"</strong> (verde ativo) quando ativado, e <strong>"OFF"</strong> (cinza neutro) quando desativado.</p>
+    </div>
+    <div class="info-card">
+      <h4>Recursos do Perfil</h4>
+      <ul class="features-list">
+        <li>Atualização de nome, e-mail e contacto telefónico</li>
+        <li>Alteração de senha com validação de segurança</li>
+        <li>Chave seletora de 2FA com status claro (ON / OFF)</li>
+        <li>Verificação híbrida de 2FA (WhatsApp e TOTP)</li>
+        <li>Modal responsivo de ativação de 2FA adaptável a Web e Mobile</li>
+        <li>Encerramento seguro de sessão (Logout)</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Protecção Multifator</h4>
+      <ul>
+        <li>Detecção automática de status em banco e no Supabase MFA</li>
+        <li>Confirmação criptográfica do código de 6 dígitos no WhatsApp</li>
+        <li>Prevenção de ataques de força bruta ou interceptação</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====================================================== -->
+<!-- CAPÍTULO 6 — MÓDULO COMPARTILHADO -->
+<!-- ====================================================== -->
+<div class="chapter-header page-break">
+  <div class="ch-tag">Capítulo 6</div>
+  <h2>Módulo Compartilhado</h2>
+  <p>Telas e funcionalidades transversais acessíveis por múltiplos perfis de utilizadores.</p>
+</div>
+
+<!-- 6.1 Chat -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#ede9fe;">💬</div>
+    <div class="screen-header-text">
+      <h3>6.1 — Chat (Tela de Conversa)</h3>
+      <span class="file-badge">src/screens/shared/ChatScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-purple">Paciente</span>
+    <span class="role-tag badge-blue">Dentista</span>
+    <span class="role-tag badge-amber">Secretária</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Interface de chat em tempo real que permite comunicação direta entre os diferentes perfis de utilizadores (Paciente ↔ Dentista, Paciente ↔ Secretária). As mensagens são entregues instantaneamente via <strong>Supabase Realtime</strong>, sem necessidade de recarregar a tela. É a alternativa digital às chamadas telefónicas para comunicações clínicas rápidas.</p>
+    </div>
+    <div class="info-card">
+      <h4>Funcionalidades do Chat</h4>
+      <ul class="features-list">
+        <li>Mensagens em tempo real (WebSocket)</li>
+        <li>Bolhas de mensagem diferenciadas (enviadas/recebidas)</li>
+        <li>Timestamp em cada mensagem</li>
+        <li>Indicador de estado da mensagem (enviado/lido)</li>
+        <li>Scroll automático para última mensagem</li>
+        <li>Campo de texto com botão de envio</li>
+        <li>Suporte a teclado (KeyboardAvoidingView)</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Arquitetura Técnica</h4>
+      <ul class="features-list">
+        <li>Tabela <code>messages</code> no Supabase com RLS (Row Level Security)</li>
+        <li>Subscription em tempo real por canal de conversa</li>
+        <li>Cada conversa tem um ID único (UUID)</li>
+        <li>Histórico persistente — mensagens não se perdem</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 6.2 Lista Conversas -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#d1fae5;">📱</div>
+    <div class="screen-header-text">
+      <h3>6.2 — Lista de Conversas</h3>
+      <span class="file-badge">src/screens/shared/ConversationsListScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-purple">Paciente</span>
+    <span class="role-tag badge-blue">Dentista</span>
+    <span class="role-tag badge-amber">Secretária</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Lista de todas as conversas ativas do utilizador, similar à tela principal de aplicativos de mensagens. Para cada conversa, mostra o nome do interlocutor, a última mensagem trocada, o timestamp e o número de mensagens não lidas.</p>
+    </div>
+    <div class="info-card">
+      <h4>Elementos por Conversa</h4>
+      <ul class="features-list">
+        <li>Avatar/foto do interlocutor</li>
+        <li>Nome do interlocutor e papel (Dentista, Secretária)</li>
+        <li>Prévia da última mensagem</li>
+        <li>Data/hora da última mensagem</li>
+        <li>Badge com contador de não lidas</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- 6.3 Notificações -->
+<div class="screen-section">
+  <div class="screen-header">
+    <div class="screen-icon" style="background:#fef3c7;">🔔</div>
+    <div class="screen-header-text">
+      <h3>6.3 — Notificações</h3>
+      <span class="file-badge">src/screens/shared/NotificacoesScreen.tsx</span>
+    </div>
+  </div>
+  <div class="roles-row">
+    <span class="role-tag badge-purple">Todos os perfis</span>
+  </div>
+  <div class="screen-body">
+    <div class="desc-block">
+      <p>Centro de notificações do sistema. Agrega todos os alertas e atualizações relevantes para o utilizador: nova triagem atribuída (dentista), triagem respondida (paciente), agendamento confirmado (paciente), novo pagamento registado (dentista). Permite marcar como lido e aceder ao contexto de cada notificação.</p>
+    </div>
+    <div class="info-card">
+      <h4>Tipos de Notificações</h4>
+      <ul>
+        <li>🩺 Nova triagem para responder (Dentista)</li>
+        <li>✅ Triagem respondida pelo dentista (Paciente)</li>
+        <li>📅 Agendamento confirmado (Paciente)</li>
+        <li>💬 Nova mensagem recebida (Todos)</li>
+        <li>💰 Pagamento registado (Dentista/Admin)</li>
+      </ul>
+    </div>
+    <div class="info-card">
+      <h4>Funcionalidades</h4>
+      <ul class="features-list">
+        <li>Lista cronológica de notificações</li>
+        <li>Badge de não lidas no ícone da aba</li>
+        <li>Toque para ir ao contexto (triagem, chat, etc.)</li>
+        <li>Marcar todas como lidas</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+
+<!-- ====================================================== -->
+<!-- RODAPÉ / CONSIDERAÇÕES FINAIS -->
+<!-- ====================================================== -->
+<div style="background: var(--slate); color: #94a3b8; padding: 50px 80px; page-break-before: always; min-height: 40vh; display: flex; flex-direction: column; justify-content: center;">
+  <h2 style="color:#fff; font-size: 1.8rem; margin-bottom: 20px;">Considerações Finais</h2>
+  <p style="font-size: 1rem; line-height: 1.8; max-width: 700px;">
+    O <strong style="color:#fff;">Sorriso Digital</strong> é composto por <strong style="color: var(--blue);">mais de 40 telas</strong> distribuídas por 4 módulos principais (Paciente, Dentista, Secretária e Administrador), mais um módulo transversal de comunicação. Toda a plataforma foi construída com <strong style="color:#fff;">React Native + Supabase</strong>, garantindo funcionamento nativo em iOS, Android e Web a partir de um único codebase.
+  </p>
+  <p style="margin-top: 16px; font-size: 1rem; line-height: 1.8; max-width: 700px;">
+    A arquitetura orientada a <strong style="color:#fff;">roles (RBAC)</strong> garante que cada utilizador apenas acede ao que lhe compete, com todas as comunicações protegidas por autenticação JWT e Row Level Security (RLS) no Supabase.
+  </p>
+  <div style="margin-top: 40px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; font-size: 0.85rem; color: #64748b;">
+    © 2026 Sorriso Digital — António Pio Macaia Tati — ISPI, Lubango, Angola
+  </div>
+</div>
+
+</body>
+</html>

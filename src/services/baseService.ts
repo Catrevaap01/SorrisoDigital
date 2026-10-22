@@ -101,7 +101,7 @@ class BaseService<T extends Record<string, unknown>> {
     try {
       const { data: result, error } = await supabase
         .from(this.tableName)
-        .insert([data])
+        .insert([data as any])
         .select()
         .single();
 

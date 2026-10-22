@@ -11,15 +11,18 @@ const DentistaMensagensScreen: React.FC<Props> = ({ route }) => {
   const [conversaSelecionada, setConversaSelecionada] = useState<string | null>(null);
   const [outroNome, setOutroNome] = useState('');
   const [outroAvatar, setOutroAvatar] = useState<string | undefined>(undefined);
+  const [outroUserId, setOutroUserId] = useState<string | undefined>(undefined);
 
   const handleSelectConversa = (
     conversationId: string,
     otherUserName: string,
-    otherUserAvatar?: string
+    otherUserAvatar?: string,
+    otherUserId?: string
   ) => {
     setConversaSelecionada(conversationId);
     setOutroNome(otherUserName);
     setOutroAvatar(otherUserAvatar);
+    setOutroUserId(otherUserId);
   };
 
   const handleBackFromChat = () => {
@@ -41,6 +44,7 @@ const DentistaMensagensScreen: React.FC<Props> = ({ route }) => {
           conversationId={conversaSelecionada}
           otherUserName={outroNome}
           otherUserAvatar={outroAvatar}
+          otherUserId={outroUserId}
           onBack={handleBackFromChat}
         />
       </View>

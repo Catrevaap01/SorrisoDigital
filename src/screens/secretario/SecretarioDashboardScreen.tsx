@@ -190,18 +190,18 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
   metricsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: SPACING.md,
+    gap: isMobile ? SPACING.sm : SPACING.md,
     marginBottom: SPACING.md,
     width: '100%',
   },
   metricCard: {
     flex: Platform.OS === 'web' ? 1 : undefined,
-    minWidth: Platform.OS === 'web' ? 180 : '47%',
+    minWidth: Platform.OS === 'web' ? 150 : '47%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: SPACING.md,
+    borderRadius: 16,
+    padding: isMobile ? SPACING.sm : SPACING.md,
     borderWidth: 1,
-    borderColor: '#ECECEC',
+    borderColor: '#E6EAF0',
     ...SHADOWS.sm,
   },
   metricIcon: {
@@ -213,7 +213,7 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
     marginBottom: 12,
   },
   metricValue: {
-    fontSize: 22,
+    fontSize: isMobile ? 19 : 22,
     color: COLORS.text,
     fontWeight: TYPOGRAPHY.weights.bold,
   },
@@ -256,6 +256,8 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
     marginTop: SPACING.md,
     alignItems: isMobile ? 'stretch' : 'flex-start',
     width: '100%',
+    maxWidth: isMobile ? '100%' : 800,
+    alignSelf: 'center',
   },
   columnLeft: {
     flex: isMobile ? undefined : 1.1,
@@ -286,6 +288,141 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ECECEC',
     ...SHADOWS.sm,
+  },
+  operationIntro: {
+    flexDirection: isMobile ? 'column' : 'row',
+    gap: SPACING.md,
+    alignItems: 'stretch',
+    marginBottom: SPACING.md,
+  },
+  operationIntroMain: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: isMobile ? SPACING.md : SPACING.lg,
+    borderWidth: 1,
+    borderColor: '#E6EAF0',
+    ...SHADOWS.sm,
+  },
+  operationEyebrow: {
+    color: '#6D28D9',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  operationIntroTitle: {
+    color: COLORS.text,
+    fontSize: isMobile ? 21 : 24,
+    fontWeight: '800',
+  },
+  operationIntroText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 6,
+  },
+  operationIntroAside: {
+    width: isMobile ? '100%' : 260,
+    backgroundColor: '#111827',
+    borderRadius: 20,
+    padding: SPACING.md,
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+  },
+  operationAsideLabel: {
+    color: '#C4B5FD',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  operationAsideValue: {
+    color: '#FFFFFF',
+    fontSize: 30,
+    fontWeight: '900',
+  },
+  operationAsideText: {
+    color: '#D1D5DB',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  operationQueuesGrid: {
+    flexDirection: isMobile ? 'column' : 'row',
+    gap: SPACING.md,
+    alignItems: 'flex-start',
+    marginBottom: SPACING.md,
+  },
+  operationQueueCard: {
+    flex: 1,
+    width: '100%',
+    minWidth: isMobile ? '100%' : 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: '#E6EAF0',
+    ...SHADOWS.sm,
+  },
+  operationQueueHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  operationQueueTitleWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  operationQueueTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  operationQueueIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  operationQueueTitle: {
+    color: COLORS.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  operationQueueSubtitle: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  operationCountPill: {
+    minWidth: 34,
+    height: 30,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  operationCountText: {
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  supportGrid: {
+    flexDirection: 'column',
+    gap: SPACING.md,
+    alignItems: 'flex-start',
+    marginBottom: SPACING.md,
+  },
+  supportCard: {
+    flex: 1,
+    width: '100%',
+  },
+  hiddenLegacy: {
+    display: 'none',
   },
   cardHeaderRow: {
     flexDirection: isMobile ? 'column' : 'row',
@@ -1102,42 +1239,42 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
   const metricas = useMemo(
     () => [
       {
-        label: 'Aguardando Factura',
-        value: financeiroResumo.aguardando,
-        icon: 'document-text-outline',
-        color: '#DC2626',
-        bg: '#FEE2E2',
+        label: 'Triagens pendentes',
+        value: triagensOrdenadas.length,
+        icon: 'clipboard-outline',
+        color: '#0F766E',
+        bg: '#CCFBF1',
       },
       {
-        label: 'Receita Hoje',
-        value: formatCurrency(financeiroResumo.receitaHoje),
-        icon: 'cash-outline',
-        color: '#059669',
-        bg: '#D1FAE5',
+        label: 'Agendamentos',
+        value: agendamentosOrdenados.length,
+        icon: 'calendar-outline',
+        color: '#2563EB',
+        bg: '#DBEAFE',
       },
       {
-        label: 'Receita Semana',
-        value: formatCurrency(financeiroResumo.receitaSemana),
-        icon: 'cash-outline',
-        color: '#059669',
-        bg: '#D1FAE5',
-      },
-      {
-        label: 'Pacientes Hoje',
-        value: financeiroResumo.pacientesHoje,
-        icon: 'people-outline',
-        color: '#7C3AED',
-        bg: '#F3E8FF',
-      },
-      {
-        label: 'Taxa Falta',
-        value: `${financeiroResumo.taxaFalta.toFixed(1)}%`,
+        label: 'Alertas críticos',
+        value: alertas.length,
         icon: 'alert-circle-outline',
         color: '#DC2626',
         bg: '#FEE2E2',
       },
+      {
+        label: 'Retornos',
+        value: retornos.length,
+        icon: 'time-outline',
+        color: '#7C3AED',
+        bg: '#F3E8FF',
+      },
+      {
+        label: 'Aguardando factura',
+        value: financeiroResumo.aguardando,
+        icon: 'document-text-outline',
+        color: '#C2410C',
+        bg: '#FFEDD5',
+      },
     ],
-    [financeiroResumo]
+    [agendamentosOrdenados.length, alertas.length, financeiroResumo.aguardando, retornos.length, triagensOrdenadas.length]
   );
 
   const relatorioMetrics = useMemo(() => {
@@ -1222,7 +1359,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.board}>
         {/* SECÇÃO A: Não AtribuídoS */}
-        <View style={[styles.card, { borderColor: '#DC2626', borderTopWidth: 4, width: '100%', flex: isMobile ? undefined : 1, minWidth: isMobile ? '100%' : 340, marginBottom: SPACING.md }]}>
+        <View style={[styles.card, { borderColor: '#DC2626', borderTopWidth: 4, width: '100%', flex: isMobile ? undefined : 1, minWidth: isMobile ? '100%' : 300, maxWidth: isMobile ? '100%' : 380, marginBottom: SPACING.md }]}>
           <View style={styles.cardHeaderRow}>
             <View>
               <Text style={[styles.cardTitle, { color: '#DC2626' }]}>NÃO ATRIBUÍDOS</Text>
@@ -1276,7 +1413,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
 
         {/* SECÇÃO B: ATRIBUÍDOS */}
-        <View style={[styles.card, { borderColor: '#059669', borderTopWidth: 4, width: '100%', flex: isMobile ? undefined : 1, minWidth: isMobile ? '100%' : 340 }]}>
+        <View style={[styles.card, { borderColor: '#059669', borderTopWidth: 4, width: '100%', flex: isMobile ? undefined : 1, minWidth: isMobile ? '100%' : 300, maxWidth: isMobile ? '100%' : 380 }]}>
           <View style={styles.cardHeaderRow}>
             <View>
               <Text style={[styles.cardTitle, { color: '#059669' }]}>ATRIBUÍDOS</Text>
@@ -1401,6 +1538,25 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   const renderOperacaoTab = () => (
     <>
+      <View style={styles.operationIntro}>
+        <View style={styles.operationIntroMain}>
+          <Text style={styles.operationEyebrow}>Centro de operações</Text>
+          <Text style={styles.operationIntroTitle}>Priorize, atribua e acompanhe sem perder contexto</Text>
+          <Text style={styles.operationIntroText}>
+            As filas principais ficam separadas por tipo de solicitação. Use os alertas e retornos apenas como apoio para decidir o que tratar primeiro.
+          </Text>
+        </View>
+        <View style={styles.operationIntroAside}>
+          <Text style={styles.operationAsideLabel}>Em aberto</Text>
+          <Text style={styles.operationAsideValue}>{itensCombinados.length}</Text>
+          <Text style={styles.operationAsideText}>
+            {alertas.length > 0
+              ? `${alertas.length} item(ns) precisam de atenção prioritária.`
+              : 'Sem alertas críticos neste momento.'}
+          </Text>
+        </View>
+      </View>
+
       <View style={styles.metricsRow}>
         {metricas.map((item) => (
           <View key={item.label} style={styles.metricCard}>
@@ -1413,12 +1569,87 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
         ))}
       </View>
 
-      <View style={styles.sectionHeader}>
+      <View style={styles.operationQueuesGrid}>
+        <View style={styles.operationQueueCard}>
+          <View style={styles.operationQueueHeader}>
+            <View style={styles.operationQueueTitleWrap}>
+              <View style={styles.operationQueueTitleRow}>
+                <View style={[styles.operationQueueIcon, { backgroundColor: '#CCFBF1' }]}>
+                  <Ionicons name="clipboard-outline" size={18} color="#0F766E" />
+                </View>
+                <Text style={styles.operationQueueTitle}>Triagens</Text>
+              </View>
+              <Text style={styles.operationQueueSubtitle}>Casos clínicos recebidos para validação e encaminhamento.</Text>
+            </View>
+            <View style={[styles.operationCountPill, { backgroundColor: '#CCFBF1' }]}>
+              <Text style={[styles.operationCountText, { color: '#0F766E' }]}>{triagensOrdenadas.length}</Text>
+            </View>
+          </View>
+          <FilasList
+            titulo="Triagens Pendentes"
+            tipo="triagem"
+            dados={triagensOrdenadas}
+            loading={filas.loading}
+            onAtribuir={handleAtribuirTriagem}
+            onRejeitar={handleRejeitarTriagem}
+            emptyMessage="Nenhuma triagem pendente no momento"
+          />
+        </View>
+
+        <View style={styles.operationQueueCard}>
+          <View style={styles.operationQueueHeader}>
+            <View style={styles.operationQueueTitleWrap}>
+              <View style={styles.operationQueueTitleRow}>
+                <View style={[styles.operationQueueIcon, { backgroundColor: '#DBEAFE' }]}>
+                  <Ionicons name="calendar-outline" size={18} color="#2563EB" />
+                </View>
+                <Text style={styles.operationQueueTitle}>Agendamentos</Text>
+              </View>
+              <Text style={styles.operationQueueSubtitle}>Pedidos de consulta que precisam de atribuição da secretaria.</Text>
+            </View>
+            <View style={[styles.operationCountPill, { backgroundColor: '#DBEAFE' }]}>
+              <Text style={[styles.operationCountText, { color: '#2563EB' }]}>{agendamentosOrdenados.length}</Text>
+            </View>
+          </View>
+          <FilasList
+            titulo="Agendamentos Pendentes"
+            tipo="agendamento"
+            dados={agendamentosOrdenados}
+            loading={filas.loading}
+            onAtribuir={handleAtribuirAgendamento}
+            onRejeitar={handleRejeitarAgendamento}
+            emptyMessage="Nenhum agendamento pendente no momento"
+          />
+        </View>
+      </View>
+
+      <View style={styles.supportGrid}>
+        {renderMiniList(
+          'Novas solicitações',
+          'Pedidos mais recentes que chegaram para a secretaria.',
+          novasSolicitacoes,
+          'Nenhuma nova solicitação no momento.'
+        )}
+        {renderMiniList(
+          'Alertas',
+          'Itens urgentes ou de alta prioridade.',
+          alertas,
+          'Nenhum alerta crítico agora.'
+        )}
+        {renderMiniList(
+          'Retornos',
+          'Itens que já aguardam atenção há mais tempo.',
+          retornos,
+          'Nenhum retorno pendente agora.'
+        )}
+      </View>
+
+      <View style={styles.hiddenLegacy}>
         <Text style={styles.sectionHeaderTitle}>Fluxo da Secretaria</Text>
         <Text style={styles.sectionHeaderSubtitle}>Organize triagens e agendamentos em painéis separados para uma leitura rápida e clara.</Text>
       </View>
 
-      <View style={styles.board}>
+      <View style={styles.hiddenLegacy}>
         <View style={styles.columnLeft}>
           {renderMiniList(
             'Novas solicitações',

@@ -16,6 +16,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { copiarParaAreaDeTransferencia } from '../../utils/senhaUtils';
 import { COLORS, SPACING, TYPOGRAPHY, SIZES, SHADOWS } from '../../styles/theme';
+import { supabase } from '../../config/supabase';
 import { recuperarSenhaPaciente } from '../../services/passwordRecoveryService';
 import { notifyNewMessage } from '../../services/localNotificationService';
 
@@ -32,25 +33,45 @@ export default function ForgotPasswordScreen({ navigation }: any) {
   const handleSubmit = async () => {
     setError('');
     setLoading(true);
+    setNovaSenha(null);
+
+    const emailTrimmed = email.trim().toLowerCase();
     try {
-      const result = await recuperarSenhaPaciente(email.trim().toLowerCase());
-      if (result.success) {
-        setNovaSenha(result.novaSenha || null);
-        Toast.show({
-          type: 'success',
-          text1: 'Senha alterada',
-          text2: result.emailSent
-            ? 'Senha temporária enviada por email e notificação'
-            : 'Senha alterada, verifique seu email',
-        });
-        if (result.emailSent) {
-          await notifyNewMessage(
-            'Recuperação de senha',
-            'Sua senha temporária foi enviada por email'
-          );
+      // Use Supabase native resetPasswordForEmail flow
+      // This sends a magic link to re-verify/redefine password.
+      const redirectUrl = Platform.OS === 'web' 
+        ? `${window.location.origin}/redefinir-senha`
+        : 'teodonto://redefinir-senha';
+
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(emailTrimmed, {
+        redirectTo: redirectUrl,
+      });
+
+      if (resetError) {
+        // Fallback for custom DB recovery
+        console.warn('Native resetPasswordForEmail failed, using backup recovery service:', resetError.message);
+        const result = await recuperarSenhaPaciente(emailTrimmed);
+        if (result.success) {
+          setNovaSenha(result.novaSenha || null);
+          Toast.show({
+            type: 'success',
+            text1: 'Recuperação activada',
+            text2: 'Uma senha temporária foi exibida e configurada.',
+          });
+        } else {
+          throw new Error(result.error || resetError.message);
         }
       } else {
-        setError(result.error || 'Erro ao recuperar senha');
+        Toast.show({
+          type: 'success',
+          text1: 'Link enviado!',
+          text2: 'Verifique a sua caixa de correio para redefinir a password.',
+          visibilityTime: 6000,
+        });
+        await notifyNewMessage(
+          'Recuperação de senha',
+          'Enviámos-lhe um link de redefinição por e-mail.'
+        );
       }
     } catch (err: any) {
       setError(err.message || 'Erro inesperado');
@@ -83,7 +104,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
           <View style={styles.card}>
             <View style={styles.imageContainer}>
               <Image 
-                source={require('../../../assets/forgot_password_illustration.png')} 
+                source={require('../../../assets/forgot_password_illustration.jpg')} 
                 style={styles.illustration}
                 resizeMode="contain"
               />

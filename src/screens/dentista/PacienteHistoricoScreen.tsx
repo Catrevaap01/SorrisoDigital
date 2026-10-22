@@ -22,6 +22,8 @@ import { DentistaStackParamList } from '../../navigation/types';
 import { SecretarioStackParamList } from '../../navigation/types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
+import QRCode from 'react-native-qrcode-svg';
+import Constants from 'expo-constants';
 
 type PacienteHistoricoProps = NativeStackScreenProps<
   DentistaStackParamList | SecretarioStackParamList,
@@ -107,6 +109,13 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
 
     const isSecretario = profile?.tipo === 'secretario';
 
+    const imagens = Array.isArray(item.imagens)
+      ? item.imagens
+      : (item.imagens && typeof item.imagens === 'string'
+        ? [item.imagens]
+        : []);
+    const temImagens = imagens.length > 0;
+
     return (
       <TouchableOpacity
         style={styles.rowItem}
@@ -134,6 +143,16 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
             }) : 'N/A'}
           </Text>
         </View>
+        {temImagens && (
+          <View style={styles.rowThumbnailContainer}>
+            <Image source={{ uri: imagens[0] }} style={styles.rowThumbnail} />
+            {imagens.length > 1 && (
+              <View style={styles.rowImgCountBadge}>
+                <Text style={styles.rowImgCountText}>+{imagens.length}</Text>
+              </View>
+            )}
+          </View>
+        )}
         {!isSecretario && (
           <Ionicons name="chevron-forward" size={18} color={COLORS.textSecondary} />
         )}
@@ -181,6 +200,17 @@ const PacienteHistoricoScreen: React.FC<PacienteHistoricoProps> = ({
             {paciente.medicamentos_atuais}
           </Text>
         )}
+
+        <View style={styles.qrContainer}>
+          <Text style={styles.qrTitle}>QR-instalar o app</Text>
+          <View style={styles.qrWrapper}>
+            <QRCode
+              value={Constants.expoConfig?.extra?.APK_DOWNLOAD_URL || 'https://expo.dev/@antoniotati/TeOdontoAngola'}
+              size={120}
+              color={COLORS.primary}
+            />
+          </View>
+        </View>
       </View>
     );
   };
@@ -270,6 +300,19 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: SIZES.fontMd, fontWeight: '600', marginBottom: SIZES.xs },
   infoLabel: { fontWeight: '500', color: COLORS.textSecondary },
   infoText: { fontSize: SIZES.fontSm, marginTop: 2, color: COLORS.text },
+  qrContainer: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: SIZES.md,
+    marginTop: SIZES.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: SIZES.md,
+  },
+  qrWrapper: { padding: 4, backgroundColor: 'white', borderRadius: 8 },
+  qrTitle: { fontSize: SIZES.fontMd, fontWeight: '700', color: COLORS.primary },
   centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: COLORS.textSecondary, marginTop: SIZES.md },
   emptyTitle: { fontSize: SIZES.fontLg, color: COLORS.textSecondary, marginTop: SIZES.md },
@@ -286,6 +329,34 @@ const styles = StyleSheet.create({
   rowMain: { flex: 1 },
   rowTitulo: { fontSize: SIZES.fontMd, fontWeight: '600', color: COLORS.text },
   rowSubtitulo: { marginTop: 2, fontSize: SIZES.fontSm, color: COLORS.textSecondary },
+  rowThumbnailContainer: {
+    position: 'relative',
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginRight: SIZES.sm,
+    backgroundColor: COLORS.divider,
+  },
+  rowThumbnail: {
+    width: '100%',
+    height: '100%',
+  },
+  rowImgCountBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    top: 0,
+    left: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rowImgCountText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
   rowSeparator: { height: SIZES.sm },
 });
 

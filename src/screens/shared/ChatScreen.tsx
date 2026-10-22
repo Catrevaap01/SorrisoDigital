@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePresence } from '../../contexts/PresenceContext';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
 import {
   Message,
@@ -35,6 +36,7 @@ interface ChatScreenProps {
   conversationId: string;
   otherUserName: string;
   otherUserAvatar?: string;
+  otherUserId?: string;
   onBack?: () => void;
 }
 
@@ -42,9 +44,11 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
   conversationId,
   otherUserName,
   otherUserAvatar,
+  otherUserId,
   onBack,
 }) => {
   const { user, profile } = useAuth();
+  const { isUserOnline } = usePresence();
   const [mensagens, setMensagens] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -190,43 +194,59 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
     setRefreshing(false);
   };
 
-  // Renderizar item de mensagem
-  const renderMensagem = ({ item }: { item: Message }) => {
+  // Renderizar item de mensagem — agrupa consecutivas do mesmo remetente
+  const renderMensagem = ({ item, index }: { item: Message; index: number }) => {
     const isOwn = user?.id === item.sender_id;
     const displayName = isOwn
       ? 'Você'
       : item.sender_name || otherUserName || 'Sem nome';
 
+    // Only show sender name on the FIRST message of a consecutive group
+    const prevMsg = index > 0 ? mensagens[index - 1] : null;
+    const isFirstInGroup = !prevMsg || prevMsg.sender_id !== item.sender_id;
+
+    // Last in group → show timestamp; rounded corners reflect grouping
+    const nextMsg = index < mensagens.length - 1 ? mensagens[index + 1] : null;
+    const isLastInGroup = !nextMsg || nextMsg.sender_id !== item.sender_id;
+
     return (
-      <View style={[styles.mensagemContainer, isOwn && styles.mensagemOwn]}>
-        {/* show sender name above bubble */}
-        <Text
-          style={[
-            styles.mensagemRemetente,
-            isOwn && styles.mensagemRemetenteOwn,
-          ]}
-        >
-          {displayName}
-        </Text>
-        <View style={[styles.mensagemBubble, isOwn && styles.mensagemBubbleOwn]}>
+      <View style={[
+        styles.mensagemContainer,
+        isOwn && styles.mensagemOwn,
+        !isFirstInGroup && styles.mensagemGrouped,
+      ]}>
+        {/* Show sender name only at start of group */}
+        {isFirstInGroup && (
+          <Text style={[styles.mensagemRemetente, isOwn && styles.mensagemRemetenteOwn]}>
+            {displayName}
+          </Text>
+        )}
+        <View style={[
+          styles.mensagemBubble,
+          isOwn && styles.mensagemBubbleOwn,
+          !isFirstInGroup && (isOwn ? styles.bubbleGroupedOwn : styles.bubbleGrouped),
+          !isLastInGroup && (isOwn ? styles.bubbleNotLastOwn : styles.bubbleNotLast),
+        ]}>
           <Text style={[styles.mensagemTexto, isOwn && styles.mensagemTextoOwn]}>
             {item.content}
           </Text>
-          <Text
-            style={[
-              styles.mensagemHora,
-              isOwn && styles.mensagemHoraOwn,
-            ]}
-          >
-            {new Date(item.created_at).toLocaleTimeString('pt-PT', {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </Text>
+          {/* Show time only on the last message of the group */}
+          {isLastInGroup && (
+            <Text style={[styles.mensagemHora, isOwn && styles.mensagemHoraOwn]}>
+              {new Date(item.created_at).toLocaleTimeString('pt-PT', {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </Text>
+          )}
         </View>
       </View>
     );
   };
+
+  // Determina o ID do parceiro de conversa e se ele está online em tempo real
+  const partnerId = otherUserId || mensagens.find((m) => m.sender_id !== user?.id)?.sender_id;
+  const isOnline = isUserOnline(partnerId);
 
   return (
     <KeyboardAvoidingView
@@ -234,7 +254,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
       style={styles.container}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
     >
-      {/* Header */}
+      {/* Header com foto, nome e status Online/Offline em tempo real */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           {onBack ? (
@@ -246,10 +266,17 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
             <Text style={styles.avatarSmallText}>
               {otherUserName?.charAt(0).toUpperCase() || '?'}
             </Text>
+            {/* Ponto indicador de presença no avatar */}
+            <View style={[styles.avatarStatusDot, isOnline ? styles.dotOnline : styles.dotOffline]} />
           </View>
           <View style={styles.headerInfo}>
             <Text style={styles.headerTitle}>{otherUserName}</Text>
-            <Text style={styles.headerStatus}>Online</Text>
+            <View style={styles.statusRow}>
+              <View style={[styles.statusDotSmall, isOnline ? styles.dotOnline : styles.dotOffline]} />
+              <Text style={[styles.headerStatusText, isOnline ? styles.textOnline : styles.textOffline]}>
+                {isOnline ? 'Online' : 'Offline'}
+              </Text>
+            </View>
           </View>
         </View>
       </View>
@@ -346,6 +373,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.textInverse,
   },
+  avatarStatusDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: COLORS.surface,
+  },
+  dotOnline: {
+    backgroundColor: '#22C55E', // Verde brilhante para online
+  },
+  dotOffline: {
+    backgroundColor: '#94A3B8', // Cinzento neutro para offline
+  },
   headerInfo: {
     flex: 1,
   },
@@ -354,10 +397,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: COLORS.text,
   },
-  headerStatus: {
-    fontSize: TYPOGRAPHY.sizes.xs,
-    color: COLORS.success,
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     marginTop: 2,
+  },
+  statusDotSmall: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  headerStatusText: {
+    fontSize: TYPOGRAPHY.sizes.xs,
+    fontWeight: '500',
+  },
+  textOnline: {
+    color: '#22C55E',
+  },
+  textOffline: {
+    color: '#94A3B8',
   },
   mensagensContainer: {
     paddingVertical: SPACING.md,
@@ -386,6 +445,10 @@ const styles = StyleSheet.create({
   mensagemOwn: {
     alignItems: 'flex-end',
   },
+  // Grouped = not first in run → smaller top gap
+  mensagemGrouped: {
+    marginTop: 2,
+  },
   mensagemBubble: {
     backgroundColor: COLORS.surface,
     borderRadius: 12,
@@ -397,6 +460,20 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 2,
+  },
+  // Middle/last bubble in own group — flat top-right corner
+  bubbleGroupedOwn: {
+    borderTopRightRadius: 4,
+  },
+  bubbleGrouped: {
+    borderTopLeftRadius: 4,
+  },
+  // Not last in group — remove bottom tail radius
+  bubbleNotLastOwn: {
+    borderBottomRightRadius: 4,
+  },
+  bubbleNotLast: {
+    borderBottomLeftRadius: 4,
   },
   mensagemTexto: {
     fontSize: TYPOGRAPHY.sizes.md,

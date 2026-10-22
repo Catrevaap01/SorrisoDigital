@@ -22,7 +22,8 @@ const ActivityIndicator: React.ComponentType<any> =
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDentist } from '../../contexts/DentistContext';
-import { PROFILE_SCHEMA_FEATURES } from '../../config/supabase';
+import { PROFILE_SCHEMA_FEATURES, supabase } from '../../config/supabase';
+import MfaSetupModal from '../../components/MfaSetupModal';
 import { buscarPaciente, parsePacienteProfile, validarData } from '../../services/pacienteService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { PROVINCIAS_ANGOLA } from '../../utils/constants';
@@ -53,6 +54,18 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
   const [editando, setEditando] = useState<boolean>(forceEdit);
   const [salvandoPerfil, setSalvandoPerfil] = useState(false);
   const [baixandoPdf, setBaixandoPdf] = useState(false);
+
+  const [abrirMfaSetup, setAbrirMfaSetup] = useState(false);
+  const [twoStepEnabled, setTwoStepEnabled] = useState(false);
+  const isStaff = ['admin', 'secretario', 'secretaria', 'dentista', 'medico'].includes((profile?.tipo || '').toLowerCase());
+
+  const checkMfaStatus = useCallback(() => {
+    setTwoStepEnabled(Boolean(profile?.two_step_enabled));
+  }, [profile?.two_step_enabled]);
+
+  useEffect(() => {
+    checkMfaStatus();
+  }, [checkMfaStatus]);
 
   useEffect(() => {
     if (forceEdit && (!profile?.telefone || !profile?.provincia)) {
@@ -570,6 +583,26 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
             <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
           </TouchableOpacity>
 
+          {isStaff && (
+            <TouchableOpacity
+              style={styles.opcaoItem}
+              onPress={() => setAbrirMfaSetup(true)}
+            >
+              <Ionicons
+                name={twoStepEnabled ? "shield-checkmark" : "shield-outline"}
+                size={22}
+                color={twoStepEnabled ? COLORS.success : COLORS.textSecondary}
+              />
+              <Text style={styles.opcaoText}>Verificação 2 Etapas (WhatsApp)</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: twoStepEnabled ? COLORS.success : COLORS.textSecondary }}>
+                  {twoStepEnabled ? 'ACTIVO' : 'DESACTIVADO'}
+                </Text>
+                <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} />
+              </View>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             style={styles.opcaoItem}
             onPress={() => navigation.getParent()?.navigate('Privacidade')}
@@ -598,6 +631,17 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       )}
+
+      <MfaSetupModal
+        visible={abrirMfaSetup}
+        onClose={() => {
+          setAbrirMfaSetup(false);
+          checkMfaStatus();
+        }}
+        onSuccess={(mode) => {
+          setTwoStepEnabled(mode === 'enroll');
+        }}
+      />
 
       {!forceEdit && (
         <TouchableOpacity

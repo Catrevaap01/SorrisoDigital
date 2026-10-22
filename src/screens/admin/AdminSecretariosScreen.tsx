@@ -342,12 +342,6 @@ const AdminSecretariosScreen: React.FC = () => {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#7C3AED']} />}
           contentContainerStyle={[styles.lista, Platform.OS === 'web' && styles.webLista]}
           onScrollBeginDrag={() => setExpandedId(null)}
-          ListHeaderComponent={
-            <View style={styles.listHeader}>
-              <Ionicons name="people-outline" size={18} color="#7C3AED" />
-              <Text style={styles.listHeaderText}>{listaFiltrada.length} secretario(s) cadastrado(s)</Text>
-            </View>
-          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="person-outline" size={64} color={COLORS.textSecondary} />
@@ -700,12 +694,32 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 16, fontWeight: '600', color: COLORS.textSecondary },
   emptySubtext: { fontSize: 13, color: COLORS.textSecondary },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  keyboardAvoidingView: { flex: 1, justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: COLORS.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: Platform.OS === 'ios' ? 34 : 16, maxHeight: '90%' },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
+    alignItems: Platform.OS === 'web' ? 'center' : 'stretch',
+    paddingHorizontal: Platform.OS === 'web' ? 18 : 0,
+  },
+  keyboardAvoidingView: {
+    width: Platform.OS === 'web' ? '92%' : '100%',
+    maxWidth: Platform.OS === 'web' ? 540 : undefined,
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
+  },
+  modalContent: {
+    width: '100%',
+    backgroundColor: COLORS.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderBottomLeftRadius: Platform.OS === 'web' ? 24 : 0,
+    borderBottomRightRadius: Platform.OS === 'web' ? 24 : 0,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+    maxHeight: Platform.OS === 'web' ? '84%' : '90%',
+    overflow: 'hidden',
+  },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text },
-  modalForm: { padding: SPACING.md },
+  modalTitle: { flex: 1, paddingRight: SPACING.md, fontSize: 18, fontWeight: '700', color: COLORS.text },
+  modalForm: { padding: SPACING.md, flexShrink: 1 },
   modalFooter: { flexDirection: 'row', gap: SPACING.sm, padding: SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.border },
   botaoModal: { flex: 1, padding: SPACING.md, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   botaoCancelar: { backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border },
@@ -714,7 +728,7 @@ const styles = StyleSheet.create({
 
   formGroup: { marginBottom: SPACING.md },
   formLabel: { fontSize: 13, fontWeight: '600', color: COLORS.text, marginBottom: 6 },
-  formInput: { backgroundColor: COLORS.background, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.sm, fontSize: 14, color: COLORS.text, minHeight: 46, justifyContent: 'center' },
+  formInput: { backgroundColor: COLORS.background, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: SPACING.sm, paddingVertical: Platform.OS === 'web' ? 10 : SPACING.sm, fontSize: 14, color: COLORS.text, minHeight: 44, justifyContent: 'center' },
   generoRow: { flexDirection: 'row', gap: SPACING.sm, flexWrap: 'wrap' },
   generoBtn: { borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.background, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10 },
   generoBtnAtivo: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },

@@ -35,7 +35,7 @@ const ESPECIALIDADES = [
   'Odontopediatria',
   'Cirurgia Oral',
   'Implantologia',
-  'Estética',
+  'Estética', 
 ];
 
 const AtribuirDentistaAgendamentoScreen: React.FC<Props> = ({ route, navigation }) => {
@@ -324,6 +324,9 @@ const styles = StyleSheet.create({
     padding: SIZES.md,
     marginBottom: SIZES.md,
     ...SHADOWS.sm,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
   dentistaHeader: {
     flexDirection: 'row',

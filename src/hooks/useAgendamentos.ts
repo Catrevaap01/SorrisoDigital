@@ -38,7 +38,7 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<HandledError | null>(null);
   const lastFiltersRef = useRef<Record<string, any>>({});
-  const hasLoadedRef = useRef(false);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   /**
    * Buscar agendamentos
@@ -68,7 +68,7 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
         if (queryError) throw queryError;
 
         setAgendamentos(data as Agendamento[] || []);
-        hasLoadedRef.current = true;
+        setHasLoaded(true);
         logger.info('Agendamentos buscados com sucesso');
         return { success: true, data: data as Agendamento[] };
       } catch (err) {
@@ -83,8 +83,8 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
   );
 
   useRealtimeRefresh({
-    enabled: hasLoadedRef.current,
-    debounceMs: 700,
+    enabled: hasLoaded,
+    debounceMs: 150,
     shouldRefresh: (event) => {
       if (event.table !== 'appointments') return false;
       if (!pacienteId) return true;
@@ -112,7 +112,7 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
 
         if (createError) throw createError;
 
-        setAgendamentos([...agendamentos, data as Agendamento]);
+        setAgendamentos((current) => [...current, data as Agendamento]);
         logger.info('Agendamento criado com sucesso');
         return { success: true, data: data as Agendamento };
       } catch (err) {
@@ -123,7 +123,7 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
         setLoading(false);
       }
     },
-    [agendamentos]
+    []
   );
 
   /**
@@ -143,7 +143,7 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
 
         if (updateError) throw updateError;
 
-        setAgendamentos(agendamentos.map((a) => (a.id === id ? (data as Agendamento) : a)));
+        setAgendamentos((current) => current.map((a) => (a.id === id ? (data as Agendamento) : a)));
         logger.info('Agendamento atualizado com sucesso');
         return { success: true, data: data as Agendamento };
       } catch (err) {
@@ -154,7 +154,7 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
         setLoading(false);
       }
     },
-    [agendamentos]
+    []
   );
 
   /**
@@ -172,7 +172,7 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
 
         if (deleteError) throw deleteError;
 
-        setAgendamentos(agendamentos.filter((a) => a.id !== id));
+        setAgendamentos((current) => current.filter((a) => a.id !== id));
         logger.info('Agendamento deletado com sucesso');
         return { success: true };
       } catch (err) {
@@ -183,7 +183,7 @@ export const useAgendamentos = (pacienteId: string | null = null): UseAgendament
         setLoading(false);
       }
     },
-    [agendamentos]
+    []
   );
 
   return {

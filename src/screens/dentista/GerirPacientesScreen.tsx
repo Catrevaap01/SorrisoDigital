@@ -657,7 +657,7 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
   },
   searchInput: { flex: 1, marginLeft: SIZES.sm, color: COLORS.text, fontSize: SIZES.fontMd },
   listContent: { paddingHorizontal: SIZES.md, paddingBottom: SIZES.xxl },
-  card: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusLg, padding: SIZES.md, marginBottom: SIZES.md, ...safeShadow },
+  card: { backgroundColor: COLORS.surface, borderRadius: SIZES.radiusLg, padding: SIZES.md, marginBottom: SIZES.md, ...safeShadow, maxWidth: 600, width: '100%', alignSelf: 'center' },
   cardHeader: { flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center' },
   avatar: {
     width: 44,

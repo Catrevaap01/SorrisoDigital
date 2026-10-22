@@ -186,21 +186,25 @@ DROP FUNCTION IF EXISTS public.is_secretario() CASCADE;
 DROP FUNCTION IF EXISTS public.is_healthcare_pro() CASCADE;
 DROP FUNCTION IF EXISTS public.current_user_tipo() CASCADE;
 
-CREATE OR REPLACE FUNCTION public.is_admin() RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
+CREATE OR REPLACE FUNCTION public.is_admin() RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS(SELECT 1 FROM profiles WHERE id = auth.uid() AND tipo = 'admin');
 $$;
+REVOKE EXECUTE ON FUNCTION public.is_admin() FROM public;
 
-CREATE OR REPLACE FUNCTION public.is_secretario() RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
+CREATE OR REPLACE FUNCTION public.is_secretario() RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS(SELECT 1 FROM profiles WHERE id = auth.uid() AND tipo = 'secretario');
 $$;
+REVOKE EXECUTE ON FUNCTION public.is_secretario() FROM public;
 
-CREATE OR REPLACE FUNCTION public.is_healthcare_pro() RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER AS $$
+CREATE OR REPLACE FUNCTION public.is_healthcare_pro() RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS(SELECT 1 FROM profiles WHERE id = auth.uid() AND tipo IN ('dentista','medico','secretario','admin'));
 $$;
+REVOKE EXECUTE ON FUNCTION public.is_healthcare_pro() FROM public;
 
-CREATE OR REPLACE FUNCTION public.current_user_tipo() RETURNS TEXT LANGUAGE sql STABLE SECURITY DEFINER AS $$
+CREATE OR REPLACE FUNCTION public.current_user_tipo() RETURNS TEXT LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT tipo FROM profiles WHERE id = auth.uid() LIMIT 1;
 $$;
+REVOKE EXECUTE ON FUNCTION public.current_user_tipo() FROM public;
 
 -- ============================================
 -- 4. TRIGGERS E AUTOMATIZAÇÃO
@@ -242,6 +246,14 @@ ALTER TABLE planos_tratamento ENABLE ROW LEVEL SECURITY;
 ALTER TABLE procedimentos_tratamento ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.provincias ENABLE ROW LEVEL SECURITY;
+
+-- Provincias Policies (Leitura publica, escrita apenas admin)
+DROP POLICY IF EXISTS "provincias_select" ON public.provincias;
+CREATE POLICY "provincias_select" ON public.provincias FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "provincias_admin" ON public.provincias;
+CREATE POLICY "provincias_admin" ON public.provincias FOR ALL USING (public.is_admin());
 
 -- Profiles Policies
 DROP POLICY IF EXISTS "profiles_self_access" ON profiles;
@@ -281,7 +293,7 @@ RETURNS TABLE (
   pacientes_mes BIGINT,
   dentistas_mes BIGINT,
   secretarios_mes BIGINT
-) LANGUAGE plpgsql SECURITY DEFINER AS $$
+) LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   RETURN QUERY
   SELECT
@@ -297,16 +309,20 @@ BEGIN
     (SELECT count(*) FROM profiles WHERE tipo = 'secretario' AND created_at >= date_trunc('month', now()))::BIGINT;
 END;
 $$;
+REVOKE EXECUTE ON FUNCTION public.admin_report_stats() FROM public;
+GRANT EXECUTE ON FUNCTION public.admin_report_stats() TO authenticated, service_role;
 
 -- Busca de dentistas públicos (para pacientes)
 CREATE OR REPLACE FUNCTION public.listar_dentistas_publicos()
-RETURNS SETOF profiles LANGUAGE sql SECURITY DEFINER AS $$
+RETURNS SETOF profiles LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
   SELECT * FROM profiles WHERE tipo IN ('dentista', 'medico') ORDER BY nome ASC;
 $$;
+REVOKE EXECUTE ON FUNCTION public.listar_dentistas_publicos() FROM public;
+GRANT EXECUTE ON FUNCTION public.listar_dentistas_publicos() TO authenticated, service_role;
 
 -- Exclusão completa de dentista
 CREATE OR REPLACE FUNCTION public.admin_delete_dentista_full(p_dentista_id UUID)
-RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER AS $$
+RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NOT public.is_admin() THEN RAISE EXCEPTION 'Apenas admins podem excluir dentistas'; END IF;
   
@@ -318,6 +334,11 @@ BEGIN
   RETURN TRUE;
 END;
 $$;
+REVOKE EXECUTE ON FUNCTION public.admin_delete_dentista_full(UUID) FROM public;
+GRANT EXECUTE ON FUNCTION public.admin_delete_dentista_full(UUID) TO authenticated, service_role;
+
+-- Configurar a view triagem (se existir) para usar security_invoker = true
+ALTER VIEW IF EXISTS public.triagem SET (security_invoker = true);
 
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
 

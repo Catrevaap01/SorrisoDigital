@@ -166,14 +166,89 @@ export const notificarAgendamentoPaciente = async (
     };
 
     const { error } = await runInsert(payload);
-    if (error) throw error;
+  if (error) throw error;
 
-    logger.info('Notificação de agendamento enviada', { pacienteId });
-    return { success: true };
+  logger.info('Notificação de agendamento enviada', { pacienteId });
+  return { success: true };
   } catch (err) {
     const handled = handleError(err, 'notificacoesService.notificarAgendamentoPaciente');
     return { success: false, error: handled };
   }
+};
+
+/**
+ * Notifica dentista(s) quando um paciente cria um novo agendamento.
+ * Se dentistId for fornecido, notifica apenas esse dentista.
+ * Caso contrário, notifica todos os dentistas activos.
+ */
+export const notificarAgendamentoDentista = async (
+  pacienteNome: string,
+  tipoConsulta: string,
+  dataHora: string,
+  agendamentoId: string,
+  dentistaId?: string
+): Promise<{ success: boolean; error?: HandledError | string }> => {
+  try {
+    let ids: string[] = [];
+
+    if (dentistaId) {
+      ids = [dentistaId];
+    } else {
+      // Notificar todos os dentistas activos
+      const { data: dentistas, error: dentErr } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('tipo', 'dentista');
+      if (dentErr) throw dentErr;
+      ids = (dentistas || []).map((d: any) => d.id);
+    }
+
+    if (ids.length === 0) return { success: true };
+
+    const payload = ids.map((id) => ({
+      usuario_id: id,
+      tipo: 'agendamento_atualizado',
+      titulo: '📅 Novo Agendamento Recebido',
+      mensagem: `${pacienteNome} agendou uma consulta de ${tipoConsulta} para ${dataHora}.`,
+      dados: { agendamento_id: agendamentoId, paciente_nome: pacienteNome },
+      lida: false,
+    }));
+
+    const runInsert = async (p: any[]) => {
+      let res = await supabase.from('notificacoes').insert(p);
+      if (res.error && (res.error.code === '42501' || (res.error as any).status === 403)) {
+        const admin = getAdminClient();
+        if (admin) res = await admin.from('notificacoes').insert(p);
+      }
+      return res;
+    };
+
+    const { error } = await runInsert(payload);
+    if (error) throw error;
+
+    logger.info('Dentistas notificados sobre novo agendamento', { agendamentoId, count: ids.length });
+    return { success: true };
+  } catch (err) {
+    const handled = handleError(err, 'notificacoesService.notificarAgendamentoDentista');
+    return { success: false, error: handled };
+  }
+};
+
+/**
+ * Envia confirmação in-app ao paciente após criação de agendamento.
+ */
+export const notificarConfirmacaoPaciente = async (
+  pacienteId: string,
+  tipoConsulta: string,
+  dataHora: string,
+  agendamentoId: string
+): Promise<{ success: boolean; error?: HandledError | string }> => {
+  return notificarAgendamentoPaciente(
+    pacienteId,
+    '✅ Agendamento Recebido',
+    `A sua consulta de ${tipoConsulta} para ${dataHora} foi registada e está aguardando confirmação da secretaria.`,
+    { agendamento_id: agendamentoId }
+  );
 };
 
 /**

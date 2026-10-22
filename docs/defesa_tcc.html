@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Defesa TCC – Sorriso Digital | ISPI 2026</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ===== DESIGN SYSTEM ===== */
+        :root {
+            --blue-900: #0c1a3a;
+            --blue-800: #1a2f6e;
+            --blue-600: #1e4db7;
+            --blue-400: #3b82f6;
+            --blue-200: #bfdbfe;
+            --blue-50:  #eff6ff;
+            --teal-500: #14b8a6;
+            --teal-300: #5eead4;
+            --amber-400: #fbbf24;
+            --red-400:   #f87171;
+            --green-500: #22c55e;
+            --gray-900:  #111827;
+            --gray-700:  #374151;
+            --gray-500:  #6b7280;
+            --gray-200:  #e5e7eb;
+            --gray-100:  #f3f4f6;
+            --white:     #ffffff;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body { font-family: 'Inter', sans-serif; background: #dde3ee; color: var(--gray-700); line-height: 1.65; }
+
+        /* ===== SLIDE WRAPPER ===== */
+        .deck { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1.5rem; display: flex; flex-direction: column; gap: 2rem; }
+
+        .slide { background: var(--white); border-radius: 14px; padding: 3.5rem 4rem; box-shadow: 0 8px 30px rgba(0,0,0,.10); position: relative; overflow: hidden; page-break-after: always; }
+        .slide::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, var(--blue-600), var(--teal-500)); }
+
+        .slide-num { position: absolute; top: 1.5rem; right: 2rem; font-size: .78rem; font-weight: 700; color: var(--gray-500); letter-spacing: .08em; text-transform: uppercase; }
+
+        /* ===== COVER SLIDE ===== */
+        .cover { background: linear-gradient(135deg, var(--blue-900) 0%, var(--blue-800) 60%, #0e3460 100%); color: var(--white); text-align: center; padding: 5rem 4rem 4.5rem; }
+        .cover::before { background: linear-gradient(90deg, var(--teal-500), var(--blue-400)); }
+        .cover .institution { font-size: .9rem; letter-spacing: .12em; text-transform: uppercase; color: var(--teal-300); margin-bottom: 2.5rem; font-weight: 600; }
+        .cover .logo-circle { width: 90px; height: 90px; border-radius: 50%; background: rgba(255,255,255,.1); border: 2px solid var(--teal-300); display: flex; align-items: center; justify-content: center; font-size: 2.5rem; margin: 0 auto 2rem; }
+        .cover h1 { font-size: 2.3rem; font-weight: 800; line-height: 1.2; margin-bottom: 1rem; color: var(--white); }
+        .cover .subtitle { font-size: 1.05rem; color: var(--blue-200); margin-bottom: 3.5rem; font-weight: 300; }
+        .cover .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: center; }
+        .meta-card { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); border-radius: 10px; padding: 1.2rem 1rem; }
+        .meta-card .label { font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; color: var(--teal-300); font-weight: 700; margin-bottom: .4rem; }
+        .meta-card .value { font-size: .95rem; color: var(--white); font-weight: 500; }
+
+        /* ===== SLIDE HEADING ===== */
+        .slide-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid var(--gray-200); }
+        .slide-icon { width: 48px; height: 48px; border-radius: 10px; background: linear-gradient(135deg, var(--blue-600), var(--teal-500)); display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; color: white; }
+        .slide-header h2 { font-size: 1.85rem; font-weight: 800; color: var(--gray-900); line-height: 1.15; }
+
+        /* ===== GUIÃO DO ORADOR (SPEAKER SCRIPT) ===== */
+        .speaker-script {
+            margin-top: 2rem;
+            background: #f8fafc;
+            border: 2px solid #e2e8f0;
+            border-left: 6px solid #3b82f6;
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+        .speaker-script-title {
+            color: #1e4db7;
+            font-size: 1rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+        .script-badge {
+            background: #dbeafe;
+            color: #1d4ed8;
+            padding: .2rem .6rem;
+            border-radius: 20px;
+            font-size: .75rem;
+            font-weight: 700;
+            margin-bottom: .5rem;
+            display: inline-block;
+        }
+        .script-text {
+            font-size: .95rem;
+            line-height: 1.6;
+            color: #334155;
+            margin-bottom: 1rem;
+        }
+        .script-text:last-child { margin-bottom: 0; }
+        .script-text strong { color: #0f172a; }
+
+        /* ===== TYPOGRAPHY & BLOCKS ===== */
+        p.content-text { font-size: 1.05rem; margin-bottom: 1.2rem; text-align: justify; }
+        ul.content-ul { margin-left: 1.8rem; margin-bottom: 1.2rem; }
+        ul.content-ul li { font-size: 1.05rem; margin-bottom: .7rem; }
+        .cite { color: var(--blue-600); font-weight: 600; font-style: italic; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+
+        /* ===== CARDS ===== */
+        .card { background: var(--gray-100); border-radius: 10px; padding: 1.5rem; border-left: 4px solid var(--blue-400); }
+        .card.teal  { border-left-color: var(--teal-500); }
+        .card.red   { border-left-color: var(--red-400); }
+        .card.green { border-left-color: var(--green-500); }
+        .card.amber { border-left-color: var(--amber-400); }
+        .card h3 { font-size: 1rem; font-weight: 700; color: var(--gray-900); margin-bottom: .8rem; display: flex; align-items: center; gap: .5rem; }
+        .card ul { margin-bottom: 0; padding-left: 1.2rem; }
+        .card li { font-size: .95rem; margin-bottom: .4rem; }
+
+        /* ===== MORE STYLES ===== */
+        .actor-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.2rem; }
+        .actor-card { border-radius: 12px; padding: 1.4rem; }
+        .actor-card.patient { background: linear-gradient(135deg, #eff6ff, #dbeafe); }
+        .actor-card.dentist { background: linear-gradient(135deg, #f0fdf4, #bbf7d0); }
+        .actor-card.secretary { background: linear-gradient(135deg, #fffbeb, #fef3c7); }
+        .actor-card.admin { background: linear-gradient(135deg, #fdf2f8, #fce7f3); }
+        .actor-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: .6rem; color: var(--gray-900); }
+
+        .tool-row { display: flex; align-items: center; gap: 1rem; padding: .6rem 1rem; border-radius: 8px; border-left: 3px solid var(--blue-400); background: var(--gray-100); margin-bottom: .6rem; }
+        .tool-row .tool-name { font-weight: 700; color: var(--blue-800); min-width: 140px; font-size: .9rem; }
+        .tool-row .tool-desc { font-size: .85rem; color: var(--gray-700); }
+
+        .sprint-row { display: grid; grid-template-columns: auto 1fr; gap: 1rem; align-items: start; margin-bottom: 1rem; }
+        .sprint-badge { background: var(--blue-600); color: var(--white); border-radius: 8px; padding: .4rem .8rem; font-size: .8rem; font-weight: 700; }
+        .sprint-content { font-size: .95rem; }
+
+        @media print {
+            body { background: white; }
+            .deck { padding: 0; max-width: 100%; }
+            .slide { height: 100vh; border-radius: 0; box-shadow: none; display: flex; flex-direction: column; }
+            .cover { height: 100vh; justify-content: center; }
+            * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            /* Hide the exact speaker notes when printing the visual presentation for the jury, 
+               but leave them visible on the screen or if printing a "Speaker Version". */
+        }
+    </style>
+</head>
+<body>
+<div class="deck">
+
+    <!-- SLIDE 0 — CAPA -->
+    <div class="slide cover">
+        <p class="institution">Instituto Superior Politécnico Independente — ISPI</p>
+        <div class="logo-circle">🦷</div>
+        <h1>Sorriso Digital</h1>
+        <p class="subtitle">Desenvolvimento de uma Aplicaçã́o Móvel para Gestão<br>e Agendamento de Consultas Odontológicas</p>
+
+        <div class="meta-grid">
+            <div class="meta-card">
+                <div class="label">Autor</div>
+                <div class="value">António Pio Macaia Tati</div>
+            </div>
+            <div class="meta-card">
+                <div class="label">Orientador</div>
+                <div class="value">Eng.º Judilson Nambalo</div>
+            </div>
+        </div>
+
+        <div class="speaker-script" style="text-align: left; background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); margin-top:3rem;">
+            <div class="speaker-script-title" style="color:#fff;">🗣️ O que falar aqui (Abertura):</div>
+            <p class="script-text" style="color:#e2e8f0;">
+                "Bom dia/Boa tarde ao estimado júri, ao meu orientador Eng.º Judilson Nambalo, e a todos os presentes. O meu nome é <strong>António Pio Macaia Tati</strong>. 
+                Estou aqui hoje para defender o meu Trabalho de Conclusão de Curso em Engenharia Informática, cujo tema é o <strong>Desenvolvimento de uma Aplicação Móvel para Gestão e Agendamento de Consultas Odontológicas</strong>, que batizei de <strong>Sorriso Digital</strong>."
+            </p>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 1 — INTRODUÇÃO -->
+    <div class="slide">
+        <div class="slide-num">Slide 01</div>
+        <div class="slide-header">
+            <div class="slide-icon">📖</div>
+            <h2>Introdução e Contexto</h2>
+        </div>
+
+        <p class="content-text">A medicina dentária tem registado grandes transformações. Há uma necessidade urgente de transitar dos sistemas baseados em papel (analógicos) para plataformas digitais robustas, garantindo segurança clínica e eficiência.</p>
+
+        <div class="grid-2">
+            <div class="card">
+                <h3>🌍 Contexto Angola</h3>
+                <ul>
+                    <li>Assimetrias no acesso aos cuidados orais.</li>
+                    <li>Sistemas manuais atrasam os tratamentos.</li>
+                </ul>
+            </div>
+            <div class="card teal">
+                <h3>📈 Solução Tecnológica</h3>
+                <ul>
+                    <li>Prontuário eletrónico centralizado (digitalização).</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="speaker-script">
+            <div class="speaker-script-title">🗣️ O que falar aqui (Contexto e Motivação):</div>
+            <span class="script-badge">Explicação Simplificada (Para a Plateia)</span>
+            <p class="script-text">"Para começar, a verdade é que muitas clínicas aqui em Angola ainda dependem totalmente do papel. As fichas dos pacientes perdem-se, as agendas ficam uma confusão. É como gerir um negócio no escuro."</p>
+            
+            <span class="script-badge">Explicação Técnica (Para os Engenheiros da Banca)</span>
+            <p class="script-text">"Do ponto de vista tecnológico, a medicina dentária enfrenta hoje um défice de digitalização. Os sistemas puramente analógicos traduzem-se em baixa disponibilidade de dados, elevada redundância informacional e total ausência de interoperabilidade. A minha motivação foi precisamente desenvolver uma estrutura centralizada que resolvesse este 'gap' arquitetural."</p>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 2 — PROBLEMA DE INVESTIGAÇÃO -->
+    <div class="slide">
+        <div class="slide-num">Slide 02</div>
+        <div class="slide-header">
+            <div class="slide-icon">🔍</div>
+            <h2>Problema de Investigação</h2>
+        </div>
+
+        <p class="content-text">A inexistência de um sistema centralizado resulta em falhas críticas na operação das clínicas.</p>
+
+        <div class="grid-2">
+            <div class="card red">
+                <h3>⚠️ Consequências Diretas</h3>
+                <ul>
+                    <li>Dificuldade no controlo de marcações (choques de horário).</li>
+                    <li>Desorganização financeira.</li>
+                    <li>Demora no acesso ao histórico e perda de exames.</li>
+                </ul>
+            </div>
+            <div class="card amber">
+                <h3>📌 Pergunta de Pesquisa</h3>
+                <p><em>"Como uma plataforma digital integrada pode ajudar a melhorar a gestão clínica, administrativa e financeira da clínica One Smile Consultória Dentária?"</em></p>
+            </div>
+        </div>
+
+        <div class="speaker-script">
+            <div class="speaker-script-title">🗣️ O que falar aqui:</div>
+            
+            <p class="script-text"><strong>(Explicação Técnica + Simples):</strong><br> 
+            "Com base na minha observação direta na clínica <em>One Smile</em>, percebi que o fluxo de trabalho manual gera um verdadeiro 'bottleneck' (gargalo) operacional. A receção tem dificuldades de gerir <em>schedules</em> e há graves inconsistências financeiras. <br><br>
+            A dificuldade de rastrear um histórico clínico num monte de papéis levou-me à questão central deste projeto: <strong>Como é que a engenharia de software — especificamente uma plataforma digital integrada — pode resolver estes atrasos, otimizando tanto a gestão clínica como a faturação da clínica?</strong> É a este problema que o Sorriso Digital responde."</p>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 3 — OBJECTIVOS -->
+    <div class="slide">
+        <div class="slide-num">Slide 03</div>
+        <div class="slide-header">
+            <div class="slide-icon">🎯</div>
+            <h2>Objectivos (Geral e Específicos)</h2>
+        </div>
+
+        <div class="card" style="margin-bottom:1.5rem">
+            <h3>🏆 Objectivo Geral</h3>
+            <p style="margin:0;">Criar uma plataforma digital completa para gestão odontológica, capaz de automatizar os processos clínicos e administrativos.</p>
+        </div>
+
+        <div class="grid-2">
+            <div class="card teal" style="padding:1rem;">
+                <h4>Especificidades Técnicas</h4>
+                <ul class="content-ul" style="font-size:.9rem; margin-bottom:0;">
+                    <li>Modelar UML e DER.</li>
+                    <li>Módulo de Autenticação RBAC.</li>
+                    <li>Validar funcionamento.</li>
+                </ul>
+            </div>
+            <div class="card teal" style="padding:1rem;">
+                <h4>Funcionalidades</h4>
+                <ul class="content-ul" style="font-size:.9rem; margin-bottom:0;">
+                    <li>Triagem digital e Agendamento.</li>
+                    <li>Prontuário e Evolução Clínica.</li>
+                    <li>Procedimentos (Financeiro).</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="speaker-script">
+            <div class="speaker-script-title">🗣️ O que falar aqui:</div>
+            <p class="script-text">
+                "Para resolver o problema apresentado, defini como <strong>Objetivo Geral</strong> a criação destas plataforma. <br><br>
+                Para lá chegar, dividi o desenvolvimento em <strong>Objetivos Específicos</strong> muito claros: Primeiro, a fase de arquitetura (modelar as bases de dados e processos). Segundo, desenvolver a autenticação com proteção de acessos. Por fim, desenvolver os módulos core: o agendamento para a receção, o prontuário eletrónico permanente para o médico, e claro, os testes finais para validação."
+            </p>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 4 — JUSTIFICATIVA E METODOLOGIA -->
+    <div class="slide">
+        <div class="slide-num">Slide 04</div>
+        <div class="slide-header">
+            <div class="slide-icon">⚙️</div>
+            <h2>Justificativa e Metodologias</h2>
+        </div>
+        
+        <div class="grid-2">
+            <div>
+                <div class="card green" style="margin-bottom:1rem">
+                    <h3>💡 Porquê investir neste Software?</h3>
+                    <ul class="content-ul">
+                        <li>Fim dos erros de redundância.</li>
+                        <li>Tratamentos clínicos embasados em histórico fidedigno.</li>
+                        <li>Escalabilidade sustentável (ROI).</li>
+                    </ul>
+                </div>
+            </div>
+            <div>
+                <div class="card" style="margin-bottom:1rem">
+                    <h3>🔬 Metodologia Adotada</h3>
+                    <ul class="content-ul">
+                        <li><strong>Pesquisa:</strong> Qualitativa, Análise Documental, Observação.</li>
+                        <li><strong>Software:</strong> Framework Ágil <strong>Scrum</strong> (Sprints curtos).</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="speaker-script">
+            <div class="speaker-script-title">🗣️ O que falar aqui:</div>
+            
+            <p class="script-text">
+                <strong>(Simples):</strong> "Porquê construir isto? Porque o investimento na aplicação paga-se através do tempo e dinheiro poupados com erros burocráticos."<br><br>
+                <strong>(Técnico):</strong> "Do ponto de vista científico e de desenvolvimento, sustentei o meu TCC numa pesquisa Qualitativa Aplicada. Para a engenharia do software em si, apliquei o <strong>Framework Scrum</strong>, operando em ciclos (Sprints). Isto permitiu-me desenvolver as funcionalidades de forma incremental, garantindo que o módulo financeiro funcionasse bem antes de o ligar ao agendamento, por exemplo."
+            </p>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 5 — FERRAMENTAS & STACK -->
+    <div class="slide">
+        <div class="slide-num">Slide 05</div>
+        <div class="slide-header">
+            <div class="slide-icon">🛠️</div>
+            <h2>Tecnologias Utilizadas e Arquitetura</h2>
+        </div>
+
+        <div class="grid-2">
+            <div>
+                <h3 style="font-size:1rem;color:var(--blue-800);padding-bottom:.5rem;">Interface & Aplicação (Frontend)</h3>
+                <div class="tool-row"><span class="tool-name">⚛️ React Native</span><span class="tool-desc">Interface nativa mobile cross-platform (Android, iOS, Web).</span></div>
+                <div class="tool-row"><span class="tool-name">🔷 TypeScript</span><span class="tool-desc">Tipagem estática rigorosa para prevenir falhas de runtime.</span></div>
+                <div class="tool-row"><span class="tool-name">📦 Expo & PWA</span><span class="tool-desc">Deploy multiplataforma com Service Worker e cache offline.</span></div>
+            </div>
+            <div>
+                <h3 style="font-size:1rem;color:var(--blue-800);padding-bottom:.5rem;">Dados, Segurança & Automação (Backend)</h3>
+                <div class="tool-row"><span class="tool-name">🟢 Supabase</span><span class="tool-desc">Autenticação (JWT + MFA/2FA) e Storage de imagens bucais.</span></div>
+                <div class="tool-row"><span class="tool-name">🐘 PostgreSQL</span><span class="tool-desc">Base relacional ACID com Row Level Security (RLS) e Triggers.</span></div>
+                <div class="tool-row"><span class="tool-name">💬 WhatsApp API</span><span class="tool-desc">Notificações e envio de código de 2 etapas via Edge Functions.</span></div>
+            </div>
+        </div>
+
+        <div class="speaker-script">
+            <div class="speaker-script-title">🗣️ O que falar aqui:</div>
+            <p class="script-text">
+                "Esta é a espinha dorsal técnica do sistema. <br>
+                No frontend, combinei <strong>React Native</strong> com <strong>TypeScript</strong> para garantir performance e código à prova de falhas tipadas numa base unificada. <br>
+                No backend, utilizámos o <strong>Supabase</strong> sobre <strong>PostgreSQL</strong>, aproveitando a segurança robusta das políticas RLS a nível de linha de dados. Além disso, integrei <strong>Edge Functions</strong> para envio automatizado de lembretes e tokens de verificação em duas etapas diretamente pelo <strong>WhatsApp</strong>, ferramenta com penetração massiva no nosso quotidiano em Angola."
+            </p>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 6 — APLICAÇÃO (4 ACTORES E MÓDULOS) -->
+    <div class="slide">
+        <div class="slide-num">Slide 06</div>
+        <div class="slide-header">
+            <div class="slide-icon">👥</div>
+            <h2>Módulos do Sistema e Controlo de Acesso (RBAC)</h2>
+        </div>
+
+        <div class="actor-grid" style="margin-bottom:1rem">
+            <div class="actor-card patient">
+                <h3>🙋 Utente (Paciente)</h3>
+                <ul class="content-ul">
+                    <li>Triagem com sintomas e upload de fotos bucais.</li>
+                    <li>Agendamento online, histórico e chat de apoio.</li>
+                </ul>
+            </div>
+            <div class="actor-card dentist">
+                <h3>🩺 Médico Dentista</h3>
+                <ul class="content-ul">
+                    <li>Avaliação de triagens e prontuário digital permanente.</li>
+                    <li>Prescrições com 1 clique e planos de tratamento.</li>
+                </ul>
+            </div>
+            <div class="actor-card secretary">
+                <h3>📋 Secretária (Recepção)</h3>
+                <ul class="content-ul">
+                    <li>Check-in de utentes por QR Code e gestão de agendas.</li>
+                    <li>Atribuição de dentistas a triagens e faturamento.</li>
+                </ul>
+            </div>
+            <div class="actor-card admin">
+                <h3>👑 Administrador Geral</h3>
+                <ul class="content-ul">
+                    <li>Dashboard financeiro em Kwanzas (Kz) e staff.</li>
+                    <li>Audit Log imutável e exportação consolidada em PDF.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="speaker-script">
+            <div class="speaker-script-title">🗣️ O que falar aqui:</div>
+            <p class="script-text">
+                "O sistema foi modelado para refletir com exatidão a hierarquia operacional de uma clínica dentária moderna (RBAC):<br>
+                1. O <strong>Utente</strong> pode triar sintomas e agendar a partir de casa sem burocracia.<br>
+                2. A <strong>Secretária</strong> recebe o paciente na receção, valida o QR Code e atribui os casos aos médicos.<br>
+                3. O <strong>Dentista</strong> consulta o histórico completo, elabora o plano e prescreve o receituário digital.<br>
+                4. O <strong>Administrador</strong> tem uma visão panorâmica: métricas financeiras em Kwanzas, relatórios em PDF e controlo total da equipa."
+            </p>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 7 — SEGURANÇA, 2FA E AUDITORIA -->
+    <div class="slide">
+        <div class="slide-num">Slide 07</div>
+        <div class="slide-header">
+            <div class="slide-icon">🔒</div>
+            <h2>Segurança Avançada, 2FA e Governança Clínica</h2>
+        </div>
+
+        <div class="grid-2">
+            <div class="card green" style="padding:1.3rem;">
+                <h3 style="font-size:1.05rem;">🔐 Verificação em 2 Etapas (2FA) via WhatsApp</h3>
+                <ul class="content-ul" style="font-size:.9rem; margin-bottom:0;">
+                    <li><strong>Alvo Estratégico:</strong> Ativo para Admin, Secretários e Dentistas (perfis que lidam com dados sensíveis de saúde e faturação).</li>
+                    <li><strong>Sem atrito para o Utente:</strong> Pacientes entram com agilidade sem necessidade de 2FA.</li>
+                    <li><strong>Canal Nacional:</strong> Envio de token de 6 dígitos via WhatsApp e fallback TOTP com modal responsivo (Mobile/Web/PWA).</li>
+                </ul>
+            </div>
+            <div class="card teal" style="padding:1.3rem;">
+                <h3 style="font-size:1.05rem;">📊 Governança: Audit Log & Relatórios</h3>
+                <ul class="content-ul" style="font-size:.9rem; margin-bottom:0;">
+                    <li><strong>Audit Log Imutável:</strong> Rastreia logins, permissões, triagens e alterações com payload JSON.</li>
+                    <li><strong>Relatórios em 4 Eixos:</strong> Visão Geral (KPIs & Finanças em Kz), Desempenho de Dentistas, Secretários e Central de PDFs.</li>
+                    <li><strong>Proteção SQL RLS:</strong> Isolamento estrito de dados diretamente a nível do banco de dados.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="speaker-script">
+            <div class="speaker-script-title">🗣️ O que falar aqui (Segurança e Auditoria):</div>
+            <p class="script-text">
+                "A segurança e o sigilo médico foram prioridades no projeto. Implementei uma <strong>Verificação em 2 Etapas (2FA)</strong> integrada ao <strong>WhatsApp</strong>, especificamente para Administradores, Secretários e Dentistas. Porquê? Porque são estes perfis que acedem a fichas médicas e movimentações de caixa. Não impusemos 2FA ao paciente comum para não gerar atrito no agendamento.<br><br>
+                Além disso, para conformidade de governança, o sistema possui um <strong>Audit Log (Log de Auditoria)</strong> completo, gravando quem alterou o quê com data, hora e metadados, e um módulo de <strong>Relatórios Gerenciais</strong> com exportação em PDF e acompanhamento financeiro em Kwanzas."
+            </p>
+        </div>
+    </div>
+
+
+    <!-- SLIDE 8 — CONCLUSÕES E IMPLEMENTAÇÕES FUTURAS -->
+    <div class="slide">
+        <div class="slide-num">Slide 08</div>
+        <div class="slide-header">
+            <div class="slide-icon">🏁</div>
+            <h2>Conclusões e Visão para o Futuro</h2>
+        </div>
+
+        <div class="grid-2">
+            <div class="card green" style="padding:1.4rem;">
+                <h3 style="font-size:1.1rem;">✅ O que provámos?</h3>
+                <p style="font-size:.9rem; margin-bottom:0;">Que a centralização digital através de arquitetura moderna (React Native + Supabase + WhatsApp) extingue os gargalos de papel em clínicas dentárias angolanas, promovendo segurança com 2FA, auditoria contínua e maior eficiência clínica.</p>
+            </div>
+            <div class="card teal" style="padding:1.4rem;">
+                <h3 style="font-size:1.1rem;">🚀 (Roadmap) Futuro</h3>
+                <ul class="content-ul" style="font-size:.9rem; margin-bottom:0; padding-left:1rem;">
+                    <li>Integração direta de pagamentos eletrónicos via Multicaixa Express (EMIS).</li>
+                    <li>Inteligência Artificial para pré-análise e triagem assistida de imagens radiográficas.</li>
+                    <li>Assinatura Digital Certificada padrão ICP para prescrições e atestados médicos.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="speaker-script">
+            <div class="speaker-script-title">🗣️ O que falar aqui (Fecho):</div>
+            <p class="script-text">
+                "Para concluir, este trabalho demonstra que os desafios administrativos e clínicos em Angola têm solução concreta através de tecnologia bem planeada. Desenvolvi e validei com sucesso a plataforma 'Sorriso Digital / TeOdonto Angola', com suporte multiplataforma, segurança 2FA no WhatsApp e auditoria completa.<br><br>
+                Como visão de futuro, a arquitetura está preparada para acoplar pagamentos automáticos por Multicaixa Express e módulos de IA para diagnóstico assistido por imagem.<br><br>
+                Termino assim a minha apresentação, agradeço ao meu orientador e ao estimado júri, e coloco-me à inteira disposição para a fase de perguntas. Muito obrigado!"
+            </p>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

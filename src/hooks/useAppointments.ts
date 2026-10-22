@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Appointment } from '../types/appointment';
 import { fetchAppointmentsForRole, fetchAppointmentById, subscribeToAppointmentChanges } from '../services/appointmentsService';
 import { useAuth } from '../contexts/AuthContext';
-import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface UseAppointmentsReturn {
   appointments: Appointment[];
@@ -18,7 +17,7 @@ export const useAppointments = (role: 'paciente' | 'dentista' | 'secretario') : 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const subscriptionRef = useRef<RealtimeChannel | null>(null);
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
 
   const loadAppointments = useCallback(async () => {
     if (!userId) {
@@ -65,13 +64,12 @@ export const useAppointments = (role: 'paciente' | 'dentista' | 'secretario') : 
   const handleRealtimeUpdate = useCallback(
     (payload: { eventType: string; appointment: Appointment }) => {
       const appointment = payload.appointment;
-      if (!matchAppointmentForRole(appointment)) {
-        return;
-      }
-
       setAppointments((current) => {
         const exists = current.some((item) => item.id === appointment.id);
         if (payload.eventType === 'DELETE') {
+          return current.filter((item) => item.id !== appointment.id);
+        }
+        if (!matchAppointmentForRole(appointment)) {
           return current.filter((item) => item.id !== appointment.id);
         }
         if (exists) {

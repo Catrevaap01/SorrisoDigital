@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Servico de envio de emails.
  * Tenta primeiro Supabase Edge Function (send-email) e, opcionalmente, fallback por endpoint HTTP absoluto.
  */
@@ -9,92 +9,163 @@ import { supabase } from '../config/supabase';
 type EmailPayload = {
   to: string;
   subject: string;
-  type: 'password_recovery' | 'dentist_welcome' | 'new_message';
+  type: 'password_recovery' | 'dentist_welcome' | 'new_message' | 'appointment_reminder';
   data: Record<string, any>;
 };
 
 const extra = Constants.expoConfig?.extra;
 const EMAIL_API_URL = extra?.EMAIL_API_URL as string | undefined;
 const SENDGRID_API_KEY = extra?.SENDGRID_API_KEY as string | undefined; // opcional
+const RESEND_API_KEY = extra?.RESEND_API_KEY as string | undefined; // fallback directo
 
+const MAX_RETRIES = 3;
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/**
+ * Cadeia de envio de email com 4 providers e retry:
+ *  1. Supabase Edge Function (send-email)   → principal
+ *  2. Resend API directa                    → fallback 1
+ *  3. EMAIL_API_URL customizada             → fallback 2
+ *  4. SendGrid API                          → fallback 3
+ *
+ * Cada provider tenta até MAX_RETRIES vezes com backoff exponencial.
+ */
 const sendEmail = async (payload: EmailPayload): Promise<{ success: boolean; error?: string }> => {
-  console.log('▶ sendEmail payload', payload);
-  try {
-    const { error } = await supabase.functions.invoke('send-email', {
-      body: payload,
-    });
+  console.log('▶ sendEmail payload', payload.type, payload.to);
+  const errors: string[] = [];
 
-    if (!error) {
-      console.log('✔ send-email function invoked successfully');
-      return { success: true };
+  // ── Provider 1: Supabase Edge Function ────────────────────────────────────
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const { data, error } = await supabase.functions.invoke('send-email', {
+        body: payload,
+      });
+
+      if (!error && data?.success === true) {
+        console.log('✔ send-email Edge Function OK');
+        return { success: true };
+      }
+
+      const msg = (error as any)?.message || (data && !data.success ? data.message : 'Falha na Edge Function');
+      console.warn(`send-email attempt ${attempt}/${MAX_RETRIES}: ${msg}`);
+      errors.push(`EF:${msg}`);
+
+      if (attempt < MAX_RETRIES) await sleep(1000 * attempt);
+    } catch (e: any) {
+      console.warn(`send-email exception attempt ${attempt}: ${e?.message}`);
+      errors.push(`EF:${e?.message}`);
+      if (attempt < MAX_RETRIES) await sleep(1000 * attempt);
     }
-    const invokeErrorMessage =
-      (error as any)?.message || 'Falha na Edge Function send-email';
-    console.warn('send-email function error:', invokeErrorMessage, error);
+  }
 
-    if (EMAIL_API_URL) {
-      console.log('↪ falling back to EMAIL_API_URL', EMAIL_API_URL);
+  // ── Provider 2: Resend API directa (fallback sem Edge Function) ───────────
+  if (RESEND_API_KEY) {
+    console.log('↪ Resend API directa (fallback)');
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const subject = payload.subject || `TeOdonto Angola — ${payload.type}`;
+        const text = payload.data?.textoSimples ||
+          `Olá ${payload.data?.nome || payload.data?.nomePaciente || ''},\n\n` +
+          (payload.data?.senhaTemporaria ? `Senha temporária: ${payload.data.senhaTemporaria}\n\n` : '') +
+          'Obrigado — TeOdonto Angola';
+
+        const resendRes = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: 'Sorriso Digital <no-reply@teodontoangola.com>',
+            to: [payload.to],
+            subject,
+            text,
+          }),
+        });
+
+        if (resendRes.ok) {
+          console.log('✔ email enviado via Resend directo');
+          return { success: true };
+        }
+
+        const resendErr = await resendRes.text();
+        console.warn(`Resend attempt ${attempt}: ${resendErr}`);
+        errors.push(`Resend:${resendErr}`);
+        if (attempt < MAX_RETRIES) await sleep(1000 * attempt);
+      } catch (e: any) {
+        errors.push(`Resend:${e?.message}`);
+        if (attempt < MAX_RETRIES) await sleep(1000 * attempt);
+      }
+    }
+  }
+
+  // ── Provider 3: EMAIL_API_URL customizada ─────────────────────────────────
+  if (EMAIL_API_URL) {
+    console.log('↪ falling back to EMAIL_API_URL', EMAIL_API_URL);
+    try {
       const response = await fetch(EMAIL_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        let detail = 'Erro ao enviar email';
-        try {
-          const errorBody = await response.json();
-          detail = errorBody?.message || detail;
-        } catch {
-          // ignora parse error
-        }
-        console.warn('fallback EMAIL_API_URL falhou:', detail);
-      } else {
-        console.log('✔ email enviado via EMAIL_API_URL fallback');
+      if (response.ok) {
+        console.log('✔ email enviado via EMAIL_API_URL');
         return { success: true };
       }
-    }
 
-    if (SENDGRID_API_KEY) {
-      console.log('↪ trying SendGrid fallback');
+      let detail = 'Erro ao enviar email';
       try {
-        const to = payload.to;
-        const subject = payload.subject;
-        // montar texto simples com dados
-        const text = `Olá ${payload.data.nome || ''},\n\n` +
-          (payload.data.senhaTemporaria
-            ? `Sua senha temporária: ${payload.data.senhaTemporaria}\n\n` : '') +
-          'Por favor, altere sua senha no primeiro login.';
-
-        const sgRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${SENDGRID_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            personalizations: [{ to: [{ email: to }] }],
-            from: { email: 'no-reply@teodontoangola.com', name: 'TeOdonto Angola' },
-            subject,
-            content: [{ type: 'text/plain', value: text }],
-          }),
-        });
-        if (sgRes.ok) {
-          console.log('✔ email enviado via SendGrid');
-          return { success: true };
-        } else {
-          const errText = await sgRes.text();
-          console.warn('SendGrid falhou:', errText);
-        }
-      } catch (sgErr) {
-        console.warn('exceção SendGrid:', sgErr);
-      }
+        const errorBody = await response.json();
+        detail = errorBody?.message || detail;
+      } catch { /* ignora parse error */ }
+      errors.push(`API_URL:${detail}`);
+    } catch (e: any) {
+      errors.push(`API_URL:${e?.message}`);
     }
-    return { success: false, error: invokeErrorMessage };
-  } catch (error: any) {
-    console.warn('erro inesperado em sendEmail:', error);
-    return { success: false, error: error?.message || 'Erro inesperado ao enviar email' };
   }
+
+  // ── Provider 4: SendGrid ──────────────────────────────────────────────────
+  if (SENDGRID_API_KEY) {
+    console.log('↪ trying SendGrid fallback');
+    try {
+      const to = payload.to;
+      const subject = payload.subject || `TeOdonto Angola — ${payload.type}`;
+      const text = payload.data?.textoSimples ||
+        `Olá ${payload.data.nome || ''},\n\n` +
+        (payload.data.senhaTemporaria
+          ? `Sua senha temporária: ${payload.data.senhaTemporaria}\n\n` : '') +
+        'Por favor, altere sua senha no primeiro login.';
+
+      const sgRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${SENDGRID_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          personalizations: [{ to: [{ email: to }] }],
+          from: { email: 'no-reply@teodontoangola.com', name: 'TeOdonto Angola' },
+          subject,
+          content: [{ type: 'text/plain', value: text }],
+        }),
+      });
+      if (sgRes.ok) {
+        console.log('✔ email enviado via SendGrid');
+        return { success: true };
+      } else {
+        const errText = await sgRes.text();
+        errors.push(`SendGrid:${errText}`);
+      }
+    } catch (sgErr: any) {
+      errors.push(`SendGrid:${sgErr?.message}`);
+    }
+  }
+
+  const errorMsg = errors.join(' | ') || 'Todos os providers falharam';
+  console.warn('❌ Email: todos os providers falharam:', errorMsg);
+  return { success: false, error: errorMsg };
 };
 
 export const sendPasswordRecoveryEmail = async (
@@ -143,6 +214,45 @@ export const sendNewMessageNotificationEmail = async (
       recipientName,
       senderName,
       messagePreview,
+    },
+  });
+};
+
+/**
+ * Envia um email de lembrete de consulta ao paciente.
+ * Funciona via Edge Function send-email (tipo appointment_reminder).
+ * Em caso de falha na EF, monta um email de texto simples como fallback interno.
+ */
+export const sendAppointmentReminderEmail = async (
+  email: string,
+  nomePaciente: string,
+  dataConsulta: string,   // formato legível ex: "19/05/2026"
+  horaConsulta: string,   // formato legível ex: "09:30"
+  nomeDentista?: string,
+  tipoConsulta?: string
+): Promise<{ success: boolean; error?: string }> => {
+  const dentistaNome = nomeDentista || 'o seu dentista';
+  const tipo = tipoConsulta || 'Consulta Odontológica';
+  return sendEmail({
+    to: email,
+    subject: `TeOdonto Angola – Lembrete: Consulta amanhã às ${horaConsulta}`,
+    type: 'appointment_reminder',
+    data: {
+      nomePaciente,
+      dataConsulta,
+      horaConsulta,
+      nomeDentista: dentistaNome,
+      tipoConsulta: tipo,
+      // Texto simples para fallback no handler da Edge Function
+      textoSimples:
+        `Olá ${nomePaciente},\n\n` +
+        `Este é um lembrete de que tem uma consulta marcada para amanhã.\n\n` +
+        `📅 Data: ${dataConsulta}\n` +
+        `🕒 Hora: ${horaConsulta}\n` +
+        `🦷 Tipo: ${tipo}\n` +
+        `👨‍⚕️ Dentista: ${dentistaNome}\n\n` +
+        `Por favor, confirme a sua presença e chegue com 10 minutos de antecedência.\n\n` +
+        `Obrigado,\nEquipa Sorriso Digital – TeOdonto Angola`,
     },
   });
 };

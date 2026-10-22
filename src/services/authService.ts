@@ -8,6 +8,7 @@ import { supabase, PROFILE_SCHEMA_FEATURES, SUPABASE_ANON_KEY, SUPABASE_URL, get
 import { logger } from '../utils/logger';
 import { handleError, HandledError } from '../utils/errorHandler';
 import { validators } from '../utils/validators';
+import { auditService } from './auditService';
 
 export interface SignInParams {
   email: string;
@@ -264,9 +265,23 @@ export const authService = {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Registar falha de login no audit log
+        void auditService.log({
+          acao: 'LOGIN_FAIL',
+          descricao: `Falha no login: ${error.message}`,
+          override_user_email: email.trim(),
+        });
+        throw error;
+      }
 
       logger.info('User signed in successfully');
+      void auditService.log({
+        acao: 'LOGIN',
+        descricao: 'Login bem-sucedido',
+        override_user_id: data.user?.id,
+        override_user_email: data.user?.email ?? email.trim(),
+      });
       return { success: true, data };
     } catch (error) {
       const handledError = handleError(error, 'authService.signIn');
@@ -718,6 +733,13 @@ export const authService = {
       const secretario = profileData;
 
       logger.info('Admin created user successfully');
+      void auditService.log({
+        acao: 'CRIAR_UTILIZADOR',
+        tabela: 'profiles',
+        registo_id: authData.user.id,
+        descricao: `Utilizador criado: ${userData.nome} (${resolvedType}) — ${normalizedEmail}`,
+        dados_depois: { email: normalizedEmail, tipo: resolvedType, nome: userData.nome },
+      });
       return {
         success: true,
         data: { user: authData.user, profile: secretario, warning: warningMessage },
@@ -735,6 +757,13 @@ export const authService = {
         return { success: false, error: { message: 'Service role não configurado' } };
       }
 
+      // Obter email antes de apagar
+      const { data: profileSnap } = await adminClient
+        .from('profiles')
+        .select('email, nome, tipo')
+        .eq('id', userId)
+        .maybeSingle();
+
       const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(userId);
       if (deleteAuthError) throw deleteAuthError;
 
@@ -744,6 +773,14 @@ export const authService = {
         .eq('id', userId);
 
       if (deleteProfileError) throw deleteProfileError;
+
+      void auditService.log({
+        acao: 'APAGAR_UTILIZADOR',
+        tabela: 'profiles',
+        registo_id: userId,
+        descricao: `Utilizador eliminado: ${profileSnap?.nome ?? ''} (${profileSnap?.tipo ?? ''}) — ${profileSnap?.email ?? userId}`,
+        dados_antes: profileSnap ?? undefined,
+      });
 
       return { success: true };
     } catch (error) {
@@ -757,6 +794,9 @@ export const authService = {
    */
   signOut: async (): Promise<AuthServiceResult<null>> => {
     try {
+      // Registar logout antes de destruir a sessão
+      void auditService.log({ acao: 'LOGOUT', descricao: 'Sessão terminada pelo utilizador' });
+
       const { error } = await supabase.auth.signOut();
 
       if (error) throw error;

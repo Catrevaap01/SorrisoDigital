@@ -1,9 +1,11 @@
-import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 import NetInfo from '@react-native-community/netinfo';
 import { supabase, getAdminClient } from '../config/supabase';
+import { realtimeBus } from '../realtime/realtime';
 import { withTimeout } from '../utils/withTimeout';
 import { handleError, HandledError } from '../utils/errorHandler';
 import { logger } from '../utils/logger';
+import { fetchWithCache } from '../utils/cacheService';
 import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
 import { notificarAgendamentoPaciente } from './notificacoesService';
 import { scheduleAppointmentReminder } from './localNotificationService';
@@ -149,7 +151,7 @@ const getConflictQuery = (
 
 const queueOfflineAction = async (action: string, payload: any): Promise<boolean> => {
   const state = await NetInfo.fetch();
-  if (!state.isConnected || !state.isInternetReachable) {
+  if (!state.isConnected || state.isInternetReachable === false) {
     logger.info(`📡 Offline: enfileirando ação ${action}`);
     await enqueueOfflineAction(action, payload);
     return true;
@@ -195,30 +197,25 @@ const notifyPatient = async (
   }
 };
 
-const createRealTimeChannel = (): RealtimeChannel =>
-  supabase.channel('appointments-realtime');
-
 export const subscribeToAppointmentChanges = (
   onUpdate: (payload: AppointmentRealtimePayload) => void,
   onError?: (error: string) => void
-): RealtimeChannel => {
-  const channel = createRealTimeChannel();
-
-  channel.on(
-    'postgres_changes',
-    { event: '*', schema: 'public', table: 'appointments' },
-    (payload: any) => {
-      if (!payload?.new) return;
+): { unsubscribe: () => void } => {
+  try {
+    const unsubscribe = realtimeBus.on('db:change', (payload) => {
+      if (payload.table !== 'appointments') return;
+      const row = payload.eventType === 'DELETE' ? payload.old : payload.new;
+      if (!row) return;
       onUpdate({
-        eventType: payload.eventType || payload.event || 'unknown',
-        appointment: normalizeAppointmentRecord(payload.new),
+        eventType: payload.eventType || 'unknown',
+        appointment: normalizeAppointmentRecord(row),
       });
-    }
-  );
-
-  channel.subscribe();
-
-  return channel;
+    });
+    return { unsubscribe };
+  } catch (err: any) {
+    onError?.(err?.message || 'Erro ao subscrever agendamentos em tempo real');
+    return { unsubscribe: () => {} };
+  }
 };
 
 export const createAppointmentRequest = async (
@@ -604,46 +601,50 @@ export const fetchAppointmentsForRole = async (
   role: 'paciente' | 'dentista' | 'secretario',
   userId: string
 ): Promise<AppointmentServiceResult<Appointment[]>> => {
-  try {
-    if (!userId) {
-      return { success: false, error: 'Usuário não informado' };
+  return fetchWithCache(`appointments_${role}_${userId}`, async () => {
+    try {
+      if (!userId) {
+        return { success: false, error: 'Usuário não informado' };
+      }
+
+      const { data, error } = await withTimeout(buildListQuery(role, userId), 10_000);
+      if (error) throw error;
+
+      const normalized = (data || []).map(normalizeAppointmentRecord);
+      return { success: true, data: normalized };
+    } catch (err: any) {
+      const handled = handleError(err, 'appointmentsService.fetchAppointmentsForRole');
+      return { success: false, error: handled };
     }
-
-    const { data, error } = await withTimeout(buildListQuery(role, userId), 10_000);
-    if (error) throw error;
-
-    const normalized = (data || []).map(normalizeAppointmentRecord);
-    return { success: true, data: normalized };
-  } catch (err: any) {
-    const handled = handleError(err, 'appointmentsService.fetchAppointmentsForRole');
-    return { success: false, error: handled };
-  }
+  });
 };
 
 export const fetchAppointmentById = async (
   appointmentId: string
 ): Promise<AppointmentServiceResult<Appointment>> => {
-  try {
-    if (!appointmentId) {
-      return { success: false, error: 'ID de agendamento obrigatório' };
+  return fetchWithCache(`appointment_${appointmentId}`, async () => {
+    try {
+      if (!appointmentId) {
+        return { success: false, error: 'ID de agendamento obrigatório' };
+      }
+
+      const { data, error } = await withTimeout(
+        supabase.from('appointments').select('*').eq('id', appointmentId).single(),
+        10_000
+      );
+
+      if (error) throw error;
+      return { success: true, data: normalizeAppointmentRecord(data) };
+    } catch (err: any) {
+      const handled = handleError(err, 'appointmentsService.fetchAppointmentById');
+      return { success: false, error: handled };
     }
-
-    const { data, error } = await withTimeout(
-      supabase.from('appointments').select('*').eq('id', appointmentId).single(),
-      10_000
-    );
-
-    if (error) throw error;
-    return { success: true, data: normalizeAppointmentRecord(data) };
-  } catch (err: any) {
-    const handled = handleError(err, 'appointmentsService.fetchAppointmentById');
-    return { success: false, error: handled };
-  }
+  });
 };
 
 const handleOfflineWrite = async (action: string, payload: any) => {
   const state = await NetInfo.fetch();
-  if (!state.isConnected || !state.isInternetReachable) {
+  if (!state.isConnected || state.isInternetReachable === false) {
     logger.info(`📡 Offline: Enfileirando ação de agendamento ${action}`);
     await enqueueOfflineAction(action, payload);
     return true;

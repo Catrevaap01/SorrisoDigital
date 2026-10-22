@@ -6,6 +6,25 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export const realtimeBus = new RealtimeBus<RealtimeEvents>();
 
+const REALTIME_TABLES = [
+  'triagens',
+  'respostas_triagem',
+  'appointments',
+  'profiles',
+  'dentistas',
+  'provincias',
+  'messages',
+  'conversations',
+  'notificacoes',
+  'procedimentos_tratamento',
+  'planos_tratamento',
+  'anamneses',
+  'prescricoes',
+  'evolucoes_clinicas',
+  'conteudos_educacionais',
+  'conteudos_educativos',
+] as const;
+
 const toDbChangeEvent = (table: string, payload: any): DbChangeEvent => ({
   table,
   eventType: payload?.eventType,
@@ -34,61 +53,16 @@ export const startRealtime = (options: {
   const channelName = `global-realtime-${role || 'user'}-${userId}`;
   logger.info(`Realtime: subscribing (${channelName})`);
 
-  const channel = supabase
-    .channel(channelName)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'triagens' }, (payload) => {
-      if (debug) logger.debug('Realtime event: triagens', { eventType: payload?.eventType });
-      realtimeBus.emit('db:change', toDbChangeEvent('triagens', payload));
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, (payload) => {
-      if (debug) logger.debug('Realtime event: appointments', { eventType: payload?.eventType });
-      realtimeBus.emit('db:change', toDbChangeEvent('appointments', payload));
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload) => {
-      if (debug) logger.debug('Realtime event: profiles', { eventType: payload?.eventType });
-      realtimeBus.emit('db:change', toDbChangeEvent('profiles', payload));
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'respostas_triagem' }, (payload) => {
-      if (debug) logger.debug('Realtime event: respostas_triagem', { eventType: payload?.eventType });
-      realtimeBus.emit('db:change', toDbChangeEvent('respostas_triagem', payload));
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, (payload) => {
-      if (debug) logger.debug('Realtime event: messages', { eventType: payload?.eventType });
-      realtimeBus.emit('db:change', toDbChangeEvent('messages', payload));
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, (payload) => {
-      if (debug) logger.debug('Realtime event: conversations', { eventType: payload?.eventType });
-      realtimeBus.emit('db:change', toDbChangeEvent('conversations', payload));
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'notificacoes' }, (payload) => {
-      if (debug) logger.debug('Realtime event: notificacoes', { eventType: payload?.eventType });
-      realtimeBus.emit('db:change', toDbChangeEvent('notificacoes', payload));
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'procedimentos_tratamento' }, (payload) => {
-      if (debug) logger.debug('Realtime event: procedimentos_tratamento', { eventType: payload?.eventType });
-      realtimeBus.emit('db:change', toDbChangeEvent('procedimentos_tratamento', payload));
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'planos_tratamento' }, (payload) => {
-      if (debug) logger.debug('Realtime event: planos_tratamento', { eventType: payload?.eventType });
-      realtimeBus.emit('db:change', toDbChangeEvent('planos_tratamento', payload));
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'anamneses' }, (payload) => {
-      if (debug) logger.debug('Realtime event: anamneses', { eventType: payload?.eventType });
-      realtimeBus.emit('db:change', toDbChangeEvent('anamneses', payload));
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'prescricoes' }, (payload) => {
-      if (debug) logger.debug('Realtime event: prescricoes', { eventType: payload?.eventType });
-      realtimeBus.emit('db:change', toDbChangeEvent('prescricoes', payload));
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'conteudos_educacionais' }, (payload) => {
-      if (debug) logger.debug('Realtime event: conteudos_educacionais', { eventType: payload?.eventType });
-      realtimeBus.emit('db:change', toDbChangeEvent('conteudos_educacionais', payload));
-    })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'conteudos_educativos' }, (payload) => {
-      if (debug) logger.debug('Realtime event: conteudos_educativos', { eventType: payload?.eventType });
-      realtimeBus.emit('db:change', toDbChangeEvent('conteudos_educativos', payload));
-    })
-    .subscribe((status, err) => {
+  const channel = supabase.channel(channelName);
+
+  REALTIME_TABLES.forEach((table) => {
+    channel.on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
+      if (debug) logger.debug(`Realtime event: ${table}`, { eventType: payload?.eventType });
+      realtimeBus.emit('db:change', toDbChangeEvent(table, payload));
+    });
+  });
+
+  channel.subscribe((status, err) => {
       if (status === 'SUBSCRIBED') {
         logger.info(`Realtime: subscribed (${channelName})`);
         realtimeBus.emit('realtime:status', { connected: true, status });

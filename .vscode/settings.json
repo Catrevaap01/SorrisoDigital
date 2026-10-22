@@ -1,0 +1,31 @@
+{
+    "workbench.editor.enablePreviewFromCodeNavigation": false,
+    "workbench.editor.enablePreviewFromQuickOpen": false,
+
+    // ── Deno: ativo APENAS para Edge Functions ─────────────────────────────────
+    // Requer extensão: denoland.vscode-deno (recomendada em extensions.json)
+    "deno.enablePaths": [
+        "supabase/functions"
+    ],
+    "deno.enable": false,
+    "deno.unstable": false,
+    "deno.lint": false,
+
+    // ── TypeScript: excluir pastas Deno do TS server do projeto Node/Expo ──────
+    // Isto evita que o TS server do projeto principal analise os ficheiros Deno
+    // e mostre erros de "Cannot find name 'Deno'"
+    "typescript.tsserver.exclude": [
+        "supabase/**"
+    ],
+
+    // ── Associação de ficheiros ─────────────────────────────────────────────────
+    // Garante que o index.ts da Edge Function é tratado como TypeScript normal
+    // enquanto a extensão Deno não estiver instalada
+    "files.associations": {
+        "supabase/functions/**/*.ts": "typescript"
+    },
+
+    // ── Suprimir erros do TS para ficheiros na pasta supabase/functions ─────────
+    "typescript.validate.enable": true,
+    "javascript.validate.enable": true
+}
