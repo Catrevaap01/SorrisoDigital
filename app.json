@@ -4,7 +4,7 @@
     "slug": "TeOdontoAngola",
     "version": "1.0.0",
     "scheme": "teodonto",
-    "jsEngine": "hermes",
+    "newArchEnabled": false,
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -52,18 +52,6 @@
       ],
       "expo-secure-store",
       "expo-font",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "newArchEnabled": false,
-            "enableProguardInReleaseBuilds": true
-          },
-          "ios": {
-            "newArchEnabled": false
-          }
-        }
-      ],
       "@react-native-community/datetimepicker"
     ],
     "extra": {
