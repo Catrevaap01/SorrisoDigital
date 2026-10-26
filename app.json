@@ -4,7 +4,6 @@
     "slug": "TeOdontoAngola",
     "version": "1.0.0",
     "scheme": "teodonto",
-    "newArchEnabled": false,
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
