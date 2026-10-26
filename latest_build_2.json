@@ -1,0 +1,51 @@
+﻿[
+  {
+    "id": "e1c8854a-144e-45bf-8051-8314263e4db6",
+    "status": "ERRORED",
+    "platform": "ANDROID",
+    "error": {
+      "errorCode": "EAS_BUILD_UNKNOWN_GRADLE_ERROR",
+      "message": "Gradle build failed with unknown error. See logs for the \"Run gradlew\" phase for more information."
+    },
+    "artifacts": {},
+    "fingerprint": {
+      "id": "01a17704-4572-7951-a3c6-784d729613a9",
+      "hash": "cd430757ff193a53d570f9e3f6c22102984bc8f5"
+    },
+    "initiatingActor": {
+      "id": "76322858-a2aa-49a6-b6a0-d48ee444e81a",
+      "displayName": "antoniotati"
+    },
+    "logFiles": [
+      "https://storage.googleapis.com/eas-workflows-production/logs/ed431c97-315b-4ee8-83b7-ce79f64af353/e1c8854a-144e-45bf-8051-8314263e4db6/2026-10-26T07%3A02%3A13Z-2eede29f-fe2e-496c-89f9-e65259402494.txt?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Credential=www-production%40exponentjs.iam.gserviceaccount.com%2F20261026%2Fauto%2Fstorage%2Fgoog4_request&X-Goog-Date=20261026T070507Z&X-Goog-Expires=900&X-Goog-SignedHeaders=host&X-Goog-Signature=989c18b87888f4a9aafac47710e3072e6312118c6efe709bcb0214da1215a8984d53ff168dda665f6cdb0e2a98b18cda8e538cba13ec1f4300a0fa1eff8fe71ed1001553261064df2b8b5ba6c694410487b41c998859e71042bd7f2929fd6855520be244d2894367b2437866ee8046ff50e357033e3600e317baa5dc8d672cb24d7af6b55d343019df498752481b093770fae448c8714b16fd8332c9beaf3b75e80d5d15603455b76c770c806f7d5d3ba2bbbb7f61cf6789f8f7c82122765032db9ac1cedf2584bd6d9b7b3c8e4a6429a9ddeaf1594bb9a759925081cd5baa4cfab715d6748aace7ae07bd17e258d325d3e6c1949c247f8881c485dfecadc7ca"
+    ],
+    "app": {
+      "id": "ed431c97-315b-4ee8-83b7-ce79f64af353",
+      "name": "TeOdontoAngola",
+      "slug": "TeOdontoAngola",
+      "ownerAccount": {
+        "id": "fcde0301-82b6-4c3e-bf64-36e67c8da97d",
+        "name": "antoniotati"
+      }
+    },
+    "distribution": "INTERNAL",
+    "buildProfile": "preview",
+    "appIdentifier": "com.antoniotati.teodontoangola",
+    "sdkVersion": "57.0.0",
+    "appVersion": "1.0.0",
+    "appBuildVersion": "4",
+    "gitCommitHash": "2e652ddadbcf5c01ad3b135c2786200a0b306d7e",
+    "gitCommitMessage": "fix(build): adicionar hermes-compiler e corrigir app.json para build Android EAS",
+    "priority": "NORMAL",
+    "createdAt": "2026-10-26T07:02:10.935Z",
+    "updatedAt": "2026-10-26T07:07:00.888Z",
+    "completedAt": "2026-10-26T07:07:00.646Z",
+    "expirationDate": "2026-11-09T07:02:11.043Z",
+    "isForIosSimulator": false,
+    "metrics": {
+      "buildWaitTime": 2274,
+      "buildQueueTime": 4501,
+      "buildDuration": 282936
+    }
+  }
+]
