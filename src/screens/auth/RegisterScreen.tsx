@@ -123,17 +123,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.centerWrapper}>
-          {/* Botão Voltar */}
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.replace('Login'))}
-            accessibilityRole="button"
-            accessibilityLabel="Voltar para login"
-            activeOpacity={0.7}
-          >
-            <Ionicons name="arrow-back" size={18} color={COLORS.primary} />
-            <Text style={styles.backButtonText}>Voltar ao Login</Text>
-          </TouchableOpacity>
+         
 
           {/* Logo / Cabeçalho */}
           <View style={styles.logoContainer}>
