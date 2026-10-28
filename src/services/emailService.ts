@@ -168,20 +168,95 @@ const sendEmail = async (payload: EmailPayload): Promise<{ success: boolean; err
   return { success: false, error: errorMsg };
 };
 
+import { sanitizeWhatsAppPhone } from './whatsappMfaService';
+
+export const buildPasswordRecoveryMailto = (
+  email: string,
+  nome: string,
+  senhaTemporaria: string
+): string => {
+  const subject = encodeURIComponent('TeOdonto Angola - Sua Nova Senha Temporária');
+  const body = encodeURIComponent(
+    `Olá, ${nome || 'Utilizador'}!\n\n` +
+    `A sua senha de acesso ao TeOdonto Angola foi redefinida com sucesso pelo Administrador.\n\n` +
+    `🔑 Nova Senha Temporária: ${senhaTemporaria}\n\n` +
+    `Por favor, aceda à plataforma no link abaixo e altere a sua senha no primeiro login para maior segurança:\n` +
+    `https://teodontoangola.vercel.app\n\n` +
+    `Atenciosamente,\n` +
+    `Equipa Sorriso Digital — TeOdonto Angola 🇦🇴`
+  );
+  return `mailto:${email}?subject=${subject}&body=${body}`;
+};
+
+export const buildPasswordRecoveryWhatsApp = (
+  phone: string,
+  nome: string,
+  senhaTemporaria: string
+): string => {
+  const sanitized = sanitizeWhatsAppPhone(phone);
+  const text = encodeURIComponent(
+    `🦷 *TeOdonto Angola — Recuperação de Senha*\n\n` +
+    `Olá, *${nome || 'Utilizador'}*!\n\n` +
+    `A sua senha de acesso foi redefinida pelo Administrador:\n\n` +
+    `🔑 *Nova Senha Temporária:* \`${senhaTemporaria}\`\n\n` +
+    `🌐 *Acesso:* https://teodontoangola.vercel.app\n\n` +
+    `⚠️ _Por segurança, altere esta senha no seu próximo login._`
+  );
+  return `https://wa.me/${sanitized}?text=${text}`;
+};
+
 export const sendPasswordRecoveryEmail = async (
   email: string,
   nome: string,
   senhaTemporaria: string
 ): Promise<{ success: boolean; error?: string }> => {
-  return sendEmail({
-    to: email,
-    subject: 'TeOdonto Angola - Sua Senha Foi Recuperada',
-    type: 'password_recovery',
-    data: {
-      nome,
-      senhaTemporaria,
-    },
-  });
+  console.log('📧 Enviando recuperação de senha para:', email);
+  let providerSuccess = false;
+  let providerError = '';
+
+  // 1. Tenta envio através do pipeline (Edge Function, Resend, SendGrid)
+  try {
+    const res = await sendEmail({
+      to: email,
+      subject: 'TeOdonto Angola - Sua Senha Foi Recuperada',
+      type: 'password_recovery',
+      data: {
+        nome,
+        senhaTemporaria,
+      },
+    });
+    if (res.success) {
+      providerSuccess = true;
+    } else {
+      providerError = res.error || '';
+    }
+  } catch (err: any) {
+    providerError = err?.message || 'Falha no envio';
+  }
+
+  // 2. Disparar resetPasswordForEmail nativo do Supabase Auth para a caixa de correio real
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+    const { error: nativeError } = await supabase.auth.resetPasswordForEmail(cleanEmail);
+    if (!nativeError) {
+      console.log('✔ Supabase Auth native resetPasswordForEmail enviado para:', cleanEmail);
+      return { success: true };
+    } else {
+      console.warn('Supabase resetPasswordForEmail aviso:', nativeError.message);
+    }
+  } catch (e: any) {
+    console.warn('Supabase resetPasswordForEmail erro:', e?.message);
+  }
+
+  if (providerSuccess) {
+    return { success: true };
+  }
+
+  // Se nenhum dos canais automáticos remotos disparou com sucesso, reporta o aviso mas não quebra a operação
+  return {
+    success: false,
+    error: providerError || 'Configure RESEND_API_KEY ou use os atalhos de E-mail / WhatsApp diretos.',
+  };
 };
 
 export const sendWelcomeEmailToDentista = async (

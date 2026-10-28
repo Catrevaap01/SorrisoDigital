@@ -243,6 +243,7 @@ export const criarDentista = async (
         numero_registro: crm,
         telefone: telefone || null,
         provincia: provincia || null,
+        temp_password: passwordToUse,
         senha_alterada: PROFILE_SCHEMA_FEATURES.hasSenhaAlterada ? false : undefined,
         created_at: new Date().toISOString(),
       }).filter(([, value]) => value !== undefined)

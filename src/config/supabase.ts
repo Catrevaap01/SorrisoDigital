@@ -106,5 +106,5 @@ export const getAdminClient = (): SupabaseClient | null => adminSupabase;
 export const PROFILE_SCHEMA_FEATURES = {
   hasProvincia: false,       // A tabela de perfil tem coluna "provincia" (texto)?
   usesProvinciaId: true,     // A tabela usa "provincia_id" (referência a outra tabela)?
-  hasSenhaAlterada: false,   // A tabela tem coluna "senha_alterada" (booleano)?
+  hasSenhaAlterada: true,    // A tabela tem coluna "senha_alterada" (booleano)? Confirmado via SQL
 } as const

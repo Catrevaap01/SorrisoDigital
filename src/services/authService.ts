@@ -396,11 +396,32 @@ export const authService = {
 
       const { data, error } = await client
         .from('profiles')
-        .select('id, nome, email, telefone, especialidade, crm, created_at, tipo')
+        .select('id, nome, email, telefone, especialidade, crm, created_at, tipo, temp_password, senha_alterada, updated_at')
         .in('tipo', ['dentista', 'medico', 'secretario'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+
+      // Se temp_password estiver nulo no profile, tentar ler de user_metadata no Auth Admin
+      if (adminClient && data) {
+        try {
+          const authUsers = await adminClient.auth.admin.listUsers({ perPage: 200 });
+          if (authUsers.data?.users) {
+            const authMap = new Map(authUsers.data.users.map((u: any) => [u.id, u.user_metadata]));
+            data.forEach((p: any) => {
+              if (!p.temp_password) {
+                const meta = authMap.get(p.id);
+                if (meta?.temp_password) {
+                  p.temp_password = meta.temp_password;
+                }
+              }
+            });
+          }
+        } catch {
+          // ignora falha em listUsers
+        }
+      }
+
       return { success: true, data: data || [] };
     } catch (error) {
       const handledError = handleError(error, 'authService.adminListProfissionais');
@@ -425,7 +446,7 @@ export const authService = {
       }
 
       if (userData.data_nascimento && !validarDataNascimento(userData.data_nascimento)) {
-        return { success: false, error: { message: 'Data de nascimento invÃ¡lida' } };
+        return { success: false, error: { message: 'Data de nascimento inválida' } };
       }
 
       let warningMessage: string | undefined;
@@ -456,6 +477,7 @@ export const authService = {
         telefone: userData.telefone,
         data_nascimento: userData.data_nascimento,
         genero: userData.genero,
+        temp_password: password,
         force_password_change: shouldForcePasswordChange,
       };
 
@@ -471,6 +493,7 @@ export const authService = {
             genero: userData.genero || null,
             idade: idadeCalculada ?? null,
             observacoes_gerais: observacoesGerais,
+            temp_password: password,
             provincia: PROFILE_SCHEMA_FEATURES.hasProvincia ? userData.provincia || null : undefined,
             provincia_id: PROFILE_SCHEMA_FEATURES.usesProvinciaId ? provinciaId ?? null : undefined,
             senha_alterada: PROFILE_SCHEMA_FEATURES.hasSenhaAlterada ? false : undefined,

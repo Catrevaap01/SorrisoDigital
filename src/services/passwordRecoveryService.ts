@@ -26,7 +26,8 @@ export const gerarSenhaAleatoria = (length: number = 12): string => {
 export const recuperarSenhaProfissional = async (
   profissionalId: string,
   profissionalEmail: string,
-  profissionalNome: string
+  profissionalNome: string,
+  senhaCustomizada?: string
 ): Promise<{
   success: boolean;
   novaSenha?: string;
@@ -34,19 +35,21 @@ export const recuperarSenhaProfissional = async (
   error?: string;
 }> => {
   try {
-    const novaSenha = gerarSenhaAleatoria();
+    const novaSenha = (senhaCustomizada || '').trim() || gerarSenhaAleatoria(10);
     const adminClient = getAdminClient();
 
     const authApi = adminClient?.auth.admin || supabase.auth.admin;
     const { data: userData } = await authApi.getUserById(profissionalId);
     const currentMetadata = userData?.user?.user_metadata || {};
 
+    // 1. Atualiza a senha no Supabase Auth e registra nos metadados
     const { error: updateError } = await authApi.updateUserById(
       profissionalId,
       {
         password: novaSenha,
         user_metadata: {
           ...currentMetadata,
+          temp_password: novaSenha,
           force_password_change: true,
         },
       }
@@ -67,39 +70,33 @@ export const recuperarSenhaProfissional = async (
       return { success: false, error: updateError.message };
     }
 
-    if (PROFILE_SCHEMA_FEATURES.hasSenhaAlterada) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          senha_alterada: false,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', profissionalId);
+    // 2. Salva temp_password e redefine senha_alterada na tabela profiles
+    const dbClient = adminClient || supabase;
+    const { error: profileError } = await dbClient
+      .from('profiles')
+      .update({
+        temp_password: novaSenha,
+        senha_alterada: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', profissionalId);
 
-      if (profileError) {
-        return { success: false, error: profileError.message };
-      }
+    if (profileError) {
+      console.warn('Aviso ao atualizar profile com temp_password:', profileError.message);
     }
 
+    // 3. Dispara o envio para o e-mail real do profissional
     const emailResult = await sendPasswordRecoveryEmail(
-      profissionalEmail,
+      profissionalEmail.trim().toLowerCase(),
       profissionalNome,
       novaSenha
     );
 
-    if (!emailResult.success) {
-      return {
-        success: true,
-        novaSenha,
-        emailSent: false,
-        error: emailResult.error || 'Senha alterada, mas falha ao enviar email',
-      };
-    }
-
     return {
       success: true,
       novaSenha,
-      emailSent: true,
+      emailSent: emailResult.success,
+      error: !emailResult.success ? emailResult.error : undefined,
     };
   } catch (error: any) {
     return {
