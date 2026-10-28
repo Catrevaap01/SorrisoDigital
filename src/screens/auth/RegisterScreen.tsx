@@ -243,23 +243,6 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
             }
           </TouchableOpacity>
 
-          {/* Passos seguintes */}
-          <View style={styles.stepsInfo}>
-            <Text style={styles.stepsTitle}>O que acontece a seguir:</Text>
-            {[
-              'Completar os dados de contacto',
-              'Definir a sua senha pessoal',
-              'Aceder ao app 🎉',
-            ].map((step, i) => (
-              <View key={i} style={styles.stepRow}>
-                <View style={styles.stepBadge}>
-                  <Text style={styles.stepBadgeText}>{i + 1}</Text>
-                </View>
-                <Text style={styles.stepText}>{step}</Text>
-              </View>
-            ))}
-          </View>
-
           {/* Já tem conta */}
           <TouchableOpacity
             style={styles.loginLink}
