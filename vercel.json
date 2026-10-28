@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build:web",
+  "buildCommand": "echo 'usando dist pre-compilado'",
   "outputDirectory": "dist",
   "framework": null,
   "rewrites": [
