@@ -24,7 +24,7 @@ const GENERATED_PRECACHE_ASSETS = [
   "/_expo/static/js/web/EducacaoScreen-a90603a0826f05d8c0ab5882c21a311b.js",
   "/_expo/static/js/web/GerirPacientesScreen-677f648d9b9ccd54ef475c14ce91e84a.js",
   "/_expo/static/js/web/HistoricoScreen-dd389a4524fb32ab678d986e58ca5522.js",
-  "/_expo/static/js/web/index-bfe9dd9977a9e837758886ad1a4b973f.js",
+  "/_expo/static/js/web/index-d7558fabc484875496f174882ebbe126.js",
   "/_expo/static/js/web/PacienteHistoricoScreen-d2218171d3b731488f70b1e3fe8e7b60.js",
   "/_expo/static/js/web/PlanoTratamentoScreen-5c102bdb772889ebff4563b8c91ba7fc.js",
   "/_expo/static/js/web/PrescricaoScreen-fac1a5ba37bf3feb0a0a88c7c4266dd6.js",
