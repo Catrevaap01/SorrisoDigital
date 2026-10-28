@@ -123,7 +123,6 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.centerWrapper}>
-         
 
           {/* Logo / Cabeçalho */}
           <View style={styles.logoContainer}>
@@ -303,25 +302,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 420,
     alignSelf: 'center',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: SIZES.radiusMd,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    marginBottom: SIZES.md,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
-  },
-  backButtonText: {
-    fontSize: SIZES.fontSm,
-    fontWeight: '600',
-    color: COLORS.primary,
   },
   logoContainer: {
     alignItems: 'center',
