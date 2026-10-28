@@ -115,153 +115,174 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          Platform.OS === 'web' && styles.webScrollContent,
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo / Cabeçalho */}
-        <View style={styles.logoContainer}>
-          <View style={styles.logoCircle}>
-            <Ionicons name="person-add" size={40} color={COLORS.primary} />
-          </View>
-          <Text style={styles.title} accessibilityRole="header">Criar Conta</Text>
-          <Text style={styles.subtitle}>Paciente</Text>
-          <Text style={styles.tagline}>Registe-se para começar a usar o TeOdonto Angola</Text>
-        </View>
-
-        {/* Formulário */}
-        <View style={styles.formContainer}>
-
-          {/* Nome */}
-          <Text style={styles.fieldLabel}>Nome completo</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="person-outline" size={20} color={COLORS.textSecondary} />
-            <TextInput
-              style={styles.input}
-              placeholder="O seu nome completo"
-              placeholderTextColor={COLORS.textLight}
-              value={nome}
-              onChangeText={setNome}
-              autoCapitalize="words"
-              returnKeyType="next"
-              autoComplete={Platform.OS === 'web' ? 'name' : 'off'}
-              accessibilityLabel="Nome completo"
-            />
-          </View>
-
-          {/* Email */}
-          <Text style={styles.fieldLabel}>Email</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color={COLORS.textSecondary} />
-            <TextInput
-              style={styles.input}
-              placeholder="email@exemplo.com"
-              placeholderTextColor={COLORS.textLight}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="next"
-              autoComplete={Platform.OS === 'web' ? 'email' : 'off'}
-              accessibilityLabel="Email"
-            />
-          </View>
-
-          {/* Senha */}
-          <Text style={styles.fieldLabel}>Senha</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color={COLORS.textSecondary} />
-            <TextInput
-              style={styles.input}
-              placeholder="Mínimo 6 caracteres"
-              placeholderTextColor={COLORS.textLight}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              returnKeyType="next"
-              autoComplete={Platform.OS === 'web' ? 'new-password' : 'off'}
-              accessibilityLabel="Senha"
-            />
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              accessibilityRole="button"
-              accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-            >
-              <Ionicons
-                name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                size={20}
-                color={COLORS.textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Confirmar Senha */}
-          <Text style={styles.fieldLabel}>Confirmar senha</Text>
-          <View style={styles.inputContainer}>
-            <Ionicons name="lock-closed-outline" size={20} color={COLORS.textSecondary} />
-            <TextInput
-              style={styles.input}
-              placeholder="Repita a senha"
-              placeholderTextColor={COLORS.textLight}
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showConfirm}
-              returnKeyType="done"
-              onSubmitEditing={handleRegister}
-              autoComplete={Platform.OS === 'web' ? 'new-password' : 'off'}
-              accessibilityLabel="Confirmar senha"
-            />
-            <TouchableOpacity
-              onPress={() => setShowConfirm(!showConfirm)}
-              accessibilityRole="button"
-              accessibilityLabel={showConfirm ? 'Ocultar confirmação' : 'Mostrar confirmação'}
-            >
-              <Ionicons
-                name={showConfirm ? 'eye-off-outline' : 'eye-outline'}
-                size={20}
-                color={COLORS.textSecondary}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* Botão */}
+        <View style={styles.centerWrapper}>
+          {/* Botão Voltar */}
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleRegister}
-            disabled={loading}
-            activeOpacity={0.85}
+            style={styles.backButton}
+            onPress={() => (navigation.canGoBack() ? navigation.goBack() : navigation.replace('Login'))}
             accessibilityRole="button"
-            accessibilityLabel="Criar conta"
+            accessibilityLabel="Voltar para login"
+            activeOpacity={0.7}
           >
-            {loading
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <>
-                  <Text style={styles.buttonText}>Criar Conta</Text>
-                  <Ionicons name="arrow-forward-circle" size={22} color="#fff" />
-                </>
-            }
+            <Ionicons name="arrow-back" size={18} color={COLORS.primary} />
+            <Text style={styles.backButtonText}>Voltar ao Login</Text>
           </TouchableOpacity>
 
-          {/* Já tem conta */}
-          <TouchableOpacity
-            style={styles.loginLink}
-            onPress={() => navigation.replace('Login')}
-            accessibilityRole="link"
-          >
-            <Text style={styles.loginText}>
-              Já tem conta?{' '}
-              <Text style={styles.loginTextBold}>Faça login</Text>
+          {/* Logo / Cabeçalho */}
+          <View style={styles.logoContainer}>
+            <View style={styles.logoCircle}>
+              <Ionicons name="person-add" size={38} color={COLORS.primary} />
+            </View>
+            <Text style={styles.title} accessibilityRole="header">Criar Conta</Text>
+            <View style={styles.roleBadge}>
+              <Ionicons name="shield-checkmark" size={13} color="#15803D" />
+              <Text style={styles.roleBadgeText}>Paciente</Text>
+            </View>
+            <Text style={styles.tagline}>Registe-se para começar a usar o TeOdonto Angola</Text>
+          </View>
+
+          {/* Formulário */}
+          <View style={styles.formContainer}>
+            {/* Nome */}
+            <Text style={styles.fieldLabel}>Nome completo</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons name="person-outline" size={20} color={COLORS.textSecondary} />
+              <TextInput
+                style={styles.input}
+                placeholder="O seu nome completo"
+                placeholderTextColor={COLORS.textLight}
+                value={nome}
+                onChangeText={setNome}
+                autoCapitalize="words"
+                returnKeyType="next"
+                autoComplete={Platform.OS === 'web' ? 'name' : 'off'}
+                accessibilityLabel="Nome completo"
+              />
+            </View>
+
+            {/* Email */}
+            <Text style={styles.fieldLabel}>Email</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons name="mail-outline" size={20} color={COLORS.textSecondary} />
+              <TextInput
+                style={styles.input}
+                placeholder="email@exemplo.com"
+                placeholderTextColor={COLORS.textLight}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+                autoComplete={Platform.OS === 'web' ? 'email' : 'off'}
+                accessibilityLabel="Email"
+              />
+            </View>
+
+            {/* Senha */}
+            <Text style={styles.fieldLabel}>Senha</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons name="lock-closed-outline" size={20} color={COLORS.textSecondary} />
+              <TextInput
+                style={styles.input}
+                placeholder="Mínimo 6 caracteres"
+                placeholderTextColor={COLORS.textLight}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                returnKeyType="next"
+                autoComplete={Platform.OS === 'web' ? 'new-password' : 'off'}
+                accessibilityLabel="Senha"
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                style={styles.eyeButton}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color={COLORS.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Confirmar Senha */}
+            <Text style={styles.fieldLabel}>Confirmar senha</Text>
+            <View style={styles.inputContainer}>
+              <Ionicons name="lock-closed-outline" size={20} color={COLORS.textSecondary} />
+              <TextInput
+                style={styles.input}
+                placeholder="Repita a senha"
+                placeholderTextColor={COLORS.textLight}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry={!showConfirm}
+                returnKeyType="done"
+                onSubmitEditing={handleRegister}
+                autoComplete={Platform.OS === 'web' ? 'new-password' : 'off'}
+                accessibilityLabel="Confirmar senha"
+              />
+              <TouchableOpacity
+                onPress={() => setShowConfirm(!showConfirm)}
+                accessibilityRole="button"
+                accessibilityLabel={showConfirm ? 'Ocultar confirmação' : 'Mostrar confirmação'}
+                style={styles.eyeButton}
+              >
+                <Ionicons
+                  name={showConfirm ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color={COLORS.textSecondary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Botão */}
+            <TouchableOpacity
+              style={[styles.button, loading && styles.buttonDisabled]}
+              onPress={handleRegister}
+              disabled={loading}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Criar conta"
+            >
+              {loading
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <>
+                    <Text style={styles.buttonText}>Criar Conta</Text>
+                    <Ionicons name="arrow-forward-circle" size={22} color="#fff" />
+                  </>
+              }
+            </TouchableOpacity>
+
+            {/* Já tem conta */}
+            <TouchableOpacity
+              style={styles.loginLink}
+              onPress={() => navigation.replace('Login')}
+              accessibilityRole="link"
+            >
+              <Text style={styles.loginText}>
+                Já tem conta?{' '}
+                <Text style={styles.loginTextBold}>Faça login</Text>
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Disclaimer */}
+          <View style={styles.disclaimer}>
+            <Ionicons name="shield-checkmark-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.disclaimerText}>
+              Os seus dados são protegidos. Este app não substitui consulta presencial.
             </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Disclaimer */}
-        <View style={styles.disclaimer}>
-          <Ionicons name="shield-checkmark-outline" size={16} color={COLORS.primary} />
-          <Text style={styles.disclaimerText}>
-            Os seus dados são protegidos. Este app não substitui consulta presencial.
-          </Text>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -279,49 +300,100 @@ const styles = StyleSheet.create({
     paddingHorizontal: SIZES.lg,
     paddingBottom: SIZES.xxl,
     paddingTop: Platform.select({ ios: 60, android: 40, default: 32 }) as number,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  webScrollContent: {
+    paddingVertical: 48,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  centerWrapper: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: SIZES.radiusMd,
+    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+    marginBottom: SIZES.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+  },
+  backButtonText: {
+    fontSize: SIZES.fontSm,
+    fontWeight: '600',
+    color: COLORS.primary,
   },
   logoContainer: {
     alignItems: 'center',
     marginBottom: SIZES.xl,
   },
   logoCircle: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    ...SHADOWS.lg,
-    marginBottom: SIZES.md,
+    ...SHADOWS.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: SIZES.sm,
   },
   title: {
     fontSize: 26,
     fontWeight: '800',
     color: COLORS.primary,
+    letterSpacing: -0.5,
   },
-  subtitle: {
-    fontSize: SIZES.fontXl,
-    fontWeight: '600',
-    color: COLORS.secondary,
-    marginTop: -2,
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 16,
+    marginTop: 6,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+  },
+  roleBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#15803D',
+    letterSpacing: 0.3,
   },
   tagline: {
     fontSize: SIZES.fontMd,
     color: COLORS.textSecondary,
-    marginTop: SIZES.sm,
+    marginTop: 4,
     textAlign: 'center',
+    lineHeight: 20,
   },
   formContainer: {
     backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusXl,
-    padding: SIZES.lg,
+    borderRadius: 20,
+    padding: Platform.select({ web: 32, default: SIZES.lg }),
     ...SHADOWS.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     marginBottom: SIZES.lg,
   },
   fieldLabel: {
-    fontSize: SIZES.fontSm,
+    fontSize: 13,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: '#334155',
     marginBottom: 6,
     marginTop: SIZES.xs,
   },
@@ -329,83 +401,71 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    borderRadius: SIZES.radiusMd,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    paddingHorizontal: SIZES.md,
-    marginBottom: SIZES.md,
-    height: 52,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    height: 50,
   },
   input: {
     flex: 1,
-    marginLeft: SIZES.sm,
-    fontSize: SIZES.fontMd,
+    marginLeft: 10,
+    fontSize: 15,
     color: COLORS.text,
     // Web: remove o outline azul do browser
     ...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} }),
   },
+  eyeButton: {
+    padding: 6,
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
+  },
   button: {
     backgroundColor: COLORS.primary,
-    borderRadius: SIZES.radiusMd,
-    height: 54,
+    borderRadius: 12,
+    height: 52,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: SIZES.sm,
-    marginTop: SIZES.sm,
+    gap: 8,
+    marginTop: 8,
     ...SHADOWS.sm,
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
   buttonDisabled: { opacity: 0.7 },
   buttonText: {
     color: '#fff',
-    fontSize: SIZES.fontLg,
+    fontSize: 16,
     fontWeight: '700',
   },
-  stepsInfo: {
-    backgroundColor: '#F0FDF4',
-    borderRadius: SIZES.radiusMd,
-    padding: SIZES.md,
-    marginTop: SIZES.lg,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
+  loginLink: {
+    alignItems: 'center',
+    marginTop: 20,
+    paddingVertical: 4,
+    ...Platform.select({ web: { cursor: 'pointer' } as any, default: {} }),
   },
-  stepsTitle: {
-    fontSize: SIZES.fontSm,
+  loginText: {
+    color: COLORS.textSecondary,
+    fontSize: 14,
+  },
+  loginTextBold: {
+    color: COLORS.primary,
     fontWeight: '700',
-    color: '#166534',
-    marginBottom: SIZES.sm,
   },
-  stepRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-    gap: SIZES.sm,
-  },
-  stepBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  stepText: { fontSize: SIZES.fontSm, color: '#166534', flex: 1 },
-  loginLink: { alignItems: 'center', marginTop: SIZES.lg },
-  loginText: { color: COLORS.textSecondary, fontSize: SIZES.fontMd },
-  loginTextBold: { color: COLORS.primary, fontWeight: '700' },
   disclaimer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     backgroundColor: '#EFF6FF',
-    borderRadius: SIZES.radiusMd,
-    padding: SIZES.md,
-    gap: SIZES.sm,
+    borderRadius: 12,
+    padding: 14,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   disclaimerText: {
     flex: 1,
-    fontSize: SIZES.fontSm,
-    color: COLORS.textSecondary,
+    fontSize: 12.5,
+    color: '#1E40AF',
     lineHeight: 18,
   },
 });
