@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   },
   centerWrapper: {
     width: '100%',
-    maxWidth: 480,
+    maxWidth: 420,
     alignSelf: 'center',
   },
   backButton: {

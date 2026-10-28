@@ -25,7 +25,8 @@
     </style>
   <meta name="theme-color" content="#1E88E5">
 <meta name="description" content="Sistema Digital de Odontologia de Angola - Gestão de pacientes, triagens e agendamentos">
-<link rel="icon" href="/favicon.ico"/></head>
+<link rel="icon" href="/favicon.ico"/><link rel="manifest" href="/manifest.json" />
+</head>
 
   <body>
     <!-- Use static rendering with Expo Router to support running without JavaScript. -->
@@ -34,6 +35,15 @@
     </noscript>
     <!-- The root element for your Expo app. -->
     <div id="root"></div>
-  <script src="/_expo/static/js/web/__expo-metro-runtime-5fa9f06415f5b5b1390bf3ed2c580c54.js" defer></script><script src="/_expo/static/js/web/__common-53216bb6f3299ffc230733519bf868c5.js" defer></script><script src="/_expo/static/js/web/index-f940ea6ebca5d695c05e0807bf5af071.js" defer></script>
+  <script src="/_expo/static/js/web/__expo-metro-runtime-5fa9f06415f5b5b1390bf3ed2c580c54.js" defer></script><script src="/_expo/static/js/web/__common-6db3e7c735398f121901d5aed72afeb6.js" defer></script><script src="/_expo/static/js/web/index-bfe9dd9977a9e837758886ad1a4b973f.js" defer></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/service-worker.js').catch(function (error) {
+      console.warn('Service Worker falhou:', error);
+    });
+  });
+}
+</script>
 </body>
 </html>

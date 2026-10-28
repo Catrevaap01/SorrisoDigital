@@ -21,33 +21,49 @@ export const uploadImage = async (
   bucket = 'triagens'
 ): Promise<UploadResult> => {
   try {
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: 'base64' as any,
-    });
-
-    const fileExtension = uri.split('.').pop()?.toLowerCase() || 'jpg';
+    const fileExtension = uri.split('.').pop()?.split('?')[0]?.toLowerCase() || 'jpg';
     const mimeType = fileExtension === 'png' ? 'image/png' : 'image/jpeg';
-
     const fileName = generateFileName(userId, fileExtension);
 
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+    let bytes: Uint8Array;
+
+    if (typeof window !== 'undefined' && uri.startsWith('blob:')) {
+      // Web: fetch the blob URI directly
+      const response = await fetch(uri);
+      const arrayBuffer = await response.arrayBuffer();
+      bytes = new Uint8Array(arrayBuffer);
+    } else if (typeof window !== 'undefined' && uri.startsWith('data:')) {
+      // Web: data URI (base64)
+      const base64 = uri.split(',')[1];
+      const binaryString = atob(base64);
+      bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+    } else {
+      // Native: use expo-file-system
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: 'base64' as any,
+      });
+      const binaryString = atob(base64);
+      bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
     }
 
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(fileName, bytes.buffer, {
         contentType: mimeType,
-        upsert: false,
+        upsert: true,
       });
 
     if (error) throw error;
 
     const {
       data: { publicUrl },
-    } = supabase.storage.from(bucket).getPublicUrl(fileName);
+    } = supabase.storage.from(bucket).getPublicUrl(data.path || fileName);
 
     return { success: true, url: publicUrl, path: data.path };
   } catch (err) {

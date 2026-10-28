@@ -11,7 +11,9 @@ import {
   TouchableOpacity,
   View,
   StatusBar,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
@@ -19,6 +21,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../config/supabase';
 import MfaSetupModal from '../../components/MfaSetupModal';
 import { COLORS, SHADOWS, SIZES, TYPOGRAPHY } from '../../styles/theme';
+import { uploadImage } from '../../services/storageService';
 
 const PROVINCIAS_ADMIN = [
   'Luanda', 'Benguela', 'Huambo', 'Huila', 'Bie', 'Malanje', 'Uige', 'Zaire',
@@ -33,6 +36,7 @@ const AdminProfileScreen: React.FC = () => {
   const [abrirProvincias, setAbrirProvincias] = useState(false);
   const [abrirMfaSetup, setAbrirMfaSetup] = useState(false);
   const [processando, setProcessando] = useState(false);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
 
   const [nome, setNome] = useState(profile?.nome || '');
   const [telefone, setTelefone] = useState(profile?.telefone || '');
@@ -168,6 +172,41 @@ const AdminProfileScreen: React.FC = () => {
     signOut();
   };
 
+  const handlePickPhoto = async () => {
+    try {
+      const permResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permResult.status !== 'granted') {
+        Toast.show({ type: 'error', text1: 'Permissão necessária', text2: 'Autorize o acesso à galeria nas definições.' });
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+      if (!profile?.id) return;
+      setUploadingFoto(true);
+      const uploadRes = await uploadImage(result.assets[0].uri, profile.id, 'triagens');
+      if (!uploadRes.success || !uploadRes.url) {
+        Toast.show({ type: 'error', text1: 'Erro ao carregar foto', text2: uploadRes.error || 'Tente novamente' });
+        return;
+      }
+      const updateRes = await updateProfile({ foto_url: uploadRes.url });
+      if (updateRes.success) {
+        if (refreshProfile) await refreshProfile();
+        Toast.show({ type: 'success', text1: 'Foto de perfil atualizada!' });
+      } else {
+        Toast.show({ type: 'error', text1: 'Erro ao guardar foto' });
+      }
+    } catch (e: any) {
+      Toast.show({ type: 'error', text1: 'Erro inesperado', text2: e?.message || '' });
+    } finally {
+      setUploadingFoto(false);
+    }
+  };
+
   const avatarInitial = profile?.nome?.charAt(0).toUpperCase() || 'A';
 
   return (
@@ -185,11 +224,26 @@ const AdminProfileScreen: React.FC = () => {
         {/* Header Elegante */}
         <View style={styles.headerBackground}>
           <View style={styles.headerForeground}>
-            <View style={styles.avatarGlow}>
+            <TouchableOpacity
+              style={styles.avatarGlow}
+              onPress={handlePickPhoto}
+              disabled={uploadingFoto}
+              accessibilityLabel="Alterar foto de perfil"
+            >
               <View style={styles.avatarLarge}>
-                <Text style={styles.avatarTextLarge}>{avatarInitial}</Text>
+                {profile?.foto_url ? (
+                  <Image source={{ uri: profile.foto_url }} style={styles.avatarLargeImage} />
+                ) : (
+                  <Text style={styles.avatarTextLarge}>{avatarInitial}</Text>
+                )}
               </View>
-            </View>
+              <View style={styles.avatarAdminCameraBadge}>
+                {uploadingFoto
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Ionicons name="camera" size={13} color="#fff" />
+                }
+              </View>
+            </TouchableOpacity>
             <Text style={styles.profileName}>{profile?.nome || 'Administrador'}</Text>
             <View style={styles.badgeAdmin}>
               <Ionicons name="shield-checkmark" size={14} color="white" />
@@ -469,6 +523,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 4,
+    borderColor: 'white',
+    overflow: 'hidden',
+  },
+  avatarLargeImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+  },
+  avatarAdminCameraBadge: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#6366F1',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
     borderColor: 'white',
   },
   avatarTextLarge: { fontSize: 42, fontWeight: '700', color: 'white' },

@@ -16,13 +16,12 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { copiarParaAreaDeTransferencia } from '../../utils/senhaUtils';
 import { COLORS, SPACING, TYPOGRAPHY, SIZES, SHADOWS } from '../../styles/theme';
-import { supabase } from '../../config/supabase';
 import { recuperarSenhaPaciente } from '../../services/passwordRecoveryService';
-import { notifyNewMessage } from '../../services/localNotificationService';
 
 const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
-const cardWidth = isWeb && width > 600 ? 500 : '100%';
+const cardWidth = '100%';
+const CARD_MAX_WIDTH = 420;
 
 export default function ForgotPasswordScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
@@ -37,41 +36,20 @@ export default function ForgotPasswordScreen({ navigation }: any) {
 
     const emailTrimmed = email.trim().toLowerCase();
     try {
-      // Use Supabase native resetPasswordForEmail flow
-      // This sends a magic link to re-verify/redefine password.
-      const redirectUrl = Platform.OS === 'web' 
-        ? `${window.location.origin}/redefinir-senha`
-        : 'teodonto://redefinir-senha';
-
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(emailTrimmed, {
-        redirectTo: redirectUrl,
-      });
-
-      if (resetError) {
-        // Fallback for custom DB recovery
-        console.warn('Native resetPasswordForEmail failed, using backup recovery service:', resetError.message);
-        const result = await recuperarSenhaPaciente(emailTrimmed);
-        if (result.success) {
-          setNovaSenha(result.novaSenha || null);
-          Toast.show({
-            type: 'success',
-            text1: 'Recuperação activada',
-            text2: 'Uma senha temporária foi exibida e configurada.',
-          });
-        } else {
-          throw new Error(result.error || resetError.message);
-        }
-      } else {
+      // Recuperar senha do paciente: gera senha temporária, salva no DB e envia por email real
+      const result = await recuperarSenhaPaciente(emailTrimmed);
+      if (result.success) {
+        setNovaSenha(result.novaSenha || null);
         Toast.show({
           type: 'success',
-          text1: 'Link enviado!',
-          text2: 'Verifique a sua caixa de correio para redefinir a password.',
+          text1: result.emailSent ? '✅ Senha enviada por email!' : '✅ Senha temporária gerada',
+          text2: result.emailSent
+            ? 'Verifique a sua caixa de correio para obter a senha temporária.'
+            : 'Copie a senha abaixo e use-a para entrar.',
           visibilityTime: 6000,
         });
-        await notifyNewMessage(
-          'Recuperação de senha',
-          'Enviámos-lhe um link de redefinição por e-mail.'
-        );
+      } else {
+        throw new Error(result.error || 'Erro ao recuperar senha');
       }
     } catch (err: any) {
       setError(err.message || 'Erro inesperado');
@@ -157,7 +135,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
                       <Ionicons name="copy-outline" size={22} color={COLORS.primary} />
                     </TouchableOpacity>
                   </View>
-                  <Text style={styles.resultHint}>Copie esta senha e use-a para entrar.</Text>
+                  <Text style={styles.resultHint}>Esta senha foi enviada para o seu email. Use-a para entrar e depois altere-a.</Text>
                 </View>
               ) : null}
 
@@ -182,7 +160,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
           
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              Apenas pacientes podem recuperar a senha automaticamente.
+              Apenas pacientes podem recuperar a senha automaticamente. Profissionais de saúde devem contactar o Administrador.
             </Text>
           </View>
         </View>
@@ -199,21 +177,21 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
+    alignItems: 'center',
     paddingVertical: SPACING.xl,
+    paddingHorizontal: SPACING.lg,
   },
   content: {
     width: '100%',
-    maxWidth: 1200,
+    maxWidth: CARD_MAX_WIDTH,
     alignSelf: 'center',
     paddingHorizontal: SPACING.lg,
-    alignItems: 'center',
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
     marginBottom: SPACING.lg,
-    marginLeft: isWeb && width > 600 ? (width - 500) / 2 - SPACING.lg : 0,
   },
   backIconWrapper: {
     width: 40,
@@ -232,12 +210,14 @@ const styles = StyleSheet.create({
   },
   card: {
     width: cardWidth as any,
+    maxWidth: CARD_MAX_WIDTH,
     backgroundColor: COLORS.surface,
     borderRadius: SIZES.radiusXl,
     padding: SPACING.xl,
     ...SHADOWS.md,
     borderWidth: 1,
     borderColor: '#F1F5F9',
+    alignSelf: 'center',
   },
   imageContainer: {
     alignItems: 'center',

@@ -11,7 +11,10 @@ import {
   Platform,
   ActivityIndicator as _ActivityIndicator,
   KeyboardAvoidingView,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadImage } from '../../services/storageService';
 import { useRoute } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 
@@ -90,8 +93,45 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
   const [processandoLogout, setProcessandoLogout] = useState(false);
   const [showGeneros, setShowGeneros] = useState<boolean>(false);
   const [perfilCarregado, setPerfilCarregado] = useState<any>(null);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
   const isDentista = profile?.tipo === 'dentista' || profile?.tipo === 'medico';
   const isSecretario = profile?.tipo === 'secretario';
+
+  const handlePickPhoto = useCallback(async () => {
+    try {
+      const permResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permResult.status !== 'granted') {
+        Toast.show({ type: 'error', text1: 'Permissão necessária', text2: 'Autorize o acesso à galeria nas definições.' });
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+
+      if (!profile?.id) return;
+      setUploadingFoto(true);
+      const uploadRes = await uploadImage(result.assets[0].uri, profile.id, 'triagens');
+      if (!uploadRes.success || !uploadRes.url) {
+        Toast.show({ type: 'error', text1: 'Erro ao carregar foto', text2: uploadRes.error || 'Tente novamente' });
+        return;
+      }
+      const updateRes = await updateProfile({ foto_url: uploadRes.url });
+      if (updateRes.success) {
+        await refreshProfile();
+        Toast.show({ type: 'success', text1: 'Foto de perfil atualizada!' });
+      } else {
+        Toast.show({ type: 'error', text1: 'Erro ao guardar foto' });
+      }
+    } catch (e: any) {
+      Toast.show({ type: 'error', text1: 'Erro inesperado', text2: e?.message || '' });
+    } finally {
+      setUploadingFoto(false);
+    }
+  }, [profile?.id, updateProfile, refreshProfile]);
   const headerAccent = isSecretario ? '#6D28D9' : isDentista ? COLORS.secondary : COLORS.primary;
   const perfilPaciente = useMemo(
     () => (!isDentista && (perfilCarregado || profile) ? parsePacienteProfile({ ...(perfilCarregado || profile) }) : profile),
@@ -321,9 +361,26 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
     >
       <View style={styles.contentWidth}>
       <View style={[styles.header, isDentista && styles.headerDentista, isSecretario && { backgroundColor: headerAccent }]}>
-        <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>{getInitials(profile?.nome)}</Text>
-        </View>
+        <TouchableOpacity
+          style={styles.avatarWrapper}
+          onPress={handlePickPhoto}
+          disabled={uploadingFoto}
+          accessibilityLabel="Alterar foto de perfil"
+        >
+          <View style={styles.avatarContainer}>
+            {profile?.foto_url ? (
+              <Image source={{ uri: profile.foto_url }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>{getInitials(profile?.nome)}</Text>
+            )}
+          </View>
+          <View style={styles.avatarCameraBadge}>
+            {uploadingFoto
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Ionicons name="camera" size={14} color="#fff" />
+            }
+          </View>
+        </TouchableOpacity>
         <Text style={styles.headerNome}>{profile?.nome || 'Usuario'}</Text>
         <Text style={styles.headerEmail}>{profile?.email}</Text>
         {!isDentista && idadePaciente !== null && (
@@ -822,6 +879,10 @@ const styles = StyleSheet.create({
     ...SHADOWS.md,
   },
   headerDentista: { backgroundColor: COLORS.secondary },
+  avatarWrapper: {
+    position: 'relative',
+    marginBottom: SIZES.md,
+  },
   avatarContainer: {
     width: 80,
     height: 80,
@@ -829,7 +890,27 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: SIZES.md,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  avatarCameraBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
   },
   avatarText: { fontSize: 28, fontWeight: 'bold', color: COLORS.textInverse },
   headerNome: { fontSize: SIZES.fontXl, fontWeight: 'bold', color: COLORS.textInverse },
