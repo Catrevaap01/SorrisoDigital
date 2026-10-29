@@ -1279,6 +1279,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (data.user) {
         const provinciaId = await resolveProvinciaId(userData.provincia);
 
+        // Salvar nome localmente para exibição instantânea no onboarding
+        if (userData.nome) {
+          await universalStorage.setItem('temp_signup_nome', userData.nome);
+        }
+
         // Registrar sessao inicial
         const signUpSessionId = generateSessionId();
         await universalStorage.setItem(`last_session_id_${data.user.id}`, signUpSessionId);
@@ -1287,6 +1292,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Propaga apenas se o caller definiu explicitamente o valor
         const profileUpdates = Object.fromEntries(
           Object.entries({
+            nome: userData.nome,
+            tipo: userData.tipo || 'paciente',
             telefone: userData.telefone,
             provincia: PROFILE_SCHEMA_FEATURES.hasProvincia ? userData.provincia : undefined,
             provincia_id: PROFILE_SCHEMA_FEATURES.usesProvinciaId ? provinciaId : undefined,
@@ -1297,14 +1304,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }).filter(([, value]) => value !== undefined)
         );
 
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update(profileUpdates)
-          .eq('id', data.user.id);
+        // Tentar update e upsert na tabela profiles para garantir gravação do nome
+        try {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update(profileUpdates)
+            .eq('id', data.user.id);
 
-        if (profileError) {
-          logger.warn('Erro ao atualizar perfil após signup:', profileError);
+          if (profileError) {
+            logger.warn('Erro ao atualizar perfil após signup, tentando upsert:', profileError);
+            await supabase.from('profiles').upsert({
+              id: data.user.id,
+              email: data.user.email,
+              ...profileUpdates,
+            });
+          }
+        } catch (dbErr) {
+          logger.warn('Erro ao sincronizar perfil após signup:', dbErr);
         }
+
+        // Atualiza estado local imediatamente para refletir o nome em qualquer tela
+        setProfile((prev) => ({
+          ...(prev || {}),
+          id: data.user.id,
+          email: data.user.email,
+          nome: userData.nome,
+          tipo: (userData.tipo as any) || 'paciente',
+          ...profileUpdates,
+        }));
       }
 
       Toast.show({

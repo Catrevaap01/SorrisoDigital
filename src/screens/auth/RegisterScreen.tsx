@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../../contexts/AuthContext';
+import { universalStorage } from '../../utils/storage';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { RootStackParamList } from '../../navigation/types';
 
@@ -73,8 +74,11 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
     if (!validate()) return;
     setLoading(true);
     try {
+      const nomeLimpo = nome.trim();
+      await universalStorage.setItem('temp_signup_nome', nomeLimpo);
+
       const result = await signUp(email.trim().toLowerCase(), password, {
-        nome: nome.trim(),
+        nome: nomeLimpo,
         tipo: 'paciente',
         senha_alterada: false, // onboarding → forçar mudança de senha
       });

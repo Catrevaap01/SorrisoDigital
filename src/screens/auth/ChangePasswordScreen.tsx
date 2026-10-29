@@ -16,7 +16,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
+import { COLORS, SPACING, TYPOGRAPHY, SIZES, SHADOWS } from '../../styles/theme';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase, PROFILE_SCHEMA_FEATURES } from '../../config/supabase';
@@ -163,123 +163,126 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.content}>
+        <View style={styles.centerWrapper}>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
               <View style={styles.logoCircle}>
-                <Ionicons name="medical" size={44} color={COLORS.primary} />
+                <Ionicons name="medical" size={40} color={COLORS.primary} />
               </View>
               <Text style={styles.logoTitle}>TeOdonto</Text>
               <Text style={styles.logoSubtitle}>Angola</Text>
             </View>
             <View style={styles.iconContainer}>
-              <Ionicons name="lock-closed-outline" size={34} color={COLORS.primary} />
+              <Ionicons name="lock-closed-outline" size={32} color={COLORS.primary} />
             </View>
             <Text style={styles.title}>Altere sua senha</Text>
             <Text style={styles.subtitle}>
-              Este e seu primeiro acesso. Por seguranca, altere a senha temporaria.
+              Este é o seu primeiro acesso. Por segurança, altere a senha temporária.
             </Text>
           </View>
 
-          {/* Info Box */}
-          <View style={styles.infoBox}>
-            <Text style={styles.infoTitle}>Requisitos de seguranca:</Text>
-            <Text style={styles.infoText}>- Minimo de 8 caracteres</Text>
-            <Text style={styles.infoText}>- Pelo menos uma letra maiuscula</Text>
-            <Text style={styles.infoText}>- Pelo menos um numero</Text>
-            <Text style={styles.infoText}>- Pelo menos um caractere especial (!@#$%^&*)</Text>
+          {/* Card com os campos - padrão idêntico ao cadastro */}
+          <View style={styles.card}>
+            {/* Info Box */}
+            <View style={styles.infoBox}>
+              <Text style={styles.infoTitle}>Requisitos de segurança:</Text>
+              <Text style={styles.infoText}>• Mínimo de 8 caracteres</Text>
+              <Text style={styles.infoText}>• Pelo menos uma letra maiúscula</Text>
+              <Text style={styles.infoText}>• Pelo menos um número</Text>
+              <Text style={styles.infoText}>• Pelo menos um caractere especial (!@#$%^&*)</Text>
+            </View>
+
+            {/* Form */}
+            <View style={styles.form}>
+              {/* Senha Atual */}
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Senha temporária atual</Text>
+                <View style={styles.inputWrapper}>
+                  <Input
+                    placeholder="Digite sua senha atual"
+                    value={senhaAtual}
+                    onChangeText={setSenhaAtual}
+                    secureTextEntry={!mostrarSenhas}
+                    editable={!loading}
+                  />
+                </View>
+              </View>
+
+              {/* Divider */}
+              <View style={styles.divider} />
+
+              {/* Nova Senha */}
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Nova senha</Text>
+                <View style={styles.inputWrapper}>
+                  <Input
+                    placeholder="Digite sua nova senha"
+                    value={senhaNova}
+                    onChangeText={setSenhaNova}
+                    secureTextEntry={!mostrarSenhas}
+                    editable={!loading}
+                  />
+                </View>
+              </View>
+
+              {/* Confirmar Senha */}
+              <View style={styles.formGroup}>
+                <Text style={styles.label}>Confirmar nova senha</Text>
+                <View style={styles.inputWrapper}>
+                  <Input
+                    placeholder="Confirme sua nova senha"
+                    value={senhaConfirmar}
+                    onChangeText={setSenhaConfirmar}
+                    secureTextEntry={!mostrarSenhas}
+                    editable={!loading}
+                  />
+                </View>
+              </View>
+
+              {/* Show Password Toggle */}
+              <View style={styles.toggleContainer}>
+                <TouchableOpacity
+                  style={styles.toggleButtonWrapper}
+                  onPress={() => setMostrarSenhas(!mostrarSenhas)}
+                >
+                  <Ionicons
+                    name={mostrarSenhas ? 'eye-off-outline' : 'eye-outline'}
+                    size={22}
+                    color={COLORS.primary}
+                  />
+                  <Text style={styles.toggleText}>
+                    {mostrarSenhas ? 'Ocultar senhas' : 'Mostrar senhas'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Buttons */}
+            <View style={styles.buttonsContainer}>
+              <Button
+                title={loading ? 'Alterando...' : 'Alterar senha'}
+                onPress={handleAlterarSenha}
+                disabled={
+                  loading ||
+                  !senhaAtual.trim() ||
+                  !senhaNova.trim() ||
+                  !senhaConfirmar.trim()
+                }
+                loading={loading}
+              />
+              {loading && !!progressStep && (
+                <View style={styles.progressBox}>
+                  <Text style={styles.progressText}>{progressStep}</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Footer Text */}
+            <Text style={styles.footerText}>
+              Sua senha será alterada imediatamente após a confirmação.
+            </Text>
           </View>
-
-          {/* Form */}
-          <View style={styles.form}>
-            {/* Senha Atual */}
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Senha temporaria atual</Text>
-              <View style={styles.inputWrapper}>
-                <Input
-                  placeholder="Digite sua senha atual"
-                  value={senhaAtual}
-                  onChangeText={setSenhaAtual}
-                  secureTextEntry={!mostrarSenhas}
-                  editable={!loading}
-                />
-              </View>
-            </View>
-
-            {/* Divider */}
-            <View style={styles.divider} />
-
-            {/* Nova Senha */}
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Nova senha</Text>
-              <View style={styles.inputWrapper}>
-                <Input
-                  placeholder="Digite sua nova senha"
-                  value={senhaNova}
-                  onChangeText={setSenhaNova}
-                  secureTextEntry={!mostrarSenhas}
-                  editable={!loading}
-                />
-              </View>
-            </View>
-
-            {/* Confirmar Senha */}
-            <View style={styles.formGroup}>
-              <Text style={styles.label}>Confirmar nova senha</Text>
-              <View style={styles.inputWrapper}>
-                <Input
-                  placeholder="Confirme sua nova senha"
-                  value={senhaConfirmar}
-                  onChangeText={setSenhaConfirmar}
-                  secureTextEntry={!mostrarSenhas}
-                  editable={!loading}
-                />
-              </View>
-            </View>
-
-            {/* Show Password Toggle */}
-            <View style={styles.toggleContainer}>
-              <TouchableOpacity
-                style={styles.toggleButtonWrapper}
-                onPress={() => setMostrarSenhas(!mostrarSenhas)}
-              >
-                <Ionicons
-                  name={mostrarSenhas ? 'eye-off-outline' : 'eye-outline'}
-                  size={24}
-                  color={COLORS.primary}
-                />
-                <Text style={styles.toggleText}>
-                  {mostrarSenhas ? 'Ocultar senhas' : 'Mostrar senhas'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Buttons */}
-          <View style={styles.buttonsContainer}>
-            <Button
-              title={loading ? 'Alterando...' : 'Alterar senha'}
-              onPress={handleAlterarSenha}
-              disabled={
-                loading ||
-                !senhaAtual.trim() ||
-                !senhaNova.trim() ||
-                !senhaConfirmar.trim()
-              }
-              loading={loading}
-            />
-            {loading && !!progressStep && (
-              <View style={styles.progressBox}>
-                <Text style={styles.progressText}>{progressStep}</Text>
-              </View>
-            )}
-          </View>
-
-          {/* Footer Text */}
-          <Text style={styles.footerText}>
-            Sua senha sera alterada imediatamente apos a confirmacao.
-          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -289,32 +292,48 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#F0F4F8',
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingVertical: SPACING.lg,
-  },
-  content: {
+    paddingVertical: SPACING.xl,
     paddingHorizontal: SPACING.lg,
+    alignItems: 'center',
+  },
+  centerWrapper: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+  },
+  card: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    padding: Platform.select({ web: 32, default: SIZES.lg }),
+    ...SHADOWS.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    width: '100%',
   },
   header: {
     alignItems: 'center',
-    marginBottom: SPACING.xxl,
+    marginBottom: SPACING.xl,
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   logoCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: COLORS.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
+    ...SHADOWS.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   logoTitle: {
     fontSize: TYPOGRAPHY.sizes.h2,
@@ -328,13 +347,13 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   iconContainer: {
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
   },
   title: {
     fontSize: TYPOGRAPHY.sizes.h2,
     fontWeight: 'bold',
     color: COLORS.text,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
     textAlign: 'center',
   },
   subtitle: {
@@ -348,32 +367,32 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: COLORS.success,
     padding: SPACING.md,
-    borderRadius: 8,
+    borderRadius: 10,
     marginBottom: SPACING.lg,
   },
   infoTitle: {
     fontSize: TYPOGRAPHY.sizes.body,
     fontWeight: 'bold',
     color: '#2E7D32',
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
   infoText: {
     fontSize: TYPOGRAPHY.sizes.small,
-    color: '#558B2F',
-    marginBottom: SPACING.xs,
+    color: '#388E3C',
+    marginBottom: 2,
     lineHeight: 18,
   },
   form: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.sm,
   },
   formGroup: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   label: {
     fontSize: TYPOGRAPHY.sizes.body,
     fontWeight: '600',
     color: COLORS.text,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
   inputWrapper: {
     overflow: 'hidden',
@@ -381,14 +400,14 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: COLORS.divider,
-    marginVertical: SPACING.lg,
+    backgroundColor: '#F1F5F9',
+    marginVertical: SPACING.md,
   },
   toggleContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: SPACING.md,
+    paddingVertical: SPACING.sm,
   },
   toggleButtonWrapper: {
     flexDirection: 'row',
@@ -396,17 +415,12 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: TYPOGRAPHY.sizes.body,
-    color: COLORS.text,
+    color: COLORS.textSecondary,
     marginLeft: SPACING.xs,
   },
-  toggleButton: {
-    fontSize: TYPOGRAPHY.sizes.body,
-    color: COLORS.primary,
-    fontWeight: '600',
-  },
   buttonsContainer: {
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.lg,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.md,
   },
   progressBox: {
     marginTop: SPACING.md,
@@ -424,10 +438,10 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: TYPOGRAPHY.sizes.small,
-    color: COLORS.textSecondary,
+    color: COLORS.textLight,
     textAlign: 'center',
     fontStyle: 'italic',
-    paddingHorizontal: SPACING.md,
+    marginTop: SPACING.xs,
   },
 });
 

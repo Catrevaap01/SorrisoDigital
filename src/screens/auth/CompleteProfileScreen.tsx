@@ -29,6 +29,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../config/supabase';
+import { universalStorage } from '../../utils/storage';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 
 // DateTimePicker — só existe em iOS/Android; em web usamos <input type="date">
@@ -70,35 +71,61 @@ const CompleteProfileScreen: React.FC = () => {
   const [step, setStep] = useState<Step>('dados');
   const [firstName, setFirstName] = useState<string>('');
 
-  // Busca o nome do utilizador do Supabase Auth diretamente (mais fiável)
+  // Busca o nome do utilizador de todas as fontes disponíveis com prioridade
   useEffect(() => {
+    let cancelled = false;
     const loadName = async () => {
-      // 1. Tentar via profile (já carregado no contexto)
-      if (profile?.nome) {
-        setFirstName(profile.nome.split(' ')[0]);
+      // 1. Fonte imediata: nome digitado no formulário de registo
+      try {
+        const localNome = await universalStorage.getItem('temp_signup_nome');
+        if (localNome && !cancelled) {
+          setFirstName(localNome.trim().split(' ')[0]);
+        }
+      } catch (_) {}
+
+      // 2. Fonte de contexto de perfil
+      if (profile?.nome && !cancelled) {
+        setFirstName(profile.nome.trim().split(' ')[0]);
         return;
       }
-      // 2. Tentar via user do contexto (user_metadata)
+
+      // 3. User metadata no contexto
       const metaNome =
         user?.user_metadata?.nome ||
         user?.user_metadata?.full_name ||
         user?.user_metadata?.name;
-      if (metaNome) {
-        setFirstName((metaNome as string).split(' ')[0]);
+      if (metaNome && !cancelled) {
+        setFirstName(String(metaNome).trim().split(' ')[0]);
         return;
       }
-      // 3. Fallback: buscar diretamente do Supabase Auth
+
+      // 4. Buscar fresco diretamente do Supabase Auth
       try {
         const { data } = await supabase.auth.getUser();
         const meta = data?.user?.user_metadata || {};
-        const nome = meta.nome || meta.full_name || meta.name || '';
-        if (nome) {
-          setFirstName((nome as string).split(' ')[0]);
+        const nome: string = meta.nome || meta.full_name || meta.name || '';
+        if (nome && !cancelled) {
+          setFirstName(nome.trim().split(' ')[0]);
+          return;
+        }
+
+        // 5. Fallback direto da tabela profiles
+        if (data?.user?.id) {
+          const { data: dbProfile } = await supabase
+            .from('profiles')
+            .select('nome')
+            .eq('id', data.user.id)
+            .maybeSingle();
+          if (dbProfile?.nome && !cancelled) {
+            setFirstName(dbProfile.nome.trim().split(' ')[0]);
+          }
         }
       } catch (_) {}
     };
+
     loadName();
-  }, [profile, user]);
+    return () => { cancelled = true; };
+  }, [profile?.nome, user?.id]);
 
   // Passo 1
   const [telefone, setTelefone] = useState(profile?.telefone || '');
@@ -175,10 +202,17 @@ const CompleteProfileScreen: React.FC = () => {
       if (genero) updates.genero = genero;
       if (enderecoRua.trim()) updates.endereco_rua = enderecoRua.trim();
 
+      const storedNome = await universalStorage.getItem('temp_signup_nome');
+      if (!profile?.nome && storedNome) {
+        updates.nome = storedNome;
+      }
+
       const result = await updateProfile(updates);
       if (!result.success) {
         const msg = (result.error as any)?.message || 'Tente novamente.';
         showError('Erro ao guardar', msg);
+      } else {
+        await universalStorage.removeItem('temp_signup_nome');
       }
       // AppNavigator redireciona automaticamente para ChangePassword
     } finally {
@@ -555,7 +589,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SIZES.xl,
     width: '100%',
-    maxWidth: 480,
+    maxWidth: 420,
     alignSelf: 'center',
   },
   iconWrap: {
@@ -624,12 +658,14 @@ const styles = StyleSheet.create({
   // ── Card ──
   card: {
     backgroundColor: COLORS.surface,
-    borderRadius: SIZES.radiusLg,
-    padding: SIZES.lg,
+    borderRadius: 20,
+    padding: Platform.select({ web: 32, default: SIZES.lg }),
     ...SHADOWS.md,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     marginBottom: SIZES.lg,
     width: '100%',
-    maxWidth: 480,
+    maxWidth: 420,
     alignSelf: 'center',
   },
   sectionTitle: {
