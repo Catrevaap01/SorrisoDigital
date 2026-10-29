@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Tela de Alteracao de Senha Obrigatoria
  * Mostrada quando usuario loga pela primeira vez
  */

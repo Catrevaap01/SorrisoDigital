@@ -12,7 +12,7 @@
  *  5. Acesso ao app
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../config/supabase';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 
 // DateTimePicker — só existe em iOS/Android; em web usamos <input type="date">
@@ -67,6 +68,37 @@ const CompleteProfileScreen: React.FC = () => {
   const { profile, updateProfile, user } = useAuth();
 
   const [step, setStep] = useState<Step>('dados');
+  const [firstName, setFirstName] = useState<string>('');
+
+  // Busca o nome do utilizador do Supabase Auth diretamente (mais fiável)
+  useEffect(() => {
+    const loadName = async () => {
+      // 1. Tentar via profile (já carregado no contexto)
+      if (profile?.nome) {
+        setFirstName(profile.nome.split(' ')[0]);
+        return;
+      }
+      // 2. Tentar via user do contexto (user_metadata)
+      const metaNome =
+        user?.user_metadata?.nome ||
+        user?.user_metadata?.full_name ||
+        user?.user_metadata?.name;
+      if (metaNome) {
+        setFirstName((metaNome as string).split(' ')[0]);
+        return;
+      }
+      // 3. Fallback: buscar diretamente do Supabase Auth
+      try {
+        const { data } = await supabase.auth.getUser();
+        const meta = data?.user?.user_metadata || {};
+        const nome = meta.nome || meta.full_name || meta.name || '';
+        if (nome) {
+          setFirstName((nome as string).split(' ')[0]);
+        }
+      } catch (_) {}
+    };
+    loadName();
+  }, [profile, user]);
 
   // Passo 1
   const [telefone, setTelefone] = useState(profile?.telefone || '');
@@ -184,14 +216,6 @@ const CompleteProfileScreen: React.FC = () => {
     android: 'height',
     default: undefined, // Web/PWA — browser trata o teclado
   });
-
-  const rawName =
-    profile?.nome ||
-    user?.user_metadata?.nome ||
-    user?.user_metadata?.full_name ||
-    user?.user_metadata?.name ||
-    '';
-  const firstName = rawName ? rawName.split(' ')[0] : '';
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
