@@ -20,12 +20,14 @@ import {
   RefreshControl,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
+import { useAuth } from '../../contexts/AuthContext';
 import {
   listarDentistas,
   criarDentista,
@@ -76,7 +78,8 @@ const PROVINCIAS_ANGOLA = [
 const getDentistaCRM = (dentista: DentistaProfile): string =>
   dentista.crm || (dentista as any).numero_registro || 'N/A';
 
-const AdminDashboardScreen: React.FC = () => {
+const AdminDashboardScreen: React.FC<any> = ({ navigation }: any) => {
+  const { profile } = useAuth();
   const [dentistas, setDentistas] = useState<DentistaProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -563,14 +566,35 @@ const AdminDashboardScreen: React.FC = () => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Gerenciar Dentistas</Text>
+          <View style={styles.headerUserRow}>
+            <TouchableOpacity
+              style={styles.adminAvatarContainer}
+              onPress={() => navigation?.navigate?.('AdminProfile')}
+              activeOpacity={0.8}
+              accessibilityLabel="Ver perfil de administrador"
+            >
+              {profile?.foto_url ? (
+                <Image source={{ uri: profile.foto_url }} style={styles.adminAvatarImage} />
+              ) : (
+                <View style={styles.adminAvatarFallback}>
+                  <Text style={styles.adminAvatarText}>
+                    {profile?.nome ? profile.nome.charAt(0).toUpperCase() : 'A'}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <View>
+              <Text style={styles.headerTitle}>Gerenciar Dentistas</Text>
+              <Text style={styles.headerSubtitle}>Olá, {profile?.nome || 'Administrador'}!</Text>
+            </View>
+          </View>
           <Pressable
             style={styles.botaoCriar}
             onPress={handleOpenCreateModal}
             hitSlop={12}
             android_ripple={{ color: 'rgba(0,0,0,0.08)', borderless: true }}
           >
-            <Ionicons name="add-circle" size={28} color={COLORS.primary} />
+            <Ionicons name="add-circle" size={30} color={COLORS.primary} />
           </Pressable>
         </View>
       </View>
@@ -1220,7 +1244,47 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.sizes.xl,
     fontWeight: '700',
     color: COLORS.text,
+  },
+  headerSubtitle: {
+    fontSize: TYPOGRAPHY.sizes.small,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  headerUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     flex: 1,
+  },
+  adminAvatarContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#EDE9FE',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.sm,
+  },
+  adminAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
+    resizeMode: 'cover',
+  },
+  adminAvatarFallback: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adminAvatarText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
   },
   headerContent: {
     width: '100%',

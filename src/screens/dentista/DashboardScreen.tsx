@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View, Image } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { logger } from '../../utils/logger';
 import { useAuth } from '../../contexts/AuthContext';
@@ -676,9 +676,20 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       {/* Specialty Header */}
       <View style={[styles.specHeader, { backgroundColor: COLORS.primary }]}>
         <View style={styles.specHeaderContent}>
-          <View style={[styles.specIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-            <Ionicons name={specConfig.icon as any} size={28} color="white" />
-          </View>
+          <TouchableOpacity
+            style={styles.specAvatarContainer}
+            onPress={() => navigation.navigate('Perfil')}
+            activeOpacity={0.8}
+            accessibilityLabel="Ver perfil"
+          >
+            {profile?.foto_url ? (
+              <Image source={{ uri: profile.foto_url }} style={styles.specAvatarImage} />
+            ) : (
+              <View style={[styles.specIcon, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                <Ionicons name={specConfig.icon as any} size={28} color="white" />
+              </View>
+            )}
+          </TouchableOpacity>
           <View style={styles.specInfo}>
             <Text style={styles.specGreeting}>Olá, Dr(a). {profile?.nome?.split(' ')[0] || 'Dentista'}</Text>
             <Text style={styles.specLabel}>{specConfig.label}</Text>
@@ -986,6 +997,23 @@ const styles = StyleSheet.create({
     marginBottom: SIZES.md,
   },
   specHeaderContent: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  specAvatarContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  specAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 28,
+    resizeMode: 'cover',
+  },
   specIcon: {
     width: 56,
     height: 56,

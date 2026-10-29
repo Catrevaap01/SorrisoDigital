@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
@@ -102,11 +103,20 @@ const HomeScreen: React.FC<HomeProps> = ({ navigation }) => {
             Como está sua saúde bucal hoje?
           </Text>
         </View>
-        <View style={styles.avatarContainer}>
-          <Text style={styles.avatarText}>
-            {getInitials(profile?.nome)}
-          </Text>
-        </View>
+        <TouchableOpacity
+          style={styles.avatarContainer}
+          onPress={() => navigation.navigate('Perfil')}
+          activeOpacity={0.8}
+          accessibilityLabel="Ver perfil"
+        >
+          {profile?.foto_url ? (
+            <Image source={{ uri: profile.foto_url }} style={styles.avatarImage} />
+          ) : (
+            <Text style={styles.avatarText}>
+              {getInitials(profile?.nome)}
+            </Text>
+          )}
+        </TouchableOpacity>
       </View>
 
       {/* Ações Rápidas */}
@@ -283,12 +293,22 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
   },
   avatarContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.6)',
+    ...SHADOWS.sm,
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 26,
+    resizeMode: 'cover',
   },
   avatarText: {
     color: COLORS.textInverse,

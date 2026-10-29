@@ -4,6 +4,7 @@
 
 // legacy import used to avoid deprecation warnings
 import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 import { supabase } from '../config/supabase';
 import { generateFileName } from '../utils/helpers';
 import { HandledError, handleError } from '../utils/errorHandler';
@@ -27,21 +28,23 @@ export const uploadImage = async (
 
     let bytes: Uint8Array;
 
-    if (typeof window !== 'undefined' && uri.startsWith('blob:')) {
-      // Web: fetch the blob URI directly
-      const response = await fetch(uri);
-      const arrayBuffer = await response.arrayBuffer();
-      bytes = new Uint8Array(arrayBuffer);
-    } else if (typeof window !== 'undefined' && uri.startsWith('data:')) {
-      // Web: data URI (base64)
-      const base64 = uri.split(',')[1];
-      const binaryString = atob(base64);
-      bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+    if (Platform.OS === 'web' || typeof window !== 'undefined') {
+      if (uri.startsWith('data:')) {
+        // Web: data URI (base64)
+        const base64 = uri.split(',')[1];
+        const binaryString = atob(base64);
+        bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+      } else {
+        // Web / PWA: blob URI, http, https ou object URL
+        const response = await fetch(uri);
+        const arrayBuffer = await response.arrayBuffer();
+        bytes = new Uint8Array(arrayBuffer);
       }
     } else {
-      // Native: use expo-file-system
+      // Native (iOS / Android): use expo-file-system
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: 'base64' as any,
       });

@@ -99,10 +99,12 @@ const PerfilScreen: React.FC<any> = ({ navigation }) => {
 
   const handlePickPhoto = useCallback(async () => {
     try {
-      const permResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (permResult.status !== 'granted') {
-        Toast.show({ type: 'error', text1: 'Permissão necessária', text2: 'Autorize o acesso à galeria nas definições.' });
-        return;
+      if (Platform.OS !== 'web') {
+        const permResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (permResult.status !== 'granted') {
+          Toast.show({ type: 'error', text1: 'Permissão necessária', text2: 'Autorize o acesso à galeria nas definições.' });
+          return;
+        }
       }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,

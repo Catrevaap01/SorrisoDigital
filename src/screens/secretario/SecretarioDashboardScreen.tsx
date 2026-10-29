@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
   useWindowDimensions,
+  Image,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
@@ -82,6 +83,43 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
     alignItems: isMobile ? 'flex-start' : 'center',
     marginBottom: SPACING.md,
     gap: SPACING.md,
+  },
+  headerLeftWithAvatar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    flex: isMobile ? undefined : 1,
+    width: isMobile ? '100%' : undefined,
+  },
+  avatarHeaderContainer: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F3F0FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.sm,
+  },
+  avatarHeaderImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 26,
+    resizeMode: 'cover',
+  },
+  avatarHeaderFallback: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#6D28D9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarHeaderText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
   },
   headerTextContainer: {
     flex: isMobile ? undefined : 1,
@@ -1708,13 +1746,31 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     >
       <View style={styles.shell}>
         <View style={styles.headerRow}>
-          <View style={styles.headerTextContainer}>
-            <Text style={styles.title}>{activeTab === 'financeiro' ? 'Tratamentos e Facturas' : 'Painel da Secretária'}</Text>
-            <Text style={styles.description} numberOfLines={3}>
-              {activeTab === 'financeiro'
-                ? 'Acompanhe os procedimentos enviados pelos dentistas, facturas emitidas e pagamentos.'
-                : `${profile?.nome ? `${profile.nome}, acompanhe` : 'Acompanhe'} a operação do dia com foco em solicitações, agenda e alertas.`}
-            </Text>
+          <View style={styles.headerLeftWithAvatar}>
+            <TouchableOpacity
+              style={styles.avatarHeaderContainer}
+              onPress={() => navigation.navigate('Perfil')}
+              activeOpacity={0.8}
+              accessibilityLabel="Ver perfil da secretária"
+            >
+              {profile?.foto_url ? (
+                <Image source={{ uri: profile.foto_url }} style={styles.avatarHeaderImage} />
+              ) : (
+                <View style={styles.avatarHeaderFallback}>
+                  <Text style={styles.avatarHeaderText}>
+                    {profile?.nome ? profile.nome.charAt(0).toUpperCase() : 'S'}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.title}>{activeTab === 'financeiro' ? 'Tratamentos e Facturas' : 'Painel da Secretária'}</Text>
+              <Text style={styles.description} numberOfLines={3}>
+                {activeTab === 'financeiro'
+                  ? 'Acompanhe os procedimentos enviados pelos dentistas, facturas emitidas e pagamentos.'
+                  : `${profile?.nome ? `${profile.nome}, acompanhe` : 'Acompanhe'} a operação do dia com foco em solicitações, agenda e alertas.`}
+              </Text>
+            </View>
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity 
