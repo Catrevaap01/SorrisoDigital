@@ -50,7 +50,7 @@ const PROVINCIAS = [
   'Namibe', 'Uíge', 'Zaire',
 ];
 
-const GENEROS = ['Masculino', 'Feminino', 'Outro'];
+const GENEROS = ['Masculino', 'Feminino'];
 
 type Step = 'dados' | 'localizacao';
 
@@ -64,7 +64,7 @@ const showError = (title: string, message: string) => {
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 const CompleteProfileScreen: React.FC = () => {
-  const { profile, updateProfile } = useAuth();
+  const { profile, updateProfile, user } = useAuth();
 
   const [step, setStep] = useState<Step>('dados');
 
@@ -111,6 +111,10 @@ const CompleteProfileScreen: React.FC = () => {
     }
     if (!dataNascimento.trim()) {
       showError('Campo obrigatório', 'Por favor insira a sua data de nascimento.');
+      return false;
+    }
+    if (!genero.trim()) {
+      showError('Campo obrigatório', 'Por favor selecione o seu género.');
       return false;
     }
     return true;
@@ -181,7 +185,13 @@ const CompleteProfileScreen: React.FC = () => {
     default: undefined, // Web/PWA — browser trata o teclado
   });
 
-  const firstName = profile?.nome?.split(' ')[0] ?? '';
+  const rawName =
+    profile?.nome ||
+    user?.user_metadata?.nome ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    '';
+  const firstName = rawName ? rawName.split(' ')[0] : '';
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -355,7 +365,7 @@ const CompleteProfileScreen: React.FC = () => {
             )}
 
             <Text style={styles.label}>
-              Género <Text style={styles.optional}>(opcional)</Text>
+              Género <Text style={styles.required}>*</Text>
             </Text>
             <TouchableOpacity
               style={styles.inputRow}
