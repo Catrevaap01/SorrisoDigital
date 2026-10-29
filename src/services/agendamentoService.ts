@@ -213,7 +213,7 @@ export const buscarAgendaDentista = async (
       const end = new Date(start);
       end.setDate(end.getDate() + 1);
 
-      // ✅ TIMEOUT + LIMIT 200 agendamentos - Buscar APENAS agendamentos atribuídos a este dentista
+      // ✅ TIMEOUT + LIMIT 200 agendamentos - Buscar agendamentos atribuídos a este dentista
       // Usar datas em formato YYYY-MM-DD para comparação com DATE fields, resolvendo em timezone local
       const pad = (n: number) => String(n).padStart(2, '0');
       const startDate = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
@@ -223,14 +223,28 @@ export const buscarAgendaDentista = async (
         .from('appointments')
         .select('*')
         .eq('dentist_id', dentistaId)
-        .gte('appointment_date', startDate)
-        .lt('appointment_date', endDate)
+        .or(`and(appointment_date.gte.${startDate},appointment_date.lt.${endDate}),and(dentist_suggested_date.gte.${startDate},dentist_suggested_date.lt.${endDate})`)
         .order('appointment_date', { ascending: true })
         .limit(200);
       
       const agendaRes = await withTimeout(query, 12000);
 
-      if (agendaRes.error) throw agendaRes.error;
+      if (agendaRes.error) {
+        // Fallback simples se o filtro OR der erro
+        const fallbackQuery = supabase
+          .from('appointments')
+          .select('*')
+          .eq('dentist_id', dentistaId)
+          .gte('appointment_date', startDate)
+          .lt('appointment_date', endDate)
+          .order('appointment_date', { ascending: true })
+          .limit(200);
+        const fallbackRes = await withTimeout(fallbackQuery, 12000);
+        if (fallbackRes.error) throw fallbackRes.error;
+        const agendaBase = (fallbackRes.data || []) as Agendamento[];
+        const agendaEnriquecida = await enrichAgendamentosWithPacientes(agendaBase);
+        return { success: true, data: agendaEnriquecida };
+      }
 
       const agendaBase = (agendaRes.data || []) as Agendamento[];
       const agendaEnriquecida = await enrichAgendamentosWithPacientes(agendaBase);
@@ -240,6 +254,54 @@ export const buscarAgendaDentista = async (
       const mapped = _handleTableMissing(err);
       const message = mapped || err.message || 'Erro desconhecido';
       return { success: false, error: message };
+    }
+  });
+};
+
+/**
+ * Busca todos os agendamentos do dentista para o mês inteiro.
+ * Permite exibir indicadores/pontos em todos os dias que possuem agendamentos.
+ */
+export const buscarAgendaDentistaMes = async (
+  dentistaId: string,
+  ano: number,
+  mes: number // 1 a 12
+): Promise<ServiceResult<Agendamento[]>> => {
+  return fetchWithCache(`agenda_dentista_mes_${dentistaId}_${ano}_${mes}`, async () => {
+    try {
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const startDate = `${ano}-${pad(mes)}-01`;
+      const ultimoDia = new Date(ano, mes, 0).getDate();
+      const endDate = `${ano}-${pad(mes)}-${pad(ultimoDia)}`;
+
+      const { data, error } = await withTimeout(
+        supabase
+          .from('appointments')
+          .select('*')
+          .eq('dentist_id', dentistaId)
+          .or(`and(appointment_date.gte.${startDate},appointment_date.lte.${endDate}),and(dentist_suggested_date.gte.${startDate},dentist_suggested_date.lte.${endDate})`)
+          .order('appointment_date', { ascending: true }),
+        12000
+      );
+
+      if (error) {
+        // Fallback buscando agendamentos do dentista
+        const fallback = await supabase
+          .from('appointments')
+          .select('*')
+          .eq('dentist_id', dentistaId)
+          .order('appointment_date', { ascending: false })
+          .limit(500);
+        if (fallback.error) throw fallback.error;
+        const agendaEnriquecida = await enrichAgendamentosWithPacientes((fallback.data || []) as Agendamento[]);
+        return { success: true, data: agendaEnriquecida };
+      }
+
+      const agendaEnriquecida = await enrichAgendamentosWithPacientes((data || []) as Agendamento[]);
+      return { success: true, data: agendaEnriquecida };
+    } catch (err: any) {
+      const mapped = _handleTableMissing(err);
+      return { success: false, error: mapped || err.message || 'Erro desconhecido' };
     }
   });
 };
@@ -723,8 +785,8 @@ export const rejeitarSugestaoPaciente = async (
       .update({ 
         status: 'pendente',
         dentist_id: null,
-        suggested_date: null,
-        suggested_by: null,
+        dentist_suggested_date: null,
+        dentist_suggested_time: null,
         updated_at: new Date().toISOString()
       })
       .eq('id', agendamentoId)
@@ -747,15 +809,27 @@ export const sugerirNovoHorario = async (
   nota?: string
 ): Promise<ServiceResult<Agendamento>> => {
   try {
-    // Extrair data e hora do formato ISO
-    // novoHorario vem como "2026-04-14T14:30:00.000Z"
-    const dtObj = new Date(novoHorario);
-    const appointmentDate = novoHorario.split('T')[0]; // "2026-04-14"
-    const appointmentTime = `${String(dtObj.getHours()).padStart(2, '0')}:${String(dtObj.getMinutes()).padStart(2, '0')}`; // "14:30"
+    // Extrair data e hora
+    let appointmentDate = '';
+    let appointmentTime = '08:00:00';
+    if (novoHorario.includes('T')) {
+      const parts = novoHorario.split('T');
+      appointmentDate = parts[0];
+      const timePart = parts[1].replace('Z', '');
+      appointmentTime = timePart.length >= 5 ? timePart.substring(0, 8) : '08:00:00';
+      if (appointmentTime.length === 5) appointmentTime += ':00';
+    } else if (novoHorario.includes(' ')) {
+      const [d, t] = novoHorario.split(' ');
+      appointmentDate = d;
+      appointmentTime = t.length >= 5 ? t.substring(0, 8) : '08:00:00';
+      if (appointmentTime.length === 5) appointmentTime += ':00';
+    } else {
+      appointmentDate = novoHorario;
+    }
 
     const observacoes = await _appendObservacoes(
       agendamentoId,
-      nota || `Novo horário sugerido pelo dentista: ${appointmentDate} às ${appointmentTime}`
+      nota || `Novo horário sugerido pelo dentista: ${appointmentDate} às ${appointmentTime.substring(0, 5)}`
     );
 
     const admin = getAdminClient();
@@ -764,11 +838,11 @@ export const sugerirNovoHorario = async (
     const { data, error } = await client
       .from('appointments')
       .update({ 
-        status: 'reagendamento_solicitado', // Keep old date until patient confirms
+        status: 'reagendamento_solicitado',
         notes: observacoes, 
         dentist_id: dentistaId,
-        suggested_by: dentistaId,
-        suggested_date: novoHorario,
+        dentist_suggested_date: appointmentDate,
+        dentist_suggested_time: appointmentTime,
         updated_at: new Date().toISOString()
       })
       .eq('id', agendamentoId)
@@ -778,7 +852,7 @@ export const sugerirNovoHorario = async (
     if (error) throw error;
 
     if (data?.patient_id) {
-      const formattedDate = `${appointmentDate} às ${appointmentTime}`;
+      const formattedDate = `${appointmentDate} às ${appointmentTime.substring(0, 5)}`;
       await notificarAgendamentoPaciente(
         data.patient_id,
         'Novo horário sugerido',

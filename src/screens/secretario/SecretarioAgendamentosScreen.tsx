@@ -481,28 +481,17 @@ const SecretarioAgendamentosScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={styles.metaDot}>•</Text>
           <Text style={styles.metaText}>
             {(() => {
-              const dataBase = item.appointment_date || item.suggested_date;
+              const dataBase = item.dentist_suggested_date || item.suggested_date || item.appointment_date;
               if (!dataBase) return 'Sem horário';
               
-              let hora = '';
+              let hora = (item.dentist_suggested_time || item.appointment_time)?.substring(0, 5) || '';
               
-              // Se tiver appointment_time, usa ele (preferencial)
-              if (item.appointment_time) {
-                hora = item.appointment_time.substring(0, 5);
-              } 
-              // Se não tiver mas a data for ISO com T, extrai a hora
-              else if (typeof dataBase === 'string' && dataBase.includes('T')) {
+              if (!hora && typeof dataBase === 'string' && dataBase.includes('T')) {
                 const parts = dataBase.split('T');
                 if (parts[1]) hora = parts[1].substring(0, 5);
               }
-              
-              // Se ainda assim for 00:00 ou vazia, e tiver suggested_date, tenta extrair de lá
-              if ((!hora || hora === '00:00') && item.suggested_date && item.suggested_date.includes('T')) {
-                const parts = item.suggested_date.split('T');
-                if (parts[1]) hora = parts[1].substring(0, 5);
-              }
 
-              return `${formatDate(dataBase)}${hora && hora !== '00:00' ? ` as ${hora}` : ''}`;
+              return `${formatDate(dataBase)}${hora && hora !== '00:00' ? ` às ${hora}` : ''}`;
             })()}
             {item.status === 'reagendamento_solicitado' && <Text style={{ color: '#F59E0B' }}> ⭐ Sugerido</Text>}
           </Text>

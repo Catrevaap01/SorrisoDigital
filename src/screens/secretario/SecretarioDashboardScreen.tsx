@@ -1138,13 +1138,12 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
       const tipo: ItemPainel['tipo'] = item.is_procedimento ? 'procedimento' : 'agendamento';
       let desc = item.symptoms || item.notes || 'Solicitação de consulta';
       
-      // Se tiver data agendada, incluir na descrição para o dashboard
-      if (item.appointment_date) {
-        const dataStr = formatDate(item.appointment_date);
-        const horaStr = item.appointment_time ? item.appointment_time.substring(0, 5) : '';
-        desc = `${dataStr}${horaStr ? ' as ' + horaStr : ''} - ${desc}`;
-      } else if (item.suggested_date) {
-        desc = `${formatDateTime(item.suggested_date)} - ${desc}`;
+      // Se tiver data agendada ou sugerida, incluir na descrição para o dashboard
+      const targetDate = item.appointment_date || item.dentist_suggested_date || item.suggested_date;
+      const targetTime = (item.dentist_suggested_time || item.appointment_time)?.substring(0, 5) || '';
+      if (targetDate) {
+        const dataStr = formatDate(targetDate);
+        desc = `${dataStr}${targetTime ? ' às ' + targetTime : ''} - ${desc}`;
       }
 
       return {

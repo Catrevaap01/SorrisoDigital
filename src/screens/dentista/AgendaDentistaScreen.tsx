@@ -15,6 +15,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../config/supabase';
 import {
   buscarAgendaDentista,
+  buscarAgendaDentistaMes,
   agendarAgendamento,
   confirmarAgendamento,
   cancelarAgendamento,
@@ -46,7 +47,8 @@ const formatCurrency = (value: number) =>
 const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
   const { profile } = useAuth();
   const [dataSelecionada, setDataSelecionada] = useState(new Date());
-  const [agendamentos, setAgendamentos] = useState([]);
+  const [agendamentos, setAgendamentos] = useState<any[]>([]);
+  const [agendamentosMes, setAgendamentosMes] = useState<any[]>([]);
   const [planoValores, setPlanoValores] = useState<Record<string, number>>({}); // patientId -> valor concluido
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -103,16 +105,37 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     setLoading(true);
     
     const ano = dataSelecionada.getFullYear();
-    const mes = String(dataSelecionada.getMonth() + 1).padStart(2, '0');
-    const dia = String(dataSelecionada.getDate()).padStart(2, '0');
-    const dataParaBusca = `${ano}-${mes}-${dia}`;
+    const mesNum = dataSelecionada.getMonth() + 1;
+    const mesStr = String(mesNum).padStart(2, '0');
+    const diaStr = String(dataSelecionada.getDate()).padStart(2, '0');
+    const dataParaBusca = `${ano}-${mesStr}-${diaStr}`;
     
-    const result = await buscarAgendaDentista(profile.id, dataParaBusca);
-    if (result.success) {
-      setAgendamentos(result.data);
-      await carregarValoresPlano(result.data || []);
+    try {
+      const [resultMes, resultDia] = await Promise.all([
+        buscarAgendaDentistaMes(profile.id, ano, mesNum),
+        buscarAgendaDentista(profile.id, dataParaBusca)
+      ]);
+
+      const mesList = resultMes.success && Array.isArray(resultMes.data) ? resultMes.data : [];
+      setAgendamentosMes(mesList);
+
+      if (resultDia.success && Array.isArray(resultDia.data)) {
+        setAgendamentos(resultDia.data);
+        await carregarValoresPlano(resultDia.data);
+      } else {
+        const doDia = mesList.filter((a: any) => {
+          const dOriginal = typeof a.appointment_date === 'string' ? a.appointment_date.slice(0, 10) : '';
+          const dSugerida = typeof a.dentist_suggested_date === 'string' ? a.dentist_suggested_date.slice(0, 10) : '';
+          return dOriginal === dataParaBusca || dSugerida === dataParaBusca;
+        });
+        setAgendamentos(doDia);
+        await carregarValoresPlano(doDia);
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar agendamentos:', e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useRealtimeRefresh({
@@ -133,7 +156,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     carregarAgendamentos();
   }, [dataSelecionada, profile?.id]);
 
-  const formatarDia = (diaData) => {
+  const formatarDia = (diaData: any) => {
     const dias = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
     // Get the Date object from the new structure
     const dataObj = diaData.date || diaData;
@@ -148,17 +171,30 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     
     const selecionada = new Date(dataSelecionada);
     selecionada.setHours(0, 0, 0, 0);
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const dataStr = `${dataNormalizada.getFullYear()}-${pad(dataNormalizada.getMonth() + 1)}-${pad(dataNormalizada.getDate())}`;
+
+    // Contar agendamentos neste dia (por appointment_date ou dentist_suggested_date)
+    const agendamentosDesteDia = agendamentosMes.filter((a: any) => {
+      const dOriginal = typeof a.appointment_date === 'string' ? a.appointment_date.slice(0, 10) : '';
+      const dSugerida = typeof a.dentist_suggested_date === 'string' ? a.dentist_suggested_date.slice(0, 10) : '';
+      return (dOriginal === dataStr || dSugerida === dataStr) && a.status !== 'cancelado';
+    });
     
     return {
       diaSemana: dias[dataNormalizada.getDay()],
       dia: dataNormalizada.getDate(),
+      dataStr,
       isHoje: dataNormalizada.getTime() === hoje.getTime(),
       isSelecionado: dataNormalizada.getTime() === selecionada.getTime(),
       isMesAtual: diaData.isMesAtual !== false,
+      totalAgendamentos: agendamentosDesteDia.length,
+      temUrgencia: agendamentosDesteDia.some((a: any) => a.urgency === 'urgente' || a.urgency === 'emergencia'),
     };
   };
 
-  const selecionarDia = (dia) => {
+  const selecionarDia = (dia: any) => {
     if (dia.isMesAtual) {
       // Get the Date object from the new structure
       const diaObj = dia.date || dia;
@@ -184,11 +220,11 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     setDataSelecionada(hoje);
   };
 
-  const renderDiaCalendar = ({ item }) => {
+  const renderDiaCalendar = ({ item }: any) => {
     const formatacao = formatarDia(item);
     return (
       <TouchableOpacity
-        key={formatacao.dia}
+        key={`${formatacao.dia}-${formatacao.dataStr}`}
         style={[
           styles.diaCalendar,
           !formatacao.isMesAtual && styles.diaForaMes,
@@ -212,6 +248,21 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         ]}>
           {formatacao.dia}
         </Text>
+        {formatacao.totalAgendamentos > 0 && (
+          <View style={[
+            styles.badgeDia,
+            formatacao.isSelecionado
+              ? styles.badgeDiaSelecionado
+              : (formatacao.temUrgencia ? styles.badgeDiaUrgente : styles.badgeDiaNormal)
+          ]}>
+            <Text style={[
+              styles.badgeDiaText,
+              formatacao.isSelecionado && styles.badgeDiaTextSelecionado
+            ]}>
+              {formatacao.totalAgendamentos}
+            </Text>
+          </View>
+        )}
       </TouchableOpacity>
     );
   };
@@ -440,12 +491,11 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     }
     
     // Usar data sugerida se existir, senão usar data original
-    const dataBase = item.suggested_date || item.appointment_date;
-    const isSuggested = !!item.suggested_date;
+    const dataBase = item.dentist_suggested_date || item.suggested_date || item.appointment_date;
+    const isSuggested = !!(item.dentist_suggested_date || item.suggested_date);
 
     // Extrair hora com segurança: 
-    // Prioridade para appointment_time, se for 00:00 e houver sugestão, tenta a sugestão
-    let hora = item.appointment_time?.substring(0, 5) || '--:--';
+    let hora = (item.dentist_suggested_time || item.appointment_time)?.substring(0, 5) || '--:--';
     
     // Se a hora for 00:00 ou padrão, e houver uma string ISO com tempo em dataBase, usa ela
     if ((hora === '--:--' || hora === '00:00') && typeof dataBase === 'string' && dataBase.includes('T')) {
@@ -454,7 +504,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     }
 
     const dataCompleta = formatDate(dataBase) || '--/--/----';
-    const isDataSugerida = !!item.suggested_date;
+    const isDataSugerida = isSuggested;
 
     // Obter label do tipo de consulta
     const tipoLabel = TIPOS_CONSULTA[item.tipo]?.label || item.tipo;
@@ -568,21 +618,23 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       setProcessingId(item.id);
       
       try {
-        // Extrair hora da sugestão se disponível
-        let suggestedTime = item.appointment_time;
-        if (typeof item.suggested_date === 'string' && item.suggested_date.includes('T')) {
-          suggestedTime = item.suggested_date.split('T')[1].substring(0, 8);
+        const dataSugerida = item.dentist_suggested_date || item.suggested_date;
+        let suggestedTime = item.dentist_suggested_time || item.appointment_time;
+        if (typeof dataSugerida === 'string' && dataSugerida.includes('T')) {
+          suggestedTime = dataSugerida.split('T')[1].substring(0, 8);
         }
 
+        const dateOnly = typeof dataSugerida === 'string' && dataSugerida.includes('T') ? dataSugerida.split('T')[0] : dataSugerida;
+
         const { error: updateError } = await supabase
-          .from('appointments') // Use appointments instead of agendamentos
+          .from('appointments')
           .update({ 
-            appointment_date: item.suggested_date,
+            appointment_date: dateOnly,
             appointment_time: suggestedTime,
             status: 'confirmado_dentista',
             dentist_id: profile?.id,
-            suggested_date: null,
-            suggested_by: null
+            dentist_suggested_date: null,
+            dentist_suggested_time: null
           })
           .eq('id', item.id);
           
@@ -593,7 +645,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         Toast.show({ 
           type: 'success', 
           text1: 'Agendamento reagendado automaticamente', 
-          text2: `Data atualizada para ${formatDate(new Date(item.suggested_date), "dd/MM/yyyy 'às' HH:mm")} e dentista atribuído` 
+          text2: `Data atualizada para ${formatDate(new Date(dateOnly), "dd/MM/yyyy 'às' HH:mm")} e dentista atribuído` 
         });
         
         // Notify secretary about the automatic assignment
@@ -601,7 +653,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         
         await carregarAgendamentos();
         setProcessingId(null);
-      } catch (error) {
+      } catch (error: any) {
         setProcessingId(null);
         Toast.show({
           type: 'error',
@@ -622,8 +674,8 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
           .update({ 
             status: 'pendente', // Send back to pending for secretary
             dentist_id: null, // Remove dentist assignment
-            suggested_date: null,
-            suggested_by: null
+            dentist_suggested_date: null,
+            dentist_suggested_time: null
           })
           .eq('id', item.id);
           
@@ -733,32 +785,16 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       horarioIso.setHours(Number(hora), Number(minuto), 0, 0);
       
       try {
-        // First suggest the new time
         const res = await sugerirNovoHorario(item.id, profile?.id, horarioIso.toISOString());
         if (!res.success) {
           const errorMessage = typeof res.error === 'string' ? res.error : res.error?.message || 'Não foi possível sugerir o horário';
           throw new Error(errorMessage);
         }
         
-        // Then update appointment status to send it back to secretary
-        const { error: updateError } = await supabase
-          .from('appointments')
-          .update({ 
-            status: 'pendente', // Send back to pending for secretary
-            dentist_id: null, // Remove dentist assignment
-            suggested_date: horarioIso.toISOString(),
-            suggested_by: profile?.id
-          })
-          .eq('id', item.id);
-          
-        if (updateError) {
-          console.warn('Erro ao atualizar status do agendamento:', updateError);
-        }
-        
         Toast.show({ 
           type: 'success', 
           text1: 'Horário sugerido com sucesso', 
-          text2: `Paciente enviado para secretária com nova data: ${formatDate(horarioIso, "dd/MM/yyyy 'às' HH:mm")}` 
+          text2: `Sugestão enviada para: ${formatDate(horarioIso, "dd/MM/yyyy 'às' HH:mm")}` 
         });
         
         // Notify secretary about the suggestion
@@ -767,7 +803,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         setSugestaoAbertaPara(null);
         await carregarAgendamentos();
         setProcessingId(null);
-      } catch (error) {
+      } catch (error: any) {
         setProcessingId(null);
         Toast.show({
           type: 'error',
@@ -1114,10 +1150,18 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
               return null;
             })()}
           </View>
-          {(item.status === 'confirmado_dentista' || item.status === 'atribuido_dentista') && (
+          {(item.status === 'confirmado_dentista' || item.status === 'atribuido_dentista' || item.status === 'reagendamento_solicitado') && (
             <View style={{ marginLeft: 16, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ fontWeight: 'bold', color: item.status === 'confirmado_dentista' ? '#4CAF50' : '#F59E0B', fontSize: 12 }}>
-                {item.status === 'confirmado_dentista' ? 'Confirmado' : 'Atribuído'}
+              <Text style={{
+                fontWeight: 'bold',
+                color: item.status === 'confirmado_dentista' ? '#4CAF50' : '#F59E0B',
+                fontSize: 12
+              }}>
+                {item.status === 'confirmado_dentista'
+                  ? 'Confirmado'
+                  : item.status === 'reagendamento_solicitado'
+                  ? 'Reagendando'
+                  : 'Atribuído'}
               </Text>
             </View>
           )}
@@ -1125,64 +1169,47 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
 
         <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(item.status) }]} />
         
-{item.status === 'reagendamento_solicitado' && item.suggested_date && (
-  <View style={styles.sugestaoContainer}>
-    <Text style={styles.sugestaoLabel}>
-      Data sugerida pelo paciente:
-    </Text>
+        {item.status === 'reagendamento_solicitado' && (
+          <View style={styles.sugestaoContainer}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+              <Ionicons name="time-outline" size={16} color="#B45309" />
+              <Text style={[styles.sugestaoLabel, { marginLeft: 6, fontWeight: '700' }]}>
+                Reagendamento Solicitado:
+              </Text>
+            </View>
 
-    <Text style={styles.sugestaoValue}>
-      {item.suggested_date ? 
-        (() => {
-          const dataSugerida = new Date(item.suggested_date);
-          return dataSugerida && !isNaN(dataSugerida.getTime()) 
-            ? dataSugerida.toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })
-            : 'Data inválida';
-        })()
-        : 'Data não informada'
-      }
-    </Text>
+            <Text style={styles.sugestaoValue}>
+              {(() => {
+                const sDate = item.dentist_suggested_date || item.suggested_date;
+                const sTime = item.dentist_suggested_time ? item.dentist_suggested_time.substring(0, 5) : '';
+                if (!sDate) return 'Aguardando confirmação do paciente';
+                return `${formatDate(sDate)}${sTime ? ' às ' + sTime : ''} (Aguardando paciente)`;
+              })()}
+            </Text>
 
-    <TouchableOpacity
-      style={[styles.actionButton, styles.rescheduleButton]}
-      onPress={handleReagendarSugestao}
-      disabled={processingId === item.id}
-    >
-      <Ionicons
-        name="checkmark-circle"
-        size={16}
-        color={COLORS.textInverse}
-      />
-      <Text style={styles.actionButtonText}>
-        Aceitar e Reagendar
-      </Text>
-    </TouchableOpacity>
+            {(item.suggested_date && !item.dentist_suggested_date) && (
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.rescheduleButton, { flex: 1 }]}
+                  onPress={handleReagendarSugestao}
+                  disabled={processingId === item.id}
+                >
+                  <Ionicons name="checkmark-circle" size={16} color={COLORS.textInverse} />
+                  <Text style={styles.actionButtonText}>Aceitar e Reagendar</Text>
+                </TouchableOpacity>
 
-    <TouchableOpacity
-      style={[
-        styles.actionButton,
-        { backgroundColor: COLORS.danger },
-      ]}
-      onPress={handleRejeitarSugestao}
-      disabled={processingId === item.id}
-    >
-      <Ionicons
-        name="close-circle"
-        size={16}
-        color={COLORS.textInverse}
-      />
-      <Text style={styles.actionButtonText}>
-        Rejeitar Data
-      </Text>
-    </TouchableOpacity>
-  </View>
-)}
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: COLORS.danger, flex: 1 }]}
+                  onPress={handleRejeitarSugestao}
+                  disabled={processingId === item.id}
+                >
+                  <Ionicons name="close-circle" size={16} color={COLORS.textInverse} />
+                  <Text style={styles.actionButtonText}>Rejeitar Data</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
         
         {(item.status === 'atribuido_dentista' || item.status === 'reagendamento_solicitado' || item.status === 'confirmado_dentista') && (
           <View style={styles.actionRow}>
@@ -1337,29 +1364,36 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
   const dia = String(dataSelecionada.getDate()).padStart(2, '0');
   const dataSelecionadaStr = `${ano}-${mes}-${dia}`;
   
-  const meusAgendadosDoDia = agendamentos.filter(
+  const matchDia = (a: any) => {
+    const dOriginal = typeof a.appointment_date === 'string' ? a.appointment_date.slice(0, 10) : '';
+    const dSugerida = typeof a.dentist_suggested_date === 'string' ? a.dentist_suggested_date.slice(0, 10) : '';
+    return dOriginal === dataSelecionadaStr || dSugerida === dataSelecionadaStr;
+  };
+
+  const todosDoDia = [
+    ...agendamentos.filter(matchDia),
+    ...agendamentosMes.filter((a: any) => matchDia(a) && !agendamentos.some((ag: any) => ag.id === a.id))
+  ];
+
+  const meusAgendadosDoDia = todosDoDia.filter(
     (a) =>
       a.dentist_id === profile?.id &&
-      ['atribuido_dentista', 'pendente', 'agendado', 'solicitado', 'agendamento_pendente_secretaria'].includes(a.status) &&
-      (a.appointment_date === dataSelecionadaStr || (typeof a.appointment_date === 'string' && a.appointment_date.startsWith(dataSelecionadaStr)))
+      ['atribuido_dentista', 'pendente', 'agendado', 'solicitado', 'agendamento_pendente_secretaria', 'reagendamento_solicitado'].includes(a.status)
   );
-  const meusConfirmadosDoDia = agendamentos.filter(
+  const meusConfirmadosDoDia = todosDoDia.filter(
     (a) =>
       a.dentist_id === profile?.id &&
-      ['confirmado_dentista', 'confirmado_paciente', 'notificado_paciente'].includes(a.status) &&
-      (a.appointment_date === dataSelecionadaStr || (typeof a.appointment_date === 'string' && a.appointment_date.startsWith(dataSelecionadaStr)))
+      ['confirmado_dentista', 'confirmado_paciente', 'notificado_paciente'].includes(a.status)
   );
-  const realizadosDoDia = agendamentos.filter(
+  const realizadosDoDia = todosDoDia.filter(
     (a) =>
       a.dentist_id === profile?.id &&
-      a.status === 'realizado' &&
-      (a.appointment_date === dataSelecionadaStr || (typeof a.appointment_date === 'string' && a.appointment_date.startsWith(dataSelecionadaStr)))
+      a.status === 'realizado'
   );
-  const canceladosDoDia = agendamentos.filter(
+  const canceladosDoDia = todosDoDia.filter(
     (a) => 
-      a.status === 'cancelado' && 
-      (!a.dentist_id || a.dentist_id === profile?.id) &&
-      (a.appointment_date === dataSelecionadaStr || (typeof a.appointment_date === 'string' && a.appointment_date.startsWith(dataSelecionadaStr)))
+      ['cancelado', 'rejeitado_dentista'].includes(a.status) && 
+      (!a.dentist_id || a.dentist_id === profile?.id)
   );
 
   return (
@@ -1411,7 +1445,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
           {formatDate(dataSelecionada, "EEEE, dd 'de' MMMM")}
         </Text>
         <Text style={styles.totalAgendamentos}>
-          {agendamentos.length} agendamento(s) no dia {dataSelecionada.getDate()}
+          {todosDoDia.length} agendamento(s) no dia {dataSelecionada.getDate()}
         </Text>
       </View>
 
@@ -1420,7 +1454,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         <View style={styles.centerContainer}>
           <Text style={styles.loadingText}>Carregando...</Text>
         </View>
-      ) : agendamentos.length === 0 ? (
+      ) : todosDoDia.length === 0 ? (
         <View style={styles.centerContainer}>
           <Ionicons name="calendar-outline" size={64} color={COLORS.textLight} />
           <Text style={styles.emptyTitle}>Nenhum agendamento</Text>
@@ -1561,6 +1595,33 @@ const styles = StyleSheet.create({
   },
   diaNumHoje: {
     color: COLORS.secondary,
+  },
+  badgeDia: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  badgeDiaNormal: {
+    backgroundColor: '#10B981',
+  },
+  badgeDiaUrgente: {
+    backgroundColor: COLORS.danger,
+  },
+  badgeDiaSelecionado: {
+    backgroundColor: '#FFFFFF',
+  },
+  badgeDiaText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    lineHeight: 12,
+  },
+  badgeDiaTextSelecionado: {
+    color: COLORS.primary,
   },
   dataSelecionadaContainer: {
     flexDirection: 'row',

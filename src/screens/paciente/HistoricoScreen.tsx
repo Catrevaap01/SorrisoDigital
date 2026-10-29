@@ -372,12 +372,20 @@ const HistoricoScreen: React.FC<HistoricoProps> = () => {
 
     const updatePayload: Record<string, any> = { status: novoStatus };
 
-    if (agendamentoSelecionado.status === 'reagendamento_solicitado' && agendamentoSelecionado.suggested_date) {
-      const dtObj = new Date(agendamentoSelecionado.suggested_date);
-      updatePayload.appointment_date = agendamentoSelecionado.suggested_date.split('T')[0];
-      updatePayload.appointment_time = `${String(dtObj.getHours()).padStart(2, '0')}:${String(dtObj.getMinutes()).padStart(2, '0')}`;
-      updatePayload.suggested_date = null;
-      updatePayload.suggested_by = null;
+    if (agendamentoSelecionado.status === 'reagendamento_solicitado') {
+      const sDate = agendamentoSelecionado.dentist_suggested_date || agendamentoSelecionado.suggested_date;
+      const sTime = agendamentoSelecionado.dentist_suggested_time;
+      if (sDate) {
+        updatePayload.appointment_date = typeof sDate === 'string' && sDate.includes('T') ? sDate.split('T')[0] : sDate;
+      }
+      if (sTime) {
+        updatePayload.appointment_time = sTime;
+      } else if (typeof sDate === 'string' && sDate.includes('T')) {
+        const dtObj = new Date(sDate);
+        updatePayload.appointment_time = `${String(dtObj.getHours()).padStart(2, '0')}:${String(dtObj.getMinutes()).padStart(2, '0')}:00`;
+      }
+      updatePayload.dentist_suggested_date = null;
+      updatePayload.dentist_suggested_time = null;
     }
 
     const res = await updateAgendamento(agendamentoSelecionado.id, updatePayload);
