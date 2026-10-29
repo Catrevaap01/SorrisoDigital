@@ -202,7 +202,7 @@ const CompleteProfileScreen: React.FC = () => {
           </View>
           <Text style={styles.title}>Completar Perfil</Text>
           <Text style={styles.subtitle}>
-            {firstName ? `Olá, ${firstName}! 👋\n` : ''}
+            {firstName ? `Olá, ${firstName}! 👋\n` : 'Olá! 👋\n'}
             Complete os seus dados para continuar.
           </Text>
 
@@ -515,10 +515,14 @@ const styles = StyleSheet.create({
     paddingBottom: SIZES.xxl,
     // paddingTop seguro para iOS notch, Android status bar e Web header
     paddingTop: Platform.select({ ios: 60, android: 40, default: 32 }) as number,
+    alignItems: 'center', // centra os filhos horizontalmente
   },
   header: {
     alignItems: 'center',
     marginBottom: SIZES.xl,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   iconWrap: {
     width: 72,
@@ -590,6 +594,9 @@ const styles = StyleSheet.create({
     padding: SIZES.lg,
     ...SHADOWS.md,
     marginBottom: SIZES.lg,
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   sectionTitle: {
     fontSize: SIZES.fontLg,

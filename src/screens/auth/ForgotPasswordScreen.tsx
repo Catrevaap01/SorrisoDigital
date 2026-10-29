@@ -69,16 +69,6 @@ export default function ForgotPasswordScreen({ navigation }: any) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <View style={styles.backIconWrapper}>
-              <Ionicons name="arrow-back" size={24} color={COLORS.primary} />
-            </View>
-            <Text style={styles.backText}>Voltar ao login</Text>
-          </TouchableOpacity>
-
           <View style={styles.card}>
             <View style={styles.imageContainer}>
               <Image 
@@ -148,6 +138,7 @@ export default function ForgotPasswordScreen({ navigation }: any) {
                 />
               )}
               
+              
               {novaSenha && (
                 <Button
                   title="Fazer Login"
@@ -155,6 +146,13 @@ export default function ForgotPasswordScreen({ navigation }: any) {
                   variant="ghost"
                 />
               )}
+
+              <TouchableOpacity
+                style={styles.loginLinkBtn}
+                onPress={() => navigation.goBack()}
+              >
+                <Text style={styles.loginLinkText}>Voltar ao Login</Text>
+              </TouchableOpacity>
             </View>
           </View>
           
@@ -306,6 +304,18 @@ const styles = StyleSheet.create({
   },
   copyButton: {
     padding: SPACING.xs,
+  },
+  loginLinkBtn: {
+    alignSelf: 'center',
+    marginTop: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  loginLinkText: {
+    color: COLORS.primary,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   footer: {
     marginTop: SPACING.xl,
