@@ -38,11 +38,19 @@ const PROCEDIMENTOS_RAPIDOS = [
 ];
 
 const EvolucaoClinicaScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { triagemId, pacienteId, pacienteNome: initialNome } = route.params || {};
+  const { triagemId, pacienteId: initialPacienteId, pacienteNome: initialNome } = route.params || {};
   const { profile } = useAuth();
   const isWeb = Platform.OS === 'web';
 
-  const [pacienteNome, setPacienteNome] = useState(initialNome || 'Paciente');
+  const [pacienteIdAtual, setPacienteIdAtual] = useState<string>(initialPacienteId || '');
+  const [pacienteNome, setPacienteNome] = useState(initialNome || 'Selecione um paciente');
+  const [triagemIdAtual, setTriagemIdAtual] = useState<string | null>(triagemId || null);
+
+  const [pacientesAtribuidos, setPacientesAtribuidos] = useState<any[]>([]);
+  const [loadingPacientes, setLoadingPacientes] = useState(false);
+  const [modalPacientes, setModalPacientes] = useState(false);
+  const [buscaPaciente, setBuscaPaciente] = useState('');
+
   const [evolucoes, setEvolucoes] = useState<Evolucao[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
@@ -50,15 +58,68 @@ const EvolucaoClinicaScreen: React.FC<Props> = ({ route, navigation }) => {
   const [salvando, setSalvando] = useState(false);
   const [showRapidos, setShowRapidos] = useState(false);
 
+  // Carregar todos os pacientes atribuídos a este dentista
+  const carregarPacientesAtribuidos = useCallback(async () => {
+    if (!profile?.id) return;
+    setLoadingPacientes(true);
+    try {
+      const dentistaId = profile.id;
+      const [resProfiles, resAppointments, resTriagens] = await Promise.all([
+        supabase.from('profiles').select('id, nome, telefone').eq('dentist_id', dentistaId),
+        supabase.from('appointments').select('patient_id, triagem_id, paciente:profiles!patient_id(id, nome, telefone)').eq('dentist_id', dentistaId).order('appointment_date', { ascending: false }),
+        supabase.from('triagens').select('id, patient_id, paciente:profiles!patient_id(id, nome, telefone)').eq('dentist_id', dentistaId).order('created_at', { ascending: false }),
+      ]);
+
+      const map = new Map<string, { id: string; nome: string; telefone?: string; triagemId?: string }>();
+
+      (resProfiles.data || []).forEach((p: any) => {
+        if (p?.id) map.set(p.id, { id: p.id, nome: p.nome || 'Paciente', telefone: p.telefone });
+      });
+
+      (resAppointments.data || []).forEach((a: any) => {
+        const pac = a.paciente;
+        if (pac?.id && !map.has(pac.id)) {
+          map.set(pac.id, { id: pac.id, nome: pac.nome || 'Paciente', telefone: pac.telefone, triagemId: a.triagem_id });
+        }
+      });
+
+      (resTriagens.data || []).forEach((t: any) => {
+        const pac = t.paciente;
+        if (pac?.id && !map.has(pac.id)) {
+          map.set(pac.id, { id: pac.id, nome: pac.nome || 'Paciente', telefone: pac.telefone, triagemId: t.id });
+        }
+      });
+
+      const lista = Array.from(map.values());
+      setPacientesAtribuidos(lista);
+
+      // Se nenhum paciente foi selecionado na inicialização, seleciona o primeiro
+      if (!pacienteIdAtual && lista.length > 0) {
+        setPacienteIdAtual(lista[0].id);
+        setPacienteNome(lista[0].nome);
+        if (lista[0].triagemId) setTriagemIdAtual(lista[0].triagemId);
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar pacientes atribuídos:', e);
+    } finally {
+      setLoadingPacientes(false);
+    }
+  }, [profile?.id, pacienteIdAtual]);
+
+  useEffect(() => {
+    carregarPacientesAtribuidos();
+  }, [carregarPacientesAtribuidos]);
+
   const carregar = useCallback(async () => {
-    if (!pacienteId) {
+    if (!pacienteIdAtual) {
       setLoading(false);
       return;
     }
+    setLoading(true);
 
     // Buscar nome atualizado se for necessário
-    if (!initialNome || initialNome === 'Paciente') {
-      supabase.from('profiles').select('nome').eq('id', pacienteId).maybeSingle().then(({ data }) => {
+    if (!pacienteNome || pacienteNome === 'Paciente' || pacienteNome === 'Selecione um paciente') {
+      supabase.from('profiles').select('nome').eq('id', pacienteIdAtual).maybeSingle().then(({ data }) => {
         if (data?.nome) setPacienteNome(data.nome);
       });
     }
@@ -66,28 +127,51 @@ const EvolucaoClinicaScreen: React.FC<Props> = ({ route, navigation }) => {
     const { data } = await supabase
       .from('evolucoes_clinicas')
       .select('*, dentista:dentista_id(nome)')
-      .eq('paciente_id', pacienteId)
+      .eq('paciente_id', pacienteIdAtual)
       .order('created_at', { ascending: false })
       .limit(50);
     setEvolucoes((data || []) as Evolucao[]);
     setLoading(false);
-  }, [pacienteId, initialNome]);
+  }, [pacienteIdAtual, pacienteNome]);
 
-  useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => {
+    if (pacienteIdAtual) {
+      carregar();
+    }
+  }, [pacienteIdAtual, carregar]);
+
+  const pacientesFiltrados = React.useMemo(() => {
+    const termo = buscaPaciente.trim().toLowerCase();
+    if (!termo) return pacientesAtribuidos;
+    return pacientesAtribuidos.filter((p) =>
+      p.nome?.toLowerCase().includes(termo) || p.telefone?.includes(termo)
+    );
+  }, [buscaPaciente, pacientesAtribuidos]);
+
+  const selecionarPaciente = (p: { id: string; nome: string; triagemId?: string }) => {
+    setPacienteIdAtual(p.id);
+    setPacienteNome(p.nome);
+    if (p.triagemId) setTriagemIdAtual(p.triagemId);
+    setModalPacientes(false);
+  };
 
   const set = (field: keyof EvolucaoForm, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
   const salvar = async () => {
+    if (!pacienteIdAtual) {
+      Toast.show({ type: 'error', text1: 'Selecione um paciente', text2: 'Escolha um paciente atribuído para registar a evolução.' });
+      return;
+    }
     if (!form.descricao.trim()) {
       Toast.show({ type: 'error', text1: 'Descreva a evolução clínica' });
       return;
     }
     setSalvando(true);
     const { error } = await supabase.from('evolucoes_clinicas').insert({
-      paciente_id: pacienteId,
+      paciente_id: pacienteIdAtual,
       dentista_id: profile?.id,
-      triagem_id: triagemId,
+      triagem_id: triagemIdAtual || null,
       descricao: form.descricao.trim(),
       procedimento_realizado: form.procedimento_realizado.trim(),
       observacoes: form.observacoes.trim(),
@@ -162,11 +246,30 @@ const EvolucaoClinicaScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={s.banner}>
         <Ionicons name="clipboard-outline" size={22} color="white" />
         <View style={{ flex: 1 }}>
-          <Text style={s.bannerTitle}>Evoluções Clínicas</Text>
+          <Text style={s.bannerTitle}>Evolução Clínica</Text>
           <Text style={s.bannerSub}>{pacienteNome || 'Paciente'} · {evolucoes.length} registo{evolucoes.length !== 1 ? 's' : ''}</Text>
         </View>
         <TouchableOpacity style={s.bannerBtn} onPress={() => setModal(true)}>
           <Ionicons name="add" size={22} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Barra de Seleção de Paciente Atribuído */}
+      <View style={s.selectorBar}>
+        <View style={s.selectorIconWrap}>
+          <Ionicons name="person" size={18} color={COLORS.secondary} />
+        </View>
+        <View style={{ flex: 1, paddingRight: 8 }}>
+          <Text style={s.selectorLabel}>PACIENTE ATRIBUÍDO</Text>
+          <Text style={s.selectorNome} numberOfLines={1}>{pacienteNome || 'Selecione um paciente'}</Text>
+        </View>
+        <TouchableOpacity
+          style={s.btnTrocar}
+          onPress={() => setModalPacientes(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={s.btnTrocarText}>Trocar</Text>
+          <Ionicons name="chevron-down" size={14} color={COLORS.secondary} />
         </TouchableOpacity>
       </View>
 
@@ -184,10 +287,16 @@ const EvolucaoClinicaScreen: React.FC<Props> = ({ route, navigation }) => {
             <View style={s.center}>
               <Ionicons name="clipboard-outline" size={56} color={COLORS.textSecondary} />
               <Text style={s.emptyTitle}>Sem evoluções registadas</Text>
-              <Text style={s.emptySubtitle}>Toque em + para registar a primeira evolução</Text>
-              <TouchableOpacity style={s.emptyBtn} onPress={() => setModal(true)}>
-                <Ionicons name="add-circle-outline" size={18} color="white" />
-                <Text style={s.emptyBtnText}>Registar Evolução</Text>
+              <Text style={s.emptySubtitle}>
+                {pacienteIdAtual
+                  ? `Nenhuma evolução para ${pacienteNome}. Toque em + para registar.`
+                  : 'Nenhum paciente selecionado. Escolha um paciente acima.'}
+              </Text>
+              <TouchableOpacity style={s.emptyBtn} onPress={() => pacienteIdAtual ? setModal(true) : setModalPacientes(true)}>
+                <Ionicons name={pacienteIdAtual ? "add-circle-outline" : "people-outline"} size={18} color="white" />
+                <Text style={s.emptyBtnText}>
+                  {pacienteIdAtual ? "Registar Evolução" : "Selecionar Paciente"}
+                </Text>
               </TouchableOpacity>
             </View>
           }
@@ -200,6 +309,97 @@ const EvolucaoClinicaScreen: React.FC<Props> = ({ route, navigation }) => {
           <Ionicons name="add" size={28} color="white" />
         </TouchableOpacity>
       )}
+
+      {/* Modal para seleção de paciente atribuído */}
+      <Modal
+        visible={modalPacientes}
+        transparent
+        animationType={isWeb ? 'fade' : 'slide'}
+        onRequestClose={() => setModalPacientes(false)}
+      >
+        <View style={[s.modalOverlay, isWeb && s.modalOverlayWeb]}>
+          <View style={[s.modalBox, isWeb && s.modalBoxWeb, { maxHeight: '80%' }]}>
+            <View style={s.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="people" size={22} color={COLORS.secondary} />
+                <Text style={s.modalTitle}>Pacientes Atribuídos</Text>
+              </View>
+              <TouchableOpacity onPress={() => setModalPacientes(false)}>
+                <Ionicons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={s.searchWrap}>
+              <Ionicons name="search-outline" size={18} color={COLORS.textSecondary} />
+              <TextInput
+                style={s.searchInput}
+                placeholder="Pesquisar por nome ou telefone..."
+                placeholderTextColor={COLORS.textLight}
+                value={buscaPaciente}
+                onChangeText={setBuscaPaciente}
+              />
+              {buscaPaciente.length > 0 && (
+                <TouchableOpacity onPress={() => setBuscaPaciente('')}>
+                  <Ionicons name="close-circle" size={18} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {loadingPacientes ? (
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={COLORS.secondary} />
+                <Text style={{ marginTop: 8, color: COLORS.textSecondary, fontSize: 13 }}>Carregando pacientes...</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={pacientesFiltrados}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={{ paddingVertical: 8 }}
+                renderItem={({ item }) => {
+                  const isSelecionado = item.id === pacienteIdAtual;
+                  return (
+                    <TouchableOpacity
+                      style={[s.itemPaciente, isSelecionado && s.itemPacienteSelecionado]}
+                      onPress={() => selecionarPaciente(item)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[s.itemAvatar, isSelecionado && s.itemAvatarSelecionado]}>
+                        <Text style={[s.itemAvatarText, isSelecionado && { color: 'white' }]}>
+                          {(item.nome || 'P').charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[s.itemPacienteNome, isSelecionado && { color: COLORS.secondary, fontWeight: '700' }]}>
+                          {item.nome}
+                        </Text>
+                        {item.telefone ? (
+                          <Text style={s.itemPacienteTel}>{item.telefone}</Text>
+                        ) : null}
+                      </View>
+                      {isSelecionado ? (
+                        <View style={s.badgeSelecionado}>
+                          <Ionicons name="checkmark-circle" size={16} color={COLORS.secondary} />
+                          <Text style={s.badgeSelecionadoText}>Ativo</Text>
+                        </View>
+                      ) : (
+                        <Ionicons name="chevron-forward" size={18} color={COLORS.border} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                }}
+                ListEmptyComponent={
+                  <View style={{ padding: 32, alignItems: 'center' }}>
+                    <Ionicons name="person-outline" size={40} color={COLORS.textSecondary} />
+                    <Text style={{ marginTop: 8, color: COLORS.textSecondary, fontWeight: '600' }}>
+                      Nenhum paciente atribuído encontrado
+                    </Text>
+                  </View>
+                }
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal de nova evolução */}
       <Modal
@@ -218,6 +418,21 @@ const EvolucaoClinicaScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={s.modalTitle}>Nova Evolução</Text>
               <TouchableOpacity onPress={() => { setModal(false); setForm(FORM_VAZIO); setShowRapidos(false); }}>
                 <Ionicons name="close" size={24} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Informação do Paciente Ativo */}
+            <View style={s.modalPacienteInfo}>
+              <Ionicons name="person-circle-outline" size={20} color={COLORS.secondary} />
+              <View style={{ flex: 1 }}>
+                <Text style={s.modalPacienteLabel}>Paciente:</Text>
+                <Text style={s.modalPacienteNome}>{pacienteNome || 'Selecione um paciente'}</Text>
+              </View>
+              <TouchableOpacity
+                style={s.modalTrocarBtn}
+                onPress={() => { setModal(false); setModalPacientes(true); }}
+              >
+                <Text style={s.modalTrocarBtnText}>Alterar</Text>
               </TouchableOpacity>
             </View>
 
@@ -309,6 +524,87 @@ const s = StyleSheet.create({
     width: 38, height: 38, borderRadius: 19,
     backgroundColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center', justifyContent: 'center',
+  },
+
+  // Barra de Seleção de Paciente
+  selectorBar: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FFFFFF', paddingHorizontal: SIZES.md, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: '#E2E8F0', ...SHADOWS.sm,
+  },
+  selectorIconWrap: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: COLORS.secondary + '18',
+    alignItems: 'center', justifyContent: 'center', marginRight: 10,
+  },
+  selectorLabel: {
+    fontSize: 10, fontWeight: '800', color: COLORS.textSecondary, letterSpacing: 0.5,
+  },
+  selectorNome: {
+    fontSize: SIZES.fontMd, fontWeight: '700', color: COLORS.text, marginTop: 1,
+  },
+  btnTrocar: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: COLORS.secondary + '12', paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: SIZES.radiusFull, borderWidth: 1, borderColor: COLORS.secondary + '30',
+  },
+  btnTrocarText: {
+    color: COLORS.secondary, fontSize: 13, fontWeight: '700',
+  },
+
+  // Modal Paciente Info
+  modalPacienteInfo: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: COLORS.secondary + '10', padding: 12, borderRadius: SIZES.radiusMd,
+    marginBottom: SIZES.md, borderWidth: 1, borderColor: COLORS.secondary + '25',
+  },
+  modalPacienteLabel: { fontSize: 11, color: COLORS.textSecondary },
+  modalPacienteNome: { fontSize: 14, fontWeight: '700', color: COLORS.text },
+  modalTrocarBtn: {
+    backgroundColor: COLORS.secondary, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6,
+  },
+  modalTrocarBtnText: { color: 'white', fontSize: 12, fontWeight: '600' },
+
+  // Lista de Pacientes
+  searchWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#F1F5F9', borderRadius: SIZES.radiusMd,
+    paddingHorizontal: 12, paddingVertical: 8, marginBottom: 12,
+  },
+  searchInput: {
+    flex: 1, fontSize: 14, color: COLORS.text, paddingVertical: 4,
+  },
+  itemPaciente: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 12, paddingHorizontal: 12, borderRadius: SIZES.radiusMd,
+    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+  },
+  itemPacienteSelecionado: {
+    backgroundColor: COLORS.secondary + '0C',
+  },
+  itemAvatar: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center',
+  },
+  itemAvatarSelecionado: {
+    backgroundColor: COLORS.secondary,
+  },
+  itemAvatarText: {
+    fontWeight: '700', fontSize: 16, color: COLORS.textSecondary,
+  },
+  itemPacienteNome: {
+    fontSize: 15, fontWeight: '600', color: COLORS.text,
+  },
+  itemPacienteTel: {
+    fontSize: 12, color: COLORS.textSecondary, marginTop: 2,
+  },
+  badgeSelecionado: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: COLORS.secondary + '18', paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: 12,
+  },
+  badgeSelecionadoText: {
+    fontSize: 11, fontWeight: '700', color: COLORS.secondary,
   },
 
   listContent: { paddingBottom: 100, paddingTop: SIZES.sm },

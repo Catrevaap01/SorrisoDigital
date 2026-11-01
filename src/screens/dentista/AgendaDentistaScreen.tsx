@@ -948,11 +948,16 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         const triagemId = item.triagem_id || null;
 
         if (pacienteId) {
-          navigation.getParent()?.navigate('EvolucaoClinica', {
-            pacienteId,
-            pacienteNome,
-            triagemId,
-          });
+          const nav = navigation.getParent<any>() || navigation;
+          try {
+            nav.navigate('EvolucaoClinica', {
+              pacienteId,
+              pacienteNome,
+              triagemId,
+            });
+          } catch (navErr) {
+            console.warn('Erro ao navegar para EvolucaoClinica:', navErr);
+          }
         }
         return;
       }
