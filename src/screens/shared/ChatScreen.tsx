@@ -63,7 +63,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
 
     setLoading(true);
     try {
-      const resultado = await listarMensagens(conversationId, 50);
+      const resultado = await listarMensagens(conversationId, 50, 0, user?.id, otherUserId);
       if (!resultado.success) {
         Toast.show({
           type: 'error',
@@ -74,7 +74,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
         setMensagens(resultado.data);
         // Marcar como lidas
         if (user?.id) {
-          await marcarMensagensComoLidas(conversationId, user.id);
+          await marcarMensagensComoLidas(conversationId, user.id, otherUserId);
           // atualizar badge imediatamente (supabase realtime não ecoa a própria alteração)
           await import('../../navigation/AppNavigator').then((mod) => {
             mod.triggerUnreadRefresh();
@@ -117,7 +117,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
         scrollParaFinal();
         // Marcar como lida imediatamente
         if (user.id !== novaMsg.sender_id) {
-          marcarMensagensComoLidas(conversationId, user.id).then(() => {
+          marcarMensagensComoLidas(conversationId, user.id, otherUserId).then(() => {
             import('../../navigation/AppNavigator').then((mod) => {
               mod.triggerUnreadRefresh();
             });

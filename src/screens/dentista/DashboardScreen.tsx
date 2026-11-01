@@ -388,8 +388,8 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
   }, [triagens]);
 
   const abrirModuloClinico = useCallback(async (screen: 'Anamnese' | 'PlanoTratamento' | 'Prescricao' | 'EvolucaoClinica') => {
-    // Se não há paciente selecionado, tentar usar o paciente foco automaticamente
-    const pacienteParaUsar = pacienteClinicoAtivo || (
+    // 1. Identificar paciente para usar (ativo selecionado, em foco, da agenda ou das triagens)
+    let pacienteParaUsar = pacienteClinicoAtivo || (
       pacienteFoco.pacienteId ? {
         pacienteId: pacienteFoco.pacienteId,
         pacienteNome: pacienteFoco.pacienteNome,
@@ -397,13 +397,45 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       } : null
     );
 
+    // Se ainda não houver paciente identificado, tentar o primeiro paciente clínico ou paciente de hoje
+    if (!pacienteParaUsar?.pacienteId && pacientesClinicos.length > 0) {
+      pacienteParaUsar = pacientesClinicos[0];
+    }
+
     if (!pacienteParaUsar?.pacienteId) {
-      // Não mostrar mensagem se não houver pacientes disponíveis
+      // Buscar no banco o paciente mais recente atendido por este dentista
+      try {
+        const { data: ultimosAgs } = await supabase
+          .from('appointments')
+          .select('patient_id, paciente:profiles!patient_id(nome)')
+          .eq('dentist_id', profile?.id)
+          .order('appointment_date', { ascending: false })
+          .limit(1);
+
+        if (ultimosAgs && ultimosAgs.length > 0 && ultimosAgs[0].patient_id) {
+          pacienteParaUsar = {
+            pacienteId: ultimosAgs[0].patient_id,
+            pacienteNome: (ultimosAgs[0] as any).paciente?.nome || 'Paciente',
+          };
+        }
+      } catch (e) {
+        // silencioso
+      }
+    }
+
+    if (!pacienteParaUsar?.pacienteId) {
+      Toast.show({
+        type: 'info',
+        text1: 'Selecione um Paciente',
+        text2: 'Selecione um paciente ou consulta na agenda para abrir este módulo clínico.',
+      });
       return;
     }
 
-    const triagemId = pacienteParaUsar.triagemId || await resolverTriagemPaciente(pacienteParaUsar.pacienteId);
-    if (!triagemId) {
+    const triagemId = pacienteParaUsar.triagemId || (await resolverTriagemPaciente(pacienteParaUsar.pacienteId)) || '';
+
+    // Se for EvolucaoClinica, não deve bloquear caso não tenha triagem
+    if (!triagemId && screen !== 'EvolucaoClinica') {
       Toast.show({
         type: 'info',
         text1: 'Triagem não encontrada',
@@ -412,12 +444,13 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
       return;
     }
 
-    navigation.getParent<any>()?.navigate(screen, {
+    const nav = navigation.getParent<any>() || navigation;
+    nav.navigate(screen, {
       triagemId,
       pacienteId: pacienteParaUsar.pacienteId,
       pacienteNome: pacienteParaUsar.pacienteNome,
     });
-  }, [navigation, pacienteClinicoAtivo, pacienteFoco, resolverTriagemPaciente]);
+  }, [navigation, pacienteClinicoAtivo, pacienteFoco, pacientesClinicos, profile?.id, resolverTriagemPaciente]);
 
   const handleImprimirFaturacao = useCallback(async () => {
     if (!profile?.id) return;

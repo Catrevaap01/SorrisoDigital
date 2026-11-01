@@ -38,10 +38,11 @@ const PROCEDIMENTOS_RAPIDOS = [
 ];
 
 const EvolucaoClinicaScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { triagemId, pacienteId, pacienteNome } = route.params;
+  const { triagemId, pacienteId, pacienteNome: initialNome } = route.params || {};
   const { profile } = useAuth();
   const isWeb = Platform.OS === 'web';
 
+  const [pacienteNome, setPacienteNome] = useState(initialNome || 'Paciente');
   const [evolucoes, setEvolucoes] = useState<Evolucao[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
@@ -50,6 +51,18 @@ const EvolucaoClinicaScreen: React.FC<Props> = ({ route, navigation }) => {
   const [showRapidos, setShowRapidos] = useState(false);
 
   const carregar = useCallback(async () => {
+    if (!pacienteId) {
+      setLoading(false);
+      return;
+    }
+
+    // Buscar nome atualizado se for necessário
+    if (!initialNome || initialNome === 'Paciente') {
+      supabase.from('profiles').select('nome').eq('id', pacienteId).maybeSingle().then(({ data }) => {
+        if (data?.nome) setPacienteNome(data.nome);
+      });
+    }
+
     const { data } = await supabase
       .from('evolucoes_clinicas')
       .select('*, dentista:dentista_id(nome)')
@@ -58,7 +71,7 @@ const EvolucaoClinicaScreen: React.FC<Props> = ({ route, navigation }) => {
       .limit(50);
     setEvolucoes((data || []) as Evolucao[]);
     setLoading(false);
-  }, [pacienteId]);
+  }, [pacienteId, initialNome]);
 
   useEffect(() => { carregar(); }, [carregar]);
 

@@ -219,18 +219,41 @@ registerSyncHandler('enviarMensagem', async (payload: any) => {
 });
 
 /**
- * Listar mensagens de uma conversa
+ * Listar mensagens de uma conversa (ou entre dois usuários)
  */
 export const listarMensagens = async (
   conversaId: string,
   limit: number = 50,
-  offset: number = 0
+  offset: number = 0,
+  userId?: string,
+  otherUserId?: string
 ): Promise<{ success: boolean; data?: Message[]; error?: string }> => {
   try {
-    const { data, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', conversaId)
+    let convIds = [conversaId];
+
+    if (userId && otherUserId) {
+      try {
+        const { data: convs } = await supabase
+          .from('conversations')
+          .select('id')
+          .or(`and(participant_1_id.eq.${userId},participant_2_id.eq.${otherUserId}),and(participant_1_id.eq.${otherUserId},participant_2_id.eq.${userId})`);
+
+        if (convs && convs.length > 0) {
+          const ids = convs.map((c) => c.id);
+          convIds = Array.from(new Set([...convIds, ...ids]));
+        }
+      } catch (_) {}
+    }
+
+    let query = supabase.from('messages').select('*');
+
+    if (convIds.length === 1) {
+      query = query.eq('conversation_id', convIds[0]);
+    } else {
+      query = query.in('conversation_id', convIds);
+    }
+
+    const { data, error } = await query
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
@@ -259,14 +282,38 @@ export const listarMensagens = async (
  */
 export const marcarMensagensComoLidas = async (
   conversaId: string,
-  userId: string
+  userId: string,
+  otherUserId?: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
+    let convIds = [conversaId];
+
+    if (userId && otherUserId) {
+      try {
+        const { data: convs } = await supabase
+          .from('conversations')
+          .select('id')
+          .or(`and(participant_1_id.eq.${userId},participant_2_id.eq.${otherUserId}),and(participant_1_id.eq.${otherUserId},participant_2_id.eq.${userId})`);
+
+        if (convs && convs.length > 0) {
+          const ids = convs.map((c) => c.id);
+          convIds = Array.from(new Set([...convIds, ...ids]));
+        }
+      } catch (_) {}
+    }
+
     const runUpdate = async () => {
-      let res = await supabase
+      let q = supabase
         .from('messages')
-        .update({ read: true }, { count: 'exact' })
-        .eq('conversation_id', conversaId)
+        .update({ read: true }, { count: 'exact' });
+
+      if (convIds.length === 1) {
+        q = q.eq('conversation_id', convIds[0]);
+      } else {
+        q = q.in('conversation_id', convIds);
+      }
+
+      let res = await q
         .neq('sender_id', userId)
         .or('read.eq.false,read.is.null');
       
@@ -274,10 +321,17 @@ export const marcarMensagensComoLidas = async (
         const admin = getAdminClient();
         if (admin) {
           console.warn('⚠️ RLS fallback for marking messages as read');
-          res = await admin
+          let aq = admin
             .from('messages')
-            .update({ read: true }, { count: 'exact' })
-            .eq('conversation_id', conversaId)
+            .update({ read: true }, { count: 'exact' });
+
+          if (convIds.length === 1) {
+            aq = aq.eq('conversation_id', convIds[0]);
+          } else {
+            aq = aq.in('conversation_id', convIds);
+          }
+
+          res = await aq
             .neq('sender_id', userId)
             .or('read.eq.false,read.is.null');
         }

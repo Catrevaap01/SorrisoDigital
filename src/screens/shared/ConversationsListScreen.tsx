@@ -151,22 +151,56 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
           })
         );
 
-        const conversasParaLimpar = conversasComNaoLidas.filter((conversa) => conversa.naoLidas > 0);
+        // Garantir que cada pessoa apareça apenas UMA VEZ na lista de conversas
+        // Agrupa por interlocutor (otherUserId), mantendo a conversa mais recente e somando não lidas
+        const conversasAgrupadasPorPessoa = new Map<string, Conversation & { naoLidas: number }>();
 
-        if (conversasParaLimpar.length > 0) {
-          await Promise.all(
-            conversasParaLimpar.map((conversa) =>
-              marcarMensagensComoLidas(conversa.id, user.id)
-            )
-          );
-        }
+        conversasComNaoLidas.forEach((conversa) => {
+          const isP1 = conversa.participant_1_id === user.id;
+          const interlocutorId = isP1 ? conversa.participant_2_id : conversa.participant_1_id;
+          const interlocutorNome = isP1 ? conversa.participant_2_name : conversa.participant_1_name;
+          const interlocutorAvatar = isP1 ? conversa.participant_2_avatar : conversa.participant_1_avatar;
 
-        const conversasSincronizadas = conversasComNaoLidas.map((conversa) =>
-          conversa.naoLidas > 0 ? { ...conversa, naoLidas: 0 } : conversa
-        );
+          // Se não houver ID do interlocutor, usa o id da conversa como chave única
+          const chave = interlocutorId || conversa.id;
 
-        setConversas(conversasSincronizadas);
-        setConversasOrig(conversasSincronizadas);
+          if (!conversasAgrupadasPorPessoa.has(chave)) {
+            conversasAgrupadasPorPessoa.set(chave, {
+              ...conversa,
+              participant_1_id: user.id,
+              participant_2_id: interlocutorId,
+              participant_2_name: interlocutorNome,
+              participant_2_avatar: interlocutorAvatar,
+            });
+          } else {
+            const existente = conversasAgrupadasPorPessoa.get(chave)!;
+            const dataAtual = new Date(conversa.last_message_at || conversa.updated_at || 0).getTime();
+            const dataExistente = new Date(existente.last_message_at || existente.updated_at || 0).getTime();
+
+            // Manter a mais recente para exibir na listagem
+            if (dataAtual > dataExistente) {
+              conversasAgrupadasPorPessoa.set(chave, {
+                ...conversa,
+                participant_1_id: user.id,
+                participant_2_id: interlocutorId,
+                participant_2_name: interlocutorNome || existente.participant_2_name,
+                participant_2_avatar: interlocutorAvatar || existente.participant_2_avatar,
+                naoLidas: existente.naoLidas + conversa.naoLidas,
+              });
+            } else {
+              existente.naoLidas += conversa.naoLidas;
+            }
+          }
+        });
+
+        const listaFinal = Array.from(conversasAgrupadasPorPessoa.values()).sort((a, b) => {
+          const tA = new Date(a.last_message_at || a.updated_at || 0).getTime();
+          const tB = new Date(b.last_message_at || b.updated_at || 0).getTime();
+          return tB - tA;
+        });
+
+        setConversas(listaFinal);
+        setConversasOrig(listaFinal);
       }
     } catch (error) {
       Toast.show({

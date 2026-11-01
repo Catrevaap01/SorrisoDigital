@@ -234,7 +234,7 @@ const PlanoTratamentoScreen: React.FC<Props> = ({ route, navigation }) => {
                   ) : null}
                 </View>
               </View>
-              {planoStatus !== 'concluido' && (
+              {planoStatus !== 'concluido' && item.status !== 'concluido' && (
                 <View style={s.procActions}>
                   <TouchableOpacity onPress={() => abrirEditar(item)} style={s.actionBtn}>
                     <Ionicons name="create-outline" size={18} color={COLORS.primary} />

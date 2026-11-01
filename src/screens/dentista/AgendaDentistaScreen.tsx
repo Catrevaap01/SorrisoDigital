@@ -1236,7 +1236,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
           </View>
         )}
         
-        {(item.status === 'atribuido_dentista' || (item.status === 'reagendamento_solicitado' && item.suggested_date && !item.dentist_suggested_date) || item.status === 'confirmado_dentista') && (
+        {(item.status === 'atribuido_dentista' || item.status === 'reagendamento_solicitado' || item.status === 'confirmado_dentista') && (
           <View style={styles.actionRow}>
             {(item.status === 'atribuido_dentista' || (item.status === 'reagendamento_solicitado' && item.suggested_date && !item.dentist_suggested_date)) && (
               <>
@@ -1271,6 +1271,18 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
                   </Text>
                 </TouchableOpacity>
               </>
+            )}
+            {item.status === 'reagendamento_solicitado' && item.dentist_suggested_date && (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: COLORS.danger }]}
+                onPress={handleCancelar}
+                disabled={processingId === item.id}
+              >
+                <Ionicons name="close-circle" size={16} color={COLORS.textInverse} />
+                <Text style={styles.actionButtonText}>
+                  {processingId === item.id ? 'Processando' : 'Cancelar Consulta'}
+                </Text>
+              </TouchableOpacity>
             )}
             {item.status === 'confirmado_dentista' && (
               <>

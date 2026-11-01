@@ -54,6 +54,12 @@ const PROVINCIAS = [
 
 const GENEROS = ['Masculino', 'Feminino'];
 
+const isGenericName = (n?: string | null): boolean => {
+  if (!n) return true;
+  const lower = n.trim().toLowerCase();
+  return ['usuario', 'usuário', 'user', 'undefined', 'null'].includes(lower);
+};
+
 type Step = 'dados' | 'localizacao';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -78,13 +84,14 @@ const CompleteProfileScreen: React.FC = () => {
       // 1. Fonte imediata: nome digitado no formulário de registo
       try {
         const localNome = await universalStorage.getItem('temp_signup_nome');
-        if (localNome && !cancelled) {
+        if (localNome && !isGenericName(localNome) && !cancelled) {
           setFirstName(localNome.trim().split(' ')[0]);
+          return;
         }
       } catch (_) {}
 
       // 2. Fonte de contexto de perfil
-      if (profile?.nome && !cancelled) {
+      if (profile?.nome && !isGenericName(profile.nome) && !cancelled) {
         setFirstName(profile.nome.trim().split(' ')[0]);
         return;
       }
@@ -94,7 +101,7 @@ const CompleteProfileScreen: React.FC = () => {
         user?.user_metadata?.nome ||
         user?.user_metadata?.full_name ||
         user?.user_metadata?.name;
-      if (metaNome && !cancelled) {
+      if (metaNome && !isGenericName(String(metaNome)) && !cancelled) {
         setFirstName(String(metaNome).trim().split(' ')[0]);
         return;
       }
@@ -104,7 +111,7 @@ const CompleteProfileScreen: React.FC = () => {
         const { data } = await supabase.auth.getUser();
         const meta = data?.user?.user_metadata || {};
         const nome: string = meta.nome || meta.full_name || meta.name || '';
-        if (nome && !cancelled) {
+        if (nome && !isGenericName(nome) && !cancelled) {
           setFirstName(nome.trim().split(' ')[0]);
           return;
         }
@@ -116,8 +123,20 @@ const CompleteProfileScreen: React.FC = () => {
             .select('nome')
             .eq('id', data.user.id)
             .maybeSingle();
-          if (dbProfile?.nome && !cancelled) {
+          if (dbProfile?.nome && !isGenericName(dbProfile.nome) && !cancelled) {
             setFirstName(dbProfile.nome.trim().split(' ')[0]);
+            return;
+          }
+        }
+
+        // 6. Extrair nome a partir do email se tudo falhar
+        const email = user?.email || data?.user?.email;
+        if (email && email.includes('@') && !cancelled) {
+          const prefix = email.split('@')[0].replace(/[._0-9]/g, ' ').trim();
+          if (prefix && !isGenericName(prefix)) {
+            const first = prefix.split(' ')[0];
+            const capital = first.charAt(0).toUpperCase() + first.slice(1);
+            setFirstName(capital);
           }
         }
       } catch (_) {}
@@ -125,7 +144,7 @@ const CompleteProfileScreen: React.FC = () => {
 
     loadName();
     return () => { cancelled = true; };
-  }, [profile?.nome, user?.id]);
+  }, [profile?.nome, user?.id, user?.email]);
 
   // Passo 1
   const [telefone, setTelefone] = useState(profile?.telefone || '');
@@ -172,8 +191,8 @@ const CompleteProfileScreen: React.FC = () => {
       showError('Campo obrigatório', 'Por favor insira a sua data de nascimento.');
       return false;
     }
-    if (!genero.trim()) {
-      showError('Campo obrigatório', 'Por favor selecione o seu género.');
+    if (!genero.trim() || !['Masculino', 'Feminino'].includes(genero)) {
+      showError('Campo obrigatório', 'Por favor selecione o seu género (Masculino ou Feminino).');
       return false;
     }
     return true;
@@ -270,7 +289,7 @@ const CompleteProfileScreen: React.FC = () => {
           </View>
           <Text style={styles.title}>Completar Perfil</Text>
           <Text style={styles.subtitle}>
-            {firstName ? `Olá, ${firstName}! 👋\n` : 'Olá! 👋\n'}
+            {firstName && !isGenericName(firstName) ? `Olá, ${firstName}! 👋\n` : 'Olá! 👋\n'}
             Complete os seus dados para continuar.
           </Text>
 

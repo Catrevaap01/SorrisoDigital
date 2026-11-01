@@ -62,6 +62,7 @@ const GerirPacientesScreen = lazy(() => import('../screens/dentista/GerirPacient
 const AnamneseScreen = lazy(() => import('../screens/dentista/AnamneseScreen'));
 const PlanoTratamentoScreen = lazy(() => import('../screens/dentista/PlanoTratamentoScreen'));
 const PrescricaoScreen = lazy(() => import('../screens/dentista/PrescricaoScreen'));
+const EvolucaoClinicaScreen = lazy(() => import('../screens/dentista/EvolucaoClinicaScreen'));
 
 // ── Secretário ────────────────────────────────────────────────────────────────
 import SecretarioDashboardScreen from '../screens/secretario/SecretarioDashboardScreen';
@@ -102,6 +103,7 @@ const GerirPacientesScreenLazy = withSuspense(GerirPacientesScreen as any);
 const AnamneseScreenLazy = withSuspense(AnamneseScreen as any);
 const PlanoTratamentoScreenLazy = withSuspense(PlanoTratamentoScreen as any);
 const PrescricaoScreenLazy = withSuspense(PrescricaoScreen as any);
+const EvolucaoClinicaScreenLazy = withSuspense(EvolucaoClinicaScreen as any);
 const AtribuirDentistaScreenLazy = withSuspense(AtribuirDentistaScreen as any);
 const AtribuirDentistaAgendamentoScreenLazy = withSuspense(AtribuirDentistaAgendamentoScreen as any);
 
@@ -523,6 +525,11 @@ const DentistaStack: React.FC<TabsProps> = ({ unreadCount, role }) => {
         name="Prescricao"
         component={PrescricaoScreenLazy}
         options={{ title: 'Prescrição', headerStyle: { backgroundColor: '#E91E63' }, headerTintColor: '#fff' }}
+      />
+      <DentistaStackNav.Screen
+        name="EvolucaoClinica"
+        component={EvolucaoClinicaScreenLazy}
+        options={{ title: 'Evolução Clínica', headerStyle: { backgroundColor: '#7C3AED' }, headerTintColor: '#fff' }}
       />
     </DentistaStackNav.Navigator>
   );
