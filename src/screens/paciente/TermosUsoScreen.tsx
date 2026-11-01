@@ -33,11 +33,7 @@ export default function TermosUsoScreen() {
         </Text>
       </View>
 
-      <View style={styles.buttonContainer}>
-        <Text style={styles.buttonText} onPress={abrirSite}>
-          📄 Ler Termos Completos
-        </Text>
-      </View>
+      
     </ScrollView>
   );
 }
