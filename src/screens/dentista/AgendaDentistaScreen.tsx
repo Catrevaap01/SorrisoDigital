@@ -856,6 +856,11 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     const handleCancelar = async () => {
       if (processingId) return;
       setProcessingId(item.id);
+
+      // Atualização otimista imediata na interface
+      setAgendamentos((prev) => prev.map((a) => a.id === item.id ? { ...a, status: 'cancelado' } : a));
+      setAgendamentosMes((prev) => prev.map((a) => a.id === item.id ? { ...a, status: 'cancelado' } : a));
+
       const res = await cancelarAgendamento(item.id, 'Cancelado pelo dentista');
       if (res.success) {
         Toast.show({ type: 'info', text1: 'Agendamento cancelado com sucesso' });
@@ -864,6 +869,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         return;
       }
       setProcessingId(null);
+      await carregarAgendamentos();
       Toast.show({
         type: 'error',
         text1: 'Erro ao cancelar',
@@ -936,6 +942,11 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     const handleRealizar = async () => {
       if (processingId) return;
       setProcessingId(item.id);
+
+      // Atualização otimista imediata na interface
+      setAgendamentos((prev) => prev.map((a) => a.id === item.id ? { ...a, status: 'realizado' } : a));
+      setAgendamentosMes((prev) => prev.map((a) => a.id === item.id ? { ...a, status: 'realizado' } : a));
+
       const res = await realizarAgendamento(item.id);
       if (res.success) {
         Toast.show({ type: 'success', text1: 'Consulta realizada com sucesso!' });
@@ -962,6 +973,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         return;
       }
       setProcessingId(null);
+      await carregarAgendamentos();
       Toast.show({
         type: 'error',
         text1: 'Erro ao marcar',

@@ -545,6 +545,13 @@ export const realizarAgendamento = async (
 
     const row = res.data?.[0];
     logger.info('Agendamento marcado como realizado', row);
+
+    // Invalida cache local de agendamentos
+    try {
+      const { clearCache } = await import('../utils/cacheService');
+      await clearCache();
+    } catch (_) {}
+
     return { success: true, data: (row || { id: agendamentoId, status: 'realizado' }) as Agendamento };
   } catch (err: any) {
     // OFFLINE HANDLING
@@ -591,25 +598,42 @@ export const cancelarAgendamento = async (
       updatePayload.notes = observacoes;
     }
 
-    const { data, error } = await client
+    let res = await client
       .from('appointments')
       .update(updatePayload)
       .eq('id', agendamentoId)
-      .select()
-      .single();
+      .select();
 
-    if (error) throw error;
+    if ((res.error || !res.data || res.data.length === 0) && !admin) {
+      const fallbackAdmin = getAdminClient();
+      if (fallbackAdmin) {
+        res = await fallbackAdmin
+          .from('appointments')
+          .update(updatePayload)
+          .eq('id', agendamentoId)
+          .select();
+      }
+    }
 
-    if (data?.patient_id) {
+    if (res.error) throw res.error;
+
+    const row = res.data?.[0];
+    if (row?.patient_id) {
       await notificarAgendamentoPaciente(
-        data.patient_id,
+        row.patient_id,
         'Agendamento cancelado',
         motivo ? `Seu agendamento foi cancelado: ${motivo}` : 'O seu agendamento foi cancelado.',
         { agendamento_id: agendamentoId }
       );
     }
 
-    return { success: true, data: data as Agendamento };
+    // Invalida cache local de agendamentos
+    try {
+      const { clearCache } = await import('../utils/cacheService');
+      await clearCache();
+    } catch (_) {}
+
+    return { success: true, data: (row || { id: agendamentoId, status: 'cancelado' }) as Agendamento };
   } catch (err: any) {
     // OFFLINE HANDLING
     const state = await NetInfo.fetch();

@@ -22,39 +22,43 @@ export const fetchWithCache = async <T>(
     const netState = await NetInfo.fetch();
     const isOffline = isNetworkOffline(netState);
 
-    // Se estiver offline ou não forçar refresh, tenta pegar do cache primeiro
-    if (isOffline || !forceRefresh) {
+    // Se estiver explicitamente offline, busca imediatamente do cache
+    if (isOffline) {
       const cachedString = await AsyncStorage.getItem(cacheKey);
       if (cachedString) {
         const cachedItem: CacheItem<T> = JSON.parse(cachedString);
-        const isExpired = Date.now() - cachedItem.timestamp > CACHE_EXPIRATION_MS;
-
-        // Retorna o cache se estiver offline (mesmo expirado) ou se não estiver expirado
-        if (isOffline || !isExpired) {
-          logger.info(`Lendo do cache: ${key} (Offline: ${isOffline})`);
-          return { success: true, data: cachedItem.data, fromCache: true };
-        }
+        logger.info(`Lendo do cache offline: ${key}`);
+        return { success: true, data: cachedItem.data, fromCache: true };
       }
-    }
-
-    // Se chegou aqui, estamos online ou o cache expirou e queremos refresh
-    if (isOffline) {
       return { success: false, error: 'Sem conexão com a internet e sem dados em cache.' };
     }
 
-    const result = await fetcher();
+    // Se estiver online: estratégia Network-First (busca dados frescos do banco primeiro)
+    try {
+      const result = await fetcher();
 
-    // Se o fetch foi sucesso, atualiza o cache
-    if (result.success && result.data !== undefined) {
-      const cacheItem: CacheItem<T> = {
-        data: result.data,
-        timestamp: Date.now(),
-      };
-      await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheItem));
-      logger.info(`Cache atualizado: ${key}`);
+      // Se o fetch foi sucesso, atualiza o cache local
+      if (result.success && result.data !== undefined) {
+        const cacheItem: CacheItem<T> = {
+          data: result.data,
+          timestamp: Date.now(),
+        };
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(cacheItem));
+        logger.info(`Dados frescos atualizados no cache: ${key}`);
+        return { ...result, fromCache: false };
+      }
+    } catch (fetchErr) {
+      logger.warn(`Falha na busca em rede para ${key}, tentando fallback no cache...`, fetchErr);
     }
 
-    return { ...result, fromCache: false };
+    // Se a busca em rede falhar, fallback de segurança para o cache
+    const cachedString = await AsyncStorage.getItem(cacheKey);
+    if (cachedString) {
+      const cachedItem: CacheItem<T> = JSON.parse(cachedString);
+      return { success: true, data: cachedItem.data, fromCache: true };
+    }
+
+    return { success: false, error: 'Falha ao buscar dados da rede e sem cache disponível.' };
   } catch (error) {
     logger.error(`Erro no fetchWithCache (${key}):`, error);
     
