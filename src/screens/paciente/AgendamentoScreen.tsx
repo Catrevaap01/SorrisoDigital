@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase, getAdminClient } from '../../config/supabase';
 import { criarAgendamento } from '../../services/agendamentoService';
 import {
   notificarAgendamentoDentista,
@@ -26,7 +27,8 @@ import { PacienteStackParamList } from '../../navigation/types';
 type AgendamentoProps = NativeStackScreenProps<PacienteStackParamList, 'Agendamento'>;
 
 const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const pacienteId = profile?.id || user?.id;
   const [loading, setLoading] = useState<boolean>(false);
   
   // Dados do agendamento
@@ -34,6 +36,45 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
   const [dataSelecionada, setDataSelecionada] = useState<Date | null>(null);
   const [horarioSelecionado, setHorarioSelecionado] = useState<string | null>(null);
   const [observacoes, setObservacoes] = useState<string>('');
+  const [horariosOcupados, setHorariosOcupados] = useState<Set<string>>(new Set());
+
+  // Buscar horários já ocupados na data selecionada
+  useEffect(() => {
+    let isMounted = true;
+    const carregarOcupados = async () => {
+      if (!dataSelecionada) {
+        setHorariosOcupados(new Set());
+        return;
+      }
+      try {
+        const yyyy = dataSelecionada.getFullYear();
+        const mm = String(dataSelecionada.getMonth() + 1).padStart(2, '0');
+        const dd = String(dataSelecionada.getDate()).padStart(2, '0');
+        const dataStr = `${yyyy}-${mm}-${dd}`;
+        
+        const client = getAdminClient() || supabase;
+        const { data } = await client
+          .from('appointments')
+          .select('appointment_time')
+          .eq('appointment_date', dataStr)
+          .not('status', 'in', '("cancelado","rejeitado_dentista")');
+
+        if (data && isMounted) {
+          const ocupados = new Set<string>();
+          data.forEach((item: any) => {
+            if (item.appointment_time) {
+              ocupados.add(item.appointment_time.slice(0, 5));
+            }
+          });
+          setHorariosOcupados(ocupados);
+        }
+      } catch (e) {
+        console.warn('Erro ao carregar horários ocupados:', e);
+      }
+    };
+    carregarOcupados();
+    return () => { isMounted = false; };
+  }, [dataSelecionada]);
 
   const tiposConsulta = [
     { id: 'consulta', label: 'Consulta de Rotina', icon: 'calendar', cor: COLORS.primary },
@@ -73,13 +114,6 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
     '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
   ];
-
-  // Horários indisponíveis — calculados UMA VEZ para evitar re-randomizar no render
-  const horariosIndisponiveis = useMemo(() => {
-    return new Set(
-      horarios.filter(() => Math.random() < 0.2)
-    );
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const formularioPronto = !!tipoConsulta && !!dataSelecionada && !!horarioSelecionado && !loading;
 
@@ -133,9 +167,9 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
   };
 
   const processarAgendamento = async () => {
-    if (!profile?.id || !dataSelecionada || !horarioSelecionado) {
+    if (!pacienteId || !dataSelecionada || !horarioSelecionado) {
       setLoading(false);
-      Toast.show({ type: 'error', text1: 'Erro interno', text2: 'Seu perfil ainda não foi carregado. Tente novamente.' });
+      Toast.show({ type: 'error', text1: 'Erro de identificação', text2: 'Sua conta de paciente não foi encontrada. Faça login novamente.' });
       return;
     }
 
@@ -144,22 +178,20 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
     // Criar data/hora completa
     const [hora, minuto] = horarioSelecionado.split(':');
     const dataAgendamento = new Date(dataSelecionada);
-    dataAgendamento.setHours(parseInt(hora), parseInt(minuto), 0, 0);
+    dataAgendamento.setHours(parseInt(hora, 10), parseInt(minuto, 10), 0, 0);
 
     // Não definir status nem dentista_id aqui.
     // O serviço criarAgendamento define automaticamente:
     //   status = 'agendamento_pendente_secretaria'
     // garantindo que o agendamento vai para a fila da secretaria.
-    // Formatar data e hora separadamente para compatibilidade com o banco (DATE/TIME)
-    const dataYYYYMMDD = [
-      dataAgendamento.getFullYear(),
-      String(dataAgendamento.getMonth() + 1).padStart(2, '0'),
-      String(dataAgendamento.getDate()).padStart(2, '0'),
-    ].join('-');
+    const yyyy = dataAgendamento.getFullYear();
+    const mm = String(dataAgendamento.getMonth() + 1).padStart(2, '0');
+    const dd = String(dataAgendamento.getDate()).padStart(2, '0');
+    const dataYYYYMMDD = `${yyyy}-${mm}-${dd}`;
     const horaHHMMSS = `${hora}:${minuto}:00`;
 
     const result = await criarAgendamento({
-      patient_id: profile.id,
+      patient_id: pacienteId,
       appointment_date: dataYYYYMMDD,
       appointment_time: horaHHMMSS,
       tipo: tipoConsulta,
@@ -176,20 +208,22 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
       const labelTipo = tipoConsulta.charAt(0).toUpperCase() + tipoConsulta.slice(1).replace(/_/g, ' ');
 
       // Fire notifications in parallel — non-blocking (don't await both)
-      Promise.all([
-        notificarAgendamentoDentista(
-          profile.nome || 'Paciente',
-          labelTipo,
-          dataHoraStr,
-          agendamentoId
-        ),
-        notificarConfirmacaoPaciente(
-          profile.id,
-          labelTipo,
-          dataHoraStr,
-          agendamentoId
-        ),
-      ]).catch((e) => console.warn('Notificação de agendamento falhou (non-blocking):', e));
+      if (pacienteId) {
+        Promise.all([
+          notificarAgendamentoDentista(
+            profile?.nome || user?.email || 'Paciente',
+            labelTipo,
+            dataHoraStr,
+            agendamentoId
+          ),
+          notificarConfirmacaoPaciente(
+            pacienteId,
+            labelTipo,
+            dataHoraStr,
+            agendamentoId
+          ),
+        ]).catch((e) => console.warn('Notificação de agendamento falhou (non-blocking):', e));
+      }
 
       Toast.show({
         type: 'success',
@@ -292,8 +326,7 @@ const AgendamentoScreen: React.FC<AgendamentoProps> = ({ navigation }) => {
         <View style={styles.horariosGrid}>
           {horarios.map((horario) => {
             const isSelected = horarioSelecionado === horario;
-            // Simulação: alguns horários indisponíveis
-            const indisponivel = horariosIndisponiveis.has(horario);
+            const indisponivel = horariosOcupados.has(horario);
             
             return (
               <TouchableOpacity

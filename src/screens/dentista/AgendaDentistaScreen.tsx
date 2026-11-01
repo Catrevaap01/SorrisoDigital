@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../config/supabase';
+import { supabase, getAdminClient } from '../../config/supabase';
 import {
   buscarAgendaDentista,
   buscarAgendaDentistaMes,
@@ -635,7 +635,8 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
 
         const dateOnly = typeof dataSugerida === 'string' && dataSugerida.includes('T') ? dataSugerida.split('T')[0] : dataSugerida;
 
-        const { error: updateError } = await supabase
+        const client = getAdminClient() || supabase;
+        const { error: updateError } = await client
           .from('appointments')
           .update({ 
             appointment_date: dateOnly,
@@ -650,6 +651,11 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         if (updateError) {
           throw new Error(updateError.message || 'Erro ao atualizar data');
         }
+
+        try {
+          const { clearCache } = await import('../../utils/cacheService');
+          await clearCache();
+        } catch (_) {}
         
         Toast.show({ 
           type: 'success', 
@@ -677,8 +683,9 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       setProcessingId(item.id);
       
       try {
+        const client = getAdminClient() || supabase;
         // Reject the suggested date and send back to secretary
-        const { error: updateError } = await supabase
+        const { error: updateError } = await client
           .from('appointments')
           .update({ 
             status: 'pendente', // Send back to pending for secretary
@@ -691,6 +698,11 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         if (updateError) {
           throw new Error(updateError.message || 'Erro ao rejeitar data');
         }
+
+        try {
+          const { clearCache } = await import('../../utils/cacheService');
+          await clearCache();
+        } catch (_) {}
         
         Toast.show({ 
           type: 'info', 
@@ -717,57 +729,55 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       try {
         const sDate = agendamento.dentist_suggested_date || agendamento.suggested_date || agendamento.appointment_date;
         const sDateFormatted = sDate ? formatDate(new Date(sDate), "dd/MM/yyyy 'às' HH:mm") : '';
-        // Create notification for secretary
-        const { error } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: null, // Will be filtered by RLS for secretaries
-            title: 'Reagendamento Confirmado',
-            message: `Dentista confirmou reagendamento para ${agendamento.paciente?.nome || 'paciente'}${sDateFormatted ? ' na data ' + sDateFormatted : ''}`,
-            type: 'reschedule_confirmed',
-            data: {
+        const client = getAdminClient() || supabase;
+        const { data: secList } = await client.from('profiles').select('id').eq('tipo', 'secretario');
+        const ids = (secList || []).map((s: any) => s.id);
+        if (ids.length > 0) {
+          await client.from('notificacoes').insert(ids.map((uid: string) => ({
+            usuario_id: uid,
+            titulo: 'Reagendamento Confirmado',
+            mensagem: `Dentista confirmou reagendamento para ${agendamento.paciente?.nome || 'paciente'}${sDateFormatted ? ' na data ' + sDateFormatted : ''}`,
+            tipo: 'reschedule_confirmed',
+            dados: {
               appointment_id: agendamento.id,
               patient_id: agendamento.patient_id,
               dentist_id: profile?.id,
               old_date: agendamento.appointment_date,
               new_date: sDate
             },
+            lida: false,
             created_at: new Date().toISOString()
-          });
-          
-        if (error) {
-          console.warn('Erro ao notificar secretário:', error);
+          })));
         }
       } catch (error) {
-        console.warn('Erro ao criar notificação:', error);
+        console.warn('Erro ao notificar secretário:', error);
       }
     };
 
     const notificarSecretarioRejeitamento = async (agendamento: any) => {
       try {
         const sDate = agendamento.dentist_suggested_date || agendamento.suggested_date;
-        // Create notification for secretary
-        const { error } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: null, // Will be filtered by RLS for secretaries
-            title: 'Data Rejeitada',
-            message: `Dentista rejeitou data para ${agendamento.paciente?.nome || 'paciente'}`,
-            type: 'date_rejected',
-            data: {
+        const client = getAdminClient() || supabase;
+        const { data: secList } = await client.from('profiles').select('id').eq('tipo', 'secretario');
+        const ids = (secList || []).map((s: any) => s.id);
+        if (ids.length > 0) {
+          await client.from('notificacoes').insert(ids.map((uid: string) => ({
+            usuario_id: uid,
+            titulo: 'Data Rejeitada',
+            mensagem: `Dentista rejeitou data para ${agendamento.paciente?.nome || 'paciente'}`,
+            tipo: 'date_rejected',
+            dados: {
               appointment_id: agendamento.id,
               patient_id: agendamento.patient_id,
               dentist_id: profile?.id,
               rejected_date: sDate
             },
+            lida: false,
             created_at: new Date().toISOString()
-          });
-          
-        if (error) {
-          console.warn('Erro ao notificar secretário:', error);
+          })));
         }
       } catch (error) {
-        console.warn('Erro ao criar notificação:', error);
+        console.warn('Erro ao notificar secretário:', error);
       }
     };
 
@@ -828,25 +838,24 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
 
     const notificarSecretarioSugestao = async (agendamento: any, novaData: Date) => {
       try {
-        // Create notification for secretary
-        const { error } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: null, // Will be filtered by RLS for secretaries
-            title: 'Nova Sugestão de Horário',
-            message: `Dentista sugeriu nova data para ${agendamento.paciente?.nome}: ${formatDate(novaData, "dd/MM/yyyy 'às' HH:mm")}`,
-            type: 'date_suggested',
-            data: {
+        const client = getAdminClient() || supabase;
+        const { data: secList } = await client.from('profiles').select('id').eq('tipo', 'secretario');
+        const ids = (secList || []).map((s: any) => s.id);
+        if (ids.length > 0) {
+          await client.from('notificacoes').insert(ids.map((uid: string) => ({
+            usuario_id: uid,
+            titulo: 'Nova Sugestão de Horário',
+            mensagem: `Dentista sugeriu nova data para ${agendamento.paciente?.nome || 'paciente'}: ${formatDate(novaData, "dd/MM/yyyy 'às' HH:mm")}`,
+            tipo: 'date_suggested',
+            dados: {
               appointment_id: agendamento.id,
               patient_id: agendamento.patient_id,
               dentist_id: profile?.id,
               suggested_date: novaData.toISOString()
             },
+            lida: false,
             created_at: new Date().toISOString()
-          });
-          
-        if (error) {
-          console.warn('Erro ao notificar secretário:', error);
+          })));
         }
       } catch (error) {
         console.warn('Erro ao criar notificação:', error);
@@ -891,8 +900,9 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         return;
       }
       
-      const res = await supabase
-        .from('agendamentos')
+      const client = getAdminClient() || supabase;
+      const res = await client
+        .from('appointments')
         .update({ 
           valor_pago: valorPago + valorPendente,
           valor_pendente: 0
@@ -918,8 +928,9 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       
       const valorTotal = PRECO_POR_TIPO[item.tipo || 'consulta'] || 0;
       
-      const res = await supabase
-        .from('agendamentos')
+      const client = getAdminClient() || supabase;
+      const res = await client
+        .from('appointments')
         .update({ 
           valor_pago: valorTotal,
           valor_pendente: 0

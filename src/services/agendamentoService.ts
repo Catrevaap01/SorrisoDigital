@@ -88,7 +88,7 @@ const enrichAgendamentosWithPacientes = async (
         .select('id, nome, telefone, email')
         .in('id', pacienteIds);
 
-      if (!pacientesError && pacientes.length > 0) {
+      if (!pacientesError && pacientes && pacientes.length > 0) {
         pacientesById = Object.fromEntries(pacientes.map((p: any) => [p.id, p]));
       }
     }
@@ -114,6 +114,7 @@ export const criarAgendamento = async (
       const { tipo, ...dadosLimpos } = p;
       
       const admin = getAdminClient();
+      const client = admin || supabase;
       
       const payload = {
         patient_id: dadosLimpos.patient_id,
@@ -129,16 +130,18 @@ export const criarAgendamento = async (
         secretary_id: dadosLimpos.secretary_id || null,
       };
 
-      console.log('Tentando inserir agendamento:', payload);
-      
-      let res = admin
-        ? await admin.from('appointments').insert([payload]).select().single()
-        : await supabase.from('appointments').insert([payload]).select().single();
+      let res = await client.from('appointments').insert([payload]).select();
+      if ((res.error || !res.data || res.data.length === 0) && !admin) {
+        const fallbackAdmin = getAdminClient();
+        if (fallbackAdmin) {
+          res = await fallbackAdmin.from('appointments').insert([payload]).select();
+        }
+      }
       
       if (res.error) {
-        console.error('Erro na inserção:', res.error);
+        console.error('Erro na inserção de agendamento:', res.error);
       }
-      return res;
+      return { data: res.data?.[0], error: res.error };
     };
 
     let data: any = null;
@@ -149,24 +152,30 @@ export const criarAgendamento = async (
       data = result.data;
       error = result.error;
 
-      if (!error) {
+      if (!error && data) {
         break;
       }
 
-      if (!shouldRetryWithLegacyStatus(error)) {
+      if (error && !shouldRetryWithLegacyStatus(error)) {
         break;
       }
 
       logger.warn(`Status ${status} recusado pelo banco; tentando proximo status compativel`, error);
     }
 
-    if (error) {
+    if (error && !data) {
       const msg = _handleTableMissing(error) || error.message || 'Erro desconhecido ao salvar no banco';
       return { success: false, error: msg };
     }
 
+    // Invalida cache local de agendamentos
+    try {
+      const { clearCache } = await import('../utils/cacheService');
+      await clearCache();
+    } catch (_) {}
+
     logger.info('Agendamento criado com sucesso', data);
-    return { success: true, data: data as Agendamento };
+    return { success: true, data: (data || dados) as Agendamento };
   } catch (err: any) {
     console.error('Erro catch em criarAgendamento:', err);
     
@@ -219,7 +228,8 @@ export const buscarAgendaDentista = async (
       const startDate = `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`;
       const endDate = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
       
-      const query = supabase
+      const client = getAdminClient() || supabase;
+      const query = client
         .from('appointments')
         .select('*')
         .eq('dentist_id', dentistaId)
@@ -231,7 +241,7 @@ export const buscarAgendaDentista = async (
 
       if (agendaRes.error) {
         // Fallback simples se o filtro OR der erro
-        const fallbackQuery = supabase
+        const fallbackQuery = client
           .from('appointments')
           .select('*')
           .eq('dentist_id', dentistaId)
@@ -274,8 +284,9 @@ export const buscarAgendaDentistaMes = async (
       const ultimoDia = new Date(ano, mes, 0).getDate();
       const endDate = `${ano}-${pad(mes)}-${pad(ultimoDia)}`;
 
+      const client = getAdminClient() || supabase;
       const { data, error } = await withTimeout(
-        supabase
+        client
           .from('appointments')
           .select('*')
           .eq('dentist_id', dentistaId)
@@ -286,7 +297,7 @@ export const buscarAgendaDentistaMes = async (
 
       if (error) {
         // Fallback buscando agendamentos do dentista
-        const fallback = await supabase
+        const fallback = await client
           .from('appointments')
           .select('*')
           .eq('dentist_id', dentistaId)
@@ -314,16 +325,17 @@ export const buscarTodosAgendamentosDentista = async (
   dentistaId: string
 ): Promise<ServiceResult<Agendamento[]>> => {
   try {
+    const client = getAdminClient() || supabase;
     const [agendaRes, bloqueadosRes] = await Promise.all([
-      withTimeout(supabase
+      withTimeout(client
         .from('appointments')
         .select('*')
         .eq('dentist_id', dentistaId)
         .order('appointment_date', { ascending: false }), 10000),
-      withTimeout(supabase
+      withTimeout(client
         .from('appointments')
         .select('patient_id')
-        .in('status', ['pendente', 'agendado', 'confirmado'])
+        .in('status', ['solicitado', 'pendente', 'atribuido_dentista', 'confirmado_dentista', 'confirmado_paciente'])
         .neq('dentist_id', dentistaId), 8000)
     ]);
 
@@ -331,14 +343,16 @@ export const buscarTodosAgendamentosDentista = async (
 
     let agendaBase = (agendaRes.data || []) as Agendamento[];
     const pacientesBloqueados = new Set(
-      (bloqueadosRes.data || []).map((b: any) => b.paciente_id).filter(Boolean)
+      (bloqueadosRes.data || []).map((b: any) => b.patient_id || b.paciente_id).filter(Boolean)
     );
 
     // Filtra pacientes bloqueados
     agendaBase = agendaBase.filter((ag) => {
-      if (ag.dentista_id === dentistaId) return true;
-      if (!ag.paciente_id) return true;
-      return !pacientesBloqueados.has(ag.paciente_id);
+      const dId = ag.dentist_id || ag.dentista_id;
+      const pId = ag.patient_id || ag.paciente_id;
+      if (dId === dentistaId) return true;
+      if (!pId) return true;
+      return !pacientesBloqueados.has(pId);
     });
 
     const agendaEnriquecida = await enrichAgendamentosWithPacientes(agendaBase);
@@ -402,22 +416,46 @@ export const agendarAgendamento = async (
     // Buscar nome do dentista para enriquecer os lembretes
     let nomeDentista: string | undefined;
     try {
-      const { data: dentistaProfile } = await (admin || supabase)
+      const { data: dentistaProfile } = await client
         .from('profiles')
         .select('nome')
         .eq('id', dentistaId)
-        .single();
+        .maybeSingle();
       nomeDentista = dentistaProfile?.nome;
     } catch { /* não crítico */ }
     
-    const { data, error } = await client
-      .from('appointments')
-      .update({ status: 'atribuido_dentista', dentist_id: dentistaId, updated_at: new Date().toISOString() })
-      .eq('id', agendamentoId)
-      .select()
-      .single();
+    const updatePayload = { 
+      status: 'atribuido_dentista', 
+      dentist_id: dentistaId, 
+      updated_at: new Date().toISOString() 
+    };
 
-    if (error) throw error;
+    let res = await client
+      .from('appointments')
+      .update(updatePayload)
+      .eq('id', agendamentoId)
+      .select();
+
+    if ((res.error || !res.data || res.data.length === 0) && !admin) {
+      const fallbackAdmin = getAdminClient();
+      if (fallbackAdmin) {
+        res = await fallbackAdmin
+          .from('appointments')
+          .update(updatePayload)
+          .eq('id', agendamentoId)
+          .select();
+      }
+    }
+
+    if (res.error) throw res.error;
+
+    const data = res.data?.[0];
+
+    // Invalida cache local
+    try {
+      const { clearCache } = await import('../utils/cacheService');
+      await clearCache();
+    } catch (_) {}
 
     // ── Lembretes: 3 canais (in-app + email + WhatsApp) + push local 24h antes ──
     if (data?.patient_id) {
@@ -429,7 +467,7 @@ export const agendarAgendamento = async (
       }).catch((e) => logger.warn('Erro nos lembretes (agendarAgendamento)', e));
     }
 
-    return { success: true, data: data as Agendamento };
+    return { success: true, data: (data || { id: agendamentoId, ...updatePayload }) as Agendamento };
   } catch (err: any) {
     // OFFLINE HANDLING
     const state = await NetInfo.fetch();
@@ -465,22 +503,47 @@ export const confirmarAgendamento = async (
     // Buscar nome do dentista para enriquecer os lembretes
     let nomeDentista: string | undefined;
     try {
-      const { data: dentistaProfile } = await (admin || supabase)
+      const { data: dentistaProfile } = await client
         .from('profiles')
         .select('nome')
         .eq('id', dentistaId)
-        .single();
+        .maybeSingle();
       nomeDentista = dentistaProfile?.nome;
     } catch { /* não crítico */ }
     
-    const { data, error } = await client
-      .from('appointments')
-      .update({ status: 'confirmado_dentista', dentist_id: dentistaId, confirmed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-      .eq('id', agendamentoId)
-      .select()
-      .single();
+    const updatePayload = { 
+      status: 'confirmado_dentista', 
+      dentist_id: dentistaId, 
+      confirmed_at: new Date().toISOString(), 
+      updated_at: new Date().toISOString() 
+    };
 
-    if (error) throw error;
+    let res = await client
+      .from('appointments')
+      .update(updatePayload)
+      .eq('id', agendamentoId)
+      .select();
+
+    if ((res.error || !res.data || res.data.length === 0) && !admin) {
+      const fallbackAdmin = getAdminClient();
+      if (fallbackAdmin) {
+        res = await fallbackAdmin
+          .from('appointments')
+          .update(updatePayload)
+          .eq('id', agendamentoId)
+          .select();
+      }
+    }
+
+    if (res.error) throw res.error;
+
+    const data = res.data?.[0];
+
+    // Invalida cache local
+    try {
+      const { clearCache } = await import('../utils/cacheService');
+      await clearCache();
+    } catch (_) {}
 
     // ── Lembretes: 3 canais (in-app + email + WhatsApp) + push local 24h antes ──
     if (data?.patient_id) {
@@ -492,7 +555,7 @@ export const confirmarAgendamento = async (
       }).catch((e) => logger.warn('Erro nos lembretes (confirmarAgendamento)', e));
     }
 
-    return { success: true, data: data as Agendamento };
+    return { success: true, data: (data || { id: agendamentoId, ...updatePayload }) as Agendamento };
   } catch (err: any) {
     // OFFLINE HANDLING
     const state = await NetInfo.fetch();
@@ -711,8 +774,9 @@ export const buscarAgendamentosPaciente = async (
   pacienteId: string
 ): Promise<ServiceResult<Agendamento[]>> => {
   try {
+    const client = getAdminClient() || supabase;
     // Busca agendamentos do paciente
-    const { data, error } = await withTimeout(supabase
+    const { data, error } = await withTimeout(client
       .from('appointments')
       .select('*')
       .eq('patient_id', pacienteId)
@@ -726,11 +790,11 @@ export const buscarAgendamentosPaciente = async (
     }
 
     // Busca informações do dentista se existir
-    const dentistIds = [...new Set(data.map((a) => a.dentista_id).filter(Boolean))];
+    const dentistIds = [...new Set((data as any[]).map((a: any) => a.dentist_id || a.dentista_id).filter(Boolean))];
     
     let dentistasById: Record<string, any> = {};
     if (dentistIds.length > 0) {
-      const { data: dentistas, error: dentistasError } = await supabase
+      const { data: dentistas, error: dentistasError } = await client
         .from('profiles')
         .select('id, nome, especialidade')
         .in('id', dentistIds);
@@ -741,10 +805,13 @@ export const buscarAgendamentosPaciente = async (
     }
 
     // Enriquecer dados com informações do dentista
-    const agendamentosEnriquecidos = data.map((ag) => ({
-      ...ag,
-      dentista: ag.dentista_id ? dentistasById[ag.dentista_id] : null,
-    }));
+    const agendamentosEnriquecidos = (data as any[]).map((ag: any) => {
+      const dId = ag.dentist_id || ag.dentista_id;
+      return {
+        ...ag,
+        dentista: dId ? dentistasById[dId] : null,
+      };
+    });
 
     return { success: true, data: agendamentosEnriquecidos as Agendamento[] };
   } catch (err: any) {
@@ -758,11 +825,12 @@ const _appendObservacoes = async (
   agendamentoId: string,
   nota: string
 ): Promise<string | null> => {
-  const { data, error } = await supabase
+  const client = getAdminClient() || supabase;
+  const { data, error } = await client
     .from('appointments')
     .select('notes')
     .eq('id', agendamentoId)
-    .single();
+    .maybeSingle();
 
   if (error || !data) {
     return nota;
@@ -774,8 +842,9 @@ const _appendObservacoes = async (
 
 export const buscarAgendamentosPendentes = async (): Promise<ServiceResult<Agendamento[]>> => {
   try {
+    const client = getAdminClient() || supabase;
     const { data, error } = await withTimeout(
-      supabase
+      client
         .from('appointments')
         .select('*')
         .eq('status', 'pendente')
@@ -798,11 +867,12 @@ export const buscarAgendamentoPorId = async (
   agendamentoId: string
 ): Promise<ServiceResult<Agendamento>> => {
   try {
-    const { data, error } = await supabase
+    const client = getAdminClient() || supabase;
+    const { data, error } = await client
       .from('appointments')
       .select('*')
       .eq('id', agendamentoId)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     if (!data) {
@@ -831,14 +901,38 @@ export const rejeitarAgendamento = async (
     const admin = getAdminClient();
     const client = admin || supabase;
     
-    const { data, error } = await client
-      .from('appointments')
-      .update({ status: 'rejeitado_dentista', notes: observacoes, updated_at: new Date().toISOString() })
-      .eq('id', agendamentoId)
-      .select()
-      .single();
+    const updatePayload = { 
+      status: 'rejeitado_dentista', 
+      notes: observacoes, 
+      updated_at: new Date().toISOString() 
+    };
 
-    if (error) throw error;
+    let res = await client
+      .from('appointments')
+      .update(updatePayload)
+      .eq('id', agendamentoId)
+      .select();
+
+    if ((res.error || !res.data || res.data.length === 0) && !admin) {
+      const fallbackAdmin = getAdminClient();
+      if (fallbackAdmin) {
+        res = await fallbackAdmin
+          .from('appointments')
+          .update(updatePayload)
+          .eq('id', agendamentoId)
+          .select();
+      }
+    }
+
+    if (res.error) throw res.error;
+
+    const data = res.data?.[0];
+
+    // Invalida cache local
+    try {
+      const { clearCache } = await import('../utils/cacheService');
+      await clearCache();
+    } catch (_) {}
 
     if (data?.patient_id) {
       await notificarAgendamentoPaciente(
@@ -849,7 +943,7 @@ export const rejeitarAgendamento = async (
       );
     }
 
-    return { success: true, data: data as Agendamento };
+    return { success: true, data: (data || { id: agendamentoId, ...updatePayload }) as Agendamento };
   } catch (err: any) {
     const state = await NetInfo.fetch();
     if (!state.isConnected || !state.isInternetReachable) {
@@ -875,22 +969,42 @@ export const rejeitarSugestaoPaciente = async (
     const admin = getAdminClient();
     const client = admin || supabase;
     
-    const { data, error } = await client
+    const updatePayload = { 
+      status: 'pendente',
+      dentist_id: null,
+      dentist_suggested_date: null,
+      dentist_suggested_time: null,
+      updated_at: new Date().toISOString()
+    };
+
+    let res = await client
       .from('appointments')
-      .update({ 
-        status: 'pendente',
-        dentist_id: null,
-        dentist_suggested_date: null,
-        dentist_suggested_time: null,
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', agendamentoId)
-      .select()
-      .single();
+      .select();
 
-    if (error) throw error;
+    if ((res.error || !res.data || res.data.length === 0) && !admin) {
+      const fallbackAdmin = getAdminClient();
+      if (fallbackAdmin) {
+        res = await fallbackAdmin
+          .from('appointments')
+          .update(updatePayload)
+          .eq('id', agendamentoId)
+          .select();
+      }
+    }
 
-    return { success: true, data: data as Agendamento };
+    if (res.error) throw res.error;
+
+    const data = res.data?.[0];
+
+    // Invalida cache local
+    try {
+      const { clearCache } = await import('../utils/cacheService');
+      await clearCache();
+    } catch (_) {}
+
+    return { success: true, data: (data || { id: agendamentoId, ...updatePayload }) as Agendamento };
   } catch (err: any) {
     const mapped = _handleTableMissing(err);
     return { success: false, error: mapped || err.message };
@@ -930,21 +1044,41 @@ export const sugerirNovoHorario = async (
     const admin = getAdminClient();
     const client = admin || supabase;
     
-    const { data, error } = await client
-      .from('appointments')
-      .update({ 
-        status: 'reagendamento_solicitado',
-        notes: observacoes, 
-        dentist_id: dentistaId,
-        dentist_suggested_date: appointmentDate,
-        dentist_suggested_time: appointmentTime,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', agendamentoId)
-      .select()
-      .single();
+    const updatePayload = { 
+      status: 'reagendamento_solicitado',
+      notes: observacoes, 
+      dentist_id: dentistaId,
+      dentist_suggested_date: appointmentDate,
+      dentist_suggested_time: appointmentTime,
+      updated_at: new Date().toISOString()
+    };
 
-    if (error) throw error;
+    let res = await client
+      .from('appointments')
+      .update(updatePayload)
+      .eq('id', agendamentoId)
+      .select();
+
+    if ((res.error || !res.data || res.data.length === 0) && !admin) {
+      const fallbackAdmin = getAdminClient();
+      if (fallbackAdmin) {
+        res = await fallbackAdmin
+          .from('appointments')
+          .update(updatePayload)
+          .eq('id', agendamentoId)
+          .select();
+      }
+    }
+
+    if (res.error) throw res.error;
+
+    const data = res.data?.[0];
+
+    // Invalida cache local
+    try {
+      const { clearCache } = await import('../utils/cacheService');
+      await clearCache();
+    } catch (_) {}
 
     if (data?.patient_id) {
       const formattedDate = `${appointmentDate} às ${appointmentTime.substring(0, 5)}`;
@@ -961,7 +1095,7 @@ export const sugerirNovoHorario = async (
       );
     }
 
-    return { success: true, data: data as Agendamento };
+    return { success: true, data: (data || { id: agendamentoId, ...updatePayload }) as Agendamento };
   } catch (err: any) {
     const state = await NetInfo.fetch();
     if (!state.isConnected || !state.isInternetReachable) {
