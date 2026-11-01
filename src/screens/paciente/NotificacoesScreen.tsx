@@ -10,10 +10,7 @@ export default function NotificacoesScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Botão de Voltar caso o header nativo não apareça */}
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color={COLORS.text} />
-        <Text style={styles.backText}>Voltar</Text>
-      </TouchableOpacity>
+      
 
       <Text style={styles.header}>Notificações</Text>
       
