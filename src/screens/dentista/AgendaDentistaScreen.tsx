@@ -19,8 +19,10 @@ import {
   agendarAgendamento,
   confirmarAgendamento,
   cancelarAgendamento,
+  cancelarAgendamentosPassadosAutomaticamente,
   sugerirNovoHorario,
   rejeitarAgendamento,
+  realizarAgendamento,
 } from '../../services/agendamentoService';
 import { COLORS, SIZES, SHADOWS } from '../../styles/theme';
 import { formatDate } from '../../utils/helpers';
@@ -104,6 +106,13 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     }
     setLoading(true);
     
+    // Cancelar automaticamente agendamentos de datas passadas que expiraram
+    try {
+      await cancelarAgendamentosPassadosAutomaticamente();
+    } catch (e) {
+      // silencioso
+    }
+
     const ano = dataSelecionada.getFullYear();
     const mesNum = dataSelecionada.getMonth() + 1;
     const mesStr = String(mesNum).padStart(2, '0');
@@ -843,9 +852,9 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     const handleCancelar = async () => {
       if (processingId) return;
       setProcessingId(item.id);
-      const res = await cancelarAgendamento(item.id);
+      const res = await cancelarAgendamento(item.id, 'Cancelado pelo dentista');
       if (res.success) {
-        Toast.show({ type: 'info', text1: 'Agendamento voltou para pendente' });
+        Toast.show({ type: 'info', text1: 'Agendamento cancelado com sucesso' });
         await carregarAgendamentos();
         setProcessingId(null);
         return;
@@ -923,12 +932,24 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     const handleRealizar = async () => {
       if (processingId) return;
       setProcessingId(item.id);
-      const { realizarAgendamento } = await import('../../services/agendamentoService');
       const res = await realizarAgendamento(item.id);
       if (res.success) {
         Toast.show({ type: 'success', text1: 'Consulta realizada com sucesso!' });
         await carregarAgendamentos();
         setProcessingId(null);
+
+        // Se tiver paciente, navegar ou sugerir preencher a Evolução Clínica
+        const pacienteId = item.patient_id || item.paciente?.id;
+        const pacienteNome = item.paciente?.nome || 'Paciente';
+        const triagemId = item.triagem_id || null;
+
+        if (pacienteId) {
+          navigation.getParent()?.navigate('EvolucaoClinica', {
+            pacienteId,
+            pacienteNome,
+            triagemId,
+          });
+        }
         return;
       }
       setProcessingId(null);
@@ -1211,9 +1232,9 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
           </View>
         )}
         
-        {(item.status === 'atribuido_dentista' || item.status === 'reagendamento_solicitado' || item.status === 'confirmado_dentista') && (
+        {(item.status === 'atribuido_dentista' || (item.status === 'reagendamento_solicitado' && item.suggested_date && !item.dentist_suggested_date) || item.status === 'confirmado_dentista') && (
           <View style={styles.actionRow}>
-            {(item.status === 'atribuido_dentista' || item.status === 'reagendamento_solicitado') && (
+            {(item.status === 'atribuido_dentista' || (item.status === 'reagendamento_solicitado' && item.suggested_date && !item.dentist_suggested_date)) && (
               <>
                 <TouchableOpacity
                   style={[styles.actionButton, { backgroundColor: COLORS.secondary }]}

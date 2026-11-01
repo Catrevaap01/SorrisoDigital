@@ -45,6 +45,7 @@ const PlanoTratamentoScreen: React.FC<Props> = ({ route, navigation }) => {
   const { triagemId, pacienteId, pacienteNome } = route.params;
   const { profile } = useAuth();
   const [planoId, setPlanoId] = useState<string | null>(null);
+  const [planoStatus, setPlanoStatus] = useState<string>('ativo');
   const [nomePacienteAtual, setNomePacienteAtual] = useState(pacienteNome || 'Paciente');
   const [procedimentos, setProcedimentos] = useState<Procedimento[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,7 +67,7 @@ const PlanoTratamentoScreen: React.FC<Props> = ({ route, navigation }) => {
     // Carregar todos os planos do paciente e usar o mais recente para novos registos.
     let { data: planos } = await supabase
       .from('planos_tratamento')
-      .select('id, created_at')
+      .select('id, status, created_at')
       .eq('paciente_id', pacienteId)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -75,7 +76,7 @@ const PlanoTratamentoScreen: React.FC<Props> = ({ route, navigation }) => {
       const { data: novo } = await supabase
         .from('planos_tratamento')
         .insert({ paciente_id: pacienteId, dentista_id: profile?.id, triagem_id: triagemId })
-        .select('id, created_at')
+        .select('id, status, created_at')
         .single();
       planos = novo ? [novo] : [];
     }
@@ -85,6 +86,7 @@ const PlanoTratamentoScreen: React.FC<Props> = ({ route, navigation }) => {
       const planoIds = planos.map((item: any) => item.id).filter(Boolean);
 
       setPlanoId(planoMaisRecente.id);
+      setPlanoStatus(planoMaisRecente.status || 'ativo');
       const { data: procs } = await supabase
         .from('procedimentos_tratamento')
         .select('*')
@@ -232,16 +234,18 @@ const PlanoTratamentoScreen: React.FC<Props> = ({ route, navigation }) => {
                   ) : null}
                 </View>
               </View>
-              <View style={s.procActions}>
-                <TouchableOpacity onPress={() => abrirEditar(item)} style={s.actionBtn}>
-                  <Ionicons name="create-outline" size={18} color={COLORS.primary} />
-                </TouchableOpacity>
-                {item.id && (
-                  <TouchableOpacity onPress={() => excluir(item.id!)} style={s.actionBtn}>
-                    <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
+              {planoStatus !== 'concluido' && (
+                <View style={s.procActions}>
+                  <TouchableOpacity onPress={() => abrirEditar(item)} style={s.actionBtn}>
+                    <Ionicons name="create-outline" size={18} color={COLORS.primary} />
                   </TouchableOpacity>
-                )}
-              </View>
+                  {item.id && (
+                    <TouchableOpacity onPress={() => excluir(item.id!)} style={s.actionBtn}>
+                      <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
             </View>
           );
         }}
@@ -256,9 +260,11 @@ const PlanoTratamentoScreen: React.FC<Props> = ({ route, navigation }) => {
       />
 
       {/* FAB */}
-      <TouchableOpacity style={s.fab} onPress={abrirNovo}>
-        <Ionicons name="add" size={28} color="white" />
-      </TouchableOpacity>
+      {planoStatus !== 'concluido' && (
+        <TouchableOpacity style={s.fab} onPress={abrirNovo}>
+          <Ionicons name="add" size={28} color="white" />
+        </TouchableOpacity>
+      )}
 
       {/* Modal de Procedimento */}
       <Modal visible={modal} transparent animationType={isWeb ? 'fade' : 'slide'} onRequestClose={() => setModal(false)}>

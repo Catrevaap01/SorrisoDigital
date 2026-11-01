@@ -387,7 +387,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
     return data?.id;
   }, [triagens]);
 
-  const abrirModuloClinico = useCallback(async (screen: 'Anamnese' | 'PlanoTratamento' | 'Prescricao') => {
+  const abrirModuloClinico = useCallback(async (screen: 'Anamnese' | 'PlanoTratamento' | 'Prescricao' | 'EvolucaoClinica') => {
     // Se não há paciente selecionado, tentar usar o paciente foco automaticamente
     const pacienteParaUsar = pacienteClinicoAtivo || (
       pacienteFoco.pacienteId ? {
@@ -843,6 +843,20 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               </TouchableOpacity>
             </View>
           </View>
+
+          <View style={[styles.moduleCard, styles.moduleCardEvolucao]}>
+            <View style={[styles.moduleIconWrap, styles.moduleIconWrapEvolucao]}>
+              <Ionicons name="fitness-outline" size={20} color="#7C3AED" />
+            </View>
+            <Text style={styles.moduleEyebrow}>Evolução</Text>
+            <Text style={styles.moduleTitle}>Evolução Clínica</Text>
+            <Text style={styles.moduleText}>Histórico de procedimentos realizados, notas e conduta clínica.</Text>
+            <View style={styles.moduleActions}>
+              <TouchableOpacity style={styles.moduleGhostBtn} onPress={() => abrirModuloClinico('EvolucaoClinica')}>
+                <Text style={styles.moduleGhostText}>Abrir</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </View>
 
@@ -1125,6 +1139,9 @@ const styles = StyleSheet.create({
   moduleCardPrescricao: {
     backgroundColor: '#FFF9FC',
   },
+  moduleCardEvolucao: {
+    backgroundColor: '#FBF8FF',
+  },
   moduleIconWrap: {
     width: 50,
     height: 50,
@@ -1147,6 +1164,10 @@ const styles = StyleSheet.create({
   moduleIconWrapPrescricao: {
     backgroundColor: '#FDF2F8',
     borderColor: '#F8D7E7',
+  },
+  moduleIconWrapEvolucao: {
+    backgroundColor: '#F3E8FF',
+    borderColor: '#E9D5FF',
   },
   moduleEyebrow: {
     fontSize: SIZES.fontXs,

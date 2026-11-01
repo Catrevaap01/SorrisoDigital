@@ -553,53 +553,110 @@ registerSyncHandler('realizarAgendamento', async (payload: any) => {
 });
 
 /**
- * Cancela um agendamento e o devolve ao pool geral.
- * Reverte o status para 'pendente' e remove a associação de dentista.
+ * Cancela um agendamento.
+ * Atualiza o status para 'cancelado' diretamente na tabela appointments.
  */
 export const cancelarAgendamento = async (
-  agendamentoId: string
+  agendamentoId: string,
+  motivo?: string
 ): Promise<ServiceResult<Agendamento>> => {
   try {
-    const { data, error } = await supabase.rpc('cancelar_agendamento_dentista', {
-      p_agendamento_id: agendamentoId,
-    });
+    const admin = getAdminClient();
+    const client = admin || supabase;
 
-    if (error) {
-      // fallback com mensagem orientativa caso a funcao ainda nao exista
-      if ((error as any).code === '42883') {
-        return {
-          success: false,
-          error:
-            'Funcao SQL cancelar_agendamento_dentista nao encontrada. Execute o script docs/SUPABASE_FIX_COMPLETO_RLS.sql atualizado.',
-        };
-      }
-      throw error;
+    const observacoes = motivo ? await _appendObservacoes(
+      agendamentoId,
+      `Cancelado: ${motivo}`
+    ) : undefined;
+
+    const updatePayload: Record<string, any> = {
+      status: 'cancelado',
+      updated_at: new Date().toISOString()
+    };
+    if (observacoes !== undefined) {
+      updatePayload.notes = observacoes;
     }
 
-    const row = Array.isArray(data) ? data[0] : data;
+    const { data, error } = await client
+      .from('appointments')
+      .update(updatePayload)
+      .eq('id', agendamentoId)
+      .select()
+      .single();
 
-    if (row?.patient_id) {
+    if (error) throw error;
+
+    if (data?.patient_id) {
       await notificarAgendamentoPaciente(
-        row.patient_id,
-        'Agendamento suspenso',
-        'Seu agendamento foi devolvido à fila e será reavaliado pela recepção.',
+        data.patient_id,
+        'Agendamento cancelado',
+        motivo ? `Seu agendamento foi cancelado: ${motivo}` : 'O seu agendamento foi cancelado.',
         { agendamento_id: agendamentoId }
       );
     }
 
-    return { success: true, data: row as Agendamento };
+    return { success: true, data: data as Agendamento };
   } catch (err: any) {
     // OFFLINE HANDLING
     const state = await NetInfo.fetch();
     if (!state.isConnected || !state.isInternetReachable) {
       console.log('📡 Offline: Enfileirando cancelamento de agendamento...');
-      await enqueueOfflineAction('cancelarAgendamento', { agendamentoId });
+      await enqueueOfflineAction('cancelarAgendamento', { agendamentoId, motivo });
       return { success: true };
     }
 
     const mapped = _handleTableMissing(err);
     const message = mapped || err.message || 'Erro desconhecido';
     return { success: false, error: message };
+  }
+};
+
+/**
+ * Cancela automaticamente agendamentos de datas passadas que ainda constam como pendentes ou agendados.
+ */
+export const cancelarAgendamentosPassadosAutomaticamente = async (): Promise<number> => {
+  try {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const hoje = new Date();
+    const hojeStr = `${hoje.getFullYear()}-${pad(hoje.getMonth() + 1)}-${pad(hoje.getDate())}`;
+
+    const admin = getAdminClient();
+    const client = admin || supabase;
+
+    const { data: passados, error: buscaError } = await client
+      .from('appointments')
+      .select('id, appointment_date, dentist_suggested_date')
+      .in('status', ['pendente', 'solicitado', 'atribuido_dentista', 'confirmado_dentista', 'confirmado_paciente', 'reagendamento_solicitado'])
+      .lt('appointment_date', hojeStr);
+
+    if (buscaError || !passados || passados.length === 0) return 0;
+
+    // Filtrar os que também não têm sugestão futura
+    const idsParaCancelar = passados.filter((a: any) => {
+      if (a.dentist_suggested_date && a.dentist_suggested_date >= hojeStr) {
+        return false;
+      }
+      return true;
+    }).map((a: any) => a.id);
+
+    if (idsParaCancelar.length === 0) return 0;
+
+    const { error: updateError } = await client
+      .from('appointments')
+      .update({
+        status: 'cancelado',
+        updated_at: new Date().toISOString()
+      })
+      .in('id', idsParaCancelar);
+
+    if (!updateError) {
+      logger.info(`Cancelados automaticamente ${idsParaCancelar.length} agendamentos passados`);
+      return idsParaCancelar.length;
+    }
+    return 0;
+  } catch (e) {
+    logger.warn('Erro ao cancelar agendamentos passados automaticamente', e);
+    return 0;
   }
 };
 
