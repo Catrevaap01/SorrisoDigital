@@ -1041,7 +1041,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           // Verificação de duas etapas exclusiva para admin, secretário e dentista
           isStaffRole = ['admin', 'secretario', 'secretaria', 'dentista', 'medico'].includes(userType);
 
-          if (isStaffRole && profData?.two_step_enabled && profData?.telefone) {
+          // Verificar se este dispositivo já foi validado recentemente para não pedir código toda vez
+          let isDeviceTrusted = false;
+          try {
+            const trustedUntil = await universalStorage.getItem(`mfa_trusted_until_${data.user.id}`);
+            if (trustedUntil && Number(trustedUntil) > Date.now()) {
+              isDeviceTrusted = true;
+              console.log('🛡️ Dispositivo confiável: pulando código de verificação 2FA');
+            }
+          } catch {
+            // ignora erro de storage
+          }
+
+          if (!isDeviceTrusted && isStaffRole && profData?.two_step_enabled && profData?.telefone) {
             console.log(`📱 2FA WhatsApp exclusivo para staff (${userType}): Iniciando desafio para ${profData.telefone}`);
             await generateAndSendWhatsAppOtp({
               userId: data.user.id,
@@ -1075,8 +1087,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           logger.warn('Aviso ao verificar 2FA WhatsApp do perfil:', mfaCheckErr);
         }
 
-        // 2. Apenas se for Staff (admin, secretario, dentista) e tiver TOTP configurado
-        if (isStaffRole) {
+        // 2. Apenas se for Staff (admin, secretario, dentista), não for dispositivo confiável, e tiver TOTP configurado
+        let isDeviceTrusted = false;
+        try {
+          const trustedUntil = await universalStorage.getItem(`mfa_trusted_until_${data.user.id}`);
+          if (trustedUntil && Number(trustedUntil) > Date.now()) {
+            isDeviceTrusted = true;
+          }
+        } catch {
+          // ignora
+        }
+
+        if (!isDeviceTrusted && isStaffRole) {
           const requiresMfa = await beginMfaChallengeIfRequired(data.user);
           if (requiresMfa) {
             awaitingMfaDecisionRef.current = false;
@@ -1161,6 +1183,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         await finalizeAuthenticatedSession(userData.user);
         setPendingMfa(null);
+
+        // Lembrar dispositivo verificado por 30 dias para não exigir código a cada login
+        try {
+          const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+          await universalStorage.setItem(`mfa_trusted_until_${userData.user.id}`, String(Date.now() + thirtyDaysMs));
+        } catch {
+          // ignora
+        }
 
         Toast.show({
           type: 'success',

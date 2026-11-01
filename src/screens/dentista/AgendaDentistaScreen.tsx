@@ -703,32 +703,34 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         
         await carregarAgendamentos();
         setProcessingId(null);
-      } catch (error) {
+      } catch (error: any) {
         setProcessingId(null);
         Toast.show({
           type: 'error',
           text1: 'Erro ao rejeitar',
-          text2: error.message || 'Não foi possível rejeitar a data',
+          text2: error?.message || 'Não foi possível rejeitar a data',
         });
       }
     };
 
     const notificarSecretarioReagendamento = async (agendamento: any) => {
       try {
+        const sDate = agendamento.dentist_suggested_date || agendamento.suggested_date || agendamento.appointment_date;
+        const sDateFormatted = sDate ? formatDate(new Date(sDate), "dd/MM/yyyy 'às' HH:mm") : '';
         // Create notification for secretary
         const { error } = await supabase
           .from('notifications')
           .insert({
             user_id: null, // Will be filtered by RLS for secretaries
             title: 'Reagendamento Confirmado',
-            message: `Dentista confirmou reagendamento para ${agendamento.paciente?.nome} na data ${formatDate(new Date(agendamento.suggested_date), "dd/MM/yyyy 'às' HH:mm")}`,
+            message: `Dentista confirmou reagendamento para ${agendamento.paciente?.nome || 'paciente'}${sDateFormatted ? ' na data ' + sDateFormatted : ''}`,
             type: 'reschedule_confirmed',
             data: {
               appointment_id: agendamento.id,
               patient_id: agendamento.patient_id,
               dentist_id: profile?.id,
               old_date: agendamento.appointment_date,
-              new_date: agendamento.suggested_date
+              new_date: sDate
             },
             created_at: new Date().toISOString()
           });
@@ -743,19 +745,20 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
 
     const notificarSecretarioRejeitamento = async (agendamento: any) => {
       try {
+        const sDate = agendamento.dentist_suggested_date || agendamento.suggested_date;
         // Create notification for secretary
         const { error } = await supabase
           .from('notifications')
           .insert({
             user_id: null, // Will be filtered by RLS for secretaries
             title: 'Data Rejeitada',
-            message: `Dentista rejeitou data para ${agendamento.paciente?.nome}`,
+            message: `Dentista rejeitou data para ${agendamento.paciente?.nome || 'paciente'}`,
             type: 'date_rejected',
             data: {
               appointment_id: agendamento.id,
               patient_id: agendamento.patient_id,
               dentist_id: profile?.id,
-              rejected_date: agendamento.suggested_date
+              rejected_date: sDate
             },
             created_at: new Date().toISOString()
           });
@@ -773,12 +776,13 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
       setSugestaoData(new Date());
       setSugestaoHorario('08:00');
       
-      // Mostrar notificação sobre data sugerida pelo paciente
-      Toast.show({
-        type: 'info',
-        text1: 'Data Sugerida',
-        text2: `Paciente sugeriu data: ${formatDate(new Date(item.suggested_date), "dd/MM/yyyy 'às' HH:mm")}`,
-      });
+    const sDate = item.suggested_date || item.dentist_suggested_date;
+    const sDateTexto = sDate ? formatDate(new Date(sDate), "dd/MM/yyyy 'às' HH:mm") : 'horário a combinar';
+    Toast.show({
+      type: 'info',
+      text1: 'Sugerir Novo Horário',
+      text2: `Ajuste a data e horário para a consulta de ${item.paciente?.nome || 'paciente'}.`,
+    });
     };
 
     const handleEnviarSugestao = async () => {
