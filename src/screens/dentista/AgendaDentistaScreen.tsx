@@ -276,7 +276,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     );
   };
 
-  const getStatusColor = (status) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case 'solicitado': return COLORS.accent;
       case 'atribuido_dentista': return COLORS.primary;
@@ -492,7 +492,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
     }
   };
 
-  const renderAgendamento = ({ item }) => {
+  const renderAgendamento = ({ item }: { item: any }) => {
     // Ocultar agendamentos pendentes apenas se não estiverem atribuídos a ninguém (pool geral)
     // No painel do dentista, se chegou no buscarAgendaDentista, já está atribuído a ele
     if (item.status === 'pendente' && !item.dentist_id) {
@@ -970,7 +970,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
         const triagemId = item.triagem_id || null;
 
         if (pacienteId) {
-          const nav = navigation.getParent<any>() || navigation;
+          const nav = (navigation.getParent as any)() || navigation;
           try {
             nav.navigate('EvolucaoClinica', {
               pacienteId,
