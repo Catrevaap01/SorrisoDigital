@@ -22,6 +22,7 @@ import Toast from 'react-native-toast-message';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { usePresence } from '../../contexts/PresenceContext';
+import { supabase } from '../../config/supabase';
 import { COLORS, SPACING, TYPOGRAPHY } from '../../styles/theme';
 import {
   Message,
@@ -54,6 +55,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [envio, setEnvio] = useState(false);
   const [novaMensagem, setNovaMensagem] = useState('');
+  const [partnerActiveInRoom, setPartnerActiveInRoom] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const subscriptionRef = useRef<RealtimeChannel | null>(null);
 
@@ -139,6 +141,79 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
       import('../../navigation/AppNavigator').then(m => m.triggerUnreadRefresh());
     };
   }, [conversationId, user?.id]);
+
+  // Determina o ID do parceiro de conversa
+  const partnerId = otherUserId || mensagens.find((m) => m.sender_id !== user?.id)?.sender_id;
+
+  // Canal de presença em tempo real exclusivo para esta conversa
+  useEffect(() => {
+    if (!conversationId || !user?.id) return;
+
+    const channelName = `chat_presence_${conversationId}`;
+    const presenceChannel = supabase.channel(channelName, {
+      config: {
+        presence: {
+          key: user.id,
+        },
+      },
+    });
+
+    const checkPartnerPresence = () => {
+      const state = presenceChannel.presenceState();
+      let present = false;
+      const targetId = partnerId;
+
+      Object.keys(state).forEach((key) => {
+        if (targetId && key === targetId) {
+          present = true;
+        }
+        const presences = state[key] as any[];
+        if (Array.isArray(presences)) {
+          presences.forEach((p) => {
+            if (targetId && p.user_id === targetId) {
+              present = true;
+            }
+          });
+        }
+      });
+
+      setPartnerActiveInRoom(present);
+    };
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, () => {
+        checkPartnerPresence();
+      })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        if (partnerId && (key === partnerId || newPresences?.some((p: any) => p.user_id === partnerId))) {
+          setPartnerActiveInRoom(true);
+        } else {
+          checkPartnerPresence();
+        }
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        if (partnerId && (key === partnerId || leftPresences?.some((p: any) => p.user_id === partnerId))) {
+          setPartnerActiveInRoom(false);
+        } else {
+          checkPartnerPresence();
+        }
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({
+            user_id: user.id,
+            user_name: profile?.nome || 'Usuário',
+            in_conversation: true,
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    return () => {
+      presenceChannel.untrack().catch(() => {});
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [conversationId, user?.id, partnerId, profile?.nome]);
 
   // Enviar mensagem
   const handleEnviarMensagem = async () => {
@@ -244,9 +319,8 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
     );
   };
 
-  // Determina o ID do parceiro de conversa e se ele está online em tempo real
-  const partnerId = otherUserId || mensagens.find((m) => m.sender_id !== user?.id)?.sender_id;
-  const isOnline = isUserOnline(partnerId);
+  // Presença do parceiro de conversa (em tempo real)
+  const isOnline = partnerActiveInRoom || isUserOnline(partnerId);
 
   return (
     <KeyboardAvoidingView
@@ -274,7 +348,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
             <View style={styles.statusRow}>
               <View style={[styles.statusDotSmall, isOnline ? styles.dotOnline : styles.dotOffline]} />
               <Text style={[styles.headerStatusText, isOnline ? styles.textOnline : styles.textOffline]}>
-                {isOnline ? 'Online' : 'Offline'}
+                {partnerActiveInRoom ? 'Online • Activo na conversa' : isOnline ? 'Online' : 'Offline'}
               </Text>
             </View>
           </View>

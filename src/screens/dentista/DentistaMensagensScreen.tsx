@@ -34,6 +34,7 @@ const DentistaMensagensScreen: React.FC<Props> = ({ route }) => {
       setConversaSelecionada(route.params.openConversationId);
       setOutroNome(route.params.otherUserName || 'Paciente');
       setOutroAvatar(route.params.otherUserAvatar);
+      setOutroUserId(route.params.otherUserId);
     }
   }, [route.params]);
 

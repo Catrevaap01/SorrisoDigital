@@ -16,6 +16,7 @@ export type PacienteTabParamList = {
         openConversationId?: string;
         otherUserName?: string;
         otherUserAvatar?: string;
+        otherUserId?: string;
       }
     | undefined;
   Perfil: undefined;
@@ -31,6 +32,7 @@ export type DentistaTabParamList = {
         openConversationId?: string;
         otherUserName?: string;
         otherUserAvatar?: string;
+        otherUserId?: string;
       }
     | undefined;
   Perfil: undefined;
@@ -53,6 +55,7 @@ export type SecretarioTabParamList = {
         openConversationId?: string;
         otherUserName?: string;
         otherUserAvatar?: string;
+        otherUserId?: string;
       }
     | undefined;
   Perfil: undefined;

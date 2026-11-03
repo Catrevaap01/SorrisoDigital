@@ -322,7 +322,8 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
         onSelectConversation(
           result.data.id, 
           paciente.nome, 
-          paciente.foto_url
+          paciente.foto_url,
+          paciente.id
         );
       } else {
         Toast.show({
@@ -390,7 +391,14 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
 
         <View style={styles.conversaInfo}>
           <View style={styles.conversaHeader}>
-            <Text style={styles.conversaNome}>{otherUserName}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.conversaNome}>{otherUserName}</Text>
+              <View style={[styles.inlineBadge, isOnline ? styles.inlineBadgeOnline : styles.inlineBadgeOffline]}>
+                <Text style={[styles.inlineBadgeText, isOnline ? styles.textOnline : styles.textOffline]}>
+                  {isOnline ? 'Online' : 'Offline'}
+                </Text>
+              </View>
+            </View>
             <Text style={styles.conversaHora}>
               {item.last_message_at
                 ? new Date(item.last_message_at).toLocaleTimeString(
@@ -532,22 +540,35 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
                 <FlatList
                   data={pacientes}
                   keyExtractor={(item) => item.id}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity 
-                      style={styles.pacienteItem}
-                      onPress={() => iniciarConversa(item)}
-                    >
-                      <View style={styles.pacienteAvatar}>
-                        <Text style={styles.pacienteAvatarText}>
-                          {item.nome.charAt(0).toUpperCase()}
-                        </Text>
-                      </View>
-                      <View>
-                        <Text style={styles.pacienteNome}>{item.nome}</Text>
-                        {item.telefone && <Text style={styles.pacienteMeta}>{item.telefone}</Text>}
-                      </View>
-                    </TouchableOpacity>
-                  )}
+                  renderItem={({ item }) => {
+                    const isPacOnline = isUserOnline(item.id);
+                    return (
+                      <TouchableOpacity 
+                        style={styles.pacienteItem}
+                        onPress={() => iniciarConversa(item)}
+                      >
+                        <View style={styles.pacienteAvatarContainer}>
+                          <View style={styles.pacienteAvatar}>
+                            <Text style={styles.pacienteAvatarText}>
+                              {item.nome.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View style={[styles.presenceDotSmall, isPacOnline ? styles.dotOnline : styles.dotOffline]} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={styles.pacienteNome}>{item.nome}</Text>
+                            <View style={[styles.inlineBadge, isPacOnline ? styles.inlineBadgeOnline : styles.inlineBadgeOffline]}>
+                              <Text style={[styles.inlineBadgeText, isPacOnline ? styles.textOnline : styles.textOffline]}>
+                                {isPacOnline ? 'Online' : 'Offline'}
+                              </Text>
+                            </View>
+                          </View>
+                          {item.telefone && <Text style={styles.pacienteMeta}>{item.telefone}</Text>}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  }}
                   style={{ flex: 1 }}
                   ListEmptyComponent={
                     <Text style={styles.emptyTextCentral}>Nenhum paciente encontrado</Text>
@@ -818,6 +839,42 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 40,
     color: COLORS.textSecondary,
+  },
+  inlineBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    alignSelf: 'center',
+  },
+  inlineBadgeOnline: {
+    backgroundColor: '#DCFCE7',
+  },
+  inlineBadgeOffline: {
+    backgroundColor: '#F1F5F9',
+  },
+  inlineBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  textOnline: {
+    color: '#16A34A',
+  },
+  textOffline: {
+    color: '#64748B',
+  },
+  pacienteAvatarContainer: {
+    position: 'relative',
+  },
+  presenceDotSmall: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 11,
+    height: 11,
+    borderRadius: 5.5,
+    borderWidth: 2,
+    borderColor: COLORS.surface,
   },
 });
 

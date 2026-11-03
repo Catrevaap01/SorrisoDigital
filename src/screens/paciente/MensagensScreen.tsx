@@ -121,7 +121,7 @@ const MensagensScreen: React.FC = () => {
 
     if (result.success && result.data) {
       setShowNovoModal(false);
-      handleSelectConversa(result.data.id, dentista.nome || 'Dentista', dentista.foto_url || undefined);
+      handleSelectConversa(result.data.id, dentista.nome || 'Dentista', dentista.foto_url || undefined, dentista.id);
       return;
     }
 

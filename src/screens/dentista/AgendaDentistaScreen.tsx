@@ -1312,20 +1312,8 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
                 </Text>
               </TouchableOpacity>
             )}
-            {item.status === 'confirmado_dentista' && (
+            {['confirmado_dentista', 'confirmado_paciente', 'notificado_paciente'].includes(item.status) && (
               <>
-                {false && (
-                  <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: COLORS.warning }]}
-                    onPress={() => handlePagamentoParcial()}
-                    disabled={processingId === item.id}
-                  >
-                    <Ionicons name="wallet-outline" size={16} color={COLORS.textInverse} />
-                    <Text style={styles.actionButtonText}>
-                      {processingId === item.id ? 'Processando' : 'Pagamento Parcial'}
-                    </Text>
-                  </TouchableOpacity>
-                )}
                 {(item.valor_pago && item.valor_pago >= (PRECO_POR_TIPO[item.tipo || 'consulta'] || 0)) && (
                   <TouchableOpacity
                     style={[styles.actionButton, { backgroundColor: '#9C27B0' }]}
@@ -1352,7 +1340,7 @@ const AgendaDentistaScreen: React.FC<any> = ({ navigation }) => {
                 )}
               </>
             )}
-            {item.status === 'solicitado' || item.status === 'confirmado_dentista' ? (
+            {item.status === 'solicitado' || ['confirmado_dentista', 'confirmado_paciente', 'notificado_paciente'].includes(item.status) ? (
               <TouchableOpacity
                 style={[styles.actionButton, { backgroundColor: COLORS.danger }]}
                 onPress={handleCancelar}
