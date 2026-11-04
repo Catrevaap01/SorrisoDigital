@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Defesa TCC — Sorriso Digital | ISPI Lubango</title>
+  <style>
+    /* ═══════════════════════════════════════════════
+       RESET & VARIÁVEIS
+    ═══════════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --azul:       #1a3c6e;
+      --azul-claro: #2563eb;
+      --verde:      #059669;
+      --verde-claro:#d1fae5;
+      --amarelo:    #f59e0b;
+      --cinza-claro:#f1f5f9;
+      --cinza:      #64748b;
+      --branco:     #ffffff;
+      --sombra:     0 4px 24px rgba(26,60,110,.12);
+      --radius:     12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #e8edf5;
+      color: #1e293b;
+      line-height: 1.7;
+    }
+
+    /* ═══════════════════════════════════════════════
+       CAPA PRINCIPAL
+    ═══════════════════════════════════════════════ */
+    .capa {
+      background: linear-gradient(135deg, var(--azul) 0%, #0f2650 60%, #163575 100%);
+      color: var(--branco);
+      text-align: center;
+      padding: 70px 24px 60px;
+      position: relative;
+      overflow: hidden;
+    }
+    .capa::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    .capa-logo {
+      font-size: 48px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .capa h1 {
+      font-size: clamp(1.4rem, 3vw, 2.2rem);
+      font-weight: 800;
+      letter-spacing: .5px;
+      position: relative;
+      max-width: 820px;
+      margin: 0 auto 10px;
+    }
+    .capa-sub {
+      font-size: 1.05rem;
+      opacity: .85;
+      margin-bottom: 36px;
+      position: relative;
+    }
+    .capa-meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 14px;
+      position: relative;
+    }
+    .capa-badge {
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 999px;
+      padding: 7px 18px;
+      font-size: .88rem;
+      backdrop-filter: blur(4px);
+    }
+    .capa-badge strong { color: #93c5fd; }
+
+    /* ═══════════════════════════════════════════════
+       NAVEGAÇÃO RÁPIDA
+    ═══════════════════════════════════════════════ */
+    .nav-tabs {
+      display: flex;
+      justify-content: center;
+      gap: 0;
+      background: var(--azul);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(0,0,0,.2);
+    }
+    .nav-tabs a {
+      color: rgba(255,255,255,.75);
+      text-decoration: none;
+      padding: 14px 28px;
+      font-size: .9rem;
+      font-weight: 600;
+      border-bottom: 3px solid transparent;
+      transition: all .2s;
+      white-space: nowrap;
+    }
+    .nav-tabs a:hover {
+      color: var(--branco);
+      background: rgba(255,255,255,.08);
+      border-bottom-color: #93c5fd;
+    }
+
+    /* ═══════════════════════════════════════════════
+       WRAPPER PRINCIPAL
+    ═══════════════════════════════════════════════ */
+    .container { max-width: 920px; margin: 0 auto; padding: 0 16px 60px; }
+
+    /* ═══════════════════════════════════════════════
+       SECÇÃO
+    ═══════════════════════════════════════════════ */
+    .secao {
+      margin-top: 48px;
+    }
+    .secao-titulo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .secao-titulo h2 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--azul);
+    }
+    .secao-titulo .linha {
+      flex: 1;
+      height: 2px;
+      background: linear-gradient(to right, var(--azul-claro), transparent);
+    }
+
+    /* ═══════════════════════════════════════════════
+       DICAS BOX
+    ═══════════════════════════════════════════════ */
+    .dicas-box {
+      background: linear-gradient(135deg, #fffbeb, #fef3c7);
+      border-left: 5px solid var(--amarelo);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 36px;
+    }
+    .dicas-box h3 { color: #92400e; margin-bottom: 10px; font-size: 1rem; }
+    .dicas-box ul { list-style: none; }
+    .dicas-box ul li {
+      padding: 4px 0 4px 24px;
+      position: relative;
+      color: #78350f;
+      font-size: .95rem;
+    }
+    .dicas-box ul li::before {
+      content: '✦';
+      position: absolute;
+      left: 0;
+      color: var(--amarelo);
+    }
+
+    /* ═══════════════════════════════════════════════
+       SLIDE CARD
+    ═══════════════════════════════════════════════ */
+    .slide {
+      background: var(--branco);
+      border-radius: var(--radius);
+      box-shadow: var(--sombra);
+      margin-bottom: 28px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+      break-inside: avoid;
+    }
+    .slide-header {
+      background: linear-gradient(135deg, var(--azul) 0%, var(--azul-claro) 100%);
+      color: var(--branco);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .slide-num {
+      background: rgba(255,255,255,.2);
+      border: 2px solid rgba(255,255,255,.4);
+      border-radius: 50%;
+      width: 42px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .slide-titulo {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+    .slide-corpo {
+      padding: 24px;
+    }
+    .fala {
+      background: var(--cinza-claro);
+      border-left: 4px solid var(--azul-claro);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 18px 20px;
+      font-size: .97rem;
+      color: #1e293b;
+      font-style: italic;
+      position: relative;
+    }
+    .fala::before {
+      content: '"';
+      font-size: 3rem;
+      color: var(--azul-claro);
+      opacity: .25;
+      position: absolute;
+      top: 4px;
+      left: 12px;
+      font-style: normal;
+      line-height: 1;
+    }
+    .fala strong { color: var(--azul); font-style: normal; }
+    .fala em { font-style: normal; }
+
+    /* Listas dentro da fala */
+    .fala ol, .fala ul {
+      margin: 10px 0 10px 24px;
+      font-style: italic;
+    }
+    .fala ol li, .fala ul li { margin: 6px 0; }
+
+    /* ═══════════════════════════════════════════════
+       SEPARADOR DE SECÇÃO
+    ═══════════════════════════════════════════════ */
+    .sep {
+      text-align: center;
+      margin: 50px 0 10px;
+      position: relative;
+    }
+    .sep::before {
+      content: '';
+      display: block;
+      height: 2px;
+      background: linear-gradient(to right, transparent, var(--azul-claro), transparent);
+      margin-bottom: 20px;
+    }
+
+    /* ═══════════════════════════════════════════════
+       PERGUNTAS TÉCNICAS
+    ═══════════════════════════════════════════════ */
+    .grupo-perguntas { margin-bottom: 36px; }
+
+    .grupo-titulo {
+      background: linear-gradient(135deg, var(--verde) 0%, #047857 100%);
+      color: var(--branco);
+      padding: 14px 24px;
+      border-radius: var(--radius) var(--radius) 0 0;
+      font-size: 1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pergunta-card {
+      background: var(--branco);
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      padding: 0;
+    }
+    .pergunta-card:last-child {
+      border-radius: 0 0 var(--radius) var(--radius);
+    }
+
+    .pergunta-header {
+      background: #f8fafc;
+      padding: 16px 24px;
+      border-top: 1px solid #e2e8f0;
+      cursor: pointer;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+    }
+    .pergunta-header:hover { background: #f1f5f9; }
+
+    .pnum {
+      background: var(--verde);
+      color: var(--branco);
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .8rem;
+      font-weight: 800;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .pergunta-texto {
+      font-weight: 700;
+      color: #1e293b;
+      font-size: .97rem;
+      flex: 1;
+    }
+    .toggle-icon {
+      color: var(--cinza);
+      font-size: 1.1rem;
+      transition: transform .3s;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .resposta {
+      display: none;
+      padding: 20px 24px 20px 68px;
+      border-top: 1px dashed #e2e8f0;
+      background: #fafffe;
+    }
+    .resposta.aberta { display: block; }
+
+    .resposta-label {
+      display: inline-block;
+      background: var(--verde-claro);
+      color: #065f46;
+      font-size: .78rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 999px;
+      margin-bottom: 10px;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+    }
+    .resposta p {
+      font-size: .95rem;
+      color: #334155;
+      margin-bottom: 10px;
+    }
+    .resposta ul, .resposta ol {
+      margin: 8px 0 8px 20px;
+      font-size: .95rem;
+      color: #334155;
+    }
+    .resposta li { margin: 5px 0; }
+    .resposta strong { color: var(--azul); }
+    .resposta em { font-style: italic; color: var(--cinza); }
+    .citacao {
+      background: #eff6ff;
+      border-left: 3px solid var(--azul-claro);
+      padding: 8px 14px;
+      border-radius: 0 6px 6px 0;
+      font-size: .88rem;
+      color: #1e3a8a;
+      margin-top: 10px;
+      font-style: italic;
+    }
+
+    /* ═══════════════════════════════════════════════
+       RODAPÉ
+    ═══════════════════════════════════════════════ */
+    .rodape {
+      background: var(--azul);
+      color: rgba(255,255,255,.7);
+      text-align: center;
+      padding: 32px 24px;
+      font-size: .88rem;
+      margin-top: 60px;
+    }
+    .rodape strong { color: var(--branco); }
+
+    /* ═══════════════════════════════════════════════
+       PRINT
+    ═══════════════════════════════════════════════ */
+    @media print {
+      .nav-tabs { display: none; }
+      .capa { background: var(--azul) !important; -webkit-print-color-adjust: exact; }
+      .slide-header { -webkit-print-color-adjust: exact; }
+      .resposta { display: block !important; }
+      .toggle-icon { display: none; }
+    }
+
+    @media (max-width: 600px) {
+      .nav-tabs a { padding: 12px 14px; font-size: .8rem; }
+      .capa { padding: 48px 16px 40px; }
+      .resposta { padding-left: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════
+     CAPA
+══════════════════════════════════════════════════ -->
+<section class="capa">
+  <div class="capa-logo">🦷</div>
+  <h1>Desenvolvimento de uma Aplicação Móvel para Gestão e Agendamento de Consultas Odontológicas</h1>
+  <p class="capa-sub">Sorriso Digital — Monografia de Licenciatura em Engenharia Informática</p>
+  <div class="capa-meta">
+    <span class="capa-badge">🏛️ <strong>ISPI Lubango</strong> — Angola</span>
+    <span class="capa-badge">👤 <strong>António Pio Macaia Tati</strong></span>
+    <span class="capa-badge">🎓 Orientador: <strong>Eng.º Judilson Nambalo</strong></span>
+    <span class="capa-badge">🤝 Coorientador: <strong>Eng.º Marcelo Linguenha</strong></span>
+    <span class="capa-badge">📅 <strong>2026</strong></span>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     NAVEGAÇÃO
+══════════════════════════════════════════════════ -->
+<nav class="nav-tabs">
+  <a href="#roteiro">📽️ Roteiro de Defesa</a>
+  <a href="#perguntas">🛡️ Perguntas Técnicas</a>
+</nav>
+
+<div class="container">
+
+  <!-- ════════════════════════════════════════════
+       PARTE 1 — ROTEIRO
+  ════════════════════════════════════════════ -->
+  <section id="roteiro" class="secao">
+    <div class="secao-titulo">
+      <h2>📽️ Roteiro Profissional de Defesa</h2>
+      <div class="linha"></div>
+    </div>
+
+    <!-- DICAS -->
+    <div class="dicas-box">
+      <h3>🧭 Dicas Práticas para o Apresentador</h3>
+      <ul>
+        <li><strong>Tempo estimado:</strong> 15 a 20 minutos de exposição oral + 15 minutos para arguição da banca.</li>
+        <li><strong>Postura:</strong> Firme, voz pausada, contacto visual distribuído por todos os membros da banca examinadora.</li>
+        <li><strong>Regra de ouro:</strong> Comece sempre saudando o Presidente do Júri, os Vogais, o Orientador e o público presente.</li>
+      </ul>
+    </div>
+
+    <!-- SLIDE 1 -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-num">1</div>
+        <div class="slide-titulo">🎙️ Acolhimento e Abertura Oficial</div>
+      </div>
+      <div class="slide-corpo">
+        <div class="fala">
+          <em>"Magnífico Presidente da Mesa, Distintos Membros do Júri, Estimado Orientador <strong>Eng.º Judilson Nambalo</strong>, caros docentes, colegas e presentes: Muito boa tarde.</em>
+          <br><br>
+          <em>O meu nome é <strong>António Pio Macaia Tati</strong>, finalista do curso de Engenharia Informática do Instituto Superior Politécnico Independente (ISPI). Venho hoje submeter à vossa criteriosa avaliação a minha monografia intitulada: <strong>'Desenvolvimento de uma Aplicação Móvel para Gestão e Agendamento de Consultas Odontológicas'</strong>, materializada no ecossistema de software <strong>Sorriso Digital</strong>."</em>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 2 -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-num">2</div>
+        <div class="slide-titulo">🌍 Motivação, Contexto e Justificativa</div>
+      </div>
+      <div class="slide-corpo">
+        <div class="fala">
+          <em>"No panorama sanitário de Angola, a medicina dentária enfrenta ainda grandes barreiras organizacionais. Historicamente, os consultórios e clínicas odontológicas gerem os seus processos por meio de fichas em papel ou de softwares genéricos fragmentados.</em>
+          <br><br>
+          <em>Essa realidade acarreta perda de históricos clínicos, filas de espera desorganizadas, erros de faturação e, acima de tudo, o afastamento entre a clínica e o utente.</em>
+          <br><br>
+          <em>Conforme fundamenta <strong>Daniel (2020)</strong> na sua pesquisa sobre a adoção de TIC na saúde em Angola, a computação móvel e a saúde digital (mHealth) constituem a via estratégica mais viável para quebrar barreiras geográficas e democratizar o acesso a cuidados diferenciados.</em>
+          <br><br>
+          <em>Portanto, o <strong>Sorriso Digital</strong> nasce para preencher esta lacuna, unificando a triagem digital, o agendamento em tempo real, o prontuário eletrónico e a faturação numa plataforma única, moderna e adaptada à realidade angolana."</em>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 3 -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-num">3</div>
+        <div class="slide-titulo">🔎 O Problema e a Ideia a Defender</div>
+      </div>
+      <div class="slide-corpo">
+        <div class="fala">
+          <em>"Diante deste cenário, formulámos o seguinte problema de investigação:</em>
+          <br><br>
+          <strong><em>'Como uma plataforma digital integrada pode ajudar a melhorar a gestão clínica, administrativa e financeira da clínica odontológica?'</em></strong>
+          <br><br>
+          <em>A <strong>Ideia Básica a Defender</strong> sustenta que a centralização dos fluxos clínico-administrativos sob uma arquitetura móvel e multiplataforma elimina a redundância operacional, agiliza a tomada de decisão médica e garante a conformidade com a segurança dos dados clínicos sensíveis."</em>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 4 -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-num">4</div>
+        <div class="slide-titulo">🎯 Objetivos do Trabalho</div>
+      </div>
+      <div class="slide-corpo">
+        <div class="fala">
+          <em>"Para materializar esta proposta, estabelecemos como <strong>Objetivo Geral</strong>:</em>
+          <br>
+          <em>Criar uma plataforma digital completa para gestão de clínicas dentárias, desmaterializando os processos clínicos, administrativos e financeiros.</em>
+          <br><br>
+          <em>Dentre os <strong>Objetivos Específicos</strong>, destacam-se:</em>
+          <ol>
+            <li><em>Levantar e mapear 19 requisitos funcionais e requisitos de integridade e usabilidade;</em></li>
+            <li><em>Modelar a arquitetura através de Diagramas UML (Casos de Uso, Classes) e DER;</em></li>
+            <li><em>Implementar módulos de autenticação segura com múltiplos níveis de acesso (RBAC) e 2FA;</em></li>
+            <li><em>Construir o módulo inovador de Triagem Digital com odontograma interativo;</em></li>
+            <li><em>Garantir o funcionamento homogéneo e responsivo em <strong>Mobile (APK Android), Web e PWA</strong>."</em></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 5 -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-num">5</div>
+        <div class="slide-titulo">📚 Fundamentação Teórica e Citações Científicas</div>
+      </div>
+      <div class="slide-corpo">
+        <div class="fala">
+          <em>"A fundamentação científica do trabalho apoia-se em quatro pilares:</em>
+          <ol>
+            <li><strong>Saúde Oral e Saúde Digital:</strong> <em>A <strong>FDI World Dental Federation (2016)</strong> e a <strong>OMS (2022)</strong> definem a saúde oral como um direito humano inalienável e recomendam o uso da tecnologia para promoção universal da assistência. Como afirmam <strong>Schwendicke et al. (2020)</strong>, a transição para fluxos clínicos digitais é o percurso contemporâneo inevitável para a odontologia.</em></li>
+            <li><strong>Sistemas de Informação em Saúde:</strong> <em><strong>Laudon e Laudon (2014)</strong> e <strong>O'Brien e Marakas (2013)</strong> demonstram que os SIS transformam dados brutos em decisões clínicas de alta precisão, reduzindo a falha humana inerente ao papel.</em></li>
+            <li><strong>Engenharia de Software:</strong> <em><strong>Sommerville (2019)</strong> e <strong>Pressman e Maxim (2016)</strong> preconizam que a modularidade e o reuso de código via frameworks multiplataforma reduzem o custo e elevam a fiabilidade.</em></li>
+            <li><strong>Segurança da Informação:</strong> <em>Seguindo a norma <strong>ISO/IEC 27001 (2013)</strong> e <strong>Stallings e Brown (2015)</strong>, estruturámos a segurança na tríade: Confidencialidade, Integridade e Disponibilidade, usando Row Level Security (RLS) e RBAC."</em></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 6 -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-num">6</div>
+        <div class="slide-titulo">⚙️ Metodologia e Tecnologias Empregadas</div>
+      </div>
+      <div class="slide-corpo">
+        <div class="fala">
+          <em>"Adotámos uma metodologia de <strong>pesquisa aplicada</strong>, com abordagem qualitativa e desenvolvimento ágil baseado no framework <strong>Scrum</strong> (Schwaber &amp; Sutherland, 2020), dividido em sprints incrementais.</em>
+          <br><br>
+          <em>Na pilha tecnológica (Stack):</em>
+          <ul>
+            <li><strong>Frontend:</strong> <em>React Native com TypeScript e Expo, garantindo compilação para Android (APK), iOS, Web e Progressive Web App (PWA) a partir de uma única base de código.</em></li>
+            <li><strong>Backend-as-a-Service (BaaS):</strong> <em>Supabase, que nos permitiu abstrair a gestão manual de infraestrutura (Fowler, 2015), fornecendo autenticação, WebSockets em tempo real e APIs instantâneas.</em></li>
+            <li><strong>Base de Dados:</strong> <em>PostgreSQL relacional, garantindo integridade referencial rigorosa (Date, 2004; Elmasri &amp; Navathe, 2011).</em></li>
+            <li><strong>Modelagem:</strong> <em>Draw.io para elaboração dos diagramas UML e DER."</em></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 7 -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-num">7</div>
+        <div class="slide-titulo">📐 Modelação do Sistema (UML e DER)</div>
+      </div>
+      <div class="slide-corpo">
+        <div class="fala">
+          <em>"A modelação orientada a objetos foi o alicerce para evitar retrabalho de código:</em>
+          <ul>
+            <li><strong>Diagrama de Casos de Uso:</strong> <em>Delimita claramente as fronteiras dos 4 atores: Paciente, Secretária, Dentista e Administrador.</em></li>
+            <li><strong>Diagrama de Classes:</strong> <em>Estabelece alta coesão e baixo acoplamento entre classes centrais como <code>Usuario</code>, <code>Paciente</code>, <code>Dentista</code>, <code>Consulta</code>, <code>Triagem</code>, <code>Prontuario</code>, <code>EvolucaoClinica</code>, <code>Prescricao</code> e <code>Pagamento</code>.</em></li>
+            <li><strong>Diagrama Entidade-Relacionamento (DER):</strong> <em>Define cardinalidades precisas e regras de integridade (Foreign Keys e Cascade Constraints), impedindo, por exemplo, que um paciente seja apagado acidentalmente se possuir consultas ou faturamentos associados."</em></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 8 -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-num">8</div>
+        <div class="slide-titulo">📱 Demonstração das Funcionalidades Principais</div>
+      </div>
+      <div class="slide-corpo">
+        <div class="fala">
+          <em>"O Sorriso Digital foi concebido com telas limpas e focadas na experiência do utilizador (UX):</em>
+          <ol>
+            <li><strong>Triagem Digital com Odontograma Interativo:</strong> <em>O paciente não precisa de explicar de forma vaga; ele toca diretamente nos dentes afetados no odontograma SVG, indica o nível de dor (0 a 10) e anexa fotografias para avaliação preliminar do dentista.</em></li>
+            <li><strong>Painel Operacional da Secretária:</strong> <em>Fila em tempo real para gerir agendamentos, confirmar horários, sugerir novas datas e encaminhar para o dentista de acordo com a especialidade.</em></li>
+            <li><strong>Painel Clínico do Dentista:</strong> <em>Agenda visual por mês, gestão de pacientes com prontuário eletrónico, registo de Evolução Clínica a cada atendimento, emissão de prescrições farmacológicas em PDF e planos de tratamento.</em></li>
+            <li><strong>Governança Administrativa &amp; Auditoria:</strong> <em>O Administrador dispõe de um painel executivo com métricas de negócio, faturamento e um log de auditoria com rastreabilidade total de todas as ações sensíveis realizadas no sistema.</em></li>
+            <li><strong>Chat em Tempo Real:</strong> <em>Comunicação direta e segura via WebSockets entre pacientes e profissionais, eliminando a dispersão de dados em canais informais."</em></li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 9 -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-num">9</div>
+        <div class="slide-titulo">🌐 Compatibilidade Multiplataforma (Web, PWA e Mobile APK)</div>
+      </div>
+      <div class="slide-corpo">
+        <div class="fala">
+          <em>"Um dos maiores desafios técnicos superados foi assegurar 100% de compatibilidade entre ambientes:</em>
+          <ul>
+            <li><em>No <strong>Mobile (Android APK)</strong>: Execução nativa fluida com acesso direto à câmara e ao armazenamento seguro (SecureStore).</em></li>
+            <li><em>Na <strong>Web &amp; PWA</strong>: A aplicação instala-se diretamente pelo navegador em computadores ou telemóveis, possui Service Worker para carregamento instantâneo offline e adapta a navegação responsiva (Tabs vs. Drawer).</em></li>
+            <li><em>Para garantir a proteção de dados confidenciais de saúde, implementámos <strong>2FA via WhatsApp</strong> para perfis clínicos e administrativos e restrições granulares via RLS no banco de dados."</em></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- SLIDE 10 -->
+    <div class="slide">
+      <div class="slide-header">
+        <div class="slide-num">10</div>
+        <div class="slide-titulo">🏆 Conclusão e Trabalhos Futuros</div>
+      </div>
+      <div class="slide-corpo">
+        <div class="fala">
+          <em>"Em conclusão, todos os objetivos gerais e específicos foram plenamente atingidos.</em>
+          <br><br>
+          <em>O <strong>Sorriso Digital</strong> comprova que a transformação digital da odontologia em Angola é viável, financeiramente sustentável e capaz de elevar imediatamente o padrão de atendimento ao cidadão.</em>
+          <br><br>
+          <em>Para trabalhos futuros, perspetiva-se:</em>
+          <ul>
+            <li><em>Integração com gateways de pagamentos eletrónicos locais (Multicaixa Express / EMIS);</em></li>
+            <li><em>Módulos de teleodontologia com videoconferência síncrona;</em></li>
+            <li><em>Apoio ao diagnóstico clínico através de Inteligência Artificial para análise de radiografias digitais.</em></li>
+          </ul>
+          <br>
+          <em>Agradeço a vossa distinta atenção e coloco-me inteiramente à disposição do Júri para a fase de perguntas e esclarecimentos. <strong>Muito obrigado!"</strong></em>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════
+       SEPARADOR
+  ════════════════════════════════════════════ -->
+  <div class="sep">
+    <span style="font-size:1.8rem">🛡️</span>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       PARTE 2 — PERGUNTAS TÉCNICAS
+  ════════════════════════════════════════════ -->
+  <section id="perguntas" class="secao">
+    <div class="secao-titulo">
+      <h2>🛡️ Guia de Perguntas Técnicas da Banca</h2>
+      <div class="linha"></div>
+    </div>
+
+    <!-- GRUPO 1 -->
+    <div class="grupo-perguntas">
+      <div class="grupo-titulo">
+        <span>🏗️</span> 1. Arquitetura de Software &amp; Engenharia de Desenvolvimento
+      </div>
+
+      <div class="pergunta-card">
+        <div class="pergunta-header" onclick="toggleResposta(this)">
+          <div class="pnum">P1</div>
+          <div class="pergunta-texto">Por que razão escolheu React Native em vez de desenvolvimento nativo puro (Kotlin para Android e Swift para iOS)?</div>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="resposta">
+          <div class="resposta-label">✅ Resposta Técnica</div>
+          <p>"A escolha baseou-se nos princípios de engenharia de software preconizados por <strong>Sommerville (2019)</strong> e <strong>Pressman e Maxim (2016)</strong>: maximização da taxa de reuso de código e redução do <em>time-to-market</em>. O desenvolvimento nativo duplicaria o esforço de engenharia, exigindo duas equipas e duas linguagens distintas (Kotlin e Swift), aumentando o custo de manutenção.</p>
+          <p>O React Native permite compilar para código nativo através da bridge/JSI (JavaScript Interface), alcançando 60 FPS e mantendo mais de <strong>90% da lógica e componentes partilhados</strong> entre Android (APK), iOS, Web e PWA, sem prejuízo à experiência do utilizador."</p>
+          <div class="citacao">📖 Sommerville (2019) — Engineering Software Products; Pressman & Maxim (2016) — Software Engineering: A Practitioner's Approach</div>
+        </div>
+      </div>
+
+      <div class="pergunta-card">
+        <div class="pergunta-header" onclick="toggleResposta(this)">
+          <div class="pnum">P2</div>
+          <div class="pergunta-texto">Qual é o padrão arquitetural predominante na aplicação e como é feita a separação de responsabilidades?</div>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="resposta">
+          <div class="resposta-label">✅ Resposta Técnica</div>
+          <p>"A aplicação adota uma <strong>arquitetura em camadas orientada a serviços e componentes</strong>:</p>
+          <ul>
+            <li><strong>Camada de Apresentação (UI/View):</strong> Componentes React Native organizados por perfis de utilizador (<code>/screens/paciente</code>, <code>/screens/dentista</code>, <code>/screens/secretario</code>, <code>/screens/admin</code>).</li>
+            <li><strong>Camada de Estado e Contexto (Controllers/Contexts):</strong> Gerida via React Context API (<code>AuthContext</code>, <code>PresenceContext</code>), garantindo fluxo unidirecional de dados e injeção de dependências.</li>
+            <li><strong>Camada de Serviços (Service Layer):</strong> Módulos desacoplados (<code>agendamentoService.ts</code>, <code>messagesService.ts</code>, <code>authService.ts</code>) que encapsulam chamadas à API, regras de negócio e sanitização de dados.</li>
+            <li><strong>Camada de Persistência:</strong> PostgreSQL gerido via Supabase client, isolando completamente a interface da estrutura física das tabelas."</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="pergunta-card">
+        <div class="pergunta-header" onclick="toggleResposta(this)">
+          <div class="pnum">P3</div>
+          <div class="pergunta-texto">Como funciona a compilação cruzada para APK, Web e PWA a partir do mesmo repositório?</div>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="resposta">
+          <div class="resposta-label">✅ Resposta Técnica</div>
+          <p>"Utilizamos o ecossistema <strong>Expo com Metro Bundler</strong>:</p>
+          <ul>
+            <li><strong>Para Android APK:</strong> O Metro compila o código TypeScript/JSX para um bundle JavaScript interpretado pela engine nativa (Hermes), gerando o binário APK empacotado com as APIs nativas do Android.</li>
+            <li><strong>Para Web &amp; PWA:</strong> O Expo converte as tags universais (<code>&lt;View&gt;</code>, <code>&lt;Text&gt;</code>) em elementos HTML5 semânticos (<code>&lt;div&gt;</code>, <code>&lt;span&gt;</code>) através do <strong>react-native-web</strong>. Integrámos um <em>Service Worker</em> personalizado (<code>service-worker.js</code>) e um manifesto W3C (<code>manifest.json</code>), permitindo instalação local, cache de assets e execução offline controlada."</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRUPO 2 -->
+    <div class="grupo-perguntas">
+      <div class="grupo-titulo">
+        <span>🗄️</span> 2. Base de Dados, Modelação &amp; Integridade Referencial
+      </div>
+
+      <div class="pergunta-card">
+        <div class="pergunta-header" onclick="toggleResposta(this)">
+          <div class="pnum">P4</div>
+          <div class="pergunta-texto">Qual foi o critério para a normalização da base de dados e como evitou anomalias de atualização?</div>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="resposta">
+          <div class="resposta-label">✅ Resposta Técnica</div>
+          <p>"A modelação da base de dados relacional (PostgreSQL) obedeceu rigorosamente às <strong>Terceira Forma Normal (3FN)</strong> conforme a teoria de <strong>Date (2004)</strong> e <strong>Elmasri e Navathe (2011)</strong>:</p>
+          <ul>
+            <li><strong>1FN:</strong> Todos os atributos contêm valores atómicos (sem atributos multivalorados ou compostos).</li>
+            <li><strong>2FN:</strong> Todos os atributos não-chave dependem funcionalmente da totalidade da chave primária (UUID).</li>
+            <li><strong>3FN:</strong> Não existem dependências transitivas entre atributos não-chave; por exemplo, dados do dentista não ficam duplicados na tabela de consultas, mas indexados por <code>dentist_id REFERENCES profiles(id)</code>. Isso elimina redundâncias e mitiga anomalias de inserção, alteração e eliminação."</li>
+          </ul>
+          <div class="citacao">📖 Date, C. J. (2004) — An Introduction to Database Systems; Elmasri & Navathe (2011) — Fundamentals of Database Systems</div>
+        </div>
+      </div>
+
+      <div class="pergunta-card">
+        <div class="pergunta-header" onclick="toggleResposta(this)">
+          <div class="pnum">P5</div>
+          <div class="pergunta-texto">O que acontece na base de dados se tentarmos eliminar um paciente com consultas e faturamentos existentes?</div>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="resposta">
+          <div class="resposta-label">✅ Resposta Técnica</div>
+          <p>"O sistema aplica o princípio da <strong>integridade referencial</strong> com restrição declarativa (<code>ON DELETE RESTRICT</code> ou tratamento preventivo a nível de triggers e serviços).</p>
+          <p>Como sustentam <strong>Elmasri e Navathe (2011)</strong>, dados clínicos e fiscais possuem valor probatório e de auditoria e jamais devem sofrer exclusão física (hard delete). Aplicamos o conceito de <strong>'soft delete'</strong> (marcação de status inativo) e regras de integridade referencial que impedem a exclusão de qualquer registo que possua entidades dependentes em <code>appointments</code>, <code>evolucoes_clinicas</code> ou <code>pagamentos</code>."</p>
+          <div class="citacao">📖 Elmasri & Navathe (2011) — Fundamentals of Database Systems, 6ª ed.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRUPO 3 -->
+    <div class="grupo-perguntas">
+      <div class="grupo-titulo">
+        <span>🔒</span> 3. Segurança da Informação &amp; Conformidade Ética (LGPD / Privacidade)
+      </div>
+
+      <div class="pergunta-card">
+        <div class="pergunta-header" onclick="toggleResposta(this)">
+          <div class="pnum">P6</div>
+          <div class="pergunta-texto">Como é garantido que um dentista não veja os dados clínicos dos pacientes de outro dentista?</div>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="resposta">
+          <div class="resposta-label">✅ Resposta Técnica</div>
+          <p>"A segurança não depende apenas de filtros no frontend. Aplicamos a nível do PostgreSQL o mecanismo de <strong>Row Level Security (RLS)</strong>, conjugado com o modelo <strong>RBAC</strong> (Role-Based Access Control) conforme recomendado por <strong>Stallings e Brown (2015)</strong> e a norma <strong>ISO/IEC 27001 (2013)</strong>:</p>
+          <p>No momento em que uma consulta às tabelas <code>appointments</code> ou <code>evolucoes_clinicas</code> é disparada, o motor do PostgreSQL avalia a política RLS com base no token JWT criptografado da sessão:</p>
+          <p><code>auth.uid() = dentist_id OR auth.uid() = patient_id</code></p>
+          <p>Mesmo que um utilizador mal-intencionado tente manipular os parâmetros da query, o próprio banco de dados bloqueia o acesso e retorna zero registos."</p>
+          <div class="citacao">📖 Stallings & Brown (2015) — Computer Security: Principles and Practice; ISO/IEC 27001:2013</div>
+        </div>
+      </div>
+
+      <div class="pergunta-card">
+        <div class="pergunta-header" onclick="toggleResposta(this)">
+          <div class="pnum">P7</div>
+          <div class="pergunta-texto">Como foi arquitetada a autenticação e por que implementou 2FA via WhatsApp e TOTP?</div>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="resposta">
+          <div class="resposta-label">✅ Resposta Técnica</div>
+          <p>"A autenticação apoia-se em senhas protegidas com algoritmo de hash criptográfico e emissão de <strong>tokens JWT</strong> com expiração controlada. Para perfis com acesso a dados confidenciais de saúde (Administrador, Secretário e Dentista), tornámos obrigatória a <strong>Autenticação em Duas Etapas (2FA/MFA)</strong>:</p>
+          <ul>
+            <li><strong>Factor de Conhecimento:</strong> Senha mestre do utilizador.</li>
+            <li><strong>Factor de Posse:</strong> Código de verificação de 6 dígitos gerado temporariamente e enviado ao terminal móvel via WhatsApp (API oficial WhatsApp/Evolution) ou aplicação autenticadora TOTP.</li>
+          </ul>
+          <p>Além disso, implementámos <strong>validação de sessão única (Single Session Control)</strong> via token local e tabela <code>profiles.last_session_id</code>, impedindo que contas partilhadas sejam abertas simultaneamente em vários dispositivos sem autorização."</p>
+          <div class="citacao">📖 ISO/IEC 27001:2013 — Information Security Management; Stallings & Brown (2015)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRUPO 4 -->
+    <div class="grupo-perguntas">
+      <div class="grupo-titulo">
+        <span>⚡</span> 4. Sincronização em Tempo Real &amp; Operação Offline
+      </div>
+
+      <div class="pergunta-card">
+        <div class="pergunta-header" onclick="toggleResposta(this)">
+          <div class="pnum">P8</div>
+          <div class="pergunta-texto">Como o sistema atualiza a agenda e o chat sem que o utilizador precise recarregar a página (F5)?</div>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="resposta">
+          <div class="resposta-label">✅ Resposta Técnica</div>
+          <p>"A atualização assíncrona utiliza o protocolo <strong>WebSockets</strong> através da biblioteca <strong>Supabase Realtime</strong>:</p>
+          <p>O PostgreSQL escuta os eventos transacionais no <strong>Write-Ahead Log (WAL)</strong> através da extensão <em>logical replication</em>. Sempre que ocorre um <code>INSERT</code> ou <code>UPDATE</code> nas tabelas <code>messages</code> ou <code>appointments</code>, o servidor transmite uma mensagem em formato JSON via canal WebSocket aberto para os clientes subscritos, disparando re-renderização instantânea na interface do React Native <strong>sem necessidade de polling constante</strong>."</p>
+        </div>
+      </div>
+
+      <div class="pergunta-card">
+        <div class="pergunta-header" onclick="toggleResposta(this)">
+          <div class="pnum">P9</div>
+          <div class="pergunta-texto">Como a aplicação reage se a ligação à internet falhar durante a utilização?</div>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="resposta">
+          <div class="resposta-label">✅ Resposta Técnica</div>
+          <p>"Desenvolvemos um mecanismo de <strong>tolerância a falhas</strong> assente em três componentes:</p>
+          <ul>
+            <li><strong>NetInfo:</strong> Monitoriza o estado da conectividade do dispositivo em tempo real.</li>
+            <li><strong>Offline Queue (Fila Offline):</strong> Ações críticas (cancelamento, confirmação de agendamento) são serializadas em armazenamento local seguro (<code>universalStorage</code> / <code>AsyncStorage</code>).</li>
+            <li><strong>Sync Handlers:</strong> Assim que o dispositivo restabelece conectividade, a fila é descarregada sequencialmente contra os endpoints do banco de dados, garantindo <em>consistência eventual</em> sem perda de dados."</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRUPO 5 -->
+    <div class="grupo-perguntas">
+      <div class="grupo-titulo">
+        <span>🧪</span> 5. Validação, Testes &amp; Limitações do Trabalho
+      </div>
+
+      <div class="pergunta-card">
+        <div class="pergunta-header" onclick="toggleResposta(this)">
+          <div class="pnum">P10</div>
+          <div class="pergunta-texto">Que tipo de testes de software foram realizados para validar o sistema?</div>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="resposta">
+          <div class="resposta-label">✅ Resposta Técnica</div>
+          <p>"Seguindo as diretrizes de <strong>Pressman e Maxim (2016)</strong>, aplicámos:</p>
+          <ul>
+            <li><strong>Testes de Unidade e Serviços:</strong> Validação das regras de negócio de agendamento, cálculo de idade por data de nascimento e formatação de valores em Kwanzas (Kz).</li>
+            <li><strong>Testes de Integração:</strong> Validação das políticas de segurança RLS no Supabase e envio de mensagens e notificações via WebSocket.</li>
+            <li><strong>Testes de Usabilidade e Multiplataforma:</strong> Testes práticos de interface e responsividade executados em ambiente Web (Google Chrome), PWA e em dispositivos físicos Android (APK)."</li>
+          </ul>
+          <div class="citacao">📖 Pressman & Maxim (2016) — Software Engineering: A Practitioner's Approach, 8ª ed.</div>
+        </div>
+      </div>
+
+      <div class="pergunta-card">
+        <div class="pergunta-header" onclick="toggleResposta(this)">
+          <div class="pnum">P11</div>
+          <div class="pergunta-texto">Quais foram as maiores dificuldades e limitações encontradas durante a elaboração do projeto?</div>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="resposta">
+          <div class="resposta-label">✅ Resposta Técnica</div>
+          <p>"A principal limitação relacionou-se com a <strong>integração de meios de pagamento em Angola</strong>: devido à indisponibilidade de APIs públicas abertas e gratuitas da rede <strong>EMIS / Multicaixa Express</strong> para ambientes académicos, o sistema foi estruturado com lançamento manual e controlo de faturas na secretaria, deixando a arquitetura modular pronta para conexão a gateways assim que a homologação comercial for realizada.</p>
+          <p>Outro desafio foi <strong>balancear a riqueza gráfica</strong> de um odontograma SVG interativo com o desempenho de renderização em telemóveis de gama de entrada."</p>
+        </div>
+      </div>
+    </div>
+
+  </section>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     RODAPÉ
+══════════════════════════════════════════════════ -->
+<footer class="rodape">
+  <p><strong>Sorriso Digital</strong> — Monografia de Licenciatura em Engenharia Informática</p>
+  <p style="margin-top:6px;">
+    Instituto Superior Politécnico Independente (ISPI) — Lubango, Angola &nbsp;|&nbsp;
+    Autor: <strong>António Pio Macaia Tati</strong> &nbsp;|&nbsp;
+    Orientador: <strong>Eng.º Judilson Nambalo</strong> &nbsp;|&nbsp;
+    Coorientador: <strong>Eng.º Marcelo Linguenha</strong>
+  </p>
+  <p style="margin-top:10px; font-size:.8rem; opacity:.5;">© 2026 — Todos os direitos reservados</p>
+</footer>
+
+<script>
+  function toggleResposta(header) {
+    const resposta = header.nextElementSibling;
+    const icon = header.querySelector('.toggle-icon');
+    const isOpen = resposta.classList.toggle('aberta');
+    icon.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+  }
+</script>
+
+</body>
+</html>
+
