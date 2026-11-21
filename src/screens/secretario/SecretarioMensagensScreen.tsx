@@ -116,7 +116,7 @@ const iniciarConversa = async (contato: DentistaProfile | PacienteProfile) => {
 
       if (result.success && result.data) {
         setShowNovoModal(false);
-        handleSelectConversa(result.data.id, contato.nome!, (contato as any).foto_url || undefined, contato.id);
+      handleSelectConversa(result.data.id, contato.nome!, (contato as any).foto_url || undefined);
       } else {
         Toast.show({
           type: 'error',
