@@ -46,7 +46,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const { signUp } = useAuth();
+  const { signUp, signOut } = useAuth();
 
   // ── Validação ──────────────────────────────────────────────────────────────
   const validate = (): boolean => {
@@ -84,16 +84,14 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       });
 
       if (result.success) {
-        const hasSession = Boolean(result.data?.session);
-        if (!hasSession) {
-          // Supabase confirmação por email activada
-          showSuccess(
-            '✅ Conta criada!',
-            'Verifique o seu email para confirmar a conta e depois faça login.'
-          );
-          setTimeout(() => navigation.replace('Login'), 2500);
-        }
-        // hasSession=true → AppNavigator detecta needsProfileCompletion → CompleteProfile
+        // Sempre terminar sessão após cadastro e redirecionar para Login
+        showSuccess(
+          '✅ Conta criada!',
+          'Conta criada com sucesso! Faça login para continuar.'
+        );
+        // Encerrar qualquer sessão criada automaticamente
+        try { await signOut(); } catch (_) { /* ignorar erro de signOut */ }
+        setTimeout(() => navigation.replace('Login'), 2000);
       } else {
         const msg =
           (result.error as any)?.message || 'Erro ao criar conta. Tente novamente.';

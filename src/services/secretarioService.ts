@@ -662,7 +662,7 @@ export const buscarTriagensPendentesSecretaria = async (): Promise<{
           dentista:profiles!dentista_id(id, nome)
         `
         )
-        .in('status', ['triagem_pendente_secretaria', 'pendente', 'respondido'])
+        .in('status', ['triagem_pendente_secretaria'])
         .order('created_at', { ascending: false }) as any,
       8000
     );

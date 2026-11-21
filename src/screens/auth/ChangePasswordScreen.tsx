@@ -37,6 +37,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
   const [loading, setLoading] = useState(false);
   const [mostrarSenhas, setMostrarSenhas] = useState(false);
   const [progressStep, setProgressStep] = useState('');
+  const [manterSenha, setManterSenha] = useState(false);
 
   const validarSenha = (senha: string): { valido: boolean; mensagem: string } => {
     if (!senha) {
@@ -55,6 +56,40 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
       return { valido: false, mensagem: 'Senha deve conter um caractere especial (!@#$%^&*)' };
     }
     return { valido: true, mensagem: '' };
+  };
+
+  const handleManterSenha = async () => {
+    if (!senhaAtual.trim()) {
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: 'Digite a sua senha actual para confirmar que a quer manter',
+      });
+      return;
+    }
+    setLoading(true);
+    setProgressStep('Confirmando...');
+    try {
+      if (PROFILE_SCHEMA_FEATURES.hasSenhaAlterada) {
+        const result = await updateProfile({ senha_alterada: true });
+        if (!result.success) throw new Error('Erro ao actualizar perfil');
+      }
+      Toast.show({
+        type: 'success',
+        text1: 'Senha mantida!',
+        text2: 'A sua senha actual foi confirmada.',
+      });
+      if (onPasswordChanged) onPasswordChanged();
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: error.message || 'Erro ao confirmar senha',
+      });
+    } finally {
+      setProgressStep('');
+      setLoading(false);
+    }
   };
 
   const handleAlterarSenha = async () => {
@@ -209,36 +244,52 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
                 </View>
               </View>
 
-              {/* Divider */}
-              <View style={styles.divider} />
-
-              {/* Nova Senha */}
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Nova senha</Text>
-                <View style={styles.inputWrapper}>
-                  <Input
-                    placeholder="Digite sua nova senha"
-                    value={senhaNova}
-                    onChangeText={setSenhaNova}
-                    secureTextEntry={!mostrarSenhas}
-                    editable={!loading}
-                  />
+              {/* Toggle Manter Senha */}
+              <TouchableOpacity
+                style={styles.manterSenhaToggle}
+                onPress={() => setManterSenha(!manterSenha)}
+                disabled={loading}
+              >
+                <View style={[styles.checkboxBox, manterSenha && styles.checkboxBoxActive]}>
+                  {manterSenha && <Ionicons name="checkmark" size={14} color="white" />}
                 </View>
-              </View>
+                <Text style={styles.manterSenhaText}>Manter a senha actual (não mudar)</Text>
+              </TouchableOpacity>
 
-              {/* Confirmar Senha */}
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Confirmar nova senha</Text>
-                <View style={styles.inputWrapper}>
-                  <Input
-                    placeholder="Confirme sua nova senha"
-                    value={senhaConfirmar}
-                    onChangeText={setSenhaConfirmar}
-                    secureTextEntry={!mostrarSenhas}
-                    editable={!loading}
-                  />
-                </View>
-              </View>
+              {!manterSenha && (
+                <>
+                  {/* Divider */}
+                  <View style={styles.divider} />
+
+                  {/* Nova Senha */}
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Nova senha</Text>
+                    <View style={styles.inputWrapper}>
+                      <Input
+                        placeholder="Digite sua nova senha"
+                        value={senhaNova}
+                        onChangeText={setSenhaNova}
+                        secureTextEntry={!mostrarSenhas}
+                        editable={!loading}
+                      />
+                    </View>
+                  </View>
+
+                  {/* Confirmar Senha */}
+                  <View style={styles.formGroup}>
+                    <Text style={styles.label}>Confirmar nova senha</Text>
+                    <View style={styles.inputWrapper}>
+                      <Input
+                        placeholder="Confirme sua nova senha"
+                        value={senhaConfirmar}
+                        onChangeText={setSenhaConfirmar}
+                        secureTextEntry={!mostrarSenhas}
+                        editable={!loading}
+                      />
+                    </View>
+                  </View>
+                </>
+              )}
 
               {/* Show Password Toggle */}
               <View style={styles.toggleContainer}>
@@ -260,17 +311,26 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
 
             {/* Buttons */}
             <View style={styles.buttonsContainer}>
-              <Button
-                title={loading ? 'Alterando...' : 'Alterar senha'}
-                onPress={handleAlterarSenha}
-                disabled={
-                  loading ||
-                  !senhaAtual.trim() ||
-                  !senhaNova.trim() ||
-                  !senhaConfirmar.trim()
-                }
-                loading={loading}
-              />
+              {manterSenha ? (
+                <Button
+                  title={loading ? 'Confirmando...' : 'Confirmar e continuar'}
+                  onPress={handleManterSenha}
+                  disabled={loading || !senhaAtual.trim()}
+                  loading={loading}
+                />
+              ) : (
+                <Button
+                  title={loading ? 'Alterando...' : 'Alterar senha'}
+                  onPress={handleAlterarSenha}
+                  disabled={
+                    loading ||
+                    !senhaAtual.trim() ||
+                    !senhaNova.trim() ||
+                    !senhaConfirmar.trim()
+                  }
+                  loading={loading}
+                />
+              )}
               {loading && !!progressStep && (
                 <View style={styles.progressBox}>
                   <Text style={styles.progressText}>{progressStep}</Text>
@@ -442,6 +502,38 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
     marginTop: SPACING.xs,
+  },
+  manterSenhaToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+  },
+  checkboxBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SPACING.sm,
+  },
+  checkboxBoxActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  manterSenhaText: {
+    fontSize: TYPOGRAPHY.sizes.body,
+    color: '#15803D',
+    fontWeight: '600',
+    flex: 1,
   },
 });
 
