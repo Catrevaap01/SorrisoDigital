@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   View,
   useWindowDimensions,
-  Image,
 } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
@@ -83,43 +82,6 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
     alignItems: isMobile ? 'flex-start' : 'center',
     marginBottom: SPACING.md,
     gap: SPACING.md,
-  },
-  headerLeftWithAvatar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    flex: isMobile ? undefined : 1,
-    width: isMobile ? '100%' : undefined,
-  },
-  avatarHeaderContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F3F0FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...SHADOWS.sm,
-  },
-  avatarHeaderImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 26,
-    resizeMode: 'cover',
-  },
-  avatarHeaderFallback: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#6D28D9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarHeaderText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '700',
   },
   headerTextContainer: {
     flex: isMobile ? undefined : 1,
@@ -814,84 +776,6 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
     color: '#DC2626',
     fontWeight: '700',
   },
-  // ── Tabela de triagens/agendamentos ───────────────────────────────────────
-  tableHeader: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    paddingBottom: 8,
-    marginBottom: 4,
-    marginTop: 8,
-  },
-  tableHeaderCell: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#94A3B8',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  tableRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
-  },
-  tableCell: {
-    paddingRight: 6,
-  },
-  tableCellText: {
-    fontSize: 13,
-    color: '#1E293B',
-    fontWeight: '500',
-  },
-  tableAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  tableAvatarText: {
-    color: 'white',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  priorityBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    alignSelf: 'flex-start',
-  },
-  priorityBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  verBtn: {
-    backgroundColor: '#F3F0FF',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#DDD6FE',
-  },
-  verBtnText: {
-    color: '#6D28D9',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  verTodasLink: {
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  verTodasText: {
-    color: '#7C3AED',
-    fontSize: 13,
-    fontWeight: '600',
-  },
 });
 
 const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
@@ -1216,12 +1100,13 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
       const tipo: ItemPainel['tipo'] = item.is_procedimento ? 'procedimento' : 'agendamento';
       let desc = item.symptoms || item.notes || 'Solicitação de consulta';
       
-      // Se tiver data agendada ou sugerida, incluir na descrição para o dashboard
-      const targetDate = item.appointment_date || item.dentist_suggested_date || item.suggested_date;
-      const targetTime = (item.dentist_suggested_time || item.appointment_time)?.substring(0, 5) || '';
-      if (targetDate) {
-        const dataStr = formatDate(targetDate);
-        desc = `${dataStr}${targetTime ? ' às ' + targetTime : ''} - ${desc}`;
+      // Se tiver data agendada, incluir na descrição para o dashboard
+      if (item.appointment_date) {
+        const dataStr = formatDate(item.appointment_date);
+        const horaStr = item.appointment_time ? item.appointment_time.substring(0, 5) : '';
+        desc = `${dataStr}${horaStr ? ' as ' + horaStr : ''} - ${desc}`;
+      } else if (item.suggested_date) {
+        desc = `${formatDateTime(item.suggested_date)} - ${desc}`;
       }
 
       return {
@@ -1465,147 +1350,11 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     </View>
   );
 
-  const renderAcompanhamentoTab = () => {
-    // Contadores para a tab de atribuição
-    const totalTriagensPendentes = triagensOrdenadas.length;
-    const totalAtribuidos = itensAtribuidos.length;
-    const emAnalise = itensCombinados.filter(item => {
-      const s = (item.raw?.status || '').toLowerCase();
-      return s.includes('analise') || s.includes('análise') || s.includes('em_analise');
-    }).length;
-    const naoAtribuidos = itensNaoAtribuidos.length;
-
-    // Agrupar por especialidade (a partir dos dentistas atribuídos)
-    const especialidadeMap: Record<string, number> = {};
-    itensAtribuidos.forEach(item => {
-      const esp = item.raw?.dentista?.especialidade || 'Clínica Geral';
-      especialidadeMap[esp] = (especialidadeMap[esp] || 0) + 1;
-    });
-    const especialidades = Object.entries(especialidadeMap)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
-    const totalEsp = especialidades.reduce((s, [, v]) => s + v, 0) || 1;
-
-    // Cores para especialidades
-    const espColors = ['#7C3AED', '#2563EB', '#0F766E', '#C2410C', '#CA8A04'];
-
-    const atribStats = [
-      { label: 'Triagens Pendentes', value: totalTriagensPendentes, icon: 'clipboard-outline', bg: '#CCFBF1', color: '#0F766E' },
-      { label: 'Atribuídos', value: totalAtribuidos, icon: 'checkmark-circle-outline', bg: '#D1FAE5', color: '#059669' },
-      { label: 'Em Análise', value: emAnalise, icon: 'time-outline', bg: '#FEF9C3', color: '#CA8A04' },
-      { label: 'Não Atribuído', value: naoAtribuidos, icon: 'close-circle-outline', bg: '#FEE2E2', color: '#DC2626' },
-    ];
-
-    return (
+  const renderAcompanhamentoTab = () => (
     <>
-      {/* Stats de atribuição */}
-      <View style={[styles.metricsRow, { marginBottom: SPACING.md }]}>
-        {atribStats.map(stat => (
-          <View key={stat.label} style={[styles.metricCard, { minWidth: isMobile ? '47%' : 150, flex: Platform.OS === 'web' ? 1 : undefined }]}>
-            <View style={[styles.metricIcon, { backgroundColor: stat.bg }]}>
-              <Ionicons name={stat.icon as any} size={18} color={stat.color} />
-            </View>
-            <Text style={styles.metricValue}>{stat.value}</Text>
-            <Text style={styles.metricLabel}>{stat.label}</Text>
-          </View>
-        ))}
-      </View>
-
-      <View style={[styles.operationQueuesGrid, { alignItems: 'flex-start' }]}>
-        {/* Coluna esquerda: Triagens Recentes */}
-        <View style={[styles.operationQueueCard, { flex: isMobile ? undefined : 1.3 }]}>
-          <View style={styles.operationQueueHeader}>
-            <View style={styles.operationQueueTitleWrap}>
-              <View style={styles.operationQueueTitleRow}>
-                <View style={[styles.operationQueueIcon, { backgroundColor: '#F3F0FF' }]}>
-                  <Ionicons name="people-outline" size={18} color="#7C3AED" />
-                </View>
-                <Text style={styles.operationQueueTitle}>Triagens Recentes</Text>
-              </View>
-              <Text style={styles.operationQueueSubtitle}>Encaminhe para o dentista por especialidade.</Text>
-            </View>
-            <TouchableOpacity style={styles.verBtn} onPress={() => {}}>
-              <Text style={styles.verBtnText}>Ver todas →</Text>
-            </TouchableOpacity>
-          </View>
-
-          {triagensOrdenadas.length === 0 ? (
-            <Text style={styles.emptyText}>Nenhuma triagem pendente no momento.</Text>
-          ) : (
-            triagensOrdenadas.slice(0, 6).map((item: any) => {
-              const badge = getPrioridadeBadge(String(item.prioridade || item.intensidade_dor || 'baixa'));
-              const nome = item.paciente?.nome || 'Paciente';
-              return (
-                <View key={item.id} style={styles.listItem}>
-                  <View style={styles.listItemTop}>
-                    <View style={[styles.tableCell, { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }]}>
-                      <View style={[styles.tableAvatar, { backgroundColor: getAvatarColor(nome) }]}>
-                        <Text style={styles.tableAvatarText}>{getInitials(nome)}</Text>
-                      </View>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={styles.listItemTitle} numberOfLines={1}>{nome}</Text>
-                        <Text style={styles.listItemDesc} numberOfLines={1}>{item.sintoma_principal || 'Triagem recebida'}</Text>
-                      </View>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <View style={[styles.priorityBadge, { backgroundColor: badge.bg }]}>
-                        <Text style={[styles.priorityBadgeText, { color: badge.color }]}>{badge.label}</Text>
-                      </View>
-                      <TouchableOpacity style={styles.atribuirPrincipalBtn} onPress={() => handleAtribuirTriagem(item)}>
-                        <Ionicons name="person-add-outline" size={12} color="white" />
-                        <Text style={styles.atribuirPrincipalBtnText}>Atribuir</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-              );
-            })
-          )}
-        </View>
-
-        {/* Coluna direita: Por Especialidade */}
-        <View style={[styles.operationQueueCard, { flex: isMobile ? undefined : 0.8 }]}>
-          <View style={styles.operationQueueHeader}>
-            <View style={styles.operationQueueTitleWrap}>
-              <View style={styles.operationQueueTitleRow}>
-                <View style={[styles.operationQueueIcon, { backgroundColor: '#DBEAFE' }]}>
-                  <Ionicons name="medical-outline" size={18} color="#2563EB" />
-                </View>
-                <Text style={styles.operationQueueTitle}>Por Especialidade</Text>
-              </View>
-              <Text style={styles.operationQueueSubtitle}>Distribuição dos atribuídos por área.</Text>
-            </View>
-            <View style={[styles.operationCountPill, { backgroundColor: '#DBEAFE' }]}>
-              <Text style={[styles.operationCountText, { color: '#2563EB' }]}>{totalAtribuidos}</Text>
-            </View>
-          </View>
-
-          {especialidades.length === 0 ? (
-            <Text style={styles.emptyText}>Nenhuma atribuição activa.</Text>
-          ) : (
-            especialidades.map(([esp, count], idx) => {
-              const pct = Math.round((count / totalEsp) * 100);
-              const color = espColors[idx % espColors.length];
-              return (
-                <View key={esp} style={{ marginBottom: 10 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <Text style={{ fontSize: 13, color: '#1E293B', fontWeight: '500' }}>{esp}</Text>
-                    <Text style={{ fontSize: 13, color, fontWeight: '700' }}>{count}</Text>
-                  </View>
-                  <View style={{ height: 6, borderRadius: 999, backgroundColor: '#F1F5F9', overflow: 'hidden' }}>
-                    <View style={{ width: `${pct}%`, height: '100%', borderRadius: 999, backgroundColor: color }} />
-                  </View>
-                </View>
-              );
-            })
-          )}
-
-          {/* Total geral */}
-          <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9', flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={{ fontSize: 12, color: '#94A3B8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total</Text>
-            <Text style={{ fontSize: 14, color: '#7C3AED', fontWeight: '800' }}>{totalAtribuidos} Total</Text>
-          </View>
-        </View>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionHeaderTitle}>Atribuição</Text>
+        <Text style={styles.sectionHeaderSubtitle}>Gerencie o encaminhamento de pacientes aos profissionais.</Text>
       </View>
 
       <View style={styles.board}>
@@ -1733,8 +1482,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       </View>
     </>
-    );
-  };
+  );
 
   const renderAgenda = () => (
     <View style={styles.card}>
@@ -1788,56 +1536,27 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     </View>
   );
 
-  // helpers para tabela de triagens/agendamentos
-  const getPrioridadeBadge = (prioridade: string) => {
-    const p = (prioridade || '').toLowerCase();
-    if (p === 'alta' || p === 'urgente' || (!isNaN(Number(p)) && Number(p) >= 7))
-      return { label: 'Alta', bg: '#FEE2E2', color: '#DC2626' };
-    if (p === 'média' || p === 'media' || (!isNaN(Number(p)) && Number(p) >= 4))
-      return { label: 'Média', bg: '#FEF9C3', color: '#CA8A04' };
-    return { label: 'Baixa', bg: '#DCFCE7', color: '#16A34A' };
-  };
-
-  const getStatusBadge = (status: string) => {
-    const s = (status || '').toLowerCase();
-    if (s.includes('confirmado')) return { label: 'Confirmado', bg: '#DCFCE7', color: '#16A34A' };
-    if (s.includes('atribuido') || s === 'agendado') return { label: 'Agendado', bg: '#DBEAFE', color: '#2563EB' };
-    return { label: 'Pendente', bg: '#FEF9C3', color: '#CA8A04' };
-  };
-
-  const getInitials = (nome: string) =>
-    (nome || '?').split(' ').slice(0, 2).map((n: string) => n[0]?.toUpperCase()).join('');
-  const avatarColors = ['#7C3AED','#2563EB','#0F766E','#C2410C','#CA8A04'];
-  const getAvatarColor = (nome: string) => avatarColors[(nome || '').charCodeAt(0) % avatarColors.length];
-
-  const renderOperacaoTab = () => {
-    const hoje = new Date();
-    const diasSemana = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
-    const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-    return (
+  const renderOperacaoTab = () => (
     <>
-      {/* Centro de Operação — cabeçalho */}
       <View style={styles.operationIntro}>
         <View style={styles.operationIntroMain}>
-          <Text style={styles.operationEyebrow}>CENTRO DE OPERAÇÃO</Text>
+          <Text style={styles.operationEyebrow}>Centro de operações</Text>
           <Text style={styles.operationIntroTitle}>Priorize, atribua e acompanhe sem perder contexto</Text>
           <Text style={styles.operationIntroText}>
-            Todas as triagens e agendamentos em um só lugar, com visão clara do fluxo de atendimento.
+            As filas principais ficam separadas por tipo de solicitação. Use os alertas e retornos apenas como apoio para decidir o que tratar primeiro.
           </Text>
         </View>
         <View style={styles.operationIntroAside}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="calendar-outline" size={13} color="#C4B5FD" />
-            <Text style={styles.operationAsideLabel}>DIA DE HOJE</Text>
-          </View>
-          <Text style={styles.operationAsideValue}>{hoje.getDate()}</Text>
+          <Text style={styles.operationAsideLabel}>Em aberto</Text>
+          <Text style={styles.operationAsideValue}>{itensCombinados.length}</Text>
           <Text style={styles.operationAsideText}>
-            {diasSemana[hoje.getDay()]}, {hoje.getDate()} de {meses[hoje.getMonth()]} de {hoje.getFullYear()}
+            {alertas.length > 0
+              ? `${alertas.length} item(ns) precisam de atenção prioritária.`
+              : 'Sem alertas críticos neste momento.'}
           </Text>
         </View>
       </View>
 
-      {/* Stats cards */}
       <View style={styles.metricsRow}>
         {metricas.map((item) => (
           <View key={item.label} style={styles.metricCard}>
@@ -1860,54 +1579,21 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
                 <Text style={styles.operationQueueTitle}>Triagens</Text>
               </View>
-              <Text style={styles.operationQueueSubtitle}>Acompanhe as triagens e encaminhe para a especialidade.</Text>
+              <Text style={styles.operationQueueSubtitle}>Casos clínicos recebidos para validação e encaminhamento.</Text>
             </View>
             <View style={[styles.operationCountPill, { backgroundColor: '#CCFBF1' }]}>
               <Text style={[styles.operationCountText, { color: '#0F766E' }]}>{triagensOrdenadas.length}</Text>
             </View>
           </View>
-          {triagensOrdenadas.length === 0 ? (
-            <Text style={styles.emptyText}>Nenhuma triagem pendente no momento.</Text>
-          ) : (
-            <>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { flex: 1.4 }]}>Paciente</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1.6 }]}>Sintomas</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 0.9 }]}>Prioridade</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 0.7, textAlign: 'right' }]}>Ações</Text>
-              </View>
-              {triagensOrdenadas.slice(0, 5).map((item: any) => {
-                const badge = getPrioridadeBadge(String(item.prioridade || item.intensidade_dor || 'baixa'));
-                const nome = item.paciente?.nome || 'Paciente';
-                return (
-                  <View key={item.id} style={styles.tableRow}>
-                    <View style={[styles.tableCell, { flex: 1.4, flexDirection: 'row', alignItems: 'center', gap: 7 }]}>
-                      <View style={[styles.tableAvatar, { backgroundColor: getAvatarColor(nome) }]}>
-                        <Text style={styles.tableAvatarText}>{getInitials(nome)}</Text>
-                      </View>
-                      <Text style={[styles.tableCellText, { flex: 1 }]} numberOfLines={1}>{nome}</Text>
-                    </View>
-                    <Text style={[styles.tableCell, styles.tableCellText, { flex: 1.6 }]} numberOfLines={1}>
-                      {item.sintoma_principal || 'Triagem recebida'}
-                    </Text>
-                    <View style={[styles.tableCell, { flex: 0.9 }]}>
-                      <View style={[styles.priorityBadge, { backgroundColor: badge.bg }]}>
-                        <Text style={[styles.priorityBadgeText, { color: badge.color }]}>{badge.label}</Text>
-                      </View>
-                    </View>
-                    <View style={[styles.tableCell, { flex: 0.7, alignItems: 'flex-end' }]}>
-                      <TouchableOpacity style={styles.verBtn} onPress={() => handleAtribuirTriagem(item)}>
-                        <Text style={styles.verBtnText}>Ver</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                );
-              })}
-              <TouchableOpacity style={styles.verTodasLink} onPress={() => setActiveTab('acompanhamento')}>
-                <Text style={styles.verTodasText}>Ver todas as triagens  →</Text>
-              </TouchableOpacity>
-            </>
-          )}
+          <FilasList
+            titulo="Triagens Pendentes"
+            tipo="triagem"
+            dados={triagensOrdenadas}
+            loading={filas.loading}
+            onAtribuir={handleAtribuirTriagem}
+            onRejeitar={handleRejeitarTriagem}
+            emptyMessage="Nenhuma triagem pendente no momento"
+          />
         </View>
 
         <View style={styles.operationQueueCard}>
@@ -1919,54 +1605,99 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
                 <Text style={styles.operationQueueTitle}>Agendamentos</Text>
               </View>
-              <Text style={styles.operationQueueSubtitle}>Confira os próximos agendamentos da clínica.</Text>
+              <Text style={styles.operationQueueSubtitle}>Pedidos de consulta que precisam de atribuição da secretaria.</Text>
             </View>
             <View style={[styles.operationCountPill, { backgroundColor: '#DBEAFE' }]}>
               <Text style={[styles.operationCountText, { color: '#2563EB' }]}>{agendamentosOrdenados.length}</Text>
             </View>
           </View>
-          {agendamentosOrdenados.length === 0 ? (
-            <Text style={styles.emptyText}>Nenhum agendamento pendente no momento.</Text>
-          ) : (
-            <>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { flex: 1.3 }]}>Paciente</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1.3 }]}>Dentista</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>Data e Hora</Text>
-                <Text style={[styles.tableHeaderCell, { flex: 0.9, textAlign: 'right' }]}>Status</Text>
-              </View>
-              {agendamentosOrdenados.slice(0, 5).map((item: any) => {
-                const statusB = getStatusBadge(item.status || '');
-                const nomePaciente = item.paciente?.nome || 'Paciente';
-                const nomeDentista = item.dentista?.nome || '—';
-                const data = item.appointment_date || item.suggested_date || '';
-                const hora = (item.appointment_time || item.suggested_time || '').substring(0, 5);
-                return (
-                  <View key={item.id} style={styles.tableRow}>
-                    <Text style={[styles.tableCell, styles.tableCellText, { flex: 1.3 }]} numberOfLines={1}>{nomePaciente}</Text>
-                    <Text style={[styles.tableCell, styles.tableCellText, { flex: 1.3 }]} numberOfLines={1}>{nomeDentista}</Text>
-                    <Text style={[styles.tableCell, styles.tableCellText, { flex: 1.2 }]} numberOfLines={1}>
-                      {data ? formatDate(data) : '—'}{hora ? ` • ${hora}` : ''}
-                    </Text>
-                    <View style={[styles.tableCell, { flex: 0.9, alignItems: 'flex-end' }]}>
-                      <View style={[styles.priorityBadge, { backgroundColor: statusB.bg }]}>
-                        <Text style={[styles.priorityBadgeText, { color: statusB.color }]}>{statusB.label}</Text>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
-              <TouchableOpacity style={styles.verTodasLink} onPress={() => navigation.navigate('Agendamentos' as any)}>
-                <Text style={styles.verTodasText}>Ver todos os agendamentos  →</Text>
-              </TouchableOpacity>
-            </>
+          <FilasList
+            titulo="Agendamentos Pendentes"
+            tipo="agendamento"
+            dados={agendamentosOrdenados}
+            loading={filas.loading}
+            onAtribuir={handleAtribuirAgendamento}
+            onRejeitar={handleRejeitarAgendamento}
+            emptyMessage="Nenhum agendamento pendente no momento"
+          />
+        </View>
+      </View>
+
+      <View style={styles.supportGrid}>
+        {renderMiniList(
+          'Novas solicitações',
+          'Pedidos mais recentes que chegaram para a secretaria.',
+          novasSolicitacoes,
+          'Nenhuma nova solicitação no momento.'
+        )}
+        {renderMiniList(
+          'Alertas',
+          'Itens urgentes ou de alta prioridade.',
+          alertas,
+          'Nenhum alerta crítico agora.'
+        )}
+        {renderMiniList(
+          'Retornos',
+          'Itens que já aguardam atenção há mais tempo.',
+          retornos,
+          'Nenhum retorno pendente agora.'
+        )}
+      </View>
+
+      <View style={styles.hiddenLegacy}>
+        <Text style={styles.sectionHeaderTitle}>Fluxo da Secretaria</Text>
+        <Text style={styles.sectionHeaderSubtitle}>Organize triagens e agendamentos em painéis separados para uma leitura rápida e clara.</Text>
+      </View>
+
+      <View style={styles.hiddenLegacy}>
+        <View style={styles.columnLeft}>
+          {renderMiniList(
+            'Novas solicitações',
+            'Pedidos mais recentes que chegaram para a secretaria.',
+            novasSolicitacoes,
+            'Nenhuma nova solicitação no momento.'
+          )}
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Triagens</Text>
+            <Text style={styles.cardSubtitle}>Casos que precisam de validação e encaminhamento.</Text>
+            <FilasList
+              titulo="Triagens Pendentes"
+              tipo="triagem"
+              dados={triagensOrdenadas}
+              loading={filas.loading}
+              onAtribuir={handleAtribuirTriagem}
+              onRejeitar={handleRejeitarTriagem}
+              emptyMessage="Nenhuma triagem pendente no momento"
+            />
+          </View>
+        </View>
+
+        <View style={styles.columnCenter}>
+          {renderAgenda()}
+        </View>
+
+        <View style={styles.columnRight}>
+          {renderMiniList(
+            'Alertas',
+            'Itens urgentes ou de alta prioridade.',
+            alertas,
+            'Nenhum alerta crítico agora.'
+          )}
+          {renderMiniList(
+            'Retornos',
+            'Itens que já aguardam atenção há mais tempo.',
+            retornos,
+            'Nenhum retorno pendente agora.'
           )}
         </View>
       </View>
 
+      <View style={styles.footerSection}>
+        {renderHistórico()}
+      </View>
     </>
-    );
-  };
+  );
 
   return (
     <ScrollView
@@ -1977,31 +1708,13 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     >
       <View style={styles.shell}>
         <View style={styles.headerRow}>
-          <View style={styles.headerLeftWithAvatar}>
-            <TouchableOpacity
-              style={styles.avatarHeaderContainer}
-              onPress={() => navigation.navigate('Perfil')}
-              activeOpacity={0.8}
-              accessibilityLabel="Ver perfil da secretária"
-            >
-              {profile?.foto_url ? (
-                <Image source={{ uri: profile.foto_url }} style={styles.avatarHeaderImage} />
-              ) : (
-                <View style={styles.avatarHeaderFallback}>
-                  <Text style={styles.avatarHeaderText}>
-                    {profile?.nome ? profile.nome.charAt(0).toUpperCase() : 'S'}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.title}>{activeTab === 'financeiro' ? 'Tratamentos e Facturas' : 'Painel da Secretária'}</Text>
-              <Text style={styles.description} numberOfLines={3}>
-                {activeTab === 'financeiro'
-                  ? 'Acompanhe os procedimentos enviados pelos dentistas, facturas emitidas e pagamentos.'
-                  : `${profile?.nome ? `${profile.nome}, acompanhe` : 'Acompanhe'} a operação do dia com foco em solicitações, agenda e alertas.`}
-              </Text>
-            </View>
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.title}>{activeTab === 'financeiro' ? 'Tratamentos e Facturas' : 'Painel da Secretária'}</Text>
+            <Text style={styles.description} numberOfLines={3}>
+              {activeTab === 'financeiro'
+                ? 'Acompanhe os procedimentos enviados pelos dentistas, facturas emitidas e pagamentos.'
+                : `${profile?.nome ? `${profile.nome}, acompanhe` : 'Acompanhe'} a operação do dia com foco em solicitações, agenda e alertas.`}
+            </Text>
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity 
@@ -2019,7 +1732,9 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.primaryActionButtonText}>Novo</Text>
             </TouchableOpacity>
             
-
+            <TouchableOpacity style={styles.refreshButtonHeader} onPress={() => void carregarPainel()}>
+              <Ionicons name="refresh-outline" size={16} color="#6D28D9" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -2043,127 +1758,58 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
         {activeTab === 'operacoes' ? renderOperacaoTab() : 
          activeTab === 'acompanhamento' ? renderAcompanhamentoTab() : (
           <>
-            {/* ── HEADER GESTÃO FINANCEIRA ── */}
-            <View style={[styles.card, { marginBottom: SPACING.md, flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: 12 }]}>
-              <View style={[styles.metricIcon, { backgroundColor: '#F3E8FF', width: 44, height: 44, borderRadius: 12 }]}>
-                <Ionicons name="card-outline" size={22} color="#7C3AED" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { fontSize: 20 }]}>Gestão Financeira</Text>
-                <Text style={styles.cardSubtitle}>Acompanhe os planos, facturas e pagamentos.</Text>
-              </View>
-              <TouchableOpacity style={styles.printGeneralBtn} onPress={() => void handleImprimirFaturacaoGeral()}>
-                <Ionicons name="print-outline" size={15} color="white" />
-                <Text style={styles.printGeneralBtnText}>Imprimir Relatório</Text>
-              </TouchableOpacity>
+            <View style={styles.sectionHeader}> 
+              <Text style={styles.sectionHeaderTitle}>Relatório financeiro</Text>
+              <Text style={styles.sectionHeaderSubtitle}>Resumo de faturamento, arrecadação e performance de cada dentista.</Text>
             </View>
-
-            {/* ── MÉTRICAS FINANCEIRAS PRINCIPAIS ── */}
-            <View style={[styles.metricsRow, { marginBottom: SPACING.md }]}>
-              <View style={[styles.metricCard, { borderLeftWidth: 4, borderLeftColor: '#059669' }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <Ionicons name="receipt-outline" size={18} color="#059669" />
-                  <Text style={{ fontSize: 11, color: '#059669', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Faturado</Text>
+            <View style={styles.metricsRow}>
+              {relatorioMetrics.map((item) => (
+                <View key={item.label} style={styles.metricCard}>
+                  <View style={[styles.metricIcon, { backgroundColor: `${item.color}18` }]}> 
+                    <Ionicons name={item.icon as any} size={18} color={item.color} />
+                  </View>
+                  <Text style={styles.metricValue}>{item.value}</Text>
+                  <Text style={styles.metricLabel}>{item.label}</Text>
                 </View>
-                <Text style={[styles.metricValue, { fontSize: isMobile ? 20 : 24, color: '#059669' }]}>{formatCurrency(totalFaturadoGeral)}</Text>
-                <TouchableOpacity onPress={() => {}}>
-                  <Text style={{ fontSize: 11, color: '#7C3AED', marginTop: 6, fontWeight: '600' }}>Ver detalhes →</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={[styles.metricCard, { borderLeftWidth: 4, borderLeftColor: '#2563EB' }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <Ionicons name="cash-outline" size={18} color="#2563EB" />
-                  <Text style={{ fontSize: 11, color: '#2563EB', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Recebido</Text>
-                </View>
-                <Text style={[styles.metricValue, { fontSize: isMobile ? 20 : 24, color: '#2563EB' }]}>{formatCurrency(totalArrecadado)}</Text>
-                <TouchableOpacity onPress={() => {}}>
-                  <Text style={{ fontSize: 11, color: '#7C3AED', marginTop: 6, fontWeight: '600' }}>Ver detalhes →</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={[styles.metricCard, { borderLeftWidth: 4, borderLeftColor: '#CA8A04' }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <Ionicons name="time-outline" size={18} color="#CA8A04" />
-                  <Text style={{ fontSize: 11, color: '#CA8A04', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>Aguardando Pagamento</Text>
-                </View>
-                <Text style={[styles.metricValue, { fontSize: isMobile ? 20 : 24, color: '#CA8A04' }]}>{formatCurrency(totalAguardando)}</Text>
-                <TouchableOpacity onPress={() => {}}>
-                  <Text style={{ fontSize: 11, color: '#7C3AED', marginTop: 6, fontWeight: '600' }}>Ver pendentes →</Text>
-                </TouchableOpacity>
-              </View>
-
-              <View style={[styles.metricCard, { borderLeftWidth: 4, borderLeftColor: '#7C3AED' }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <Ionicons name="document-text-outline" size={18} color="#7C3AED" />
-                  <Text style={{ fontSize: 11, color: '#7C3AED', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>Facturas Hoje</Text>
-                </View>
-                <Text style={[styles.metricValue, { fontSize: isMobile ? 20 : 24, color: '#7C3AED' }]}>{financeiroResumo.pacientesHoje}</Text>
-                <Text style={{ fontSize: 11, color: COLORS.textSecondary, marginTop: 6 }}>Facturas emitidas hoje</Text>
-              </View>
+              ))}
             </View>
-
-            {/* ── RESUMO GERAL + PLANOS ACTIVOS ── */}
-            {relatorioGeral && (
-              <View style={[styles.operationQueuesGrid, { marginBottom: SPACING.md, alignItems: 'flex-start' }]}>
-                <View style={[styles.card, { flex: isMobile ? undefined : 1.6, width: '100%' }]}>
-                  <Text style={styles.cardTitle}>Relatório Geral</Text>
-                  <Text style={styles.cardSubtitle}>Visão consolidada da clínica.</Text>
-                  <View style={styles.reportSummary}>
-                    <View style={styles.reportCell}>
-                      <Text style={styles.reportLabel}>Dentistas</Text>
-                      <Text style={styles.reportValue}>{relatorioGeral.totalDentistas}</Text>
-                    </View>
-                    <View style={styles.reportCell}>
-                      <Text style={styles.reportLabel}>Pacientes</Text>
-                      <Text style={styles.reportValue}>{relatorioGeral.totalPacientes}</Text>
-                    </View>
-                    <View style={styles.reportCell}>
-                      <Text style={styles.reportLabel}>Triagens</Text>
-                      <Text style={styles.reportValue}>{relatorioGeral.totalTriagens}</Text>
-                    </View>
-                    <View style={styles.reportCell}>
-                      <Text style={styles.reportLabel}>Taxa de resposta</Text>
-                      <Text style={styles.reportValue}>{relatorioGeral.percentualResposta}%</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Planos Activos */}
-                <View style={[styles.card, { flex: isMobile ? undefined : 1, width: '100%', alignItems: 'center', justifyContent: 'center' }]}>
-                  <Text style={[styles.cardTitle, { textAlign: 'center' }]}>Planos Activos</Text>
-                  <Text style={[styles.cardSubtitle, { textAlign: 'center' }]}>Procedimentos activos vs concluídos</Text>
-                  {/* Círculo de progresso (SVG-free, usando rings de View) */}
-                  <View style={{ alignItems: 'center', justifyContent: 'center', marginVertical: 16 }}>
-                    <View style={{ width: 100, height: 100, borderRadius: 50, borderWidth: 10, borderColor: '#7C3AED', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3E8FF' }}>
-                      <Text style={{ fontSize: 22, fontWeight: '900', color: '#7C3AED' }}>
-                        {relatorioGeral.percentualResposta}%
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#7C3AED' }} />
-                      <Text style={{ fontSize: 11, color: COLORS.textSecondary }}>Respondidas</Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#E2E8F0' }} />
-                      <Text style={{ fontSize: 11, color: COLORS.textSecondary }}>Pendentes</Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity style={{ marginTop: 12 }} onPress={() => {}}>
-                    <Text style={{ fontSize: 12, color: '#7C3AED', fontWeight: '600' }}>Ver Planos →</Text>
-                  </TouchableOpacity>
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <View>
+                  <Text style={styles.cardTitle}>Relatório geral</Text>
+                  <Text style={styles.cardSubtitle}>Visão consolidada de dentistas, pacientes, triagens e receita.</Text>
                 </View>
               </View>
-            )}
-
-            {/* ── RESUMO POR DENTISTA ── */}
+              {relatorioLoading ? (
+                <Text style={styles.emptyText}>Carregando relatório...</Text>
+              ) : relatorioGeral ? (
+                <View style={styles.reportSummary}>
+                  <View style={styles.reportCell}>
+                    <Text style={styles.reportLabel}>Dentistas</Text>
+                    <Text style={styles.reportValue}>{relatorioGeral.totalDentistas}</Text>
+                  </View>
+                  <View style={styles.reportCell}>
+                    <Text style={styles.reportLabel}>Pacientes</Text>
+                    <Text style={styles.reportValue}>{relatorioGeral.totalPacientes}</Text>
+                  </View>
+                  <View style={styles.reportCell}>
+                    <Text style={styles.reportLabel}>Triagens</Text>
+                    <Text style={styles.reportValue}>{relatorioGeral.totalTriagens}</Text>
+                  </View>
+                  <View style={styles.reportCell}>
+                    <Text style={styles.reportLabel}>Taxa de resposta</Text>
+                    <Text style={styles.reportValue}>{relatorioGeral.percentualResposta}%</Text>
+                  </View>
+                </View>
+              ) : (
+                <Text style={styles.emptyText}>Não foi possível carregar o relatório geral.</Text>
+              )}
+            </View>
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
                 <View>
                   <Text style={styles.cardTitle}>Resumo por dentista</Text>
-                  <Text style={styles.cardSubtitle}>Desempenho de cada dentista em triagens e faturação.</Text>
+                  <Text style={styles.cardSubtitle}>Acompanhe o desempenho de cada dentista em triagens respondidas e pendentes.</Text>
                 </View>
               </View>
               {relatorioLoading ? (
@@ -2207,8 +1853,40 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.emptyText}>Nenhum relatório de dentista disponível.</Text>
               )}
             </View>
+            <View style={styles.card}>
+              <View style={styles.cardHeaderRow}>
+                <View>
+                  <Text style={styles.cardTitle}>Faturação geral</Text>
+                  <Text style={styles.cardSubtitle}>Relatório consolidado de toda faturação, recebimentos e pendências.</Text>
+                </View>
+              </View>
+                            <View style={styles.billingMetricsRow}>
+                <View style={styles.billingMetricItem}>
+                  <Text style={styles.billingMetricLabel}>Procedimentos</Text>
+                  <Text style={styles.billingMetricValue}>{relatorioGeral?.totalProcedimentos || 0}</Text>
+                </View>
+                <View style={styles.billingMetricItem}>
+                  <Text style={styles.billingMetricLabel}>Total Faturado</Text>
+                  <Text style={styles.billingMetricValue}>{formatCurrency(totalFaturadoGeral)}</Text>
+                </View>
+                <View style={styles.billingMetricItem}>
+                  <Text style={styles.billingMetricLabel}>Total Recebido</Text>
+                  <Text style={[styles.billingMetricValue, { color: '#059669' }]}>{formatCurrency(totalArrecadado)}</Text>
+                </View>
+                <View style={styles.billingMetricItem}>
+                  <Text style={styles.billingMetricLabel}>Total Pendente</Text>
+                  <Text style={[styles.billingMetricValue, { color: (totalAguardando || 0) > 0 ? '#B91C1C' : '#1e293b' }]}>{formatCurrency(totalAguardando)}</Text>
+                </View>
+              </View>
+            </View>
+            
+            <View style={{ marginBottom: SPACING.md }}>
+              <TouchableOpacity style={styles.printGeneralBtn} onPress={() => void handleImprimirFaturacaoGeral()}>
+                <Ionicons name="print-outline" size={16} color="white" />
+                <Text style={styles.printGeneralBtnText}>Imprimir Relatório</Text>
+              </TouchableOpacity>
+            </View>
 
-            {/* ── TRATAMENTOS E FACTURAS DETALHADOS ── */}
             <TratamentosFacturasPanel items={tratamentosFinanceiros} loading={financeiroLoading} onRefresh={carregarFinanceiro} />
           </>
         )}
