@@ -836,6 +836,13 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
   useFocusEffect(
     useCallback(() => {
       void carregarPainel();
+      const autoRefreshTimer = setInterval(() => {
+        void carregarPainel();
+      }, 15000);
+
+      return () => {
+        clearInterval(autoRefreshTimer);
+      };
     }, [carregarPainel])
   );
 
@@ -1758,9 +1765,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.primaryActionButtonText}>Novo</Text>
             </TouchableOpacity>
             
-            <TouchableOpacity style={styles.refreshButtonHeader} onPress={() => void carregarPainel()}>
-              <Ionicons name="refresh-outline" size={16} color="#6D28D9" />
-            </TouchableOpacity>
+
           </View>
         </View>
 
