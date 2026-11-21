@@ -46,7 +46,7 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const { signUp, signOut } = useAuth();
+  const { signUp } = useAuth();
 
   // ── Validação ──────────────────────────────────────────────────────────────
   const validate = (): boolean => {
@@ -85,14 +85,10 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
 
       if (result.success) {
         showSuccess(
-          'Conta criada com sucesso!',
-          'Faça login com os seus dados para aceder.'
+          'Cadastro com sucesso',
+          'A sua conta foi criada com sucesso!'
         );
-        // Limpeza silenciosa local sem disparar mensagens de encerramento de sessão
-        try { await supabase.auth.signOut({ scope: 'local' }); } catch (_) {}
-        setTimeout(() => {
-          navigation.replace('Login');
-        }, 1500);
+        // Não terminar sessão: a sessão do utilizador permanece activa!
       } else {
         const msg =
           (result.error as any)?.message || 'Erro ao criar conta. Tente novamente.';
