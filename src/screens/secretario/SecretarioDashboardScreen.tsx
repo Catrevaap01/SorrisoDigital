@@ -1465,11 +1465,147 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     </View>
   );
 
-  const renderAcompanhamentoTab = () => (
+  const renderAcompanhamentoTab = () => {
+    // Contadores para a tab de atribuição
+    const totalTriagensPendentes = triagensOrdenadas.length;
+    const totalAtribuidos = itensAtribuidos.length;
+    const emAnalise = itensCombinados.filter(item => {
+      const s = (item.raw?.status || '').toLowerCase();
+      return s.includes('analise') || s.includes('análise') || s.includes('em_analise');
+    }).length;
+    const naoAtribuidos = itensNaoAtribuidos.length;
+
+    // Agrupar por especialidade (a partir dos dentistas atribuídos)
+    const especialidadeMap: Record<string, number> = {};
+    itensAtribuidos.forEach(item => {
+      const esp = item.raw?.dentista?.especialidade || 'Clínica Geral';
+      especialidadeMap[esp] = (especialidadeMap[esp] || 0) + 1;
+    });
+    const especialidades = Object.entries(especialidadeMap)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+    const totalEsp = especialidades.reduce((s, [, v]) => s + v, 0) || 1;
+
+    // Cores para especialidades
+    const espColors = ['#7C3AED', '#2563EB', '#0F766E', '#C2410C', '#CA8A04'];
+
+    const atribStats = [
+      { label: 'Triagens Pendentes', value: totalTriagensPendentes, icon: 'clipboard-outline', bg: '#CCFBF1', color: '#0F766E' },
+      { label: 'Atribuídos', value: totalAtribuidos, icon: 'checkmark-circle-outline', bg: '#D1FAE5', color: '#059669' },
+      { label: 'Em Análise', value: emAnalise, icon: 'time-outline', bg: '#FEF9C3', color: '#CA8A04' },
+      { label: 'Não Atribuído', value: naoAtribuidos, icon: 'close-circle-outline', bg: '#FEE2E2', color: '#DC2626' },
+    ];
+
+    return (
     <>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionHeaderTitle}>Atribuição</Text>
-        <Text style={styles.sectionHeaderSubtitle}>Gerencie o encaminhamento de pacientes aos profissionais.</Text>
+      {/* Stats de atribuição */}
+      <View style={[styles.metricsRow, { marginBottom: SPACING.md }]}>
+        {atribStats.map(stat => (
+          <View key={stat.label} style={[styles.metricCard, { minWidth: isMobile ? '47%' : 150, flex: Platform.OS === 'web' ? 1 : undefined }]}>
+            <View style={[styles.metricIcon, { backgroundColor: stat.bg }]}>
+              <Ionicons name={stat.icon as any} size={18} color={stat.color} />
+            </View>
+            <Text style={styles.metricValue}>{stat.value}</Text>
+            <Text style={styles.metricLabel}>{stat.label}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={[styles.operationQueuesGrid, { alignItems: 'flex-start' }]}>
+        {/* Coluna esquerda: Triagens Recentes */}
+        <View style={[styles.operationQueueCard, { flex: isMobile ? undefined : 1.3 }]}>
+          <View style={styles.operationQueueHeader}>
+            <View style={styles.operationQueueTitleWrap}>
+              <View style={styles.operationQueueTitleRow}>
+                <View style={[styles.operationQueueIcon, { backgroundColor: '#F3F0FF' }]}>
+                  <Ionicons name="people-outline" size={18} color="#7C3AED" />
+                </View>
+                <Text style={styles.operationQueueTitle}>Triagens Recentes</Text>
+              </View>
+              <Text style={styles.operationQueueSubtitle}>Encaminhe para o dentista por especialidade.</Text>
+            </View>
+            <TouchableOpacity style={styles.verBtn} onPress={() => {}}>
+              <Text style={styles.verBtnText}>Ver todas →</Text>
+            </TouchableOpacity>
+          </View>
+
+          {triagensOrdenadas.length === 0 ? (
+            <Text style={styles.emptyText}>Nenhuma triagem pendente no momento.</Text>
+          ) : (
+            triagensOrdenadas.slice(0, 6).map((item: any) => {
+              const badge = getPrioridadeBadge(String(item.prioridade || item.intensidade_dor || 'baixa'));
+              const nome = item.paciente?.nome || 'Paciente';
+              return (
+                <View key={item.id} style={styles.listItem}>
+                  <View style={styles.listItemTop}>
+                    <View style={[styles.tableCell, { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }]}>
+                      <View style={[styles.tableAvatar, { backgroundColor: getAvatarColor(nome) }]}>
+                        <Text style={styles.tableAvatarText}>{getInitials(nome)}</Text>
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.listItemTitle} numberOfLines={1}>{nome}</Text>
+                        <Text style={styles.listItemDesc} numberOfLines={1}>{item.sintoma_principal || 'Triagem recebida'}</Text>
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={[styles.priorityBadge, { backgroundColor: badge.bg }]}>
+                        <Text style={[styles.priorityBadgeText, { color: badge.color }]}>{badge.label}</Text>
+                      </View>
+                      <TouchableOpacity style={styles.atribuirPrincipalBtn} onPress={() => handleAtribuirTriagem(item)}>
+                        <Ionicons name="person-add-outline" size={12} color="white" />
+                        <Text style={styles.atribuirPrincipalBtnText}>Atribuir</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
+
+        {/* Coluna direita: Por Especialidade */}
+        <View style={[styles.operationQueueCard, { flex: isMobile ? undefined : 0.8 }]}>
+          <View style={styles.operationQueueHeader}>
+            <View style={styles.operationQueueTitleWrap}>
+              <View style={styles.operationQueueTitleRow}>
+                <View style={[styles.operationQueueIcon, { backgroundColor: '#DBEAFE' }]}>
+                  <Ionicons name="medical-outline" size={18} color="#2563EB" />
+                </View>
+                <Text style={styles.operationQueueTitle}>Por Especialidade</Text>
+              </View>
+              <Text style={styles.operationQueueSubtitle}>Distribuição dos atribuídos por área.</Text>
+            </View>
+            <View style={[styles.operationCountPill, { backgroundColor: '#DBEAFE' }]}>
+              <Text style={[styles.operationCountText, { color: '#2563EB' }]}>{totalAtribuidos}</Text>
+            </View>
+          </View>
+
+          {especialidades.length === 0 ? (
+            <Text style={styles.emptyText}>Nenhuma atribuição activa.</Text>
+          ) : (
+            especialidades.map(([esp, count], idx) => {
+              const pct = Math.round((count / totalEsp) * 100);
+              const color = espColors[idx % espColors.length];
+              return (
+                <View key={esp} style={{ marginBottom: 10 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ fontSize: 13, color: '#1E293B', fontWeight: '500' }}>{esp}</Text>
+                    <Text style={{ fontSize: 13, color, fontWeight: '700' }}>{count}</Text>
+                  </View>
+                  <View style={{ height: 6, borderRadius: 999, backgroundColor: '#F1F5F9', overflow: 'hidden' }}>
+                    <View style={{ width: `${pct}%`, height: '100%', borderRadius: 999, backgroundColor: color }} />
+                  </View>
+                </View>
+              );
+            })
+          )}
+
+          {/* Total geral */}
+          <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F1F5F9', flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 12, color: '#94A3B8', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total</Text>
+            <Text style={{ fontSize: 14, color: '#7C3AED', fontWeight: '800' }}>{totalAtribuidos} Total</Text>
+          </View>
+        </View>
       </View>
 
       <View style={styles.board}>
@@ -1597,7 +1733,8 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
         </View>
       </View>
     </>
-  );
+    );
+  };
 
   const renderAgenda = () => (
     <View style={styles.card}>
@@ -1906,58 +2043,127 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
         {activeTab === 'operacoes' ? renderOperacaoTab() : 
          activeTab === 'acompanhamento' ? renderAcompanhamentoTab() : (
           <>
-            <View style={styles.sectionHeader}> 
-              <Text style={styles.sectionHeaderTitle}>Relatório financeiro</Text>
-              <Text style={styles.sectionHeaderSubtitle}>Resumo de faturamento, arrecadação e performance de cada dentista.</Text>
+            {/* ── HEADER GESTÃO FINANCEIRA ── */}
+            <View style={[styles.card, { marginBottom: SPACING.md, flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: 12 }]}>
+              <View style={[styles.metricIcon, { backgroundColor: '#F3E8FF', width: 44, height: 44, borderRadius: 12 }]}>
+                <Ionicons name="card-outline" size={22} color="#7C3AED" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.cardTitle, { fontSize: 20 }]}>Gestão Financeira</Text>
+                <Text style={styles.cardSubtitle}>Acompanhe os planos, facturas e pagamentos.</Text>
+              </View>
+              <TouchableOpacity style={styles.printGeneralBtn} onPress={() => void handleImprimirFaturacaoGeral()}>
+                <Ionicons name="print-outline" size={15} color="white" />
+                <Text style={styles.printGeneralBtnText}>Imprimir Relatório</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.metricsRow}>
-              {relatorioMetrics.map((item) => (
-                <View key={item.label} style={styles.metricCard}>
-                  <View style={[styles.metricIcon, { backgroundColor: `${item.color}18` }]}> 
-                    <Ionicons name={item.icon as any} size={18} color={item.color} />
-                  </View>
-                  <Text style={styles.metricValue}>{item.value}</Text>
-                  <Text style={styles.metricLabel}>{item.label}</Text>
+
+            {/* ── MÉTRICAS FINANCEIRAS PRINCIPAIS ── */}
+            <View style={[styles.metricsRow, { marginBottom: SPACING.md }]}>
+              <View style={[styles.metricCard, { borderLeftWidth: 4, borderLeftColor: '#059669' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <Ionicons name="receipt-outline" size={18} color="#059669" />
+                  <Text style={{ fontSize: 11, color: '#059669', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Faturado</Text>
                 </View>
-              ))}
+                <Text style={[styles.metricValue, { fontSize: isMobile ? 20 : 24, color: '#059669' }]}>{formatCurrency(totalFaturadoGeral)}</Text>
+                <TouchableOpacity onPress={() => {}}>
+                  <Text style={{ fontSize: 11, color: '#7C3AED', marginTop: 6, fontWeight: '600' }}>Ver detalhes →</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.metricCard, { borderLeftWidth: 4, borderLeftColor: '#2563EB' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <Ionicons name="cash-outline" size={18} color="#2563EB" />
+                  <Text style={{ fontSize: 11, color: '#2563EB', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Recebido</Text>
+                </View>
+                <Text style={[styles.metricValue, { fontSize: isMobile ? 20 : 24, color: '#2563EB' }]}>{formatCurrency(totalArrecadado)}</Text>
+                <TouchableOpacity onPress={() => {}}>
+                  <Text style={{ fontSize: 11, color: '#7C3AED', marginTop: 6, fontWeight: '600' }}>Ver detalhes →</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.metricCard, { borderLeftWidth: 4, borderLeftColor: '#CA8A04' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <Ionicons name="time-outline" size={18} color="#CA8A04" />
+                  <Text style={{ fontSize: 11, color: '#CA8A04', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>Aguardando Pagamento</Text>
+                </View>
+                <Text style={[styles.metricValue, { fontSize: isMobile ? 20 : 24, color: '#CA8A04' }]}>{formatCurrency(totalAguardando)}</Text>
+                <TouchableOpacity onPress={() => {}}>
+                  <Text style={{ fontSize: 11, color: '#7C3AED', marginTop: 6, fontWeight: '600' }}>Ver pendentes →</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.metricCard, { borderLeftWidth: 4, borderLeftColor: '#7C3AED' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <Ionicons name="document-text-outline" size={18} color="#7C3AED" />
+                  <Text style={{ fontSize: 11, color: '#7C3AED', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>Facturas Hoje</Text>
+                </View>
+                <Text style={[styles.metricValue, { fontSize: isMobile ? 20 : 24, color: '#7C3AED' }]}>{financeiroResumo.pacientesHoje}</Text>
+                <Text style={{ fontSize: 11, color: COLORS.textSecondary, marginTop: 6 }}>Facturas emitidas hoje</Text>
+              </View>
             </View>
-            <View style={styles.card}>
-              <View style={styles.cardHeaderRow}>
-                <View>
-                  <Text style={styles.cardTitle}>Relatório geral</Text>
-                  <Text style={styles.cardSubtitle}>Visão consolidada de dentistas, pacientes, triagens e receita.</Text>
+
+            {/* ── RESUMO GERAL + PLANOS ACTIVOS ── */}
+            {relatorioGeral && (
+              <View style={[styles.operationQueuesGrid, { marginBottom: SPACING.md, alignItems: 'flex-start' }]}>
+                <View style={[styles.card, { flex: isMobile ? undefined : 1.6, width: '100%' }]}>
+                  <Text style={styles.cardTitle}>Relatório Geral</Text>
+                  <Text style={styles.cardSubtitle}>Visão consolidada da clínica.</Text>
+                  <View style={styles.reportSummary}>
+                    <View style={styles.reportCell}>
+                      <Text style={styles.reportLabel}>Dentistas</Text>
+                      <Text style={styles.reportValue}>{relatorioGeral.totalDentistas}</Text>
+                    </View>
+                    <View style={styles.reportCell}>
+                      <Text style={styles.reportLabel}>Pacientes</Text>
+                      <Text style={styles.reportValue}>{relatorioGeral.totalPacientes}</Text>
+                    </View>
+                    <View style={styles.reportCell}>
+                      <Text style={styles.reportLabel}>Triagens</Text>
+                      <Text style={styles.reportValue}>{relatorioGeral.totalTriagens}</Text>
+                    </View>
+                    <View style={styles.reportCell}>
+                      <Text style={styles.reportLabel}>Taxa de resposta</Text>
+                      <Text style={styles.reportValue}>{relatorioGeral.percentualResposta}%</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Planos Activos */}
+                <View style={[styles.card, { flex: isMobile ? undefined : 1, width: '100%', alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={[styles.cardTitle, { textAlign: 'center' }]}>Planos Activos</Text>
+                  <Text style={[styles.cardSubtitle, { textAlign: 'center' }]}>Procedimentos activos vs concluídos</Text>
+                  {/* Círculo de progresso (SVG-free, usando rings de View) */}
+                  <View style={{ alignItems: 'center', justifyContent: 'center', marginVertical: 16 }}>
+                    <View style={{ width: 100, height: 100, borderRadius: 50, borderWidth: 10, borderColor: '#7C3AED', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3E8FF' }}>
+                      <Text style={{ fontSize: 22, fontWeight: '900', color: '#7C3AED' }}>
+                        {relatorioGeral.percentualResposta}%
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#7C3AED' }} />
+                      <Text style={{ fontSize: 11, color: COLORS.textSecondary }}>Respondidas</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#E2E8F0' }} />
+                      <Text style={{ fontSize: 11, color: COLORS.textSecondary }}>Pendentes</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity style={{ marginTop: 12 }} onPress={() => {}}>
+                    <Text style={{ fontSize: 12, color: '#7C3AED', fontWeight: '600' }}>Ver Planos →</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-              {relatorioLoading ? (
-                <Text style={styles.emptyText}>Carregando relatório...</Text>
-              ) : relatorioGeral ? (
-                <View style={styles.reportSummary}>
-                  <View style={styles.reportCell}>
-                    <Text style={styles.reportLabel}>Dentistas</Text>
-                    <Text style={styles.reportValue}>{relatorioGeral.totalDentistas}</Text>
-                  </View>
-                  <View style={styles.reportCell}>
-                    <Text style={styles.reportLabel}>Pacientes</Text>
-                    <Text style={styles.reportValue}>{relatorioGeral.totalPacientes}</Text>
-                  </View>
-                  <View style={styles.reportCell}>
-                    <Text style={styles.reportLabel}>Triagens</Text>
-                    <Text style={styles.reportValue}>{relatorioGeral.totalTriagens}</Text>
-                  </View>
-                  <View style={styles.reportCell}>
-                    <Text style={styles.reportLabel}>Taxa de resposta</Text>
-                    <Text style={styles.reportValue}>{relatorioGeral.percentualResposta}%</Text>
-                  </View>
-                </View>
-              ) : (
-                <Text style={styles.emptyText}>Não foi possível carregar o relatório geral.</Text>
-              )}
-            </View>
+            )}
+
+            {/* ── RESUMO POR DENTISTA ── */}
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
                 <View>
                   <Text style={styles.cardTitle}>Resumo por dentista</Text>
-                  <Text style={styles.cardSubtitle}>Acompanhe o desempenho de cada dentista em triagens respondidas e pendentes.</Text>
+                  <Text style={styles.cardSubtitle}>Desempenho de cada dentista em triagens e faturação.</Text>
                 </View>
               </View>
               {relatorioLoading ? (
@@ -2001,40 +2207,8 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.emptyText}>Nenhum relatório de dentista disponível.</Text>
               )}
             </View>
-            <View style={styles.card}>
-              <View style={styles.cardHeaderRow}>
-                <View>
-                  <Text style={styles.cardTitle}>Faturação geral</Text>
-                  <Text style={styles.cardSubtitle}>Relatório consolidado de toda faturação, recebimentos e pendências.</Text>
-                </View>
-              </View>
-                            <View style={styles.billingMetricsRow}>
-                <View style={styles.billingMetricItem}>
-                  <Text style={styles.billingMetricLabel}>Procedimentos</Text>
-                  <Text style={styles.billingMetricValue}>{relatorioGeral?.totalProcedimentos || 0}</Text>
-                </View>
-                <View style={styles.billingMetricItem}>
-                  <Text style={styles.billingMetricLabel}>Total Faturado</Text>
-                  <Text style={styles.billingMetricValue}>{formatCurrency(totalFaturadoGeral)}</Text>
-                </View>
-                <View style={styles.billingMetricItem}>
-                  <Text style={styles.billingMetricLabel}>Total Recebido</Text>
-                  <Text style={[styles.billingMetricValue, { color: '#059669' }]}>{formatCurrency(totalArrecadado)}</Text>
-                </View>
-                <View style={styles.billingMetricItem}>
-                  <Text style={styles.billingMetricLabel}>Total Pendente</Text>
-                  <Text style={[styles.billingMetricValue, { color: (totalAguardando || 0) > 0 ? '#B91C1C' : '#1e293b' }]}>{formatCurrency(totalAguardando)}</Text>
-                </View>
-              </View>
-            </View>
-            
-            <View style={{ marginBottom: SPACING.md }}>
-              <TouchableOpacity style={styles.printGeneralBtn} onPress={() => void handleImprimirFaturacaoGeral()}>
-                <Ionicons name="print-outline" size={16} color="white" />
-                <Text style={styles.printGeneralBtnText}>Imprimir Relatório</Text>
-              </TouchableOpacity>
-            </View>
 
+            {/* ── TRATAMENTOS E FACTURAS DETALHADOS ── */}
             <TratamentosFacturasPanel items={tratamentosFinanceiros} loading={financeiroLoading} onRefresh={carregarFinanceiro} />
           </>
         )}
