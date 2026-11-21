@@ -78,7 +78,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
       Toast.show({
         type: 'success',
         text1: 'Senha mantida!',
-        text2: 'A sua senha actual foi mantida com sucesso.',
+        text2: 'A sua senha definida no cadastro foi mantida com sucesso.',
       });
       if (onPasswordChanged) onPasswordChanged();
     } catch (error: any) {
@@ -214,7 +214,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
             </View>
             <Text style={styles.title}>Altere sua senha</Text>
             <Text style={styles.subtitle}>
-              Este é o seu primeiro acesso. Por segurança, altere a senha temporária.
+              Pode manter a sua senha definida no cadastro ou definir uma nova senha.
             </Text>
           </View>
 
@@ -234,10 +234,10 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
               {/* Senha Atual - apenas se for alterar */}
               {!manterSenha ? (
                 <View style={styles.formGroup}>
-                  <Text style={styles.label}>Senha temporária atual</Text>
+                  <Text style={styles.label}>Senha definida no cadastro</Text>
                   <View style={styles.inputWrapper}>
                     <Input
-                      placeholder="Digite sua senha atual"
+                      placeholder="Digite a senha definida no cadastro"
                       value={senhaAtual}
                       onChangeText={setSenhaAtual}
                       secureTextEntry={!mostrarSenhas}
@@ -249,7 +249,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
                 <View style={[styles.infoBox, { backgroundColor: '#F0FDF4', borderLeftColor: '#16A34A', marginBottom: SPACING.md }]}>
                   <Text style={[styles.infoTitle, { color: '#16A34A' }]}>Opção seleccionada:</Text>
                   <Text style={[styles.infoText, { color: '#15803D' }]}>
-                    A sua senha actual será mantida sem alterações. Clique em "Manter senha e continuar" abaixo para prosseguir.
+                    A sua senha definida no cadastro será mantida. Clique em "Manter senha e continuar" abaixo para prosseguir.
                   </Text>
                 </View>
               )}
@@ -263,7 +263,7 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
                 <View style={[styles.checkboxBox, manterSenha && styles.checkboxBoxActive]}>
                   {manterSenha && <Ionicons name="checkmark" size={14} color="white" />}
                 </View>
-                <Text style={styles.manterSenhaText}>Manter a senha actual (não mudar)</Text>
+                <Text style={styles.manterSenhaText}>Manter a senha definida no cadastro</Text>
               </TouchableOpacity>
 
               {!manterSenha && (

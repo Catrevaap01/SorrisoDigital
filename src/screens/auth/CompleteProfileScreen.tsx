@@ -560,7 +560,7 @@ const CompleteProfileScreen: React.FC = () => {
                 {manterSenha && <Ionicons name="checkmark" size={14} color="white" />}
               </View>
               <Text style={styles.manterSenhaText}>
-                Manter a senha actual (não mudar)
+                Manter a senha definida no cadastro
               </Text>
             </TouchableOpacity>
 
@@ -569,7 +569,7 @@ const CompleteProfileScreen: React.FC = () => {
               <Ionicons name="information-circle-outline" size={18} color={COLORS.primary} />
               <Text style={styles.infoText}>
                 {manterSenha
-                  ? 'A sua senha continuará a mesma e terá acesso directo ao aplicativo.'
+                  ? 'A sua senha definida no cadastro continuará a mesma e terá acesso directo ao aplicativo.'
                   : 'No passo seguinte, poderá definir uma nova senha.'}
               </Text>
             </View>
