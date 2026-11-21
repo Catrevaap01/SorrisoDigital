@@ -814,6 +814,84 @@ const createStyles = (isMobile: boolean) => StyleSheet.create({
     color: '#DC2626',
     fontWeight: '700',
   },
+  // ── Tabela de triagens/agendamentos ───────────────────────────────────────
+  tableHeader: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingBottom: 8,
+    marginBottom: 4,
+    marginTop: 8,
+  },
+  tableHeaderCell: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  tableCell: {
+    paddingRight: 6,
+  },
+  tableCellText: {
+    fontSize: 13,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+  tableAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  tableAvatarText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    alignSelf: 'flex-start',
+  },
+  priorityBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  verBtn: {
+    backgroundColor: '#F3F0FF',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  verBtnText: {
+    color: '#6D28D9',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  verTodasLink: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+  },
+  verTodasText: {
+    color: '#7C3AED',
+    fontSize: 13,
+    fontWeight: '600',
+  },
 });
 
 const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
@@ -1573,27 +1651,56 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     </View>
   );
 
-  const renderOperacaoTab = () => (
+  // helpers para tabela de triagens/agendamentos
+  const getPrioridadeBadge = (prioridade: string) => {
+    const p = (prioridade || '').toLowerCase();
+    if (p === 'alta' || p === 'urgente' || (!isNaN(Number(p)) && Number(p) >= 7))
+      return { label: 'Alta', bg: '#FEE2E2', color: '#DC2626' };
+    if (p === 'média' || p === 'media' || (!isNaN(Number(p)) && Number(p) >= 4))
+      return { label: 'Média', bg: '#FEF9C3', color: '#CA8A04' };
+    return { label: 'Baixa', bg: '#DCFCE7', color: '#16A34A' };
+  };
+
+  const getStatusBadge = (status: string) => {
+    const s = (status || '').toLowerCase();
+    if (s.includes('confirmado')) return { label: 'Confirmado', bg: '#DCFCE7', color: '#16A34A' };
+    if (s.includes('atribuido') || s === 'agendado') return { label: 'Agendado', bg: '#DBEAFE', color: '#2563EB' };
+    return { label: 'Pendente', bg: '#FEF9C3', color: '#CA8A04' };
+  };
+
+  const getInitials = (nome: string) =>
+    (nome || '?').split(' ').slice(0, 2).map((n: string) => n[0]?.toUpperCase()).join('');
+  const avatarColors = ['#7C3AED','#2563EB','#0F766E','#C2410C','#CA8A04'];
+  const getAvatarColor = (nome: string) => avatarColors[(nome || '').charCodeAt(0) % avatarColors.length];
+
+  const renderOperacaoTab = () => {
+    const hoje = new Date();
+    const diasSemana = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
+    const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    return (
     <>
+      {/* Centro de Operação — cabeçalho */}
       <View style={styles.operationIntro}>
         <View style={styles.operationIntroMain}>
-          <Text style={styles.operationEyebrow}>Centro de operações</Text>
+          <Text style={styles.operationEyebrow}>CENTRO DE OPERAÇÃO</Text>
           <Text style={styles.operationIntroTitle}>Priorize, atribua e acompanhe sem perder contexto</Text>
           <Text style={styles.operationIntroText}>
-            As filas principais ficam separadas por tipo de solicitação. Use os alertas e retornos apenas como apoio para decidir o que tratar primeiro.
+            Todas as triagens e agendamentos em um só lugar, com visão clara do fluxo de atendimento.
           </Text>
         </View>
         <View style={styles.operationIntroAside}>
-          <Text style={styles.operationAsideLabel}>Em aberto</Text>
-          <Text style={styles.operationAsideValue}>{itensCombinados.length}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="calendar-outline" size={13} color="#C4B5FD" />
+            <Text style={styles.operationAsideLabel}>DIA DE HOJE</Text>
+          </View>
+          <Text style={styles.operationAsideValue}>{hoje.getDate()}</Text>
           <Text style={styles.operationAsideText}>
-            {alertas.length > 0
-              ? `${alertas.length} item(ns) precisam de atenção prioritária.`
-              : 'Sem alertas críticos neste momento.'}
+            {diasSemana[hoje.getDay()]}, {hoje.getDate()} de {meses[hoje.getMonth()]} de {hoje.getFullYear()}
           </Text>
         </View>
       </View>
 
+      {/* Stats cards */}
       <View style={styles.metricsRow}>
         {metricas.map((item) => (
           <View key={item.label} style={styles.metricCard}>
@@ -1616,21 +1723,54 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
                 <Text style={styles.operationQueueTitle}>Triagens</Text>
               </View>
-              <Text style={styles.operationQueueSubtitle}>Casos clínicos recebidos para validação e encaminhamento.</Text>
+              <Text style={styles.operationQueueSubtitle}>Acompanhe as triagens e encaminhe para a especialidade.</Text>
             </View>
             <View style={[styles.operationCountPill, { backgroundColor: '#CCFBF1' }]}>
               <Text style={[styles.operationCountText, { color: '#0F766E' }]}>{triagensOrdenadas.length}</Text>
             </View>
           </View>
-          <FilasList
-            titulo="Triagens Pendentes"
-            tipo="triagem"
-            dados={triagensOrdenadas}
-            loading={filas.loading}
-            onAtribuir={handleAtribuirTriagem}
-            onRejeitar={handleRejeitarTriagem}
-            emptyMessage="Nenhuma triagem pendente no momento"
-          />
+          {triagensOrdenadas.length === 0 ? (
+            <Text style={styles.emptyText}>Nenhuma triagem pendente no momento.</Text>
+          ) : (
+            <>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.tableHeaderCell, { flex: 1.4 }]}>Paciente</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 1.6 }]}>Sintomas</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 0.9 }]}>Prioridade</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 0.7, textAlign: 'right' }]}>Ações</Text>
+              </View>
+              {triagensOrdenadas.slice(0, 5).map((item: any) => {
+                const badge = getPrioridadeBadge(String(item.prioridade || item.intensidade_dor || 'baixa'));
+                const nome = item.paciente?.nome || 'Paciente';
+                return (
+                  <View key={item.id} style={styles.tableRow}>
+                    <View style={[styles.tableCell, { flex: 1.4, flexDirection: 'row', alignItems: 'center', gap: 7 }]}>
+                      <View style={[styles.tableAvatar, { backgroundColor: getAvatarColor(nome) }]}>
+                        <Text style={styles.tableAvatarText}>{getInitials(nome)}</Text>
+                      </View>
+                      <Text style={[styles.tableCellText, { flex: 1 }]} numberOfLines={1}>{nome}</Text>
+                    </View>
+                    <Text style={[styles.tableCell, styles.tableCellText, { flex: 1.6 }]} numberOfLines={1}>
+                      {item.sintoma_principal || 'Triagem recebida'}
+                    </Text>
+                    <View style={[styles.tableCell, { flex: 0.9 }]}>
+                      <View style={[styles.priorityBadge, { backgroundColor: badge.bg }]}>
+                        <Text style={[styles.priorityBadgeText, { color: badge.color }]}>{badge.label}</Text>
+                      </View>
+                    </View>
+                    <View style={[styles.tableCell, { flex: 0.7, alignItems: 'flex-end' }]}>
+                      <TouchableOpacity style={styles.verBtn} onPress={() => handleAtribuirTriagem(item)}>
+                        <Text style={styles.verBtnText}>Ver</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
+              <TouchableOpacity style={styles.verTodasLink} onPress={() => setActiveTab('acompanhamento')}>
+                <Text style={styles.verTodasText}>Ver todas as triagens  →</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         <View style={styles.operationQueueCard}>
@@ -1642,99 +1782,54 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
                 <Text style={styles.operationQueueTitle}>Agendamentos</Text>
               </View>
-              <Text style={styles.operationQueueSubtitle}>Pedidos de consulta que precisam de atribuição da secretaria.</Text>
+              <Text style={styles.operationQueueSubtitle}>Confira os próximos agendamentos da clínica.</Text>
             </View>
             <View style={[styles.operationCountPill, { backgroundColor: '#DBEAFE' }]}>
               <Text style={[styles.operationCountText, { color: '#2563EB' }]}>{agendamentosOrdenados.length}</Text>
             </View>
           </View>
-          <FilasList
-            titulo="Agendamentos Pendentes"
-            tipo="agendamento"
-            dados={agendamentosOrdenados}
-            loading={filas.loading}
-            onAtribuir={handleAtribuirAgendamento}
-            onRejeitar={handleRejeitarAgendamento}
-            emptyMessage="Nenhum agendamento pendente no momento"
-          />
-        </View>
-      </View>
-
-      <View style={styles.supportGrid}>
-        {renderMiniList(
-          'Novas solicitações',
-          'Pedidos mais recentes que chegaram para a secretaria.',
-          novasSolicitacoes,
-          'Nenhuma nova solicitação no momento.'
-        )}
-        {renderMiniList(
-          'Alertas',
-          'Itens urgentes ou de alta prioridade.',
-          alertas,
-          'Nenhum alerta crítico agora.'
-        )}
-        {renderMiniList(
-          'Retornos',
-          'Itens que já aguardam atenção há mais tempo.',
-          retornos,
-          'Nenhum retorno pendente agora.'
-        )}
-      </View>
-
-      <View style={styles.hiddenLegacy}>
-        <Text style={styles.sectionHeaderTitle}>Fluxo da Secretaria</Text>
-        <Text style={styles.sectionHeaderSubtitle}>Organize triagens e agendamentos em painéis separados para uma leitura rápida e clara.</Text>
-      </View>
-
-      <View style={styles.hiddenLegacy}>
-        <View style={styles.columnLeft}>
-          {renderMiniList(
-            'Novas solicitações',
-            'Pedidos mais recentes que chegaram para a secretaria.',
-            novasSolicitacoes,
-            'Nenhuma nova solicitação no momento.'
-          )}
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Triagens</Text>
-            <Text style={styles.cardSubtitle}>Casos que precisam de validação e encaminhamento.</Text>
-            <FilasList
-              titulo="Triagens Pendentes"
-              tipo="triagem"
-              dados={triagensOrdenadas}
-              loading={filas.loading}
-              onAtribuir={handleAtribuirTriagem}
-              onRejeitar={handleRejeitarTriagem}
-              emptyMessage="Nenhuma triagem pendente no momento"
-            />
-          </View>
-        </View>
-
-        <View style={styles.columnCenter}>
-          {renderAgenda()}
-        </View>
-
-        <View style={styles.columnRight}>
-          {renderMiniList(
-            'Alertas',
-            'Itens urgentes ou de alta prioridade.',
-            alertas,
-            'Nenhum alerta crítico agora.'
-          )}
-          {renderMiniList(
-            'Retornos',
-            'Itens que já aguardam atenção há mais tempo.',
-            retornos,
-            'Nenhum retorno pendente agora.'
+          {agendamentosOrdenados.length === 0 ? (
+            <Text style={styles.emptyText}>Nenhum agendamento pendente no momento.</Text>
+          ) : (
+            <>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.tableHeaderCell, { flex: 1.3 }]}>Paciente</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 1.3 }]}>Dentista</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 1.2 }]}>Data e Hora</Text>
+                <Text style={[styles.tableHeaderCell, { flex: 0.9, textAlign: 'right' }]}>Status</Text>
+              </View>
+              {agendamentosOrdenados.slice(0, 5).map((item: any) => {
+                const statusB = getStatusBadge(item.status || '');
+                const nomePaciente = item.paciente?.nome || 'Paciente';
+                const nomeDentista = item.dentista?.nome || '—';
+                const data = item.appointment_date || item.suggested_date || '';
+                const hora = (item.appointment_time || item.suggested_time || '').substring(0, 5);
+                return (
+                  <View key={item.id} style={styles.tableRow}>
+                    <Text style={[styles.tableCell, styles.tableCellText, { flex: 1.3 }]} numberOfLines={1}>{nomePaciente}</Text>
+                    <Text style={[styles.tableCell, styles.tableCellText, { flex: 1.3 }]} numberOfLines={1}>{nomeDentista}</Text>
+                    <Text style={[styles.tableCell, styles.tableCellText, { flex: 1.2 }]} numberOfLines={1}>
+                      {data ? formatDate(data) : '—'}{hora ? ` • ${hora}` : ''}
+                    </Text>
+                    <View style={[styles.tableCell, { flex: 0.9, alignItems: 'flex-end' }]}>
+                      <View style={[styles.priorityBadge, { backgroundColor: statusB.bg }]}>
+                        <Text style={[styles.priorityBadgeText, { color: statusB.color }]}>{statusB.label}</Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+              <TouchableOpacity style={styles.verTodasLink} onPress={() => navigation.navigate('Agendamentos' as any)}>
+                <Text style={styles.verTodasText}>Ver todos os agendamentos  →</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       </View>
 
-      <View style={styles.footerSection}>
-        {renderHistórico()}
-      </View>
     </>
-  );
+    );
+  };
 
   return (
     <ScrollView

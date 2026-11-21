@@ -317,8 +317,7 @@ const SecretarioTabs: React.FC<TabsProps> = ({ unreadCount }) => (
         maxWidth: 800,
         width: '100%',
         alignSelf: 'center',
-        borderTopWidth: 1,
-        borderTopColor: COLORS.divider,
+        borderTopWidth: 0,
         backgroundColor: COLORS.surface,
         position: 'absolute',
         bottom: 0,
@@ -326,7 +325,14 @@ const SecretarioTabs: React.FC<TabsProps> = ({ unreadCount }) => (
         right: 0,
         marginHorizontal: 'auto',
         height: 60,
-      } : { height: 60 },
+        elevation: 0,
+        shadowOpacity: 0,
+        boxShadow: '0 -1px 0 #E2E8F0',
+      } : {
+        height: 60,
+        borderTopWidth: 0,
+        elevation: 8,
+      },
     })}
   >
     <SecretarioTab.Screen
