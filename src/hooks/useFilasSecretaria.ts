@@ -61,10 +61,10 @@ export const useFilasSecretaria = () => {
 
       // Calcular contadores apenas para itens QUE NÃO FORAM ATRIBUÍDOS AINDA
       const triagensNaoAtribuidas = triagensNovas.filter(
-        (t: any) => t.status === 'triagem_pendente_secretaria'
+        (t: any) => !t.dentista_id && t.status === 'triagem_pendente_secretaria'
       ).length;
       const agendamentosNaoAtribuidos = agendamentosNovos.filter(
-        (a: any) => a.status === 'agendamento_pendente_secretaria' || a.status === 'solicitado' || a.status === 'pendente'
+        (a: any) => !a.dentist_id && a.status !== 'atribuido_dentista' && (a.status === 'agendamento_pendente_secretaria' || a.status === 'solicitado' || a.status === 'pendente')
       ).length;
 
       setFilas({

@@ -1085,6 +1085,32 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     [filas.agendamentosNovos]
   );
 
+  // Apenas triagens que NÃO foram atribuídas para a fila de Operação
+  const triagensPendentesOperacao = useMemo(
+    () =>
+      triagensOrdenadas.filter(
+        (item: any) =>
+          !item.dentista_id &&
+          item.status === 'triagem_pendente_secretaria'
+      ),
+    [triagensOrdenadas]
+  );
+
+  // Apenas agendamentos que NÃO foram atribuídos para a fila de Operação
+  const agendamentosPendentesOperacao = useMemo(
+    () =>
+      agendamentosOrdenados.filter(
+        (item: any) =>
+          !item.dentist_id &&
+          item.status !== 'atribuido_dentista' &&
+          item.status !== 'confirmado_dentista' &&
+          item.status !== 'realizado' &&
+          item.status !== 'cancelado' &&
+          item.status !== 'recusado'
+      ),
+    [agendamentosOrdenados]
+  );
+
   const itensCombinados = useMemo<ItemPainel[]>(() => {
     const triagens = triagensOrdenadas.map((item: any): ItemPainel => ({
       id: `triagem-${item.id}`,
@@ -1172,8 +1198,8 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
 
   const agrupadoPorDentista = useMemo(() => {
     return itensAtribuidos.reduce((acc, item) => {
-      const dName = item.raw.dentista?.nome || 'Dentista';
-      const dSpecialty = item.raw.dentista?.especialidade || '';
+      const dName = item.raw.dentista?.nome || item.raw.dentist?.nome || 'Dentista Atribuído';
+      const dSpecialty = item.raw.dentista?.especialidade || item.raw.dentist?.especialidade || 'Clínica Geral';
       const key = `${dName}|${dSpecialty}`;
       if (!acc[key]) acc[key] = [];
       acc[key].push(item);
@@ -1240,14 +1266,14 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
     () => [
       {
         label: 'Triagens pendentes',
-        value: triagensOrdenadas.length,
+        value: triagensPendentesOperacao.length,
         icon: 'clipboard-outline',
         color: '#0F766E',
         bg: '#CCFBF1',
       },
       {
         label: 'Agendamentos',
-        value: agendamentosOrdenados.length,
+        value: agendamentosPendentesOperacao.length,
         icon: 'calendar-outline',
         color: '#2563EB',
         bg: '#DBEAFE',
@@ -1274,7 +1300,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
         bg: '#FFEDD5',
       },
     ],
-    [agendamentosOrdenados.length, alertas.length, financeiroResumo.aguardando, retornos.length, triagensOrdenadas.length]
+    [agendamentosPendentesOperacao.length, alertas.length, financeiroResumo.aguardando, retornos.length, triagensPendentesOperacao.length]
   );
 
   const relatorioMetrics = useMemo(() => {
@@ -1500,7 +1526,7 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
       <FilasList
         titulo="Agendamentos Pendentes"
         tipo="agendamento"
-        dados={agendamentosOrdenados}
+        dados={agendamentosPendentesOperacao}
         loading={filas.loading}
         onAtribuir={handleAtribuirAgendamento}
         onRejeitar={handleRejeitarAgendamento}
@@ -1582,13 +1608,13 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.operationQueueSubtitle}>Casos clínicos recebidos para validação e encaminhamento.</Text>
             </View>
             <View style={[styles.operationCountPill, { backgroundColor: '#CCFBF1' }]}>
-              <Text style={[styles.operationCountText, { color: '#0F766E' }]}>{triagensOrdenadas.length}</Text>
+              <Text style={[styles.operationCountText, { color: '#0F766E' }]}>{triagensPendentesOperacao.length}</Text>
             </View>
           </View>
           <FilasList
             titulo="Triagens Pendentes"
             tipo="triagem"
-            dados={triagensOrdenadas}
+            dados={triagensPendentesOperacao}
             loading={filas.loading}
             onAtribuir={handleAtribuirTriagem}
             onRejeitar={handleRejeitarTriagem}
@@ -1608,13 +1634,13 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
               <Text style={styles.operationQueueSubtitle}>Pedidos de consulta que precisam de atribuição da secretaria.</Text>
             </View>
             <View style={[styles.operationCountPill, { backgroundColor: '#DBEAFE' }]}>
-              <Text style={[styles.operationCountText, { color: '#2563EB' }]}>{agendamentosOrdenados.length}</Text>
+              <Text style={[styles.operationCountText, { color: '#2563EB' }]}>{agendamentosPendentesOperacao.length}</Text>
             </View>
           </View>
           <FilasList
             titulo="Agendamentos Pendentes"
             tipo="agendamento"
-            dados={agendamentosOrdenados}
+            dados={agendamentosPendentesOperacao}
             loading={filas.loading}
             onAtribuir={handleAtribuirAgendamento}
             onRejeitar={handleRejeitarAgendamento}

@@ -659,10 +659,10 @@ export const buscarTriagensPendentesSecretaria = async (): Promise<{
           id, paciente_id, dentista_id, sintoma_principal, descricao, intensidade_dor,
           prioridade, status, created_at, updated_at,
           paciente:profiles!paciente_id(id, nome, email, telefone, foto_url),
-          dentista:profiles!dentista_id(id, nome)
+          dentista:profiles!dentista_id(id, nome, especialidade)
         `
         )
-        .in('status', ['triagem_pendente_secretaria'])
+        .in('status', ['triagem_pendente_secretaria', 'atribuido_dentista', 'pendente', 'aguardando_dentista'])
         .order('created_at', { ascending: false }) as any,
       8000
     );
@@ -692,11 +692,12 @@ export const buscarAgendamentosPendentesSecretaria = async (): Promise<{
         .select(
           `
           id, patient_id, dentist_id, symptoms, urgency, status, created_at, updated_at,
+          appointment_date, appointment_time, suggested_date, notes, is_procedimento,
           paciente:profiles!patient_id(id, nome, email, telefone, foto_url),
-          dentista:profiles!dentist_id(id, nome)
+          dentista:profiles!dentist_id(id, nome, especialidade)
         `
         )
-        .in('status', ['agendamento_pendente_secretaria', 'solicitado', 'atribuido_dentista'])
+        .in('status', ['agendamento_pendente_secretaria', 'solicitado', 'atribuido_dentista', 'confirmado_dentista', 'pendente'])
         .order('created_at', { ascending: false }) as any,
       8000
     );
