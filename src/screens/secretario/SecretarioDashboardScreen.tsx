@@ -1751,21 +1751,12 @@ const SecretarioDashboardScreen: React.FC<Props> = ({ navigation }) => {
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity 
-              style={styles.messageButtonHeader} 
-              onPress={() => navigation.navigate('Mensagens')}
-            >
-              <Ionicons name="chatbubble-ellipses-outline" size={18} color="#6D28D9" />
-            </TouchableOpacity>
-
-            <TouchableOpacity 
               style={styles.primaryActionButton} 
               onPress={() => navigation.getParent()?.navigate('CadastrarPaciente')}
             >
               <Ionicons name="person-add-outline" size={16} color="white" />
               <Text style={styles.primaryActionButtonText}>Novo</Text>
             </TouchableOpacity>
-            
-
           </View>
         </View>
 
