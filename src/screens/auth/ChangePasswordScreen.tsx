@@ -59,14 +59,6 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
   };
 
   const handleManterSenha = async () => {
-    if (!senhaAtual.trim()) {
-      Toast.show({
-        type: 'error',
-        text1: 'Erro',
-        text2: 'Digite a sua senha actual para confirmar que a quer manter',
-      });
-      return;
-    }
     setLoading(true);
     setProgressStep('Confirmando...');
     try {
@@ -74,10 +66,19 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
         const result = await updateProfile({ senha_alterada: true });
         if (!result.success) throw new Error('Erro ao actualizar perfil');
       }
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            ...(user?.user_metadata || {}),
+            force_password_change: false,
+          },
+        });
+      } catch (_) {}
+
       Toast.show({
         type: 'success',
         text1: 'Senha mantida!',
-        text2: 'A sua senha actual foi confirmada.',
+        text2: 'A sua senha actual foi mantida com sucesso.',
       });
       if (onPasswordChanged) onPasswordChanged();
     } catch (error: any) {
@@ -230,19 +231,28 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
 
             {/* Form */}
             <View style={styles.form}>
-              {/* Senha Atual */}
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>Senha temporária atual</Text>
-                <View style={styles.inputWrapper}>
-                  <Input
-                    placeholder="Digite sua senha atual"
-                    value={senhaAtual}
-                    onChangeText={setSenhaAtual}
-                    secureTextEntry={!mostrarSenhas}
-                    editable={!loading}
-                  />
+              {/* Senha Atual - apenas se for alterar */}
+              {!manterSenha ? (
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>Senha temporária atual</Text>
+                  <View style={styles.inputWrapper}>
+                    <Input
+                      placeholder="Digite sua senha atual"
+                      value={senhaAtual}
+                      onChangeText={setSenhaAtual}
+                      secureTextEntry={!mostrarSenhas}
+                      editable={!loading}
+                    />
+                  </View>
                 </View>
-              </View>
+              ) : (
+                <View style={[styles.infoBox, { backgroundColor: '#F0FDF4', borderLeftColor: '#16A34A', marginBottom: SPACING.md }]}>
+                  <Text style={[styles.infoTitle, { color: '#16A34A' }]}>Opção seleccionada:</Text>
+                  <Text style={[styles.infoText, { color: '#15803D' }]}>
+                    A sua senha actual será mantida sem alterações. Clique em "Manter senha e continuar" abaixo para prosseguir.
+                  </Text>
+                </View>
+              )}
 
               {/* Toggle Manter Senha */}
               <TouchableOpacity
@@ -313,9 +323,9 @@ const ChangePasswordScreen: React.FC<ChangePasswordScreenProps> = ({
             <View style={styles.buttonsContainer}>
               {manterSenha ? (
                 <Button
-                  title={loading ? 'Confirmando...' : 'Confirmar e continuar'}
+                  title={loading ? 'Confirmando...' : 'Manter senha e continuar'}
                   onPress={handleManterSenha}
-                  disabled={loading || !senhaAtual.trim()}
+                  disabled={loading}
                   loading={loading}
                 />
               ) : (

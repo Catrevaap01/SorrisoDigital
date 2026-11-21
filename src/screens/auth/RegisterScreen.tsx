@@ -84,14 +84,15 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       });
 
       if (result.success) {
-        // Sempre terminar sessão após cadastro e redirecionar para Login
         showSuccess(
-          '✅ Conta criada!',
-          'Conta criada com sucesso! Faça login para continuar.'
+          'Conta criada com sucesso!',
+          'Faça login com os seus dados para aceder.'
         );
-        // Encerrar qualquer sessão criada automaticamente
-        try { await signOut(); } catch (_) { /* ignorar erro de signOut */ }
-        setTimeout(() => navigation.replace('Login'), 2000);
+        // Limpeza silenciosa local sem disparar mensagens de encerramento de sessão
+        try { await supabase.auth.signOut({ scope: 'local' }); } catch (_) {}
+        setTimeout(() => {
+          navigation.replace('Login');
+        }, 1500);
       } else {
         const msg =
           (result.error as any)?.message || 'Erro ao criar conta. Tente novamente.';

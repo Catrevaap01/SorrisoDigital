@@ -176,6 +176,7 @@ const CompleteProfileScreen: React.FC = () => {
   const [enderecoRua, setEnderecoRua] = useState(profile?.endereco_rua || '');
 
   const [saving, setSaving] = useState(false);
+  const [manterSenha, setManterSenha] = useState(true);
 
   // ── Validação Passo 1 ──────────────────────────────────────────────────────
   const validateStep1 = (): boolean => {
@@ -215,8 +216,15 @@ const CompleteProfileScreen: React.FC = () => {
       const updates: Record<string, unknown> = {
         telefone: telefone.trim(),
         provincia: provincia.trim(),
-        senha_alterada: false, // forçar mudança de senha a seguir
+        senha_alterada: manterSenha ? true : false,
       };
+      if (manterSenha) {
+        try {
+          await supabase.auth.updateUser({
+            data: { force_password_change: false },
+          });
+        } catch (_) {}
+      }
       if (dataNascimento.trim()) updates.data_nascimento = dataNascimento.trim();
       if (genero) updates.genero = genero;
       if (enderecoRua.trim()) updates.endereco_rua = enderecoRua.trim();
@@ -542,11 +550,27 @@ const CompleteProfileScreen: React.FC = () => {
               />
             </View>
 
+            {/* Opção Manter a Senha */}
+            <TouchableOpacity
+              style={styles.manterSenhaToggle}
+              onPress={() => setManterSenha(!manterSenha)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.checkboxBox, manterSenha && styles.checkboxBoxActive]}>
+                {manterSenha && <Ionicons name="checkmark" size={14} color="white" />}
+              </View>
+              <Text style={styles.manterSenhaText}>
+                Manter a senha actual (não mudar)
+              </Text>
+            </TouchableOpacity>
+
             {/* Info — próximo passo */}
             <View style={styles.infoBox}>
               <Ionicons name="information-circle-outline" size={18} color={COLORS.primary} />
               <Text style={styles.infoText}>
-                No passo seguinte, vai definir a sua senha pessoal.
+                {manterSenha
+                  ? 'A sua senha continuará a mesma e terá acesso directo ao aplicativo.'
+                  : 'No passo seguinte, poderá definir uma nova senha.'}
               </Text>
             </View>
 
@@ -833,6 +857,38 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   btnBackText: { color: COLORS.primary, fontSize: SIZES.fontMd, fontWeight: '600' },
+  manterSenhaToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SIZES.md,
+    paddingVertical: SIZES.sm,
+    paddingHorizontal: SIZES.md,
+    backgroundColor: '#F0FDF4',
+    borderRadius: SIZES.radiusMd,
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+  },
+  checkboxBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: COLORS.primary,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: SIZES.sm,
+  },
+  checkboxBoxActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  manterSenhaText: {
+    fontSize: SIZES.fontSm,
+    color: '#15803D',
+    fontWeight: '600',
+    flex: 1,
+  },
   privacy: {
     textAlign: 'center',
     fontSize: SIZES.fontSm,
