@@ -13,6 +13,7 @@ import { withTimeout } from '../utils/withTimeout';
 import { deleteImage } from '../services/storageService';
 import NetInfo from '@react-native-community/netinfo';
 import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
+import { shouldQueueOffline } from '../utils/networkUtils';
 
 /**
  * Cache simples para profiles (TTL 5min)
@@ -649,8 +650,7 @@ export const createPaciente = async (
     };
   } catch (error: any) {
     // OFFLINE HANDLING
-    const state = await NetInfo.fetch();
-    if (!state.isConnected || !state.isInternetReachable) {
+    if (await shouldQueueOffline(error)) {
       console.log('📡 Offline: Enfileirando criação de paciente...');
       await enqueueOfflineAction('createPaciente', { dentistaId, data });
       return {

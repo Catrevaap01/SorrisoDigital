@@ -2,7 +2,7 @@
 import React from 'react';
 
 // LogBox: suprime avisos indesejados; Platform: verifica a plataforma actual (web/android/ios)
-import { LogBox, Platform } from 'react-native';
+import { AppState, AppStateStatus, LogBox, Platform } from 'react-native';
 
 // Barra de estado da aplicação (barra superior do sistema)
 import { StatusBar } from 'expo-status-bar';
@@ -34,8 +34,14 @@ import { RealtimeProvider } from './src/contexts/RealtimeContext';
 // Contexto de presença em tempo real — gere estado online/offline no chat e na app
 import { PresenceProvider } from './src/contexts/PresenceContext';
 
+// Registo centralizado dos handlers de sincronização offline (carregado no arranque)
+import './src/services/syncRegistry';
+
 // Serviço de sincronização offline — envia dados pendentes quando volta online
-import { processOfflineQueue } from './src/services/offlineSyncService';
+import { getOfflineQueue, processOfflineQueue } from './src/services/offlineSyncService';
+
+// Banner visual de estado da rede e sincronização offline
+import { NetworkSyncStatus } from './src/components/NetworkSyncStatus';
 
 // Serviço de lembretes automáticos — notifica consultas de amanhã
 import { startReminderWorker, stopReminderWorker } from './src/services/reminderWorkerService';
@@ -111,38 +117,58 @@ const AppContent = () => {
   // Obtém o estado de conectividade do contexto de rede
   const { isOnline } = useNetwork();
 
-  // Estado local para evitar múltiplas sincronizações simultâneas
-  const [syncing, setSyncing] = React.useState(false);
+  // Referência para evitar múltiplos runs simultâneos
+  const syncingRef = React.useRef(false);
 
-  // Efeito: sincroniza fila offline quando o dispositivo volta a ter ligação
-  React.useEffect(() => {
-    // Só sincroniza se estiver online e não estiver já a sincronizar
-    if (isOnline && !syncing) {
-      setSyncing(true); // Marca como "a sincronizar"
+  const runSync = React.useCallback(async () => {
+    if (!isOnline || syncingRef.current) return;
+    const queue = await getOfflineQueue();
+    if (queue.length === 0) return;
 
-      processOfflineQueue()
-        .then(({ synced, failed }) => {
-          // Se alguma acção foi sincronizada com sucesso, mostra notificação verde
-          if (synced > 0) {
-            Toast.show({
-              type: 'success',
-              text1: 'Sincronização Concluída',
-              text2: `${synced} ações sincronizadas com sucesso.`,
-            });
-          }
-          // Se alguma acção falhou, mostra notificação de erro
-          if (failed > 0) {
-            Toast.show({
-              type: 'error',
-              text1: 'Erro na Sincronização',
-              text2: `${failed} ações falharam ao sincronizar.`,
-            });
-          }
-          setSyncing(false); // Liberta o bloqueio de sincronização
-        })
-        .catch(() => setSyncing(false)); // Em caso de erro inesperado, liberta igualmente
+    syncingRef.current = true;
+    try {
+      const { synced, failed } = await processOfflineQueue();
+      if (synced > 0) {
+        Toast.show({
+          type: 'success',
+          text1: 'Sincronização Concluída',
+          text2: `${synced} ${synced === 1 ? 'ação sincronizada' : 'ações sincronizadas'} com sucesso.`,
+        });
+      }
+      if (failed > 0 && isOnline) {
+        Toast.show({
+          type: 'info',
+          text1: 'Sincronização Pendente',
+          text2: `${failed} ${failed === 1 ? 'ação aguarda' : 'ações aguardam'} nova tentativa.`,
+        });
+      }
+    } finally {
+      syncingRef.current = false;
     }
-  }, [isOnline]); // Executado sempre que o estado de rede muda
+  }, [isOnline]);
+
+  // Efeito: sincroniza fila offline quando o dispositivo volta a ter ligação,
+  // ao voltar ao primeiro plano, e em retry automático se houver pendentes
+  React.useEffect(() => {
+    if (!isOnline) return;
+
+    void runSync();
+
+    const appStateSub = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (nextState === 'active') {
+        void runSync();
+      }
+    });
+
+    const intervalId = setInterval(() => {
+      void runSync();
+    }, 20_000);
+
+    return () => {
+      appStateSub.remove();
+      clearInterval(intervalId);
+    };
+  }, [isOnline, runSync]);
 
   // Efeito: inicia o worker de lembretes automáticos ao montar o componente
   // Worker: verifica consultas de amanhã a cada hora
@@ -165,6 +191,9 @@ const AppContent = () => {
 
       {/* Navegador principal com todas as rotas da aplicação */}
       <AppNavigator />
+
+      {/* Indicador de conectividade e sincronização offline */}
+      <NetworkSyncStatus />
 
       {/* Sistema de Toast (notificações temporárias) com config personalizada */}
       <Toast config={toastConfig} />

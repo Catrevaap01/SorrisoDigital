@@ -15,6 +15,7 @@ import { enviarLembretesConsulta } from './reminderService';
 import NetInfo from '@react-native-community/netinfo';
 import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
 import { fetchWithCache } from '../utils/cacheService';
+import { shouldQueueOffline } from '../utils/networkUtils';
 
 // helper para detectar falta da tabela agendamentos e informar o usuário
 function _handleTableMissing(error: any): string | null {
@@ -164,6 +165,13 @@ export const criarAgendamento = async (
     }
 
     if (error && !data) {
+      if (await shouldQueueOffline(error)) {
+        await enqueueOfflineAction('criarAgendamento', { dados });
+        return {
+          success: true,
+          data: { id: 'temp-' + Date.now(), ...dados, status: 'agendamento_pendente_secretaria', isPendingSync: true } as any
+        };
+      }
       const msg = _handleTableMissing(error) || error.message || 'Erro desconhecido ao salvar no banco';
       return { success: false, error: msg };
     }
@@ -179,10 +187,9 @@ export const criarAgendamento = async (
   } catch (err: any) {
     console.error('Erro catch em criarAgendamento:', err);
     
-    // OFFLINE HANDLING - Só tentamos se for erro de rede provável
+    // OFFLINE HANDLING - Enfileira se estiver offline ou erro for de rede
     try {
-      const state = await NetInfo.fetch();
-      if (!state.isConnected) {
+      if (await shouldQueueOffline(err)) {
         console.log('📡 Offline: Enfileirando criação de agendamento...');
         await enqueueOfflineAction('criarAgendamento', { dados });
         return {

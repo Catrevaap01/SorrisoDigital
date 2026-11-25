@@ -1,8 +1,7 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
 import { logger } from '../utils/logger';
-import { isNetworkOffline } from '../utils/networkUtils';
+import { fetchIsOnline, isLikelyNetworkError } from '../utils/networkUtils';
 
 export interface OfflineAction {
   id: string;
@@ -56,6 +55,25 @@ export const registerSyncHandler = (type: string, handler: (payload: any) => Pro
   syncHandlers[type] = handler;
 };
 
+// ── Queue change listeners (for real-time UI badge/toast updates) ─────────────
+type QueueListener = (count: number) => void;
+const queueListeners = new Set<QueueListener>();
+
+export const subscribeOfflineQueue = (listener: QueueListener): (() => void) => {
+  queueListeners.add(listener);
+  return () => {
+    queueListeners.delete(listener);
+  };
+};
+
+const notifyQueueListeners = (count: number) => {
+  queueListeners.forEach((listener) => {
+    try {
+      listener(count);
+    } catch (_) {}
+  });
+};
+
 // ── Queue operations ──────────────────────────────────────────────────────────
 
 export const enqueueOfflineAction = async (type: string, payload: any): Promise<OfflineAction | null> => {
@@ -83,6 +101,7 @@ export const enqueueOfflineAction = async (type: string, payload: any): Promise<
     
     queue.push(newAction);
     await queueStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+    notifyQueueListeners(queue.length);
     logger.info(`Ação offline enfileirada: ${type} (total na fila: ${queue.length})`);
     return newAction;
   } catch (error) {
@@ -106,6 +125,7 @@ export const removeOfflineAction = async (id: string): Promise<void> => {
     const queue = await getOfflineQueue();
     const updatedQueue = queue.filter(a => a.id !== id);
     await queueStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(updatedQueue));
+    notifyQueueListeners(updatedQueue.length);
   } catch (error) {
     logger.error('Erro ao remover ação offline:', error);
   }
@@ -114,6 +134,7 @@ export const removeOfflineAction = async (id: string): Promise<void> => {
 export const clearOfflineQueue = async (): Promise<void> => {
   try {
     await queueStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify([]));
+    notifyQueueListeners(0);
     logger.info('Fila offline limpa.');
   } catch (error) {
     logger.error('Erro ao limpar fila offline:', error);
@@ -151,8 +172,8 @@ export const processOfflineQueue = async (): Promise<{ synced: number; failed: n
     if (queue.length === 0) return { synced: 0, failed: 0, dropped: 0 };
 
     // Verify connectivity before starting
-    const initialState = await NetInfo.fetch();
-    if (isNetworkOffline(initialState)) {
+    const initialOnline = await fetchIsOnline();
+    if (!initialOnline) {
       logger.info('Sincronização offline adiada: sem internet.');
       return { synced: 0, failed: queue.length, dropped: 0 };
     }
@@ -174,8 +195,8 @@ export const processOfflineQueue = async (): Promise<{ synced: number; failed: n
       }
 
       // Re-check connectivity between each action
-      const currentState = await NetInfo.fetch();
-      if (isNetworkOffline(currentState)) {
+      const stillOnline = await fetchIsOnline();
+      if (!stillOnline) {
         logger.info('Sincronização interrompida: conexão caiu durante o processamento.');
         failed += queue.length - synced - failed - dropped;
         break;
@@ -184,9 +205,8 @@ export const processOfflineQueue = async (): Promise<{ synced: number; failed: n
       const handler = syncHandlers[action.type];
       
       if (!handler) {
-        logger.warn(`Nenhum handler registrado para o tipo: ${action.type}. Removendo da fila.`);
-        await removeOfflineAction(action.id);
-        dropped++;
+        logger.warn(`Nenhum handler registrado ainda para o tipo: ${action.type}. Mantendo na fila para próxima tentativa.`);
+        failed++;
         continue;
       }
 
@@ -196,6 +216,11 @@ export const processOfflineQueue = async (): Promise<{ synced: number; failed: n
           await removeOfflineAction(action.id);
           synced++;
           logger.info(`✅ Ação offline sincronizada: ${action.type} (tentativa ${action.attempts + 1})`);
+        } else if (isLikelyNetworkError(result.error)) {
+          // Erro de rede durante o sync: não queimar tentativas; tentar quando estabilizar
+          logger.info(`📡 Rede instável ao sincronizar ${action.type}; mantendo na fila.`);
+          failed += queue.length - synced - failed - dropped;
+          break;
         } else {
           failed++;
           await updateOfflineAction(action.id, {
@@ -205,6 +230,11 @@ export const processOfflineQueue = async (): Promise<{ synced: number; failed: n
           logger.error(`❌ Falha ao sincronizar ação offline: ${action.type}`, result.error);
         }
       } catch (error: any) {
+        if (isLikelyNetworkError(error)) {
+          logger.info(`📡 Erro de rede ao sincronizar ${action.type}; mantendo na fila.`);
+          failed += queue.length - synced - failed - dropped;
+          break;
+        }
         failed++;
         await updateOfflineAction(action.id, {
           attempts: (action.attempts || 0) + 1,

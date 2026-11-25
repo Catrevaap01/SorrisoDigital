@@ -150,8 +150,8 @@ const getConflictQuery = (
 };
 
 const queueOfflineAction = async (action: string, payload: any): Promise<boolean> => {
-  const state = await NetInfo.fetch();
-  if (!state.isConnected || state.isInternetReachable === false) {
+  const { shouldQueueOffline } = await import('../utils/networkUtils');
+  if (await shouldQueueOffline()) {
     logger.info(`📡 Offline: enfileirando ação ${action}`);
     await enqueueOfflineAction(action, payload);
     return true;
@@ -643,8 +643,8 @@ export const fetchAppointmentById = async (
 };
 
 const handleOfflineWrite = async (action: string, payload: any) => {
-  const state = await NetInfo.fetch();
-  if (!state.isConnected || state.isInternetReachable === false) {
+  const { shouldQueueOffline } = await import('../utils/networkUtils');
+  if (await shouldQueueOffline()) {
     logger.info(`📡 Offline: Enfileirando ação de agendamento ${action}`);
     await enqueueOfflineAction(action, payload);
     return true;

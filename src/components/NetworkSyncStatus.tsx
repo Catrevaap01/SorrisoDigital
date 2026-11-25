@@ -10,18 +10,31 @@ export const NetworkSyncStatus = () => {
   const { pendingCount, isSyncing, lastSync } = useOfflineSync();
   const insets = useSafeAreaInsets();
   const [visible, setVisible] = React.useState(false);
-  
+  const wasOfflineOrPendingRef = React.useRef(false);
+
   // Minimal top offset is 15. If safe area is larger (like Notch on iOS), use safe area + 5
   const topOffset = Math.max(insets.top + 5, Platform.OS === 'ios' ? 45 : 15);
 
   React.useEffect(() => {
-    setVisible(true);
-    const timer = setTimeout(() => {
-      setVisible(false);
-    }, 15000); // 15 segundos
+    // Sempre visível enquanto estiver offline, sincronizando ou com ações pendentes
+    if (!isOnline || isSyncing || pendingCount > 0) {
+      wasOfflineOrPendingRef.current = true;
+      setVisible(true);
+      return;
+    }
 
-    return () => clearTimeout(timer);
-  }, [isOnline, isSyncing]);
+    // Se acabou de voltar online e sincronizou tudo, mostra por 4 segundos e oculta
+    if (wasOfflineOrPendingRef.current) {
+      wasOfflineOrPendingRef.current = false;
+      setVisible(true);
+      const timer = setTimeout(() => {
+        setVisible(false);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+
+    setVisible(false);
+  }, [isOnline, isSyncing, pendingCount]);
 
   if (!visible) return null;
 
@@ -35,16 +48,24 @@ export const NetworkSyncStatus = () => {
             color={isOnline ? "#AEEA00" : "#FFCDD2"} 
           />
           <Text style={styles.text}>
-            {isOnline ? 'Conectado' : 'Offline'} • {pendingCount} ação(ões) offline
+            {!isOnline
+              ? `Sem internet${pendingCount > 0 ? ` • ${pendingCount} pendente(s)` : ' • Modo offline'}`
+              : isSyncing
+                ? `Sincronizando ${pendingCount} ação(ões)...`
+                : pendingCount > 0
+                  ? `${pendingCount} ação(ões) aguardando envio`
+                  : 'Conectado • Tudo sincronizado'}
           </Text>
         </View>
-        <Text style={styles.subtext}>
-          {isSyncing 
-            ? 'Sincronizando...' 
-            : lastSync 
-              ? `Última sync: ${new Date(lastSync).toLocaleTimeString()}` 
-              : 'Aguardando sincronização'}
-        </Text>
+        {(!isOnline || isSyncing || lastSync) && (
+          <Text style={styles.subtext}>
+            {!isOnline
+              ? 'As alterações serão enviadas automaticamente ao reconectar'
+              : isSyncing
+                ? 'Enviando dados para o servidor...'
+                : `Última sync: ${new Date(lastSync!).toLocaleTimeString()}`}
+          </Text>
+        )}
       </View>
     </View>
   );

@@ -15,22 +15,22 @@ const GENERATED_PRECACHE_ASSETS = [
   "/index.html",
   "/manifest.json",
   "/offline.html",
-  "/_expo/static/js/web/AgendamentoScreen-690005085b148b16b4fa28499e702edc.js",
-  "/_expo/static/js/web/AnamneseScreen-f9cf7e02f4e214c000c814685374f773.js",
-  "/_expo/static/js/web/AtribuirDentistaAgendamentoScreen-a761331fbe90ff9e406406a49080d1ca.js",
-  "/_expo/static/js/web/AtribuirDentistaScreen-9eda595c57224e354b304eeeed5d40ad.js",
-  "/_expo/static/js/web/CasoDetalheScreen-23a1791193a9bbb304f9eb15d3153beb.js",
-  "/_expo/static/js/web/DentistaRelatorioScreen-7993055ee47d49e2ae3e841a84fe6aec.js",
-  "/_expo/static/js/web/EducacaoScreen-8908b82a9dfbb61f1f8c9725d0f4577a.js",
-  "/_expo/static/js/web/EvolucaoClinicaScreen-826003f1ffb71eb788884bac372265da.js",
-  "/_expo/static/js/web/GerirPacientesScreen-614977b2ebb49c4cffbbc56758756892.js",
-  "/_expo/static/js/web/HistoricoScreen-01d9a499909ac9dbc6d31440f70abaf4.js",
-  "/_expo/static/js/web/index-e8f2bd495485d5fd2efa2cdeb0b79a4b.js",
-  "/_expo/static/js/web/PacienteHistoricoScreen-d2218171d3b731488f70b1e3fe8e7b60.js",
-  "/_expo/static/js/web/PlanoTratamentoScreen-487c26c23e977c3a71212cb54317ec63.js",
-  "/_expo/static/js/web/PrescricaoScreen-fac1a5ba37bf3feb0a0a88c7c4266dd6.js",
-  "/_expo/static/js/web/TriagemScreen-406cd082ce2c9f15f8670e51f7654590.js",
-  "/_expo/static/js/web/__common-08c73340d34dbacd461fcb2679686532.js",
+  "/_expo/static/js/web/AgendamentoScreen-229acd22737a3c62c6e8470ef839d6bc.js",
+  "/_expo/static/js/web/AnamneseScreen-3e2acf5a68dc59caa7eac72e1d993a6b.js",
+  "/_expo/static/js/web/AtribuirDentistaAgendamentoScreen-3d03f476f583da199b2f950b453acf2e.js",
+  "/_expo/static/js/web/AtribuirDentistaScreen-922906f0e7d4d1411b62541399cba4f8.js",
+  "/_expo/static/js/web/CasoDetalheScreen-b5cf2339d3cd74d85f410c42e2434ec6.js",
+  "/_expo/static/js/web/DentistaRelatorioScreen-4ea9530aac52fd542172a18440883ce6.js",
+  "/_expo/static/js/web/EducacaoScreen-60d2f0e5be048c3a6ba7aea7ae38d115.js",
+  "/_expo/static/js/web/EvolucaoClinicaScreen-4e25155862d184976749a0980444d78f.js",
+  "/_expo/static/js/web/GerirPacientesScreen-56631d1186dfc04509309518a768c77d.js",
+  "/_expo/static/js/web/HistoricoScreen-541ab44ddae2043db5e1acd99e20c139.js",
+  "/_expo/static/js/web/index-185784ead32e681044831452c5b402cf.js",
+  "/_expo/static/js/web/PacienteHistoricoScreen-99a344fc466fe204681d73dbee58babc.js",
+  "/_expo/static/js/web/PlanoTratamentoScreen-93cf9638a55f8d58920e186fac5b61d8.js",
+  "/_expo/static/js/web/PrescricaoScreen-91c721934d6936915d7ae66e1c9c3971.js",
+  "/_expo/static/js/web/TriagemScreen-685e135a666b17fd39ce8bcaed173dc9.js",
+  "/_expo/static/js/web/__common-b5cb243e57399adb58cc55149910307c.js",
   "/_expo/static/js/web/__expo-metro-runtime-5fa9f06415f5b5b1390bf3ed2c580c54.js",
   "/assets/assets/forgot_password_illustration.87ec546e5586c77e805e4edd5cf83934.jpg",
   "/assets/assets/welcome_slide_1.39d829414bb18797fa0352ea949eb00f.jpg",
@@ -142,8 +142,32 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (request.mode === 'navigate') {
+    event.respondWith(navigationNetworkFirst(request));
+    return;
+  }
+
   event.respondWith(cacheFirstWithOfflineFallback(request));
 });
+
+async function navigationNetworkFirst(request) {
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      const cache = await caches.open(CACHE_STATIC);
+      cache.put('/index.html', networkResponse.clone());
+    }
+    return networkResponse;
+  } catch {
+    const cachedIndex = (await caches.match('/index.html')) || (await caches.match('/'));
+    if (cachedIndex) return cachedIndex;
+
+    const offlinePage = await caches.match('/offline.html');
+    if (offlinePage) return offlinePage;
+
+    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+  }
+}
 
 async function cacheFirstWithOfflineFallback(request) {
   try {

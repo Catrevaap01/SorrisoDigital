@@ -14,6 +14,7 @@ import { obterOuCriarConversa, enviarMensagem } from './messagesService';
 import { atualizarPerfil } from './pacienteService';
 import NetInfo from '@react-native-community/netinfo';
 import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
+import { shouldQueueOffline } from '../utils/networkUtils';
 
 const tryAdminFallback = async (
   action: (client: SupabaseClient) => Promise<{ data: any; error: any }>
@@ -368,8 +369,7 @@ export const criarTriagem = async (
     return { success: true, data: normalizeTriagemRecord(data) };
   } catch (err) {
     // OFFLINE HANDLING
-    const state = await NetInfo.fetch();
-    if (!state.isConnected || !state.isInternetReachable) {
+    if (await shouldQueueOffline(err)) {
       console.log('📡 Offline: Enfileirando criação de triagem...');
       await enqueueOfflineAction('criarTriagem', { dados, imageUris, pacienteId });
       return {

@@ -7,6 +7,7 @@ import { supabase, getAdminClient } from '../config/supabase';
 import { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import NetInfo from '@react-native-community/netinfo';
 import { enqueueOfflineAction, registerSyncHandler } from './offlineSyncService';
+import { shouldQueueOffline } from '../utils/networkUtils';
 
 export interface Message {
   id: string;
@@ -166,6 +167,20 @@ export const enviarMensagem = async (
     });
 
     if (error) {
+      if (await shouldQueueOffline(error)) {
+        await enqueueOfflineAction('enviarMensagem', { conversaId, senderId, senderName, senderAvatar, content });
+        return {
+          success: true,
+          data: {
+            id: 'temp-' + Date.now(),
+            conversation_id: conversaId,
+            sender_id: senderId,
+            content,
+            created_at: new Date().toISOString(),
+            isPendingSync: true,
+          } as any,
+        };
+      }
       return { success: false, error: error.message };
     }
 
@@ -188,8 +203,7 @@ export const enviarMensagem = async (
     return { success: true, data: data as Message };
   } catch (error: any) {
     // OFFLINE HANDLING
-    const state = await NetInfo.fetch();
-    if (!state.isConnected || !state.isInternetReachable) {
+    if (await shouldQueueOffline(error)) {
       console.log('📡 Offline: Enfileirando envio de mensagem...');
       await enqueueOfflineAction('enviarMensagem', { conversaId, senderId, senderName, senderAvatar, content });
       return {

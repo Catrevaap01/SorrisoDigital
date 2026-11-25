@@ -81,8 +81,32 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (request.mode === 'navigate') {
+    event.respondWith(navigationNetworkFirst(request));
+    return;
+  }
+
   event.respondWith(cacheFirstWithOfflineFallback(request));
 });
+
+async function navigationNetworkFirst(request) {
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse.ok) {
+      const cache = await caches.open(CACHE_STATIC);
+      cache.put('/index.html', networkResponse.clone());
+    }
+    return networkResponse;
+  } catch {
+    const cachedIndex = (await caches.match('/index.html')) || (await caches.match('/'));
+    if (cachedIndex) return cachedIndex;
+
+    const offlinePage = await caches.match('/offline.html');
+    if (offlinePage) return offlinePage;
+
+    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+  }
+}
 
 async function cacheFirstWithOfflineFallback(request) {
   try {
