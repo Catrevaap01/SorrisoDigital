@@ -532,6 +532,122 @@ export const contarMensagensNaoLidasTotalUsuario = async (
   }
 };
 
+export interface ContatoPermitidoPaciente {
+  id: string;
+  nome: string;
+  tipo: 'secretario' | 'dentista';
+  foto_url?: string | null;
+  especialidade?: string | null;
+}
+
+/**
+ * Retorna apenas os contactos com quem o paciente pode conversar:
+ * 1. Secretário(s) da clínica
+ * 2. Dentista(s) atribuído(s) ao paciente em agendamentos ou triagens
+ */
+export const listarContatosPermitidosPaciente = async (
+  patientId: string
+): Promise<{ success: boolean; data?: ContatoPermitidoPaciente[]; error?: string }> => {
+  try {
+    if (!patientId) {
+      return { success: true, data: [] };
+    }
+
+    const client = getAdminClient() || supabase;
+
+    // Buscar em paralelo: secretários, agendamentos com dentista atribuído e triagens com dentista atribuído
+    const [secRes, appRes, triRes] = await Promise.allSettled([
+      client
+        .from('profiles')
+        .select('id, nome, tipo, foto_url, especialidade')
+        .eq('tipo', 'secretario')
+        .order('nome', { ascending: true }),
+      client
+        .from('appointments')
+        .select('dentist_id')
+        .eq('patient_id', patientId)
+        .not('dentist_id', 'is', null),
+      client
+        .from('triagens')
+        .select('dentista_id')
+        .eq('paciente_id', patientId)
+        .not('dentista_id', 'is', null),
+    ]);
+
+    const secretarios: ContatoPermitidoPaciente[] = [];
+    if (secRes.status === 'fulfilled' && !secRes.value.error && Array.isArray(secRes.value.data)) {
+      secRes.value.data.forEach((s: any) => {
+        if (s?.id && s.id !== patientId) {
+          secretarios.push({
+            id: s.id,
+            nome: s.nome || 'Secretaria',
+            tipo: 'secretario',
+            foto_url: s.foto_url || null,
+            especialidade: 'Secretaria / Atendimento',
+          });
+        }
+      });
+    }
+
+    const dentistaIds = new Set<string>();
+    if (appRes.status === 'fulfilled' && !appRes.value.error && Array.isArray(appRes.value.data)) {
+      appRes.value.data.forEach((a: any) => {
+        if (a?.dentist_id && a.dentist_id !== patientId) {
+          dentistaIds.add(a.dentist_id);
+        }
+      });
+    }
+    if (triRes.status === 'fulfilled' && !triRes.value.error && Array.isArray(triRes.value.data)) {
+      triRes.value.data.forEach((t: any) => {
+        if (t?.dentista_id && t.dentista_id !== patientId) {
+          dentistaIds.add(t.dentista_id);
+        }
+      });
+    }
+
+    const dentistas: ContatoPermitidoPaciente[] = [];
+    if (dentistaIds.size > 0) {
+      const { data: dentData, error: dentErr } = await client
+        .from('profiles')
+        .select('id, nome, tipo, foto_url, especialidade')
+        .in('id', Array.from(dentistaIds))
+        .order('nome', { ascending: true });
+
+      if (!dentErr && Array.isArray(dentData)) {
+        dentData.forEach((d: any) => {
+          if (d?.id && d.id !== patientId) {
+            dentistas.push({
+              id: d.id,
+              nome: d.nome || 'Dentista',
+              tipo: 'dentista',
+              foto_url: d.foto_url || null,
+              especialidade: d.especialidade || 'Dentista atribuído',
+            });
+          }
+        });
+      }
+    }
+
+    // Deduplicar mantendo secretários primeiro, depois dentista(s) atribuído(s)
+    const mapa = new Map<string, ContatoPermitidoPaciente>();
+    [...secretarios, ...dentistas].forEach((c) => {
+      if (!mapa.has(c.id)) {
+        mapa.set(c.id, c);
+      }
+    });
+
+    return {
+      success: true,
+      data: Array.from(mapa.values()),
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error?.message || 'Erro ao carregar contactos permitidos',
+    };
+  }
+};
+
 /**
  * Subscribe a atualizações de mensagens em tempo real
  */

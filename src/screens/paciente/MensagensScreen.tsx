@@ -15,8 +15,11 @@ import ConversationsListScreen from '../shared/ConversationsListScreen';
 import ChatScreen from '../shared/ChatScreen';
 import { useAuth } from '../../contexts/AuthContext';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
-import { DentistaProfile, listarDentistas } from '../../services/dentistaService';
-import { obterOuCriarConversa } from '../../services/messagesService';
+import {
+  ContatoPermitidoPaciente,
+  listarContatosPermitidosPaciente,
+  obterOuCriarConversa,
+} from '../../services/messagesService';
 import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 
 const MensagensScreen: React.FC = () => {
@@ -27,8 +30,8 @@ const MensagensScreen: React.FC = () => {
   const [outroUserId, setOutroUserId] = useState<string | undefined>(undefined);
 
   const [showNovoModal, setShowNovoModal] = useState(false);
-  const [loadingDentistas, setLoadingDentistas] = useState(false);
-  const [dentistas, setDentistas] = useState<DentistaProfile[]>([]);
+  const [loadingContatos, setLoadingContatos] = useState(false);
+  const [contatos, setContatos] = useState<ContatoPermitidoPaciente[]>([]);
   const [criandoConversaId, setCriandoConversaId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,67 +64,68 @@ const MensagensScreen: React.FC = () => {
     setConversaSelecionada(null);
   };
 
-  const carregarDentistas = useCallback(async () => {
-    setLoadingDentistas(true);
+  const carregarContatos = useCallback(async () => {
+    if (!user?.id) return;
+    setLoadingContatos(true);
     try {
-      let result = await listarDentistas({ forceRefresh: true });
-      if ((result.data?.length || 0) === 0) {
-        // Segunda tentativa para evitar abrir modal vazio por atraso momentaneo.
-        result = await listarDentistas({ forceRefresh: true });
-      }
+      const result = await listarContatosPermitidosPaciente(user.id);
       if (result.success && result.data) {
-        // Filter out the current user to prevent self-conversations
-        const filteredDentistas = result.data.filter((d) => d.id !== user?.id);
-        setDentistas(filteredDentistas);
+        setContatos(result.data);
       } else {
         Toast.show({
           type: 'error',
           text1: 'Erro',
-          text2: result.error || 'Nao foi possivel carregar dentistas',
+          text2: result.error || 'Nao foi possivel carregar contactos',
         });
       }
     } finally {
-      setLoadingDentistas(false);
+      setLoadingContatos(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (showNovoModal) {
-      carregarDentistas();
+      carregarContatos();
     }
-  }, [carregarDentistas, showNovoModal]);
+  }, [carregarContatos, showNovoModal]);
 
   useRealtimeRefresh({
     enabled: showNovoModal,
     debounceMs: 1200,
     shouldRefresh: (event) => {
+      if (event.table === 'appointments' || event.table === 'triagens') return true;
       if (event.table !== 'profiles') return false;
       const tipo = String(event.new?.tipo || event.old?.tipo || '').toLowerCase();
-      return !tipo || tipo === 'dentista' || tipo === 'medico';
+      return !tipo || tipo === 'dentista' || tipo === 'medico' || tipo === 'secretario';
     },
     refresh: () => {
-      void carregarDentistas();
+      void carregarContatos();
     },
   });
 
-  const iniciarConversa = async (dentista: DentistaProfile) => {
+  const iniciarConversa = async (contato: ContatoPermitidoPaciente) => {
     if (!user?.id || !profile?.nome) return;
-    setCriandoConversaId(dentista.id);
+    setCriandoConversaId(contato.id);
 
     const result = await obterOuCriarConversa(
       user.id,
-      dentista.id,
+      contato.id,
       profile.nome,
-      dentista.nome || 'Dentista',
+      contato.nome || (contato.tipo === 'secretario' ? 'Secretaria' : 'Dentista'),
       profile.foto_url || null,
-      dentista.foto_url || null
+      contato.foto_url || null
     );
 
     setCriandoConversaId(null);
 
     if (result.success && result.data) {
       setShowNovoModal(false);
-      handleSelectConversa(result.data.id, dentista.nome || 'Dentista', dentista.foto_url || undefined, dentista.id);
+      handleSelectConversa(
+        result.data.id,
+        contato.nome || (contato.tipo === 'secretario' ? 'Secretaria' : 'Dentista'),
+        contato.foto_url || undefined,
+        contato.id
+      );
       return;
     }
 
@@ -164,13 +168,13 @@ const MensagensScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            {loadingDentistas ? (
+            {loadingContatos ? (
               <View style={styles.loadingWrap}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
               </View>
             ) : (
               <FlatList
-                data={dentistas}
+                data={contatos}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
                   <TouchableOpacity
@@ -179,11 +183,17 @@ const MensagensScreen: React.FC = () => {
                     disabled={criandoConversaId === item.id}
                   >
                     <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{item.nome?.charAt(0).toUpperCase() || 'D'}</Text>
+                      <Text style={styles.avatarText}>
+                        {item.nome?.charAt(0).toUpperCase() || (item.tipo === 'secretario' ? 'S' : 'D')}
+                      </Text>
                     </View>
                     <View style={styles.info}>
-                      <Text style={styles.nome}>{item.nome || 'Dentista'}</Text>
-                      <Text style={styles.especialidade}>{item.especialidade || 'Odontologia'}</Text>
+                      <Text style={styles.nome}>
+                        {item.nome || (item.tipo === 'secretario' ? 'Secretaria' : 'Dentista')}
+                      </Text>
+                      <Text style={styles.especialidade}>
+                        {item.especialidade || (item.tipo === 'secretario' ? 'Secretaria / Atendimento' : 'Dentista atribuído')}
+                      </Text>
                     </View>
                     {criandoConversaId === item.id ? (
                       <ActivityIndicator size="small" color={COLORS.primary} />
@@ -194,7 +204,9 @@ const MensagensScreen: React.FC = () => {
                 )}
                 ListEmptyComponent={
                   <View style={styles.emptyWrap}>
-                    <Text style={styles.emptyText}>Nenhum dentista disponivel</Text>
+                    <Text style={styles.emptyText}>
+                      Nenhum secretário ou dentista atribuído disponível
+                    </Text>
                   </View>
                 }
               />

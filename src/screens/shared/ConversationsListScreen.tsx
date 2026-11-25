@@ -27,6 +27,7 @@ import { supabase } from '../../config/supabase';
 import {
   Conversation,
   listarConversasDoUsuario,
+  listarContatosPermitidosPaciente,
   contarMensagensNaoLidas,
   marcarMensagensComoLidas,
   obterOuCriarConversa,
@@ -193,11 +194,20 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
           }
         });
 
-        const listaFinal = Array.from(conversasAgrupadasPorPessoa.values()).sort((a, b) => {
+        let listaFinal = Array.from(conversasAgrupadasPorPessoa.values()).sort((a, b) => {
           const tA = new Date(a.last_message_at || a.updated_at || 0).getTime();
           const tB = new Date(b.last_message_at || b.updated_at || 0).getTime();
           return tB - tA;
         });
+
+        // Para pacientes: exibir apenas conversas com Secretário(s) e Dentista(s) atribuído(s)
+        if (profile?.tipo === 'paciente') {
+          const contatosRes = await listarContatosPermitidosPaciente(user.id);
+          if (contatosRes.success && contatosRes.data) {
+            const allowedIds = new Set(contatosRes.data.map((c) => c.id));
+            listaFinal = listaFinal.filter((c) => allowedIds.has(c.participant_2_id));
+          }
+        }
 
         setConversas(listaFinal);
         setConversasOrig(listaFinal);
@@ -213,7 +223,7 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
       // sincroniza também a badge do menu
       AppNavigator.triggerUnreadRefresh();
     }
-  }, [user?.id]);
+  }, [user?.id, profile?.tipo]);
 
   useFocusEffect(
     useCallback(() => {
@@ -229,7 +239,9 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
       return (
         event.table === 'messages' ||
         event.table === 'conversations' ||
-        event.table === 'profiles'
+        event.table === 'profiles' ||
+        event.table === 'appointments' ||
+        event.table === 'triagens'
       );
     },
     refresh: () => {
