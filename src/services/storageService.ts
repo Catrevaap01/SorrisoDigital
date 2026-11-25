@@ -57,7 +57,7 @@ export const uploadImage = async (
 
     const { data, error } = await supabase.storage
       .from(bucket)
-      .upload(fileName, bytes.buffer, {
+      .upload(fileName, bytes, {
         contentType: mimeType,
         upsert: true,
       });

@@ -1354,14 +1354,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
 
         // Atualiza estado local imediatamente para refletir o nome em qualquer tela
-        setProfile((prev) => ({
-          ...(prev || {}),
-          id: data.user.id,
-          email: data.user.email,
-          nome: userData.nome,
-          tipo: (userData.tipo as any) || 'paciente',
-          ...profileUpdates,
-        }));
+        if (data.user) {
+          const createdUser = data.user;
+          setProfile((prev) => ({
+            ...(prev || {}),
+            id: createdUser.id,
+            email: createdUser.email,
+            nome: userData.nome,
+            tipo: (userData.tipo as any) || 'paciente',
+            ...profileUpdates,
+          }));
+        }
       }
 
       Toast.show({

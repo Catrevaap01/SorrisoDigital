@@ -189,12 +189,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F172A',
   },
   bgImage: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     width: '100%',
     height: '100%',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(15, 23, 42, 0.72)', // Slate escuro sofisticado com transparência perfeita
   },
   container: {

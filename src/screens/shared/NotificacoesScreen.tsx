@@ -111,7 +111,7 @@ const NotificacoesScreen: React.FC = () => {
           {recomendacoes.length > 0 && (
             <View style={styles.recomendacoesContainer}>
               <Text style={styles.recomendacoesLabel}>Recomendações:</Text>
-              {recomendacoes.map((rec, idx) => (
+              {recomendacoes.map((rec: string, idx: number) => (
                 <View key={idx} style={styles.recomendacaoItem}>
                   <Ionicons name="checkmark" size={14} color={COLORS.success} />
                   <Text style={styles.recomendacaoText}>{rec}</Text>

@@ -56,7 +56,7 @@ const CasoDetalheScreen: React.FC<CasoDetalheProps> = ({ route, navigation }) =>
 
 const carregarTriagem = useCallback(async () => {
     const result = await buscarTriagemPorId(triagemId);
-    if (result.success) {
+    if (result.success && result.data) {
       let tri = result.data;
 
       // if patient name missing, try loading it explicitly
@@ -374,7 +374,7 @@ const carregarTriagem = useCallback(async () => {
               </Text>
             ) : null}
             <Text style={styles.pacienteResumo}>
-              {`Caso enviado ${formatDateTime(triagem.created_at)}`}
+              {`Caso enviado ${formatDateTime(triagem.created_at || '')}`}
             </Text>
           </View>
         </View>
@@ -643,7 +643,7 @@ const carregarTriagem = useCallback(async () => {
           onPress={() => setImagemModal(null)}
         >
           <Image
-            source={{ uri: imagemModal }}
+            source={imagemModal ? { uri: imagemModal } : undefined}
             style={styles.imagemModalFull}
             resizeMode="contain"
           />

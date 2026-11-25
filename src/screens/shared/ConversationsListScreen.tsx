@@ -296,7 +296,7 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
       return;
     }
     const filtered = pacientesOrig.filter(p => 
-      p.nome.toLowerCase().includes(text.toLowerCase()) || 
+      (p.nome || '').toLowerCase().includes(text.toLowerCase()) || 
       p.email?.toLowerCase().includes(text.toLowerCase())
     );
     setPacientes(filtered);
@@ -313,7 +313,7 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
         user.id,
         paciente.id,
         user.user_metadata?.nome || 'Dentista',
-        paciente.nome,
+        paciente.nome || 'Paciente',
         user.user_metadata?.foto_url,
         paciente.foto_url
       );
@@ -321,7 +321,7 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
       if (result.success && result.data) {
         onSelectConversation(
           result.data.id, 
-          paciente.nome, 
+          paciente.nome || 'Paciente', 
           paciente.foto_url,
           paciente.id
         );
@@ -550,7 +550,7 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
                         <View style={styles.pacienteAvatarContainer}>
                           <View style={styles.pacienteAvatar}>
                             <Text style={styles.pacienteAvatarText}>
-                              {item.nome.charAt(0).toUpperCase()}
+                              {(item.nome || 'P').charAt(0).toUpperCase()}
                             </Text>
                           </View>
                           <View style={[styles.presenceDotSmall, isPacOnline ? styles.dotOnline : styles.dotOffline]} />

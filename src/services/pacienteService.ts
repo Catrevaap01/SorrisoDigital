@@ -479,7 +479,7 @@ export const listarPacientes = async (
       return { success: false, error: error.message };
     }
 
-    const parsedData = (data || []).map(p => parsePacienteProfile(p as PacienteProfile));
+    const parsedData = (data || []).map((p: any) => parsePacienteProfile(p as PacienteProfile));
     return { success: true, data: parsedData };
   } catch (error: any) {
     return { success: false, error: error.message || 'Erro ao listar pacientes (timeout 12s)' };

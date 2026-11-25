@@ -98,7 +98,7 @@ export const useDentistas = () => {
           });
           return resultado; // retorna objeto completo (inclui tempPassword)
         } else {
-          setErro(resultado.error);
+          setErro(resultado.error || 'Erro ao criar dentista');
           Toast.show({
             type: 'error',
             text1: 'Erro',
@@ -128,7 +128,7 @@ export const useDentistas = () => {
             text2: 'Dentista removido com sucesso',
           });
         } else {
-          setErro(resultado.error);
+          setErro(resultado.error || 'Erro ao deletar dentista');
           Toast.show({
             type: 'error',
             text1: 'Erro',
@@ -159,7 +159,7 @@ export const useDentistas = () => {
           });
           return resultado.data;
         } else {
-          setErro(resultado.error);
+          setErro(resultado.error || 'Erro ao atualizar dentista');
           Toast.show({
             type: 'error',
             text1: 'Erro',

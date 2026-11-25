@@ -174,9 +174,9 @@ const NovoPacienteScreen: React.FC<Props> = ({ navigation: propNavigation }) => 
           />
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: -10 }}>
             <Text style={{ fontSize: 14, color: COLORS.textSecondary, fontWeight: '500' }}>Data Nascimento</Text>
-            {formData.data_nascimento.length >= 10 && (
+            {(formData.data_nascimento?.length ?? 0) >= 10 && (
               <Text style={{ fontSize: 13, color: COLORS.secondary, fontWeight: 'bold' }}>
-                {calcularIdade(formData.data_nascimento)} anos
+                {calcularIdade(formData.data_nascimento || '')} anos
               </Text>
             )}
           </View>

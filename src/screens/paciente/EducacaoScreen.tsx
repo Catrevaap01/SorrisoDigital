@@ -21,11 +21,11 @@ const EducacaoScreen: React.FC = () => {
   const [conteudoSelecionado, setConteudoSelecionado] = useState<any | null>(null);
   const [modalVisible, setModalVisible] = useState<boolean>(false);
 
-  const carregarConteudos = useCallback(async (categoria = null) => {
+  const carregarConteudos = useCallback(async (categoria: string | null = null) => {
     setLoading(true);
-    const result = await buscarConteudos(categoria);
+    const result = await buscarConteudos(categoria ?? undefined);
     if (result.success) {
-      setConteudos(result.data);
+      setConteudos(result.data || []);
     }
     setLoading(false);
   }, []);
@@ -45,13 +45,13 @@ const EducacaoScreen: React.FC = () => {
     },
   });
 
-  const getIconeCategoria = (categoria) => {
+  const getIconeCategoria = (categoria: string) => {
     const cat = CATEGORIAS_CONTEUDO.find(c => c.id === categoria);
     return cat?.icon || 'document-text';
   };
 
-  const getCorCategoria = (categoria) => {
-    const cores = {
+  const getCorCategoria = (categoria: string) => {
+    const cores: Record<string, string> = {
       prevencao: '#4CAF50',
       higiene: '#2196F3',
       doencas: '#FF9800',
@@ -62,12 +62,12 @@ const EducacaoScreen: React.FC = () => {
     return cores[categoria] || COLORS.primary;
   };
 
-  const abrirConteudo = (conteudo) => {
+  const abrirConteudo = (conteudo: any) => {
     setConteudoSelecionado(conteudo);
     setModalVisible(true);
   };
 
-  const renderConteudo = (item) => {
+  const renderConteudo = (item: any) => {
     const cor = getCorCategoria(item.categoria);
     
     return (

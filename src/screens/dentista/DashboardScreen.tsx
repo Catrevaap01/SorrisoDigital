@@ -675,7 +675,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.badgeText}>{statusInfo.label}</Text>
           </View>
         </View>
-        <Text style={styles.meta}>{triagem.sintoma_principal || 'Sem sintoma'} · {formatRelativeTime(triagem.created_at)}</Text>
+        <Text style={styles.meta}>{triagem.sintoma_principal || 'Sem sintoma'} · {formatRelativeTime(triagem.created_at || '')}</Text>
 
         {temRespostas && ultimaResposta && (
           <View style={styles.responseSummary}>
@@ -783,7 +783,7 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
             <TouchableOpacity key={item.id} style={styles.line} onPress={() => abrirCaso(item)}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.lineTitle}>{item.paciente?.nome || 'Paciente'}</Text>
-                <Text style={styles.lineMeta}>{item.sintoma_principal || 'Triagem geral'} · {formatRelativeTime(item.created_at)}</Text>
+                <Text style={styles.lineMeta}>{item.sintoma_principal || 'Triagem geral'} · {formatRelativeTime(item.created_at || '')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color={COLORS.textSecondary} />
             </TouchableOpacity>
@@ -938,12 +938,12 @@ const DashboardScreen: React.FC<Props> = ({ navigation }) => {
               <View style={{ flex: 1 }}>
                 <Text style={styles.lineTitle}>{item.paciente?.nome || 'Paciente'}</Text>
                 <Text style={styles.lineMeta}>
-                  {new Date(item.appointment_date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {TIPOS_CONSULTA[item.tipo || 'consulta']?.label || 'Consulta'}
+                  {new Date(item.appointment_date || '').toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · {TIPOS_CONSULTA[item.tipo || 'consulta']?.label || 'Consulta'}
                 </Text>
               </View>
               <View style={styles.timeChip}>
                 <Text style={styles.timeChipText}>
-                  {Math.max(0, Math.round((new Date(item.appointment_date).getTime() - Date.now()) / 60000))} min
+                  {Math.max(0, Math.round((new Date(item.appointment_date || '').getTime() - Date.now()) / 60000))} min
                 </Text>
               </View>
             </TouchableOpacity>

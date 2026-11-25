@@ -241,7 +241,7 @@ const TriagemScreen: React.FC<TriagemScreenProps> = ({ navigation }) => {
     }
   };
 
-  const removerImagem = (index) => {
+  const removerImagem = (index: number) => {
     const novas = [...imagens];
     novas.splice(index, 1);
     setImagens(novas);

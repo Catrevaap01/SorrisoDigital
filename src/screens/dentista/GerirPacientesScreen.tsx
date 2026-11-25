@@ -186,7 +186,7 @@ const GerirPacientesScreen: React.FC<Props> = ({ navigation }) => {
       alergias: paciente.alergias || '',
       medicamentos_atuais: paciente.medicamentos_atuais || '',
       observacoes_gerais: (paciente as PacienteProfile).observacoes_gerais || '',
-      documentos_urls: Array.isArray((paciente as PacienteProfile).documentos_urls) ? (paciente as PacienteProfile).documentos_urls : [],
+      documentos_urls: Array.isArray((paciente as PacienteProfile).documentos_urls) ? ((paciente as PacienteProfile).documentos_urls ?? []) : [],
     });
     setModalVisible(true);
   };
