@@ -734,8 +734,17 @@ const AppNavigator: React.FC = () => {
       (user?.user_metadata?.tipo as string | undefined) ||
       'paciente') as 'admin' | 'dentista' | 'paciente' | 'secretario';
 
+  // Só obriga a mudar senha quando o paciente foi criado pela secretaria/dentista
+  // (têm senha temporária gerada automaticamente → senha_alterada=false + creator_role definido)
+  // Pacientes auto-cadastrados já definiram a sua própria senha → senha_alterada=true
+  const foidCriadoPorProfissional =
+    !!profile?.creator_role ||
+    !!user?.user_metadata?.creator_id ||
+    !!user?.user_metadata?.force_password_change;
+
   const precisaMudarSenha =
     !!user &&
+    foidCriadoPorProfissional &&
     (
       PROFILE_SCHEMA_FEATURES.hasSenhaAlterada
         ? !!profile && !profile.senha_alterada

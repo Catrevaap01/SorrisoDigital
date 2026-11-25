@@ -8,8 +8,10 @@
  *  1. Paciente regista-se → perfil sem telefone/provincia
  *  2. AppNavigator → CompleteProfileScreen (este ecrã)
  *  3. Paciente preenche → updateProfile() → telefone + provincia guardados
- *  4. AppNavigator → ChangePasswordScreen (senha_alterada=false)
- *  5. Acesso ao app
+ *  4. AppNavigator → Painel do paciente (sem pedir senha — auto-cadastro)
+ *
+ *  NOTA: Pacientes criados pela secretaria/dentista têm force_password_change=true
+ *        e são redirecionados para ChangePasswordScreen antes do painel.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -176,7 +178,7 @@ const CompleteProfileScreen: React.FC = () => {
   const [enderecoRua, setEnderecoRua] = useState(profile?.endereco_rua || '');
 
   const [saving, setSaving] = useState(false);
-  const [manterSenha, setManterSenha] = useState(true);
+  // Auto-cadastro: paciente já definiu a sua senha → sempre manter
 
   // ── Validação Passo 1 ──────────────────────────────────────────────────────
   const validateStep1 = (): boolean => {
@@ -216,15 +218,15 @@ const CompleteProfileScreen: React.FC = () => {
       const updates: Record<string, unknown> = {
         telefone: telefone.trim(),
         provincia: provincia.trim(),
-        senha_alterada: manterSenha ? true : false,
+        // Auto-cadastro: marcar senha como já definida → não redirecionar para ChangePassword
+        senha_alterada: true,
       };
-      if (manterSenha) {
-        try {
-          await supabase.auth.updateUser({
-            data: { force_password_change: false },
-          });
-        } catch (_) {}
-      }
+      // Garantir que force_password_change fica false para auto-cadastro
+      try {
+        await supabase.auth.updateUser({
+          data: { force_password_change: false },
+        });
+      } catch (_) {}
       if (dataNascimento.trim()) updates.data_nascimento = dataNascimento.trim();
       if (genero) updates.genero = genero;
       if (enderecoRua.trim()) updates.endereco_rua = enderecoRua.trim();
@@ -550,27 +552,11 @@ const CompleteProfileScreen: React.FC = () => {
               />
             </View>
 
-            {/* Opção Manter a Senha */}
-            <TouchableOpacity
-              style={styles.manterSenhaToggle}
-              onPress={() => setManterSenha(!manterSenha)}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.checkboxBox, manterSenha && styles.checkboxBoxActive]}>
-                {manterSenha && <Ionicons name="checkmark" size={14} color="white" />}
-              </View>
-              <Text style={styles.manterSenhaText}>
-                Manter a senha definida no cadastro
-              </Text>
-            </TouchableOpacity>
-
-            {/* Info — próximo passo */}
+            {/* Info — acesso direto ao painel */}
             <View style={styles.infoBox}>
               <Ionicons name="information-circle-outline" size={18} color={COLORS.primary} />
               <Text style={styles.infoText}>
-                {manterSenha
-                  ? 'A sua senha definida no cadastro continuará a mesma e terá acesso directo ao aplicativo.'
-                  : 'No passo seguinte, poderá definir uma nova senha.'}
+                Após guardar, terá acesso directo ao seu painel.
               </Text>
             </View>
 

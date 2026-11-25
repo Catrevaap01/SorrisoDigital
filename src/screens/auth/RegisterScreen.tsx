@@ -80,7 +80,9 @@ const RegisterScreen: React.FC<Props> = ({ navigation }) => {
       const result = await signUp(email.trim().toLowerCase(), password, {
         nome: nomeLimpo,
         tipo: 'paciente',
-        senha_alterada: false, // onboarding → forçar mudança de senha
+        // Auto-cadastro: paciente já definiu a sua própria senha → não precisa alterar
+        senha_alterada: true,
+        force_password_change: false,
       });
 
       if (result.success) {
