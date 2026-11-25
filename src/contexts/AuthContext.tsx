@@ -650,11 +650,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const normalizedProfile = normalizeProfile(data);
 
       // LOGICA SINGLE DEVICE/TAB: Verificar se a sessao local coincide com a do banco
+      // RF01: 30s de carência após login/signup para evitar falso positivo durante onboarding
       const delta = Date.now() - lastLoginTimeRef.current;
-      const isRecentlyLoggedIn = delta < 5000; // 5 segundos de carência
+      const isRecentlyLoggedIn = delta < 30000 || isSigningInRef.current;
       const activeTabId = tabInstanceIdRef.current || tabInstanceId;
 
-      console.log(`[SESS-CHECK] LocalID=${activeTabId}, DB=${data.last_session_id}, Recent=${isRecentlyLoggedIn}`);
+      console.log(`[SESS-CHECK] LocalID=${activeTabId}, DB=${data.last_session_id}, Recent=${isRecentlyLoggedIn}, SigningIn=${isSigningInRef.current}`);
 
       if (data.last_session_id && activeTabId && data.last_session_id !== activeTabId) {
         if (isRecentlyLoggedIn) {
@@ -789,7 +790,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const handleStorageChange = (e: StorageEvent) => {
       const activeTabId = tabInstanceIdRef.current || tabInstanceId;
       if (e.key === LATEST_SESSION_KEY && e.newValue && activeTabId && e.newValue !== activeTabId) {
-        if (Date.now() - lastLoginTimeRef.current < 5000) return;
+        // RF01: ignorar se login/signup recente (30s) ou ainda a decorrer
+        if (Date.now() - lastLoginTimeRef.current < 30000 || isSigningInRef.current) return;
         console.warn(`🚨 Storage Event: New session in another tab detected [${e.newValue}]. Logging out this tab [${activeTabId}]...`);
         handleForceLogout(userId, 'Sessão Encerrada: Novo login detetado em outro separador.');
       }
@@ -824,7 +826,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           filter: `id=eq.${userId}`,
         },
         async (payload: any) => {
-          if (Date.now() - lastLoginTimeRef.current < 5000) return;
+          // RF01: ignorar se login/signup recente (30s) ou ainda a decorrer
+          if (Date.now() - lastLoginTimeRef.current < 30000 || isSigningInRef.current) return;
           const newSessionIdInDB = payload.new?.last_session_id;
           const currentLocalId = await universalStorage.getItem(`last_session_id_${userId}`);
           const activeTabId = tabInstanceIdRef.current || tabInstanceId;
@@ -838,7 +841,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // 2. Escutar Broadcast (Imediato) - Ultra rápido para dispositivos online
       sessionChannel.on('broadcast', { event: 'SESSION_CHANGE' }, async (payload: any) => {
-        if (Date.now() - lastLoginTimeRef.current < 5000) return;
+        // RF01: ignorar se login/signup recente (30s) ou ainda a decorrer
+        if (Date.now() - lastLoginTimeRef.current < 30000 || isSigningInRef.current) return;
         const receivedSessionId = payload.payload?.sessionId;
         const activeTabId = tabInstanceIdRef.current || tabInstanceId;
 
@@ -873,8 +877,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const verifySessionIntegrity = async () => {
       try {
-        // RF01: Não validar conflito nos primeiros segundos após login/auto-cadastro
-        if (Date.now() - lastLoginTimeRef.current < 5000) return;
+        // RF01: Não validar conflito nos primeiros 30s após login/auto-cadastro nem enquanto signup decorre
+        if (Date.now() - lastLoginTimeRef.current < 30000 || isSigningInRef.current) return;
 
         const localSessionId = await universalStorage.getItem(`last_session_id_${userId}`);
         const activeTabId = tabInstanceIdRef.current || tabInstanceId;
@@ -921,6 +925,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     if (!user?.id) return;
 
     const handleFocus = () => {
+      // RF01: ignorar re-verificação de sessão durante os primeiros 30s após login/signup
+      if (Date.now() - lastLoginTimeRef.current < 30000 || isSigningInRef.current) return;
       console.log('📡 Focus: Re-verifying session ID...');
       fetchProfile(user.id);
     };

@@ -15,12 +15,20 @@ import ConversationsListScreen from '../shared/ConversationsListScreen';
 import ChatScreen from '../shared/ChatScreen';
 import { useAuth } from '../../contexts/AuthContext';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
-import {
-  ContatoPermitidoPaciente,
-  listarContatosPermitidosPaciente,
-  obterOuCriarConversa,
-} from '../../services/messagesService';
+import { DentistaProfile } from '../../services/dentistaService';
+import { obterOuCriarConversa } from '../../services/messagesService';
+import { getStaffAtribuidoAoPaciente } from '../../services/appointmentsService';
+import { supabase } from '../../config/supabase';
 import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
+
+// Perfil genérico de staff (dentista ou secretário) para exibição no modal
+interface StaffItem {
+  id: string;
+  nome: string;
+  especialidade?: string;
+  foto_url?: string;
+  tipo: 'dentista' | 'medico' | 'secretario';
+}
 
 const MensagensScreen: React.FC = () => {
   const { user, profile } = useAuth();
@@ -30,8 +38,8 @@ const MensagensScreen: React.FC = () => {
   const [outroUserId, setOutroUserId] = useState<string | undefined>(undefined);
 
   const [showNovoModal, setShowNovoModal] = useState(false);
-  const [loadingContatos, setLoadingContatos] = useState(false);
-  const [contatos, setContatos] = useState<ContatoPermitidoPaciente[]>([]);
+  const [loadingDentistas, setLoadingDentistas] = useState(false);
+  const [dentistas, setDentistas] = useState<StaffItem[]>([]);
   const [criandoConversaId, setCriandoConversaId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -64,56 +72,101 @@ const MensagensScreen: React.FC = () => {
     setConversaSelecionada(null);
   };
 
-  const carregarContatos = useCallback(async () => {
+  /**
+   * Carrega apenas o dentista atribuído ao paciente e os secretários da clínica.
+   * Se o paciente não tiver agendamentos, mostra todos os secretários como fallback.
+   */
+  const carregarDentistas = useCallback(async () => {
     if (!user?.id) return;
-    setLoadingContatos(true);
+    setLoadingDentistas(true);
     try {
-      const result = await listarContatosPermitidosPaciente(user.id);
-      if (result.success && result.data) {
-        setContatos(result.data);
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Erro',
-          text2: result.error || 'Nao foi possivel carregar contactos',
-        });
+      // 1. Obter IDs do staff atribuído via agendamentos
+      const { dentistIds, secretaryIds } = await getStaffAtribuidoAoPaciente(user.id);
+
+      // 2. Recolher todos os IDs a buscar (dentistas + secretários)
+      const allIds = [...new Set([...dentistIds, ...secretaryIds])];
+
+      let staffList: StaffItem[] = [];
+
+      if (allIds.length > 0) {
+        // Buscar perfis dos IDs encontrados
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, nome, especialidade, foto_url, tipo')
+          .in('id', allIds);
+
+        staffList = (profiles || [])
+          .filter((p: any) => p.id !== user.id)
+          .map((p: any) => ({
+            id: p.id,
+            nome: p.nome || (p.tipo === 'secretario' ? 'Secretário(a)' : 'Dentista'),
+            especialidade: p.especialidade,
+            foto_url: p.foto_url,
+            tipo: p.tipo,
+          }));
       }
+
+      // 3. Fallback: se não encontrou nenhum staff, buscar todos os secretários da clínica
+      if (staffList.length === 0) {
+        const { data: secretarios } = await supabase
+          .from('profiles')
+          .select('id, nome, especialidade, foto_url, tipo')
+          .eq('tipo', 'secretario')
+          .limit(10);
+
+        staffList = (secretarios || [])
+          .filter((p: any) => p.id !== user.id)
+          .map((p: any) => ({
+            id: p.id,
+            nome: p.nome || 'Secretário(a)',
+            especialidade: p.especialidade,
+            foto_url: p.foto_url,
+            tipo: p.tipo as 'secretario',
+          }));
+      }
+
+      setDentistas(staffList);
+    } catch (err) {
+      Toast.show({
+        type: 'error',
+        text1: 'Erro',
+        text2: 'Nao foi possivel carregar contactos',
+      });
     } finally {
-      setLoadingContatos(false);
+      setLoadingDentistas(false);
     }
   }, [user?.id]);
 
   useEffect(() => {
     if (showNovoModal) {
-      carregarContatos();
+      carregarDentistas();
     }
-  }, [carregarContatos, showNovoModal]);
+  }, [carregarDentistas, showNovoModal]);
 
   useRealtimeRefresh({
     enabled: showNovoModal,
     debounceMs: 1200,
     shouldRefresh: (event) => {
-      if (event.table === 'appointments' || event.table === 'triagens') return true;
       if (event.table !== 'profiles') return false;
       const tipo = String(event.new?.tipo || event.old?.tipo || '').toLowerCase();
       return !tipo || tipo === 'dentista' || tipo === 'medico' || tipo === 'secretario';
     },
     refresh: () => {
-      void carregarContatos();
+      void carregarDentistas();
     },
   });
 
-  const iniciarConversa = async (contato: ContatoPermitidoPaciente) => {
+  const iniciarConversa = async (staff: StaffItem) => {
     if (!user?.id || !profile?.nome) return;
-    setCriandoConversaId(contato.id);
+    setCriandoConversaId(staff.id);
 
     const result = await obterOuCriarConversa(
       user.id,
-      contato.id,
+      staff.id,
       profile.nome,
-      contato.nome || (contato.tipo === 'secretario' ? 'Secretaria' : 'Dentista'),
+      staff.nome || (staff.tipo === 'secretario' ? 'Secretário(a)' : 'Dentista'),
       profile.foto_url || null,
-      contato.foto_url || null
+      staff.foto_url || null
     );
 
     setCriandoConversaId(null);
@@ -122,9 +175,9 @@ const MensagensScreen: React.FC = () => {
       setShowNovoModal(false);
       handleSelectConversa(
         result.data.id,
-        contato.nome || (contato.tipo === 'secretario' ? 'Secretaria' : 'Dentista'),
-        contato.foto_url || undefined,
-        contato.id
+        staff.nome || (staff.tipo === 'secretario' ? 'Secretário(a)' : 'Dentista'),
+        staff.foto_url || undefined,
+        staff.id
       );
       return;
     }
@@ -168,13 +221,13 @@ const MensagensScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            {loadingContatos ? (
+            {loadingDentistas ? (
               <View style={styles.loadingWrap}>
                 <ActivityIndicator size="large" color={COLORS.primary} />
               </View>
             ) : (
               <FlatList
-                data={contatos}
+                data={dentistas}
                 keyExtractor={(item) => item.id}
                 renderItem={({ item }) => (
                   <TouchableOpacity
@@ -183,16 +236,12 @@ const MensagensScreen: React.FC = () => {
                     disabled={criandoConversaId === item.id}
                   >
                     <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>
-                        {item.nome?.charAt(0).toUpperCase() || (item.tipo === 'secretario' ? 'S' : 'D')}
-                      </Text>
+                      <Text style={styles.avatarText}>{item.nome?.charAt(0).toUpperCase() || 'D'}</Text>
                     </View>
                     <View style={styles.info}>
-                      <Text style={styles.nome}>
-                        {item.nome || (item.tipo === 'secretario' ? 'Secretaria' : 'Dentista')}
-                      </Text>
+                      <Text style={styles.nome}>{item.nome || (item.tipo === 'secretario' ? 'Secretário(a)' : 'Dentista')}</Text>
                       <Text style={styles.especialidade}>
-                        {item.especialidade || (item.tipo === 'secretario' ? 'Secretaria / Atendimento' : 'Dentista atribuído')}
+                        {item.tipo === 'secretario' ? 'Secretário(a)' : (item.especialidade || 'Odontologia')}
                       </Text>
                     </View>
                     {criandoConversaId === item.id ? (
@@ -204,9 +253,7 @@ const MensagensScreen: React.FC = () => {
                 )}
                 ListEmptyComponent={
                   <View style={styles.emptyWrap}>
-                    <Text style={styles.emptyText}>
-                      Nenhum secretário ou dentista atribuído disponível
-                    </Text>
+                    <Text style={styles.emptyText}>Nenhum contacto disponível</Text>
                   </View>
                 }
               />

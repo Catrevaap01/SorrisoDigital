@@ -27,12 +27,12 @@ import { supabase } from '../../config/supabase';
 import {
   Conversation,
   listarConversasDoUsuario,
-  listarContatosPermitidosPaciente,
   contarMensagensNaoLidas,
   marcarMensagensComoLidas,
   obterOuCriarConversa,
 } from '../../services/messagesService';
 import { listarPacientes, PacienteProfile } from '../../services/pacienteService';
+import { getStaffAtribuidoAoPaciente } from '../../services/appointmentsService';
 import { useRealtimeRefresh } from '../../hooks/useRealtimeRefresh';
 import * as AppNavigator from '../../navigation/AppNavigator';
 
@@ -194,23 +194,36 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
           }
         });
 
-        let listaFinal = Array.from(conversasAgrupadasPorPessoa.values()).sort((a, b) => {
+        const listaFinal = Array.from(conversasAgrupadasPorPessoa.values()).sort((a, b) => {
           const tA = new Date(a.last_message_at || a.updated_at || 0).getTime();
           const tB = new Date(b.last_message_at || b.updated_at || 0).getTime();
           return tB - tA;
         });
 
-        // Para pacientes: exibir apenas conversas com Secretário(s) e Dentista(s) atribuído(s)
+        // RF: Para pacientes, filtrar para mostrar apenas conversas com o dentista
+        // e secretários atribuídos. Para outros perfis, mostrar tudo.
         if (profile?.tipo === 'paciente') {
-          const contatosRes = await listarContatosPermitidosPaciente(user.id);
-          if (contatosRes.success && contatosRes.data) {
-            const allowedIds = new Set(contatosRes.data.map((c) => c.id));
-            listaFinal = listaFinal.filter((c) => allowedIds.has(c.participant_2_id));
-          }
-        }
+          const { dentistIds, secretaryIds } = await getStaffAtribuidoAoPaciente(user.id);
+          const allowedIds = new Set([...dentistIds, ...secretaryIds]);
 
-        setConversas(listaFinal);
-        setConversasOrig(listaFinal);
+          // Se houver staff atribuído, filtrar; caso contrário, mostrar tudo (sem agendamentos ainda)
+          if (allowedIds.size > 0) {
+            const listaFiltrada = listaFinal.filter((c) => {
+              const otherUserId = c.participant_1_id === user.id
+                ? c.participant_2_id
+                : c.participant_1_id;
+              return allowedIds.has(otherUserId);
+            });
+            setConversas(listaFiltrada);
+            setConversasOrig(listaFiltrada);
+          } else {
+            setConversas(listaFinal);
+            setConversasOrig(listaFinal);
+          }
+        } else {
+          setConversas(listaFinal);
+          setConversasOrig(listaFinal);
+        }
       }
     } catch (error) {
       Toast.show({
@@ -239,9 +252,7 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
       return (
         event.table === 'messages' ||
         event.table === 'conversations' ||
-        event.table === 'profiles' ||
-        event.table === 'appointments' ||
-        event.table === 'triagens'
+        event.table === 'profiles'
       );
     },
     refresh: () => {

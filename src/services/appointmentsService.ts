@@ -652,6 +652,47 @@ const handleOfflineWrite = async (action: string, payload: any) => {
   return false;
 };
 
+/**
+ * Retorna os IDs do dentista e secretários atribuídos a um paciente.
+ * Baseado nos agendamentos existentes do paciente.
+ * Se não houver agendamentos, retorna arrays vazios.
+ */
+export const getStaffAtribuidoAoPaciente = async (
+  patientId: string
+): Promise<{ dentistIds: string[]; secretaryIds: string[] }> => {
+  try {
+    const runQuery = async () => {
+      let res = await supabase
+        .from('appointments')
+        .select('dentist_id, secretary_id')
+        .eq('patient_id', patientId)
+        .not('dentist_id', 'is', null);
+
+      if (res.error && (res.error.code === '42501' || (res.error as any).status === 403)) {
+        const admin = getAdminClient();
+        if (admin) {
+          res = await admin
+            .from('appointments')
+            .select('dentist_id, secretary_id')
+            .eq('patient_id', patientId)
+            .not('dentist_id', 'is', null);
+        }
+      }
+      return res;
+    };
+
+    const { data, error } = await runQuery();
+    if (error || !data) return { dentistIds: [], secretaryIds: [] };
+
+    const dentistIds = [...new Set(data.map((r: any) => r.dentist_id).filter(Boolean))] as string[];
+    const secretaryIds = [...new Set(data.map((r: any) => r.secretary_id).filter(Boolean))] as string[];
+
+    return { dentistIds, secretaryIds };
+  } catch {
+    return { dentistIds: [], secretaryIds: [] };
+  }
+};
+
 registerSyncHandler('createAppointmentRequest', async (payload: AppointmentRequestPayload) =>
   createAppointmentRequest(payload)
 );
