@@ -242,8 +242,14 @@ const CompleteProfileScreen: React.FC = () => {
         showError('Erro ao guardar', msg);
       } else {
         await universalStorage.removeItem('temp_signup_nome');
+        Toast.show({
+          type: 'success',
+          text1: 'Perfil concluído!',
+          text2: 'Bem-vindo ao seu painel principal.',
+          visibilityTime: 3500,
+        });
       }
-      // AppNavigator redireciona automaticamente para ChangePassword
+      // AppNavigator redireciona automaticamente para o Painel Principal (PacienteMain)
     } finally {
       setSaving(false);
     }
@@ -487,9 +493,9 @@ const CompleteProfileScreen: React.FC = () => {
               onPress={() => { if (validateStep1()) setStep('localizacao'); }}
               activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel="Continuar para localização"
+              accessibilityLabel="Seguinte para localização"
             >
-              <Text style={styles.btnText}>Continuar</Text>
+              <Text style={styles.btnText}>Seguinte</Text>
               <Ionicons name="arrow-forward" size={18} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -578,12 +584,12 @@ const CompleteProfileScreen: React.FC = () => {
                 disabled={saving}
                 activeOpacity={0.85}
                 accessibilityRole="button"
-                accessibilityLabel="Guardar perfil e continuar"
+                accessibilityLabel="Concluir perfil e aceder ao painel"
               >
                 {saving
                   ? <ActivityIndicator color="#fff" size="small" />
                   : <>
-                      <Text style={styles.btnText}>Guardar e Continuar</Text>
+                      <Text style={styles.btnText}>Concluir</Text>
                       <Ionicons name="checkmark-circle" size={18} color="#fff" />
                     </>
                 }

@@ -751,10 +751,10 @@ const AppNavigator: React.FC = () => {
         : !!user.user_metadata?.force_password_change
     );
 
-  // pacientes que ainda não preencheram dados básicos (telefone/provincia)
+  // RF04: pacientes que ainda não preencheram dados básicos (telefone/provincia)
   const needsProfileCompletion = (prof: any | null): boolean => {
-    if (!prof || prof.tipo !== 'paciente') return false;
-    // we treat nome as already provided at signup, so only check telefone/provincia
+    if (!prof) return currentRole === 'paciente';
+    if (prof.tipo !== 'paciente') return false;
     return !prof.telefone || !prof.provincia;
   };
 

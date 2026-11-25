@@ -142,6 +142,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Unique per tab on Web (sessionStorage), persistent per app on Mobile.
   // ═══════════════════════════════════════════════════════════
   const [tabInstanceId, setTabInstanceId] = useState<string | null>(null);
+  const tabInstanceIdRef = React.useRef<string | null>(null);
+
+  const updateTabInstanceId = (id: string) => {
+    tabInstanceIdRef.current = id;
+    setTabInstanceId(id);
+  };
 
   const getPrimaryVerifiedMfaFactor = async (): Promise<any | null> => {
     const { data, error } = await supabase.auth.mfa.listFactors();
@@ -171,7 +177,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           await universalStorage.setItem('teodonto_instance_id', id);
         }
       }
-      setTabInstanceId(id);
+      updateTabInstanceId(id);
       console.log(`[SESS-INIT] Tab/Instance ID: ${id}`);
     };
     initTabId();
@@ -473,7 +479,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const finalizeAuthenticatedSession = async (authUser: User): Promise<void> => {
     console.log(`ðŸ” Login: Authenticated ${authUser.email} (${authUser.id})`);
 
-    const newSessionId = tabInstanceId || generateSessionId();
+    const newSessionId = tabInstanceIdRef.current || tabInstanceId || generateSessionId();
+    if (!tabInstanceIdRef.current && newSessionId) {
+      updateTabInstanceId(newSessionId);
+    }
     console.log(`ðŸ“¡ Login: Using Session ID: ${newSessionId}`);
 
     if (Platform.OS === 'web' && newSessionId) {
@@ -643,14 +652,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // LOGICA SINGLE DEVICE/TAB: Verificar se a sessao local coincide com a do banco
       const delta = Date.now() - lastLoginTimeRef.current;
       const isRecentlyLoggedIn = delta < 5000; // 5 segundos de carência
+      const activeTabId = tabInstanceIdRef.current || tabInstanceId;
 
-      console.log(`[SESS-CHECK] LocalID=${tabInstanceId}, DB=${data.last_session_id}, Recent=${isRecentlyLoggedIn}`);
+      console.log(`[SESS-CHECK] LocalID=${activeTabId}, DB=${data.last_session_id}, Recent=${isRecentlyLoggedIn}`);
 
-      if (data.last_session_id && tabInstanceId && data.last_session_id !== tabInstanceId) {
+      if (data.last_session_id && activeTabId && data.last_session_id !== activeTabId) {
         if (isRecentlyLoggedIn) {
           console.log('[SESS-SAFE] Diferença ignorada por ser login recente neste dispositivo.');
         } else {
-          console.warn(`[SESS-FAIL] Discordancia de Sessao: DB=${data.last_session_id}, LocalID=${tabInstanceId}. Expulsando.`);
+          console.warn(`[SESS-FAIL] Discordancia de Sessao: DB=${data.last_session_id}, LocalID=${activeTabId}. Expulsando.`);
           await handleForceLogout(userId, 'Sessão Encerrada: A sua conta foi aberta noutro local ou separador.');
           return null;
         }
@@ -777,8 +787,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const userId = user.id;
 
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === LATEST_SESSION_KEY && e.newValue && e.newValue !== tabInstanceId) {
-        console.warn(`🚨 Storage Event: New session in another tab detected [${e.newValue}]. Logging out this tab [${tabInstanceId}]...`);
+      const activeTabId = tabInstanceIdRef.current || tabInstanceId;
+      if (e.key === LATEST_SESSION_KEY && e.newValue && activeTabId && e.newValue !== activeTabId) {
+        if (Date.now() - lastLoginTimeRef.current < 5000) return;
+        console.warn(`🚨 Storage Event: New session in another tab detected [${e.newValue}]. Logging out this tab [${activeTabId}]...`);
         handleForceLogout(userId, 'Sessão Encerrada: Novo login detetado em outro separador.');
       }
     };
@@ -812,10 +824,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           filter: `id=eq.${userId}`,
         },
         async (payload: any) => {
+          if (Date.now() - lastLoginTimeRef.current < 5000) return;
           const newSessionIdInDB = payload.new?.last_session_id;
           const currentLocalId = await universalStorage.getItem(`last_session_id_${userId}`);
+          const activeTabId = tabInstanceIdRef.current || tabInstanceId;
 
-          if (newSessionIdInDB && currentLocalId && newSessionIdInDB !== currentLocalId) {
+          if (newSessionIdInDB && currentLocalId && newSessionIdInDB !== currentLocalId && (!activeTabId || newSessionIdInDB !== activeTabId)) {
             console.warn(`🚨 Realtime DB: Session mismatch! DB: ${newSessionIdInDB}, Local: ${currentLocalId}. Expulsando.`);
             handleForceLogout(userId, 'Sessão Encerrada: A sua conta foi acedida noutro dispositivo.');
           }
@@ -824,10 +838,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // 2. Escutar Broadcast (Imediato) - Ultra rápido para dispositivos online
       sessionChannel.on('broadcast', { event: 'SESSION_CHANGE' }, async (payload: any) => {
+        if (Date.now() - lastLoginTimeRef.current < 5000) return;
         const receivedSessionId = payload.payload?.sessionId;
+        const activeTabId = tabInstanceIdRef.current || tabInstanceId;
 
-        if (receivedSessionId && tabInstanceId && receivedSessionId !== tabInstanceId) {
-          console.warn(`🚨 Realtime: New session elsewhere! Received: ${receivedSessionId}, currentTab: ${tabInstanceId}. Expulsando.`);
+        if (receivedSessionId && activeTabId && receivedSessionId !== activeTabId) {
+          console.warn(`🚨 Realtime: New session elsewhere! Received: ${receivedSessionId}, currentTab: ${activeTabId}. Expulsando.`);
           handleForceLogout(userId, 'Sessão Encerrada: Novo login detetado em outro dispositivo ou separador.');
         }
       });
@@ -857,8 +873,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const verifySessionIntegrity = async () => {
       try {
+        // RF01: Não validar conflito nos primeiros segundos após login/auto-cadastro
+        if (Date.now() - lastLoginTimeRef.current < 5000) return;
+
         const localSessionId = await universalStorage.getItem(`last_session_id_${userId}`);
-        if (!localSessionId) return;
+        const activeTabId = tabInstanceIdRef.current || tabInstanceId;
+        if (!localSessionId || !activeTabId) return;
 
         // Consulta leve apenas do campo necessário
         const { data, error } = await supabase
@@ -872,8 +892,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return;
         }
 
-        if (data?.last_session_id && tabInstanceId && data.last_session_id !== tabInstanceId) {
-          console.warn(`🚨 Heartbeat Discordancia: DB=${data.last_session_id}, LocalID=${tabInstanceId}. Expulsando.`);
+        if (data?.last_session_id && data.last_session_id !== activeTabId && data.last_session_id !== localSessionId) {
+          console.warn(`🚨 Heartbeat Discordancia: DB=${data.last_session_id}, LocalID=${activeTabId}. Expulsando.`);
           await handleForceLogout(userId, 'Sessão Encerrada: A sua conta foi aberta noutro local ou separador.');
         }
       } catch (err) {
@@ -1314,8 +1334,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           await universalStorage.setItem('temp_signup_nome', userData.nome);
         }
 
-        // Registrar sessao inicial
-        const signUpSessionId = generateSessionId();
+        // RF01 & RF02: Registrar sessão inicial com o MESMO ID do dispositivo/separador atual
+        let signUpSessionId = tabInstanceIdRef.current || tabInstanceId;
+        if (!signUpSessionId) {
+          signUpSessionId = generateSessionId();
+          updateTabInstanceId(signUpSessionId);
+          if (Platform.OS === 'web') {
+            window.sessionStorage.setItem('teodonto_tab_id', signUpSessionId);
+          } else {
+            await universalStorage.setItem('teodonto_instance_id', signUpSessionId);
+          }
+        }
+        if (Platform.OS === 'web') {
+          localStorage.setItem(LATEST_SESSION_KEY, signUpSessionId);
+        }
         await universalStorage.setItem(`last_session_id_${data.user.id}`, signUpSessionId);
 
         // senha_alterada: false → força mudança de senha no onboarding
@@ -1351,6 +1383,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         } catch (dbErr) {
           logger.warn('Erro ao sincronizar perfil após signup:', dbErr);
+        }
+
+        // RF02: Autenticar automaticamente se o signup já devolveu sessão
+        if (data.session && data.user) {
+          setUser(data.user);
         }
 
         // Atualiza estado local imediatamente para refletir o nome em qualquer tela
