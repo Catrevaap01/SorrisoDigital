@@ -30,6 +30,8 @@ import {
   contarMensagensNaoLidas,
   marcarMensagensComoLidas,
   obterOuCriarConversa,
+  listarContatosPermitidosPaciente,
+  ContatoPermitidoPaciente,
 } from '../../services/messagesService';
 import { listarPacientes, PacienteProfile } from '../../services/pacienteService';
 import { getStaffAtribuidoAoPaciente } from '../../services/appointmentsService';
@@ -43,10 +45,12 @@ interface ConversationsListScreenProps {
     otherUserAvatar?: string,
     otherUserId?: string
   ) => void;
+  hideFab?: boolean;
 }
 
 const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
   onSelectConversation,
+  hideFab = false,
 }) => {
   const { user, profile } = useAuth();
   const { isUserOnline } = usePresence();
@@ -64,6 +68,8 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
   const [pacientes, setPacientes] = useState<PacienteProfile[]>([]);
   const [pacientesOrig, setPacientesOrig] = useState<PacienteProfile[]>([]);
+  const [contatosPaciente, setContatosPaciente] = useState<ContatoPermitidoPaciente[]>([]);
+  const [contatosPacienteOrig, setContatosPacienteOrig] = useState<ContatoPermitidoPaciente[]>([]);
   const [loadingPacientes, setLoadingPacientes] = useState(false);
   const [buscaPaciente, setBuscaPaciente] = useState('');
   const accentColor =
@@ -286,43 +292,69 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
   };
 
   // Funções para iniciar nova conversa
-  const carregarPacientes = useCallback(async () => {
+  const carregarContatosOuPacientes = useCallback(async () => {
+    if (!user?.id) return;
     setLoadingPacientes(true);
     try {
-      const resp = await listarPacientes();
-      if (resp.success && resp.data) {
-        // Filter out the current user to prevent self-conversations
-        const filteredPacientes = resp.data.filter((p) => p.id !== user?.id);
-        setPacientes(filteredPacientes);
-        setPacientesOrig(filteredPacientes);
+      if (profile?.tipo === 'paciente') {
+        const resp = await listarContatosPermitidosPaciente(user.id);
+        if (resp.success && resp.data) {
+          setContatosPaciente(resp.data);
+          setContatosPacienteOrig(resp.data);
+        }
+      } else {
+        const resp = await listarPacientes();
+        if (resp.success && resp.data) {
+          const filteredPacientes = resp.data.filter((p) => p.id !== user?.id);
+          setPacientes(filteredPacientes);
+          setPacientesOrig(filteredPacientes);
+        }
       }
     } catch (e) {
-      console.error('Erro ao carregar pacientes:', e);
+      console.error('Erro ao carregar contactos para nova conversa:', e);
     } finally {
       setLoadingPacientes(false);
     }
-  }, []);
+  }, [profile?.tipo, user?.id]);
 
   useRealtimeRefresh({
     enabled: modalVisible,
     debounceMs: 900,
-    shouldRefresh: (event) => event.table === 'profiles',
+    shouldRefresh: (event) =>
+      event.table === 'profiles' ||
+      event.table === 'appointments' ||
+      event.table === 'triagens',
     refresh: () => {
-      void carregarPacientes();
+      void carregarContatosOuPacientes();
     },
   });
 
-  const handleBuscaPaciente = (text: string) => {
+  const handleBuscaModal = (text: string) => {
     setBuscaPaciente(text);
     if (!text.trim()) {
-      setPacientes(pacientesOrig);
+      if (profile?.tipo === 'paciente') {
+        setContatosPaciente(contatosPacienteOrig);
+      } else {
+        setPacientes(pacientesOrig);
+      }
       return;
     }
-    const filtered = pacientesOrig.filter(p => 
-      (p.nome || '').toLowerCase().includes(text.toLowerCase()) || 
-      p.email?.toLowerCase().includes(text.toLowerCase())
-    );
-    setPacientes(filtered);
+    const lower = text.toLowerCase();
+    if (profile?.tipo === 'paciente') {
+      const filtered = contatosPacienteOrig.filter((c) =>
+        (c.nome || '').toLowerCase().includes(lower) ||
+        (c.especialidade || '').toLowerCase().includes(lower) ||
+        (c.tipo || '').toLowerCase().includes(lower)
+      );
+      setContatosPaciente(filtered);
+    } else {
+      const filtered = pacientesOrig.filter(
+        (p) =>
+          (p.nome || '').toLowerCase().includes(lower) ||
+          p.email?.toLowerCase().includes(lower)
+      );
+      setPacientes(filtered);
+    }
   };
 
   const iniciarConversa = async (paciente: PacienteProfile) => {
@@ -332,12 +364,13 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
     setModalVisible(false);
     
     try {
+      const senderNome = profile?.nome || user.user_metadata?.nome || 'Utilizador';
       const result = await obterOuCriarConversa(
         user.id,
         paciente.id,
-        user.user_metadata?.nome || 'Dentista',
+        senderNome,
         paciente.nome || 'Paciente',
-        user.user_metadata?.foto_url,
+        profile?.foto_url || user.user_metadata?.foto_url,
         paciente.foto_url
       );
 
@@ -353,6 +386,43 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
           type: 'error',
           text1: 'Erro',
           text2: result.error || 'Não foi possível iniciar a conversa'
+        });
+      }
+    } catch (e) {
+      console.error('Chat error:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const iniciarConversaContatoPaciente = async (contato: ContatoPermitidoPaciente) => {
+    if (!user?.id) return;
+    setLoading(true);
+    setModalVisible(false);
+    try {
+      const senderNome = profile?.nome || user.user_metadata?.nome || 'Paciente';
+      const outroNome = contato.nome || (contato.tipo === 'secretario' ? 'Secretário(a)' : 'Dentista');
+      const result = await obterOuCriarConversa(
+        user.id,
+        contato.id,
+        senderNome,
+        outroNome,
+        profile?.foto_url || user.user_metadata?.foto_url,
+        contato.foto_url || null
+      );
+
+      if (result.success && result.data) {
+        onSelectConversation(
+          result.data.id,
+          outroNome,
+          contato.foto_url || undefined,
+          contato.id
+        );
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Erro',
+          text2: result.error || 'Não foi possível iniciar a conversa',
         });
       }
     } catch (e) {
@@ -520,17 +590,20 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
         )}
 
         {/* Floating Action Button for New Chat */}
-        <TouchableOpacity 
-          style={[styles.fab, { backgroundColor: accentColor }]}
-          onPress={() => {
-            setModalVisible(true);
-            carregarPacientes();
-          }}
-        >
-          <Ionicons name="add" size={30} color={COLORS.textInverse} />
-        </TouchableOpacity>
+        {!hideFab && (
+          <TouchableOpacity 
+            style={[styles.fab, { backgroundColor: accentColor }]}
+            onPress={() => {
+              setModalVisible(true);
+              setBuscaPaciente('');
+              carregarContatosOuPacientes();
+            }}
+          >
+            <Ionicons name="add" size={30} color={COLORS.textInverse} />
+          </TouchableOpacity>
+        )}
 
-        {/* Modal Seleção de Paciente */}
+        {/* Modal Nova Conversa */}
         <Modal
           visible={modalVisible}
           animationType="slide"
@@ -540,7 +613,14 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Nova Conversa</Text>
+                <View>
+                  <Text style={styles.modalTitle}>Nova Conversa</Text>
+                  <Text style={styles.modalSubTitle}>
+                    {profile?.tipo === 'paciente'
+                      ? 'Inicie uma conversa com a secretaria ou o seu dentista'
+                      : 'Selecione um paciente para iniciar o atendimento'}
+                  </Text>
+                </View>
                 <TouchableOpacity onPress={() => setModalVisible(false)}>
                   <Ionicons name="close" size={24} color={COLORS.text} />
                 </TouchableOpacity>
@@ -550,16 +630,116 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
                 <Ionicons name="search" size={20} color={COLORS.textSecondary} />
                 <TextInput
                   style={styles.modalSearchInput}
-                  placeholder="Buscar paciente..."
+                  placeholder={
+                    profile?.tipo === 'paciente'
+                      ? 'Buscar secretário ou dentista...'
+                      : 'Buscar paciente...'
+                  }
                   value={buscaPaciente}
-                  onChangeText={handleBuscaPaciente}
+                  onChangeText={handleBuscaModal}
                   autoFocus
                 />
               </View>
 
               {loadingPacientes ? (
-                <ActivityIndicator style={{ marginTop: 20 }} color={COLORS.primary} />
+                <ActivityIndicator style={{ marginTop: 20 }} color={accentColor} />
+              ) : profile?.tipo === 'paciente' ? (
+                /* Lista para Paciente: Secretários + Dentista Atribuído */
+                <FlatList
+                  data={contatosPaciente}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => {
+                    const isContactOnline = isUserOnline(item.id);
+                    const isSecretario = item.tipo === 'secretario';
+                    return (
+                      <TouchableOpacity 
+                        style={styles.pacienteItem}
+                        onPress={() => iniciarConversaContatoPaciente(item)}
+                      >
+                        <View style={styles.pacienteAvatarContainer}>
+                          <View
+                            style={[
+                              styles.pacienteAvatar,
+                              isSecretario
+                                ? { backgroundColor: '#EDE9FE' }
+                                : { backgroundColor: '#E0F2FE' },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.pacienteAvatarText,
+                                isSecretario
+                                  ? { color: '#6D28D9' }
+                                  : { color: '#0284C7' },
+                              ]}
+                            >
+                              {(item.nome || (isSecretario ? 'S' : 'D')).charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                          <View
+                            style={[
+                              styles.presenceDotSmall,
+                              isContactOnline ? styles.dotOnline : styles.dotOffline,
+                            ]}
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <Text style={styles.pacienteNome}>{item.nome}</Text>
+                            <View
+                              style={[
+                                isSecretario ? styles.badgeSecretario : styles.badgeDentista,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  isSecretario
+                                    ? styles.badgeSecretarioText
+                                    : styles.badgeDentistaText,
+                                ]}
+                              >
+                                {isSecretario ? 'Secretaria' : 'Dentista Atribuído'}
+                              </Text>
+                            </View>
+                            <View
+                              style={[
+                                styles.inlineBadge,
+                                isContactOnline ? styles.inlineBadgeOnline : styles.inlineBadgeOffline,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.inlineBadgeText,
+                                  isContactOnline ? styles.textOnline : styles.textOffline,
+                                ]}
+                              >
+                                {isContactOnline ? 'Online' : 'Offline'}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={styles.pacienteMeta}>
+                            {item.especialidade || (isSecretario ? 'Recepção / Atendimento' : 'Odontologia')}
+                          </Text>
+                        </View>
+                        <Ionicons name="chatbubble-ellipses-outline" size={22} color={accentColor} />
+                      </TouchableOpacity>
+                    );
+                  }}
+                  style={{ flex: 1 }}
+                  ListEmptyComponent={
+                    <View style={styles.emptyWrapModal}>
+                      <Ionicons name="chatbubbles-outline" size={44} color={COLORS.textSecondary} />
+                      <Text style={styles.emptyTextCentral}>Nenhum contacto encontrado</Text>
+                      <Text style={styles.emptySubtextCentral}>
+                        {buscaPaciente
+                          ? 'Nenhum resultado para a pesquisa informada.'
+                          : 'A secretaria e os dentistas da clínica estarão disponíveis assim que houver agendamentos activos.'}
+                      </Text>
+                    </View>
+                  }
+                />
               ) : (
+                /* Lista para Dentistas / Secretários: Pacientes */
                 <FlatList
                   data={pacientes}
                   keyExtractor={(item) => item.id}
@@ -898,6 +1078,46 @@ const styles = StyleSheet.create({
     borderRadius: 5.5,
     borderWidth: 2,
     borderColor: COLORS.surface,
+  },
+  modalSubTitle: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  badgeSecretario: {
+    backgroundColor: '#EDE9FE',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  badgeSecretarioText: {
+    color: '#6D28D9',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  badgeDentista: {
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  badgeDentistaText: {
+    color: '#0284C7',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  emptyWrapModal: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 50,
+    paddingHorizontal: SPACING.lg,
+  },
+  emptySubtextCentral: {
+    textAlign: 'center',
+    marginTop: 8,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
   },
 });
 

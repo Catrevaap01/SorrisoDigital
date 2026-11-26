@@ -555,8 +555,8 @@ export const listarContatosPermitidosPaciente = async (
 
     const client = getAdminClient() || supabase;
 
-    // Buscar em paralelo: secretários, agendamentos com dentista atribuído e triagens com dentista atribuído
-    const [secRes, appRes, triRes] = await Promise.allSettled([
+    // Buscar em paralelo: secretários, agendamentos com dentista atribuído, triagens com dentista atribuído e perfil do paciente
+    const [secRes, appRes, triRes, profRes] = await Promise.allSettled([
       client
         .from('profiles')
         .select('id, nome, tipo, foto_url, especialidade')
@@ -572,6 +572,11 @@ export const listarContatosPermitidosPaciente = async (
         .select('dentista_id')
         .eq('paciente_id', patientId)
         .not('dentista_id', 'is', null),
+      client
+        .from('profiles')
+        .select('dentist_id, dentista_id, creator_id, creator_role')
+        .eq('id', patientId)
+        .maybeSingle(),
     ]);
 
     const secretarios: ContatoPermitidoPaciente[] = [];
@@ -603,6 +608,14 @@ export const listarContatosPermitidosPaciente = async (
           dentistaIds.add(t.dentista_id);
         }
       });
+    }
+    if (profRes.status === 'fulfilled' && !profRes.value.error && profRes.value.data) {
+      const p = profRes.value.data as any;
+      if (p.dentist_id && p.dentist_id !== patientId) dentistaIds.add(p.dentist_id);
+      if (p.dentista_id && p.dentista_id !== patientId) dentistaIds.add(p.dentista_id);
+      if (p.creator_id && p.creator_role === 'dentista' && p.creator_id !== patientId) {
+        dentistaIds.add(p.creator_id);
+      }
     }
 
     const dentistas: ContatoPermitidoPaciente[] = [];
