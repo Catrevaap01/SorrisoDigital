@@ -134,6 +134,19 @@ export const PresenceProvider: React.FC<PresenceProviderProps> = ({ children }) 
       }
     };
 
+    // Heartbeat periódico (a cada 20s) para manter o canal WebSocket activo sem expirar
+    const heartbeatInterval = setInterval(() => {
+      if (channelRef.current && isOnline && user?.id) {
+        if (Platform.OS === 'web' && typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+        if (Platform.OS !== 'web' && AppState.currentState !== 'active') return;
+        void channelRef.current.track({
+          user_id: user.id,
+          user_type: profile?.tipo || 'utilizador',
+          online_at: new Date().toISOString(),
+        });
+      }
+    }, 20000);
+
     // Subscrição do AppState no React Native (Mobile)
     const appStateSub = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
@@ -143,7 +156,7 @@ export const PresenceProvider: React.FC<PresenceProviderProps> = ({ children }) 
       }
     });
 
-    // Subscrição de eventos Web / PWA (Visibilidade do separador e foco da janela)
+    // Subscrição de eventos Web / PWA (apenas visibilitychange e beforeunload; blur NÃO desliga a presença)
     if (Platform.OS === 'web') {
       const handleVisibility = () => {
         if (document.visibilityState === 'visible') {
@@ -153,18 +166,18 @@ export const PresenceProvider: React.FC<PresenceProviderProps> = ({ children }) 
         }
       };
 
-      const handleFocus = () => handleStateActive();
-      const handleBlur = () => handleStateInactive();
+      const handleBeforeUnload = () => {
+        handleStateInactive();
+      };
 
       document.addEventListener('visibilitychange', handleVisibility);
-      window.addEventListener('focus', handleFocus);
-      window.addEventListener('blur', handleBlur);
+      window.addEventListener('beforeunload', handleBeforeUnload);
 
       return () => {
+        clearInterval(heartbeatInterval);
         appStateSub.remove();
         document.removeEventListener('visibilitychange', handleVisibility);
-        window.removeEventListener('focus', handleFocus);
-        window.removeEventListener('blur', handleBlur);
+        window.removeEventListener('beforeunload', handleBeforeUnload);
         if (channelRef.current) {
           channelRef.current.untrack();
           supabase.removeChannel(channelRef.current);
@@ -174,6 +187,7 @@ export const PresenceProvider: React.FC<PresenceProviderProps> = ({ children }) 
     }
 
     return () => {
+      clearInterval(heartbeatInterval);
       appStateSub.remove();
       if (channelRef.current) {
         channelRef.current.untrack();

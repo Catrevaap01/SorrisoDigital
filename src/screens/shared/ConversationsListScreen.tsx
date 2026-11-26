@@ -3,7 +3,7 @@
  * Compartilhada entre dentista e paciente
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,6 +24,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { usePresence } from '../../contexts/PresenceContext';
 import { COLORS, SPACING, TYPOGRAPHY, SHADOWS } from '../../styles/theme';
 import { supabase } from '../../config/supabase';
+import { realtimeBus } from '../../realtime/realtime';
 import {
   Conversation,
   listarConversasDoUsuario,
@@ -72,12 +73,23 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
   const [contatosPacienteOrig, setContatosPacienteOrig] = useState<ContatoPermitidoPaciente[]>([]);
   const [loadingPacientes, setLoadingPacientes] = useState(false);
   const [buscaPaciente, setBuscaPaciente] = useState('');
+  const [interlocutoresMap, setInterlocutoresMap] = useState<Record<string, any>>({});
   const accentColor =
     profile?.tipo === 'secretario'
       ? '#6D28D9'
       : profile?.tipo === 'dentista' || profile?.tipo === 'medico'
       ? COLORS.secondary
       : COLORS.primary;
+
+  // Escuta actualizações de presença globais para reflectir imediatamente Online/Offline no histórico
+  useEffect(() => {
+    const unsub = realtimeBus.on('presence:sync', () => {
+      setConversas((prev) => [...prev]);
+    });
+    return () => {
+      unsub();
+    };
+  }, []);
 
   // Carregar conversas
   const carregarConversas = useCallback(async () => {
@@ -206,29 +218,96 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
           return tB - tA;
         });
 
-        // RF: Para pacientes, filtrar para mostrar apenas conversas com o dentista
-        // e secretários atribuídos. Para outros perfis, mostrar tudo.
-        if (profile?.tipo === 'paciente') {
-          const { dentistIds, secretaryIds } = await getStaffAtribuidoAoPaciente(user.id);
-          const allowedIds = new Set([...dentistIds, ...secretaryIds]);
+        // ── 1. Recolher IDs de todos os interlocutores para consulta de perfis ──
+        const allInterlocutorIds = new Set<string>();
+        listaFinal.forEach((c) => {
+          const oId = c.participant_1_id === user.id ? c.participant_2_id : c.participant_1_id;
+          if (oId) allInterlocutorIds.add(oId);
+        });
 
-          // Se houver staff atribuído, filtrar; caso contrário, mostrar tudo (sem agendamentos ainda)
-          if (allowedIds.size > 0) {
-            const listaFiltrada = listaFinal.filter((c) => {
-              const otherUserId = c.participant_1_id === user.id
-                ? c.participant_2_id
-                : c.participant_1_id;
-              return allowedIds.has(otherUserId);
-            });
-            setConversas(listaFiltrada);
-            setConversasOrig(listaFiltrada);
-          } else {
-            setConversas(listaFinal);
-            setConversasOrig(listaFinal);
-          }
+        // ── 2. Para PACIENTES: Garantir que o Secretário e o Dentista Atribuído apareçam SEMPRE na lista ──
+        if (profile?.tipo === 'paciente') {
+          // Buscar todos os contactos permitidos (secretários cadastrados + dentista atribuído)
+          const staffPermitido = await listarContatosPermitidosPaciente(user.id);
+          const staffList = staffPermitido.data || [];
+
+          // Conjunto de IDs permitidos para o paciente
+          const allowedIds = new Set(staffList.map((s) => s.id));
+
+          // Filtrar listaFinal para garantir que apenas contactos permitidos fiquem visíveis
+          let conversasDoPaciente = allowedIds.size > 0
+            ? listaFinal.filter((c) => {
+                const otherId = c.participant_1_id === user.id ? c.participant_2_id : c.participant_1_id;
+                return allowedIds.has(otherId);
+              })
+            : listaFinal;
+
+          // IDs que já possuem conversa na lista
+          const idsComConversa = new Set(
+            conversasDoPaciente.map((c) => (c.participant_1_id === user.id ? c.participant_2_id : c.participant_1_id))
+          );
+
+          // Para cada staff permitido (Secretário ou Dentista Atribuído) que AINDA NÃO TEM conversa no histórico:
+          // Injeta na lista como contacto inicial pronto para atendimento imediato
+          staffList.forEach((staff) => {
+            allInterlocutorIds.add(staff.id);
+            if (!idsComConversa.has(staff.id)) {
+              conversasDoPaciente.push({
+                id: `init_${staff.id}`,
+                participant_1_id: user.id,
+                participant_2_id: staff.id,
+                participant_1_name: profile?.nome || user.user_metadata?.nome || 'Paciente',
+                participant_2_name: staff.nome || (staff.tipo === 'secretario' ? 'Secretária' : 'Dentista'),
+                participant_1_avatar: profile?.foto_url || user.user_metadata?.foto_url,
+                participant_2_avatar: staff.foto_url || undefined,
+                last_message: staff.tipo === 'secretario'
+                  ? 'Secretaria e Recepção da Clínica • Toque para enviar mensagem'
+                  : `${staff.especialidade || 'Dentista Atribuído'} • Toque para enviar mensagem`,
+                last_message_at: null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                naoLidas: 0,
+                interlocutorTipo: staff.tipo,
+                interlocutorEspecialidade: staff.especialidade,
+              } as any);
+            }
+          });
+
+          // Ordenação: conversas com mensagens recentes primeiro; contactos iniciais a seguir
+          conversasDoPaciente.sort((a, b) => {
+            const tA = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+            const tB = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+            if (tA !== tB) return tB - tA;
+            // Se nenhum tem mensagem, secretários primeiro, depois dentistas
+            const tipoA = (a as any).interlocutorTipo || 'paciente';
+            const tipoB = (b as any).interlocutorTipo || 'paciente';
+            if (tipoA === 'secretario' && tipoB !== 'secretario') return -1;
+            if (tipoB === 'secretario' && tipoA !== 'secretario') return 1;
+            return 0;
+          });
+
+          setConversas(conversasDoPaciente);
+          setConversasOrig(conversasDoPaciente);
         } else {
           setConversas(listaFinal);
           setConversasOrig(listaFinal);
+        }
+
+        // Buscar perfis dos interlocutores para badges e presenças precisas
+        if (allInterlocutorIds.size > 0) {
+          try {
+            const { data: profs } = await supabase
+              .from('profiles')
+              .select('id, nome, foto_url, tipo, especialidade')
+              .in('id', Array.from(allInterlocutorIds));
+            if (profs && Array.isArray(profs)) {
+              const pMap: Record<string, any> = {};
+              profs.forEach((p: any) => { pMap[p.id] = p; });
+              setInterlocutoresMap(pMap);
+            }
+          } catch (pErr) {
+            console.warn('Erro ao carregar perfis dos interlocutores:', pErr);
+          }
         }
       }
     } catch (error) {
@@ -438,8 +517,9 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
   }: {
     item: Conversation & { naoLidas: number };
   }) => {
-    const isParticipant1 = user?.id === item.participant_1_id;
-    const otherUserId = isParticipant1 ? item.participant_2_id : item.participant_1_id;
+    const currentUserId = user?.id;
+    const isParticipant1 = currentUserId === item.participant_1_id;
+    const otherUserId = (isParticipant1 ? item.participant_2_id : item.participant_1_id) || (item as any).interlocutorId;
     const otherUserName = isParticipant1
       ? item.participant_2_name || 'Sem nome'
       : item.participant_1_name || 'Sem nome';
@@ -449,60 +529,136 @@ const ConversationsListScreen: React.FC<ConversationsListScreenProps> = ({
 
     const isOnline = isUserOnline(otherUserId);
 
+    // Identificação do papel do interlocutor (Secretaria, Dentista, Paciente)
+    const interlocutorInfo = interlocutoresMap[otherUserId] || {};
+    const interlocutorTipo = interlocutorInfo.tipo || (item as any).interlocutorTipo;
+    const interlocutorEsp = interlocutorInfo.especialidade || (item as any).interlocutorEspecialidade;
+
+    const isSecretario = interlocutorTipo === 'secretario';
+    const isDentista = interlocutorTipo === 'dentista' || interlocutorTipo === 'medico';
+    const isPaciente = interlocutorTipo === 'paciente';
+
     return (
       <TouchableOpacity
         style={styles.conversaCard}
         onPress={async () => {
+          let targetConvId = item.id;
+
+          // Se for uma conversa inicial (ainda sem mensagens prévias), cria/obtém no Supabase
+          if (targetConvId.startsWith('init_') && user?.id) {
+            try {
+              const res = await obterOuCriarConversa(
+                user.id,
+                otherUserId,
+                profile?.nome || user.user_metadata?.nome || 'Paciente',
+                otherUserName,
+                profile?.foto_url || user.user_metadata?.foto_url,
+                otherUserAvatar
+              );
+              if (res.success && res.data) {
+                targetConvId = res.data.id;
+              }
+            } catch (e) {
+              console.error('Erro ao inicializar conversa:', e);
+            }
+          }
+
           if (user?.id) {
             const unreadToClear = item.naoLidas || 0;
             if (unreadToClear > 0) {
               AppNavigator.adjustUnreadCount(-unreadToClear);
             }
-            await marcarMensagensComoLidas(item.id, user.id);
+            if (!targetConvId.startsWith('init_')) {
+              await marcarMensagensComoLidas(targetConvId, user.id);
+            }
             AppNavigator.triggerUnreadRefresh();
           }
 
           setConversas((prev) =>
             prev.map((conversa) =>
-              conversa.id === item.id ? { ...conversa, naoLidas: 0 } : conversa
+              conversa.id === item.id ? { ...conversa, id: targetConvId, naoLidas: 0 } : conversa
             )
           );
           setConversasOrig((prev) =>
             prev.map((conversa) =>
-              conversa.id === item.id ? { ...conversa, naoLidas: 0 } : conversa
+              conversa.id === item.id ? { ...conversa, id: targetConvId, naoLidas: 0 } : conversa
             )
           );
-          onSelectConversation(item.id, otherUserName, otherUserAvatar, otherUserId);
+          onSelectConversation(targetConvId, otherUserName, otherUserAvatar, otherUserId);
         }}
       >
         <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{otherUserName.charAt(0).toUpperCase()}</Text>
+          <View
+            style={[
+              styles.avatar,
+              isSecretario && { backgroundColor: '#EDE9FE' },
+              isDentista && { backgroundColor: '#E0F2FE' },
+            ]}
+          >
+            <Text
+              style={[
+                styles.avatarText,
+                isSecretario && { color: '#6D28D9' },
+                isDentista && { color: '#0284C7' },
+              ]}
+            >
+              {otherUserName.charAt(0).toUpperCase()}
+            </Text>
           </View>
+          {/* Ponto indicador de presença em tempo real */}
           <View style={[styles.presenceDot, isOnline ? styles.dotOnline : styles.dotOffline]} />
         </View>
 
         <View style={styles.conversaInfo}>
           <View style={styles.conversaHeader}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={styles.conversaNome}>{otherUserName}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1 }}>
+              <Text style={styles.conversaNome} numberOfLines={1}>
+                {otherUserName}
+              </Text>
+
+              {/* Badge de papel/cargo */}
+              {isSecretario && (
+                <View style={styles.badgeSecretarioSmall}>
+                  <Text style={styles.badgeSecretarioSmallText}>Secretaria</Text>
+                </View>
+              )}
+              {isDentista && (
+                <View style={styles.badgeDentistaSmall}>
+                  <Text style={styles.badgeDentistaSmallText}>
+                    {interlocutorEsp || 'Dentista'}
+                  </Text>
+                </View>
+              )}
+              {isPaciente && profile?.tipo !== 'paciente' && (
+                <View style={styles.badgePacienteSmall}>
+                  <Text style={styles.badgePacienteSmallText}>Paciente</Text>
+                </View>
+              )}
+
+              {/* Badge explícita de presença Activo / Offline */}
               <View style={[styles.inlineBadge, isOnline ? styles.inlineBadgeOnline : styles.inlineBadgeOffline]}>
+                <View style={[styles.presenceDotTiny, isOnline ? styles.dotOnline : styles.dotOffline]} />
                 <Text style={[styles.inlineBadgeText, isOnline ? styles.textOnline : styles.textOffline]}>
-                  {isOnline ? 'Online' : 'Offline'}
+                  {isOnline ? 'Activo' : 'Offline'}
                 </Text>
               </View>
             </View>
+
             <Text style={styles.conversaHora}>
               {item.last_message_at
-                ? new Date(item.last_message_at).toLocaleTimeString(
-                    'pt-PT',
-                    { hour: '2-digit', minute: '2-digit' }
-                  )
+                ? new Date(item.last_message_at).toLocaleTimeString('pt-PT', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
                 : ''}
             </Text>
           </View>
+
           <Text
-            style={styles.conversaMensagem}
+            style={[
+              styles.conversaMensagem,
+              item.id.startsWith('init_') && styles.conversaMensagemInit,
+            ]}
             numberOfLines={1}
           >
             {item.last_message || 'Nenhuma mensagem'}
@@ -1118,6 +1274,49 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textSecondary,
     lineHeight: 18,
+  },
+  presenceDotTiny: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 4,
+  },
+  badgeSecretarioSmall: {
+    backgroundColor: '#EDE9FE',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  badgeSecretarioSmallText: {
+    color: '#6D28D9',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  badgeDentistaSmall: {
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  badgeDentistaSmallText: {
+    color: '#0284C7',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  badgePacienteSmall: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  badgePacienteSmallText: {
+    color: '#15803D',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  conversaMensagemInit: {
+    color: COLORS.primary,
+    fontWeight: '500',
   },
 });
 

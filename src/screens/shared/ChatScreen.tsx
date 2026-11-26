@@ -348,7 +348,7 @@ const ChatScreen: React.FC<ChatScreenProps> = ({
             <View style={styles.statusRow}>
               <View style={[styles.statusDotSmall, isOnline ? styles.dotOnline : styles.dotOffline]} />
               <Text style={[styles.headerStatusText, isOnline ? styles.textOnline : styles.textOffline]}>
-                {partnerActiveInRoom ? 'Online • Activo na conversa' : isOnline ? 'Online' : 'Offline'}
+                {partnerActiveInRoom ? 'Activo na conversa' : isOnline ? 'Activo' : 'Offline'}
               </Text>
             </View>
           </View>
